@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 // This base must match the repo name so assets (incl. /beasts/*.png) resolve.
 export default defineConfig({
   plugins: [react()],
-  base: '/MLOps-Fundaments-learning-page/',
+  base: '/InfraLearn/',
   build: {
     rollupOptions: {
       output: {
