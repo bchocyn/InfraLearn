@@ -18,12 +18,21 @@
 // long-tail cache version compatibility — the next visit picks up the
 // freshest shell.
 
-// Bumped to v2 because the install step now also pre-caches offline.html
-// and the runtime contract gained a message handler. The activate-step
-// cleanup drops every v1-* cache on first activation.
-const CACHE_VERSION = 'infralearn-v2';
+// Bumped to v3: install no longer unconditionally calls skipWaiting() (that
+// hijacked open tabs mid-session). Activation no longer self-claims. A new
+// SW now waits in the 'installed' state until the page explicitly posts
+// {type:'SKIP_WAITING'} after the user confirms the update toast. The
+// activate-step cleanup drops every v1-* / v2-* cache on first activation.
+const CACHE_VERSION = 'infralearn-v3';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const ASSETS_CACHE = `${CACHE_VERSION}-assets`;
+
+// Build-time-injected precache manifest. The vite-precache-manifest plugin
+// (see vite.config.js) replaces the `__PRECACHE_MANIFEST__` sentinel below
+// with a JSON array of hashed JS/CSS chunks, woff2 font files, icons, and
+// critical beast PNGs. An empty array keeps the SW functional in dev / when
+// the placeholder isn't substituted.
+const PRECACHE_ASSETS = /*__PRECACHE_MANIFEST_START__*/[]/*__PRECACHE_MANIFEST_END__*/;
 
 // The shell URL the SW falls back to when offline. Computed relative to the
 // SW's own scope, which matches the Vite `base` (e.g. /MLOps-Fundaments-learning-page/).
@@ -39,8 +48,11 @@ function offlineURL() {
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    // Skip waiting so a freshly-installed SW takes over without a manual reload.
-    self.skipWaiting();
+    // NB: no unconditional self.skipWaiting() here — that hijacked open tabs
+    // mid-session, breaking in-progress lessons. The new SW now sits in
+    // 'installed' until the page posts {type:'SKIP_WAITING'} (driven by the
+    // user-facing "Update available — Reload" toast in main.jsx).
+    //
     // Warm the shell cache so the very first offline load works.
     const cache = await caches.open(SHELL_CACHE);
     try {
@@ -53,6 +65,20 @@ self.addEventListener('install', (event) => {
     try {
       await cache.add(offlineURL());
     } catch (_) { /* same */ }
+    // Pre-cache the build-time manifest of hashed assets so a first-time
+    // offline navigation to an unvisited route resolves without a chunk-load
+    // failure. Each asset is fetched individually because cache.addAll() is
+    // atomic — one 404 (e.g. a stale beast PNG path) would abort the whole
+    // install. Per-asset try/catch keeps the SW installable even if a few
+    // entries miss.
+    const assetCache = await caches.open(ASSETS_CACHE);
+    await Promise.all(PRECACHE_ASSETS.map(async (path) => {
+      try {
+        const url = new URL(path, self.registration.scope).href;
+        const res = await fetch(url, { cache: 'reload' });
+        if (res && res.ok) await assetCache.put(url, res);
+      } catch (_) { /* one bad asset shouldn't break install */ }
+    }));
   })());
 });
 
@@ -62,7 +88,10 @@ self.addEventListener('activate', (event) => {
     const keep = new Set([SHELL_CACHE, ASSETS_CACHE]);
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => !keep.has(k)).map((k) => caches.delete(k)));
-    await self.clients.claim();
+    // NB: no clients.claim() — the new SW only takes control once existing
+    // tabs reload (which the update-toast in main.jsx triggers via the
+    // controllerchange handler). This prevents the new SW from intercepting
+    // chunk requests for an old, still-rendered app.
   })());
 });
 
@@ -75,6 +104,13 @@ self.addEventListener('activate', (event) => {
 // back into the app. The shell handles the rest client-side.
 self.addEventListener('message', (event) => {
   const data = event.data || {};
+  // User confirmed the "Update available — Reload" toast. Promote this
+  // waiting SW to active; main.jsx's controllerchange listener then
+  // triggers exactly one location.reload().
+  if (data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
   if (data.type !== 'list-cached-lessons') return;
   const port = event.ports && event.ports[0];
   if (!port) return;

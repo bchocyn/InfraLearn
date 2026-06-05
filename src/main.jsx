@@ -219,10 +219,74 @@ function App() {
 // Service worker registration — production builds only. Dev builds skip
 // registration so Vite's HMR isn't fighting a cached shell on every save.
 // The SW lives at <base>/sw.js (Vite copies public/sw.js to dist root).
+//
+// Update flow: the SW no longer self-skipWaiting()s, so when a new version
+// is deployed it sits in 'installed' until the user confirms via the
+// non-blocking "Update available — Reload" toast below. controllerchange
+// fires once SKIP_WAITING promotes the new SW; we reload exactly once.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     const swUrl = new URL('sw.js', import.meta.env.BASE_URL).href;
-    navigator.serviceWorker.register(swUrl).catch((err) => {
+
+    // Show a single non-blocking toast prompting the user to reload. The
+    // toast is a plain DOM node (no React state, no re-render churn) so it
+    // works even if a render-time bug took down the app tree.
+    const showUpdateToast = (waitingWorker) => {
+      if (document.getElementById('infralearn-sw-update-toast')) return;
+      const toast = document.createElement('div');
+      toast.id = 'infralearn-sw-update-toast';
+      toast.className = 'sw-update-toast';
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      toast.innerHTML =
+        '<span class="sw-update-toast-text">Update available</span>' +
+        '<button type="button" class="sw-update-toast-btn">Reload</button>' +
+        '<button type="button" class="sw-update-toast-dismiss" aria-label="Dismiss">×</button>';
+      const reloadBtn = toast.querySelector('.sw-update-toast-btn');
+      const dismissBtn = toast.querySelector('.sw-update-toast-dismiss');
+      reloadBtn.addEventListener('click', () => {
+        // Ask the waiting SW to take over. controllerchange (registered
+        // once below) then reloads the page.
+        try { waitingWorker.postMessage({ type: 'SKIP_WAITING' }); }
+        catch (_) { window.location.reload(); }
+      });
+      dismissBtn.addEventListener('click', () => {
+        toast.remove();
+      });
+      document.body.appendChild(toast);
+    };
+
+    // Reload exactly once when the new SW takes control. The refreshing
+    // guard prevents the well-known Chrome double-reload bug.
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+
+    navigator.serviceWorker.register(swUrl).then((registration) => {
+      // If a worker is already waiting at registration time (user dismissed
+      // an earlier toast then revisited), re-surface the prompt.
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        showUpdateToast(registration.waiting);
+      }
+      registration.addEventListener('updatefound', () => {
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener('statechange', () => {
+          // 'installed' + an existing controller means this is an UPDATE,
+          // not the first install. (First install: no controller yet, so
+          // we let it activate silently.)
+          if (
+            installing.state === 'installed' &&
+            navigator.serviceWorker.controller
+          ) {
+            showUpdateToast(installing);
+          }
+        });
+      });
+    }).catch((err) => {
       // eslint-disable-next-line no-console
       console.warn('[InfraLearn] SW registration failed:', err);
     });
