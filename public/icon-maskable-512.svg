@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Maskable icon variant — Android may crop with a circle/squircle mask,
+       so the brand sits inside the "safe area" (inner 80% per W3C spec).
+       The background fills edge-to-edge with the app's dark base so cropping
+       reveals more brand color rather than transparent corners. -->
+  <rect width="512" height="512" fill="#0B0A08"/>
+  <g>
+    <!-- Inner safe-zone diamond — sized to fit a circular mask. -->
+    <path d="M256 128 L384 256 L256 384 L128 256 Z" fill="#F5B842" opacity="0.18"/>
+    <path d="M256 168 L344 256 L256 344 L168 256 Z" fill="none" stroke="#F5B842" stroke-width="6"/>
+    <path d="M256 216 L296 256 L256 296 L216 256 Z" fill="#F5B842"/>
+  </g>
+</svg>

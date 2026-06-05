@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>InfraLearn — Refactor options mockup</title>
+<style>
+  :root {
+    --bg-base: #0B0A08;
+    --bg-elevated: #13110E;
+    --bg-card: #17140F;
+    --bg-card-hover: #1D1A14;
+    --border-subtle: #2A2620;
+    --border-default: #3A352C;
+    --border-strong: #5A5244;
+    --text-primary: #F4EFE3;
+    --text-secondary: #C7BFA9;
+    --text-tertiary: #8E8773;
+    --text-quaternary: #5C574A;
+    --accent-amber: #F5B842;
+    --accent-amber-dim: #C99230;
+    --accent-amber-bg: rgba(245, 184, 66, 0.08);
+    --el-fire: #E07060;
+    --el-water: #7BB5D0;
+    --el-earth: #8FB078;
+    --el-sky: #B58FD8;
+    --status-success: #8FA876;
+    --status-error: #E07060;
+    --font-serif: 'Fraunces', Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-body: 'Inter Tight', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-base); color: var(--text-primary);
+    font-family: var(--font-body); line-height: 1.55;
+    min-height: 100vh; padding: 16px;
+  }
+  .app { max-width: 720px; margin: 0 auto; }
+  h1.title {
+    font-family: var(--font-serif); font-size: 28px; font-weight: 700;
+    margin: 0 0 6px; letter-spacing: -0.01em;
+  }
+  h1.title .dot { color: var(--accent-amber); }
+  .kicker {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--text-tertiary); margin-bottom: 2px;
+  }
+  .blurb {
+    color: var(--text-secondary); font-size: 14px; margin: 0 0 18px;
+  }
+  .tabs {
+    display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px;
+    margin: 0 -8px 16px; padding-left: 8px; padding-right: 8px;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex-shrink: 0; padding: 10px 14px; border-radius: 10px;
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    color: var(--text-secondary); font-size: 12px;
+    cursor: pointer; min-height: 44px; white-space: nowrap;
+    font-family: inherit; transition: all 150ms ease-out;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tab:hover { background: var(--bg-card-hover); }
+  .tab.is-active {
+    border-color: var(--accent-amber);
+    background: var(--accent-amber-bg);
+    color: var(--accent-amber);
+  }
+  .tab .badge {
+    font-family: var(--font-mono); font-size: 9px; padding: 1px 5px;
+    border-radius: 4px; background: var(--bg-base);
+    color: var(--text-tertiary); letter-spacing: 0.05em;
+  }
+  .tab.is-active .badge { background: var(--accent-amber); color: #000; }
+  .panel { display: none; }
+  .panel.is-active { display: block; animation: fadeIn 200ms ease-out; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 16px; margin-bottom: 12px;
+  }
+  .card-kicker {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--accent-amber); margin-bottom: 8px;
+  }
+  .card h2 {
+    font-family: var(--font-serif); font-size: 19px; font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .card .meta {
+    color: var(--text-tertiary); font-size: 12px;
+    font-family: var(--font-mono); letter-spacing: 0.04em;
+    margin-bottom: 12px;
+  }
+  .card p { margin: 0 0 10px; color: var(--text-secondary); font-size: 13.5px; }
+  .desc-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    margin-right: 6px; margin-bottom: 6px;
+  }
+  .tag-effort { background: rgba(143, 176, 120, 0.12); color: var(--el-earth); border: 1px solid rgba(143, 176, 120, 0.35); }
+  .tag-impact { background: rgba(245, 184, 66, 0.1); color: var(--accent-amber); border: 1px solid rgba(245, 184, 66, 0.35); }
+  .tag-evidence { background: rgba(123, 181, 208, 0.12); color: var(--el-water); border: 1px solid rgba(123, 181, 208, 0.35); }
+
+  /* --- Code chip styling --- */
+  code {
+    font-family: var(--font-mono); font-size: 12px;
+    background: var(--accent-amber-bg); color: var(--accent-amber);
+    padding: 1px 5px; border-radius: 4px;
+    border: 1px solid rgba(245, 184, 66, 0.25);
+  }
+  pre {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--accent-amber); border-radius: 8px;
+    padding: 12px; margin: 10px 0; overflow-x: auto;
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--text-primary); line-height: 1.55;
+    white-space: pre;
+  }
+  pre code {
+    background: transparent; border: 0; padding: 0; color: inherit;
+  }
+
+  /* --- Tab 1: Baseline pros-cons --- */
+  .pros-cons {
+    display: grid; grid-template-columns: 1fr; gap: 8px;
+    margin: 12px 0;
+  }
+  .pros-cons-col {
+    border-left: 3px solid; padding: 12px; border-radius: 8px;
+    background: var(--bg-elevated);
+  }
+  .pros-cons-good { border-color: var(--el-earth); }
+  .pros-cons-watch { border-color: var(--el-fire); }
+  .pros-cons-col .kk {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+  }
+  .pros-cons-good .kk { color: var(--el-earth); }
+  .pros-cons-watch .kk { color: var(--el-fire); }
+  .pros-cons-col ul { margin: 6px 0 0; padding-left: 18px; padding-right: 4px; font-size: 13px; }
+  .pros-cons-col li { margin: 4px 0; color: var(--text-secondary); }
+
+  /* --- Tab 2: Click-to-copy chips --- */
+  code.clip {
+    cursor: pointer; transition: all 120ms ease-out;
+    position: relative;
+  }
+  code.clip:hover { background: rgba(245, 184, 66, 0.16); transform: translateY(-1px); }
+  code.clip.is-copied {
+    background: rgba(143, 168, 118, 0.2); color: var(--status-success);
+    border-color: var(--status-success);
+  }
+  .copy-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--bg-elevated); border: 1px solid var(--status-success);
+    color: var(--status-success); padding: 10px 18px; border-radius: 10px;
+    font-family: var(--font-mono); font-size: 13px;
+    z-index: 99; box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    opacity: 0; pointer-events: none; transition: all 200ms ease-out;
+  }
+  .copy-toast.is-visible {
+    opacity: 1; transform: translate(-50%, -8px);
+  }
+
+  /* --- Tab 3: Predict prompt --- */
+  .predict {
+    background: linear-gradient(180deg, var(--accent-amber-bg), transparent);
+    border: 1px solid var(--accent-amber); border-radius: 10px;
+    padding: 14px; margin: 12px 0;
+  }
+  .predict-q {
+    font-family: var(--font-serif); font-size: 15px; font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .predict-q code { font-size: 13px; }
+  .predict-opts {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .predict-opt {
+    text-align: left; padding: 10px 12px;
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: 8px; color: var(--text-primary); cursor: pointer;
+    font-family: var(--font-mono); font-size: 13px;
+    min-height: 44px; transition: all 150ms ease-out;
+  }
+  .predict-opt:hover { background: var(--bg-card-hover); border-color: var(--border-default); }
+  .predict-opt.is-correct {
+    background: rgba(143, 168, 118, 0.18); border-color: var(--status-success);
+    color: var(--status-success);
+  }
+  .predict-opt.is-wrong {
+    background: rgba(224, 112, 96, 0.15); border-color: var(--status-error);
+    color: var(--status-error);
+  }
+  .predict-opt[disabled] { cursor: not-allowed; opacity: 0.85; }
+  .predict-feedback {
+    margin-top: 10px; font-size: 13px; color: var(--text-secondary);
+    border-top: 1px dashed var(--border-default); padding-top: 10px;
+    display: none;
+  }
+  .predict-feedback.is-visible { display: block; animation: fadeIn 250ms ease-out; }
+  .xp-chip {
+    display: inline-block; background: var(--accent-amber);
+    color: #000; padding: 3px 8px; border-radius: 999px;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.05em; margin-right: 6px;
+    animation: bounceIn 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes bounceIn {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+
+  /* --- Tab 4: Tap-to-reveal --- */
+  .reveal {
+    background: var(--bg-elevated); border: 1px solid var(--border-default);
+    border-radius: 10px; padding: 12px 14px; margin: 10px 0;
+  }
+  .reveal-q {
+    font-family: var(--font-serif); font-size: 14.5px; font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .reveal-btn {
+    background: transparent; border: 1px dashed var(--border-default);
+    color: var(--text-tertiary); padding: 8px 12px; border-radius: 8px;
+    cursor: pointer; font-family: var(--font-mono); font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    min-height: 44px; width: 100%; transition: all 150ms ease-out;
+  }
+  .reveal-btn:hover { color: var(--accent-amber); border-color: var(--accent-amber); }
+  .reveal-answer {
+    margin-top: 8px; padding: 10px; background: var(--bg-card);
+    border-left: 3px solid var(--accent-amber); border-radius: 6px;
+    font-size: 13px; color: var(--text-secondary);
+    display: none;
+  }
+  .reveal-answer.is-visible { display: block; animation: fadeIn 250ms ease-out; }
+
+  /* --- Tab 5: Live test indicators --- */
+  .practice {
+    background: var(--bg-elevated); border: 1px solid var(--border-default);
+    border-radius: 10px; padding: 14px; margin: 10px 0;
+  }
+  .practice-header {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--el-sky); margin-bottom: 8px;
+  }
+  .practice-prompt {
+    font-size: 13.5px; color: var(--text-secondary); margin-bottom: 10px;
+  }
+  .practice-editor {
+    width: 100%; background: var(--bg-base); border: 1px solid var(--border-default);
+    border-radius: 8px; padding: 12px; font-family: var(--font-mono);
+    font-size: 13px; color: var(--text-primary); resize: vertical;
+    min-height: 120px; line-height: 1.55;
+  }
+  .practice-editor:focus {
+    outline: none; border-color: var(--accent-amber);
+    box-shadow: 0 0 0 2px var(--accent-amber-bg);
+  }
+  .tests {
+    margin-top: 12px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .test {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; background: var(--bg-card);
+    border: 1px solid var(--border-subtle); border-radius: 6px;
+    font-size: 12.5px; transition: all 200ms ease-out;
+  }
+  .test .mark {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--bg-elevated); border: 1px solid var(--border-default);
+    color: var(--text-tertiary); font-size: 11px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .test.is-pass {
+    background: rgba(143, 168, 118, 0.1);
+    border-color: var(--status-success);
+  }
+  .test.is-pass .mark {
+    background: var(--status-success); border-color: var(--status-success);
+    color: #000;
+  }
+  .test.is-pass .desc { color: var(--status-success); }
+
+  /* --- Tab 6: One-tap fix-it --- */
+  .fixit {
+    background: var(--bg-elevated); border: 1px solid var(--border-default);
+    border-radius: 10px; padding: 14px; margin: 10px 0;
+  }
+  .fixit-prompt {
+    font-size: 14px; margin-bottom: 10px;
+    color: var(--text-secondary);
+  }
+  .fixit-code {
+    background: var(--bg-base); border-radius: 6px;
+    padding: 12px; font-family: var(--font-mono); font-size: 13px;
+    line-height: 1.7; white-space: pre;
+  }
+  .bug {
+    background: rgba(224, 112, 96, 0.18); border-radius: 4px;
+    padding: 1px 4px; cursor: pointer;
+    border-bottom: 2px dashed var(--status-error);
+    transition: all 150ms ease-out;
+  }
+  .bug:hover {
+    background: rgba(224, 112, 96, 0.32);
+  }
+  .bug.is-fixed {
+    background: rgba(143, 168, 118, 0.2);
+    color: var(--status-success);
+    border-bottom: none;
+    animation: pulse 600ms ease-out;
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  .fixit-status {
+    margin-top: 10px; font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  /* --- Tab 7: Combo streak indicator --- */
+  .combo-ring {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px;
+  }
+  .combo-num {
+    font-family: var(--font-serif); font-size: 64px; font-weight: 700;
+    color: var(--accent-amber); line-height: 1; margin-bottom: 4px;
+    text-shadow: 0 0 24px rgba(245, 184, 66, 0.4);
+  }
+  .combo-label {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .combo-multi {
+    margin-top: 12px; padding: 6px 14px;
+    background: var(--accent-amber); color: #000;
+    border-radius: 999px; font-family: var(--font-mono);
+    font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+  }
+  .combo-cells {
+    display: flex; gap: 6px; margin-top: 16px; flex-wrap: wrap;
+    justify-content: center;
+  }
+  .combo-cell {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 14px; font-weight: 700;
+    color: var(--text-tertiary);
+  }
+  .combo-cell.is-pass {
+    background: rgba(143, 168, 118, 0.2);
+    border-color: var(--status-success);
+    color: var(--status-success);
+  }
+  .combo-cell.is-active {
+    background: var(--accent-amber-bg);
+    border-color: var(--accent-amber);
+    color: var(--accent-amber);
+    animation: pulse 800ms ease-in-out infinite;
+  }
+  .combo-btn {
+    background: var(--accent-amber); color: #000; border: 0;
+    padding: 12px 20px; border-radius: 10px; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    min-height: 44px; margin-top: 16px;
+  }
+
+  /* --- Tab 9: Fill-in-the-blank --- */
+  .blank-slot {
+    display: inline-block; min-width: 28px;
+    background: rgba(245, 184, 66, 0.15);
+    color: var(--accent-amber); border-radius: 4px;
+    padding: 1px 6px; border: 1px dashed var(--accent-amber);
+    cursor: pointer; transition: all 150ms ease-out;
+    font-weight: 700; text-align: center;
+  }
+  .blank-slot.is-selected {
+    box-shadow: 0 0 0 2px var(--accent-amber);
+  }
+  .blank-slot.is-filled {
+    background: rgba(143, 168, 118, 0.2);
+    color: var(--status-success);
+    border-color: var(--status-success);
+    border-style: solid;
+    animation: pulse 400ms ease-out;
+  }
+  .blank-chip {
+    background: var(--bg-card); border: 1px solid var(--border-default);
+    color: var(--text-primary); padding: 8px 14px; border-radius: 8px;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+    cursor: pointer; min-height: 44px;
+    transition: all 150ms ease-out;
+  }
+  .blank-chip:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-amber);
+  }
+  .blank-chip.is-active {
+    background: var(--accent-amber); color: #000;
+    border-color: var(--accent-amber);
+  }
+  .blank-chip.is-used {
+    opacity: 0.3; cursor: default;
+  }
+
+  /* footer */
+  .footer-note {
+    margin-top: 24px; padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 11px; color: var(--text-quaternary);
+    text-align: center; line-height: 1.5;
+  }
+
+  @media (min-width: 720px) {
+    .pros-cons { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="kicker">REFACTOR OPTIONS · INTERACTIVE MOCKUP</div>
+  <h1 class="title">InfraLearn dopamine loops<span class="dot">.</span></h1>
+  <p class="blurb">7 design patterns competing to become the next ship-priority. Tap a tab — each is a working mock. No backend, all client-side.</p>
+
+  <div class="tabs" id="tabs">
+    <button class="tab is-active" data-target="t1">Baseline <span class="badge">now</span></button>
+    <button class="tab" data-target="t2">Click-to-copy chips <span class="badge">S</span></button>
+    <button class="tab" data-target="t3">Predict prompts <span class="badge">M</span></button>
+    <button class="tab" data-target="t4">Tap-to-reveal <span class="badge">S</span></button>
+    <button class="tab" data-target="t5">Live tests <span class="badge">L</span></button>
+    <button class="tab" data-target="t6">One-tap fix-it <span class="badge">M</span></button>
+    <button class="tab" data-target="t7">Combo multiplier <span class="badge">S</span></button>
+    <button class="tab" data-target="t8">Daily Challenge <span class="badge">⭐</span></button>
+    <button class="tab" data-target="t9">Fill-in-blank <span class="badge">⭐</span></button>
+    <button class="tab" data-target="t10">Cliffhanger <span class="badge">⭐</span></button>
+    <button class="tab" data-target="t11">Runnable inline <span class="badge">⭐</span></button>
+  </div>
+
+  <!-- TAB 1: Baseline -->
+  <div class="panel is-active" id="t1">
+    <div class="card">
+      <div class="card-kicker">PAGE 2 / 2</div>
+      <h2>The traps that bite everyone</h2>
+      <div class="meta">SAMPLE FROM PY-TYPES LESSON</div>
+
+      <div class="pros-cons">
+        <div class="pros-cons-col pros-cons-good">
+          <div class="kk">Lean on this</div>
+          <ul>
+            <li><code>int</code> has arbitrary precision — <code>2**1000</code> just works.</li>
+            <li>Strings are immutable, so they're safe as dict keys.</li>
+            <li>f-strings (<code>f"{x=}"</code>) are the clearest formatting.</li>
+            <li><code>bool</code> is an <code>int</code> subclass: <code>sum([True, False, True])</code>.</li>
+          </ul>
+        </div>
+        <div class="pros-cons-col pros-cons-watch">
+          <div class="kk">Don't get burned</div>
+          <ul>
+            <li><code>0.1 + 0.2</code> ≠ <code>0.3</code> — floats are binary.</li>
+            <li><code>"5" + 3</code> raises <code>TypeError</code>.</li>
+            <li>Building strings with <code>+=</code> in a loop is O(n²).</li>
+            <li><code>is</code> checks identity, not equality.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary); text-align: center;">
+        This is what users see today. Static. No interaction.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-kicker">VERDICT</div>
+      <span class="desc-tag tag-impact">High pain · low engagement</span>
+      <p>Information-dense but pixel-frozen. The learner reads, blinks, and scrolls. Zero dopamine moments. Tabs 2–7 each propose a way to fix that without bloating the content.</p>
+    </div>
+  </div>
+
+  <!-- TAB 2: Click-to-copy chips -->
+  <div class="panel" id="t2">
+    <div class="card">
+      <div class="card-kicker">Pattern · Click-to-copy chips</div>
+      <span class="desc-tag tag-effort">Effort: small</span>
+      <span class="desc-tag tag-impact">Impact: reaches every lesson</span>
+      <span class="desc-tag tag-evidence">Stripe Docs · Tailwind Docs</span>
+
+      <p>Every inline <code>&lt;code&gt;</code> chip becomes tappable. Tap → instantly copies to clipboard → tiny ✓ toast. Zero friction reward for engaging with examples.</p>
+
+      <p style="font-size: 13.5px;">
+        Try tapping any chip below:
+        <br>
+        Use <code class="clip">.join()</code> instead of <code class="clip">+=</code> in a loop. Convert with <code class="clip">int("5")</code> or <code class="clip">"5" + str(3)</code>. The pattern <code class="clip">f"{x=}"</code> prints both name and value.
+      </p>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Dopamine:</strong> ~80ms haptic-feeling toast. Pure-learning anchored — copying example code is THE primary mode of engagement in a coding lesson.
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-kicker">Implementation</div>
+      <p>~30-line change: a global event listener in <code>Lesson.jsx</code> that delegates clicks on any descendant <code>&lt;code&gt;</code>, calls <code>navigator.clipboard.writeText()</code>, and mounts a global <code>&lt;CopyToast&gt;</code>. CSS-only hover affordance.</p>
+    </div>
+  </div>
+
+  <!-- TAB 3: Predict prompts -->
+  <div class="panel" id="t3">
+    <div class="card">
+      <div class="card-kicker">Pattern · Inline predict prompts</div>
+      <span class="desc-tag tag-effort">Effort: medium</span>
+      <span class="desc-tag tag-impact">Impact: every coding lesson</span>
+      <span class="desc-tag tag-evidence">Roediger & Karpicke 2006 · g≈0.50</span>
+
+      <p>Mid-lesson, when a concept is about to be revealed, show a 3-option multiple-choice prompt FIRST. Answer → instant ✓/✗ + +5 XP + revelation. <strong>This is the testing effect</strong> — the single highest-leverage retention mechanic in cog-science.</p>
+
+      <div class="predict" id="predict-1">
+        <div class="predict-q">What does <code>0.1 + 0.2 == 0.3</code> evaluate to in Python?</div>
+        <div class="predict-opts">
+          <button class="predict-opt" data-correct="false">True</button>
+          <button class="predict-opt" data-correct="true">False</button>
+          <button class="predict-opt" data-correct="false">TypeError</button>
+        </div>
+        <div class="predict-feedback" id="predict-feedback-1">
+          <span class="xp-chip">+5 XP</span>
+          <strong>Floats are binary.</strong> <code>0.1 + 0.2 == 0.30000000000000004</code> in IEEE 754. For money, use <code>decimal.Decimal</code>.
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Dopamine:</strong> active prediction → instant confirmation. Wrong answers DON'T penalize XP — exposing the misconception is its own win. ~3 of these per lesson, max.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Tap-to-reveal -->
+  <div class="panel" id="t4">
+    <div class="card">
+      <div class="card-kicker">Pattern · Tap-to-reveal answers</div>
+      <span class="desc-tag tag-effort">Effort: small</span>
+      <span class="desc-tag tag-impact">Impact: glossary-style lessons</span>
+      <span class="desc-tag tag-evidence">Active recall · Anki UX</span>
+
+      <p>Convert flat factual content into curiosity gaps. The question is visible; the answer is hidden behind a button. Spaced-rep at the lesson level.</p>
+
+      <div class="reveal">
+        <div class="reveal-q">What's the time complexity of <code>list.pop(0)</code> in Python?</div>
+        <button class="reveal-btn" data-reveal="r1">Tap to reveal answer</button>
+        <div class="reveal-answer" id="r1">
+          <strong>O(n).</strong> Python lists are backed by contiguous arrays — popping the first element forces every other element to shift left. Use <code>collections.deque</code> for O(1) popleft.
+        </div>
+      </div>
+
+      <div class="reveal">
+        <div class="reveal-q">When does a Python <code>dict</code> lookup degrade from O(1) toward O(n)?</div>
+        <button class="reveal-btn" data-reveal="r2">Tap to reveal answer</button>
+        <div class="reveal-answer" id="r2">
+          When hash collisions pile up on the same bucket — usually only under adversarial inputs (deliberate hash-flooding attacks) or a buggy <code>__hash__</code> implementation. Python's open-addressing handles benign collisions in near-O(1) amortized.
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Dopamine:</strong> classic "I knew that!" moment when the answer matches your guess. New block type <code>{ type: 'reveal', q, a }</code>. Authoring lift: minimal — drop into any existing lesson.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: Live test indicators -->
+  <div class="panel" id="t5">
+    <div class="card">
+      <div class="card-kicker">Pattern · Live test-passing indicators</div>
+      <span class="desc-tag tag-effort">Effort: large (per-language)</span>
+      <span class="desc-tag tag-impact">Impact: Sandbox + practice blocks</span>
+      <span class="desc-tag tag-evidence">FreeCodeCamp · LeetCode · NeetCode</span>
+
+      <p>As the learner types code in a practice block, hidden tests light up green when their condition is met. No "Run" button required — feedback is continuous. Try typing the function below:</p>
+
+      <div class="practice">
+        <div class="practice-header">▶ Practice · Python</div>
+        <div class="practice-prompt">Write a function <code>greet(name)</code> that returns the string <code>"Hello, {name}!"</code></div>
+        <textarea class="practice-editor" id="practice-editor" spellcheck="false" autocorrect="off" autocapitalize="off">def greet(name):
+    pass</textarea>
+        <div class="tests" id="practice-tests">
+          <div class="test" data-id="t1"><span class="mark">·</span><span class="desc">Function named <code>greet</code></span></div>
+          <div class="test" data-id="t2"><span class="mark">·</span><span class="desc">Takes a single argument</span></div>
+          <div class="test" data-id="t3"><span class="mark">·</span><span class="desc">Returns a non-None value (no <code>pass</code>)</span></div>
+          <div class="test" data-id="t4"><span class="mark">·</span><span class="desc">Uses an f-string</span></div>
+          <div class="test" data-id="t5"><span class="mark">·</span><span class="desc">Includes the word "Hello"</span></div>
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Dopamine:</strong> watching a test FLIP from grey to green is irresistible. Each ✓ is a +XP. Effort warning: full coverage needs language-specific test runners; v1 can ship regex-pattern-match tests authored alongside the practice block.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: One-tap fix-it -->
+  <div class="panel" id="t6">
+    <div class="card">
+      <div class="card-kicker">Pattern · One-tap fix-it</div>
+      <span class="desc-tag tag-effort">Effort: medium</span>
+      <span class="desc-tag tag-impact">Impact: any "common bug" pattern</span>
+      <span class="desc-tag tag-evidence">Stack Overflow culture · code review intuition</span>
+
+      <p>Show buggy code with the bug highlighted. Tap the bug → it transforms into the correct version with a satisfying micro-animation. Each lesson can have 2-3 of these embedded.</p>
+
+      <div class="fixit">
+        <div class="fixit-prompt">This function tries to count even numbers but has 1 bug. Tap it to fix.</div>
+        <div class="fixit-code">def count_evens(numbers):
+    count = 0
+    for n in numbers:
+        if n % 2 <span class="bug" data-fix="==" data-current="=" id="bug-1">=</span> 0:
+            count += 1
+    return count</div>
+        <div class="fixit-status" id="fixit-status-1">1 bug remaining · click the highlighted region</div>
+      </div>
+
+      <div class="fixit">
+        <div class="fixit-prompt">SQL query that returns no rows. Tap the bug to fix.</div>
+        <div class="fixit-code">SELECT name, email
+FROM users
+WHERE last_login <span class="bug" data-fix="IS NULL" data-current="= NULL" id="bug-2">= NULL</span>
+ORDER BY created_at DESC;</div>
+        <div class="fixit-status" id="fixit-status-2">1 bug remaining · click the highlighted region</div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Dopamine:</strong> the satisfying pop animation + status update from "1 bug remaining" → "✓ fixed!" makes debugging feel rewarding instead of tedious. New block type <code>{ type: 'fixit', code, bug, fix }</code>.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 7: Combo multiplier -->
+  <div class="panel" id="t7">
+    <div class="card">
+      <div class="card-kicker">Pattern · Combo / streak multiplier</div>
+      <span class="desc-tag tag-effort">Effort: small (UI-only)</span>
+      <span class="desc-tag tag-impact">Impact: cross-lesson, persistent</span>
+      <span class="desc-tag tag-evidence">Habit-loop psychology · Duolingo</span>
+
+      <p>Answer 3+ practice blocks in a row without a wrong → unlock a 1.5x XP multiplier on the next 5. Visualized as a glowing ring + 5 cells. One mistake resets the counter.</p>
+
+      <div class="combo-ring">
+        <div class="combo-num" id="combo-num">0</div>
+        <div class="combo-label">Combo streak</div>
+        <div class="combo-multi" style="opacity: 0.3;" id="combo-multi">1.0× XP</div>
+        <div class="combo-cells" id="combo-cells">
+          <div class="combo-cell" data-i="0">1</div>
+          <div class="combo-cell" data-i="1">2</div>
+          <div class="combo-cell" data-i="2">3</div>
+          <div class="combo-cell" data-i="3">4</div>
+          <div class="combo-cell" data-i="4">5</div>
+        </div>
+        <button class="combo-btn" id="combo-btn">+1 correct answer</button>
+        <button class="combo-btn" style="background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-default); margin-top: 8px;" id="combo-miss">Wrong answer (reset)</button>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Dopamine:</strong> loss-aversion pull + reward acceleration. The combo IS the meta-narrative of a study session. Cosmetic-light, learning-anchored (combo only ticks on correct answers). Already-shipped XP system feeds the multiplier — no new state model.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 8: Daily Challenge -->
+  <div class="panel" id="t8">
+    <div class="card">
+      <div class="card-kicker">Pattern · Daily Challenge slot</div>
+      <span class="desc-tag tag-effort">Effort: small</span>
+      <span class="desc-tag tag-impact">Impact: Home + retention loop</span>
+      <span class="desc-tag tag-evidence">Brilliant.org · ustwo case study</span>
+
+      <p>Pinned card on Home above the lesson CTA. ONE question pulled from concepts the user already learned (reuses spaced-rep store). 60-90 seconds. Contributes to streak. Returns daily.</p>
+
+      <div class="card" style="background: linear-gradient(180deg, var(--accent-amber-bg), transparent); border-color: var(--accent-amber);">
+        <div class="card-kicker" style="color: var(--accent-amber);">🎯 TODAY'S CHALLENGE · ~60s</div>
+        <h2 style="font-size: 16px; margin-top: 4px;">Why does <code>list.pop(0)</code> degrade past 1M elements?</h2>
+        <div class="predict-opts" id="daily-opts" style="margin-top: 10px;">
+          <button class="predict-opt" data-correct="false">Hash collisions pile up</button>
+          <button class="predict-opt" data-correct="true">Every element shifts left — O(n)</button>
+          <button class="predict-opt" data-correct="false">Python GIL serializes the operation</button>
+        </div>
+        <div class="predict-feedback" id="daily-feedback">
+          <span class="xp-chip">+8 XP</span>
+          <span class="xp-chip" style="background: var(--el-water); color: #000;">🔥 streak day</span>
+          <strong>Lists are contiguous memory.</strong> Popping index 0 forces every other element to shift down one slot. Use <code>collections.deque</code> for O(1) popleft. <em>Locked in for tomorrow's check.</em>
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Why it wins:</strong> 60-90s commitment that anchors daily return. Reuses existing free-recall + spaced-rep — zero new content authoring. Brilliant's #1 retention driver per ustwo case study.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 9: Fill-in-the-blank -->
+  <div class="panel" id="t9">
+    <div class="card">
+      <div class="card-kicker">Pattern · Fill-in-the-blank (tap-not-type)</div>
+      <span class="desc-tag tag-effort">Effort: medium</span>
+      <span class="desc-tag tag-impact">Impact: mobile density win</span>
+      <span class="desc-tag tag-evidence">Sololearn · default quiz format</span>
+
+      <p>Code snippet with 1-3 redacted tokens. User taps from a shuffled options strip — no keyboard summon on mobile. Cheaper input cost than free typing, same active-recall effect.</p>
+
+      <div class="card" style="background: var(--bg-elevated);">
+        <p style="font-size: 13px; margin: 0 0 8px;">Complete the function to count even numbers:</p>
+        <div class="fixit-code" style="background: var(--bg-base); margin: 0;">def count_evens(numbers):
+    count = 0
+    for n in numbers:
+        if n <span id="blank-1" class="blank-slot" data-correct="%">___</span> 2 <span id="blank-2" class="blank-slot" data-correct="==">___</span> 0:
+            count += 1
+    return count</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px;" id="blank-options">
+          <button class="blank-chip" data-val="==">==</button>
+          <button class="blank-chip" data-val="%">%</button>
+          <button class="blank-chip" data-val="!=">!=</button>
+          <button class="blank-chip" data-val="//">//</button>
+          <button class="blank-chip" data-val="=">=</button>
+        </div>
+        <div id="blank-status" style="margin-top: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.08em; text-transform: uppercase;">2 BLANKS REMAINING · TAP A TOKEN, THEN A SLOT</div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Why it wins:</strong> Mobile-keyboard-free. Forces the same recall as free-typing but with zero typo friction. New block type <code>{ type: 'fill-blank', code, blanks, options }</code>.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 10: Zeigarnik cliffhanger -->
+  <div class="panel" id="t10">
+    <div class="card">
+      <div class="card-kicker">Pattern · Cliffhanger question at lesson end</div>
+      <span class="desc-tag tag-effort">Effort: small (authoring rule)</span>
+      <span class="desc-tag tag-impact">Impact: retention + return</span>
+      <span class="desc-tag tag-evidence">Zeigarnik effect · Carnegie Mellon studies</span>
+
+      <p>End each lesson on a deliberate unresolved question, then surface it as the FIRST prompt in the next session. Open loops drive memory retention AND drive return. The rare social-media trick that strengthens learning.</p>
+
+      <div class="card" style="background: linear-gradient(180deg, transparent, var(--bg-elevated)); border-top: 3px solid var(--el-water);">
+        <div class="card-kicker" style="color: var(--text-tertiary); margin-bottom: 8px;">YOU JUST FINISHED · UNDERSTANDING POD SCHEDULING</div>
+        <div style="font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin-bottom: 8px;">✓ +45 XP earned</div>
+        <div style="border-top: 1px dashed var(--border-default); margin: 14px 0;"></div>
+        <div class="card-kicker" style="color: var(--el-water); margin-bottom: 6px;">⏳ A QUESTION FOR TOMORROW</div>
+        <div style="font-family: var(--font-serif); font-size: 17px; font-weight: 600; line-height: 1.3; color: var(--text-primary); margin-bottom: 8px;">…so what happens when the pod <em>can't</em> schedule anywhere — what does Kubernetes do next?</div>
+        <p class="caption" style="font-size: 12px; color: var(--text-tertiary); margin: 0;">Come back tomorrow to find out. Your forgetting curve says morning is best.</p>
+      </div>
+
+      <div class="card" style="background: var(--bg-elevated); margin-top: 10px;">
+        <div class="card-kicker" style="color: var(--accent-amber);">NEXT SESSION · DAY 2</div>
+        <p style="font-size: 13px; color: var(--text-secondary); margin: 8px 0 0;">First card on opening tomorrow:</p>
+        <div style="margin-top: 8px; padding: 10px; background: var(--bg-card); border-left: 3px solid var(--accent-amber); border-radius: 6px; font-family: var(--font-serif); font-size: 14px;">
+          Yesterday's open question: what happens when a pod can't schedule? <em>Tap to reveal + claim retention bonus.</em>
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Why it wins:</strong> Zeigarnik effect — unresolved questions improve retention. Authoring rule, not a new feature. Every lesson ends with one cliffhanger; the store remembers it; Home surfaces it on next open.
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 11: Runnable inline code -->
+  <div class="panel" id="t11">
+    <div class="card">
+      <div class="card-kicker">Pattern · Runnable code blocks inline</div>
+      <span class="desc-tag tag-effort">Effort: medium</span>
+      <span class="desc-tag tag-impact">Impact: every static code block</span>
+      <span class="desc-tag tag-evidence">Codecademy · ACM SIGCSE 2023</span>
+
+      <p>Every <code>code</code> block in a lesson gets a small "▶ Run" pill. Tap → expands to an inline mini-REPL using existing Pyodide/sandbox runtime. No leaving the lesson, no separate IDE setup. Apply the concept where you read it.</p>
+
+      <div class="card" style="background: var(--bg-elevated);">
+        <p style="font-size: 13px; margin: 0 0 8px;">A list comprehension with a filter:</p>
+        <div style="position: relative; background: var(--bg-base); border-radius: 6px; padding: 12px; font-family: var(--font-mono); font-size: 13px;">
+          <pre style="margin: 0; padding: 0; background: transparent; border: 0; white-space: pre;">nums = [1, 2, 3, 4, 5, 6]
+evens = [n for n in nums if n % 2 == 0]
+print(evens)</pre>
+          <button id="run-pill" style="position: absolute; top: 8px; right: 8px; background: var(--accent-amber); color: #000; border: 0; border-radius: 6px; padding: 4px 10px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer;">▶ RUN</button>
+        </div>
+        <div id="run-output" style="margin-top: 10px; padding: 10px; background: var(--bg-base); border-left: 3px solid var(--el-earth); border-radius: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); display: none;">
+          <div class="card-kicker" style="color: var(--el-earth);">▼ OUTPUT</div>
+          [2, 4, 6]
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px; background: var(--bg-elevated); border-radius: 8px; font-size: 12px; color: var(--text-tertiary);">
+        <strong style="color: var(--text-secondary);">Why it wins:</strong> Removes the "set up Python" cliff between reading and doing. Reuses already-shipped PracticeBlock + Pyodide. Every static code block becomes a try-it moment. Codecademy's structural lift over standard MOOC completion (~5%).
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Tabs 1–7 from initial UI/UX research. Tabs 8–11 (⭐) from the app-comparison research: TikTok/IG, CodeCombat/Codecademy, Boot.dev/Brilliant/Exercism/Sololearn.
+    Top single-feature pick: <strong style="color: var(--accent-amber);">Tab 8 · Daily Challenge slot</strong> (Brilliant). Highest ROI · ADHD-friendly · zero new content authoring.
+  </div>
+
+</div>
+
+<div class="copy-toast" id="copy-toast">✓ Copied</div>
+
+<script>
+  // --- Tab switcher ---
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('is-active'));
+      document.querySelectorAll('.panel').forEach(x => x.classList.remove('is-active'));
+      t.classList.add('is-active');
+      document.getElementById(t.dataset.target).classList.add('is-active');
+    });
+  });
+
+  // --- Tab 2: click-to-copy ---
+  document.querySelectorAll('code.clip').forEach(c => {
+    c.addEventListener('click', () => {
+      const txt = c.textContent;
+      navigator.clipboard?.writeText(txt).catch(() => {});
+      c.classList.add('is-copied');
+      const toast = document.getElementById('copy-toast');
+      toast.textContent = `✓ Copied: ${txt}`;
+      toast.classList.add('is-visible');
+      setTimeout(() => {
+        c.classList.remove('is-copied');
+        toast.classList.remove('is-visible');
+      }, 1200);
+    });
+  });
+
+  // --- Tab 3: predict prompt ---
+  document.querySelectorAll('#predict-1 .predict-opt').forEach(o => {
+    o.addEventListener('click', () => {
+      const correct = o.dataset.correct === 'true';
+      o.classList.add(correct ? 'is-correct' : 'is-wrong');
+      // Show the correct one if user picked wrong.
+      if (!correct) {
+        document.querySelector('#predict-1 .predict-opt[data-correct="true"]').classList.add('is-correct');
+      }
+      document.querySelectorAll('#predict-1 .predict-opt').forEach(x => x.setAttribute('disabled', ''));
+      document.getElementById('predict-feedback-1').classList.add('is-visible');
+    });
+  });
+
+  // --- Tab 4: tap-to-reveal ---
+  document.querySelectorAll('.reveal-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const target = document.getElementById(b.dataset.reveal);
+      target.classList.add('is-visible');
+      b.style.display = 'none';
+    });
+  });
+
+  // --- Tab 5: live tests ---
+  const editor = document.getElementById('practice-editor');
+  if (editor) {
+    const runTests = () => {
+      const code = editor.value;
+      const checks = [
+        ['t1', /def\s+greet/.test(code)],
+        ['t2', /def\s+greet\s*\(\s*\w+\s*\)/.test(code)],
+        ['t3', /return\s+[^\s]/.test(code) && !/^\s*pass\s*$/m.test(code.split('return')[0] || '')],
+        ['t4', /f["']/.test(code)],
+        ['t5', /Hello/i.test(code)],
+      ];
+      checks.forEach(([id, ok]) => {
+        const el = document.querySelector(`.test[data-id="${id}"]`);
+        el.classList.toggle('is-pass', ok);
+        el.querySelector('.mark').textContent = ok ? '✓' : '·';
+      });
+    };
+    editor.addEventListener('input', runTests);
+    runTests();
+  }
+
+  // --- Tab 6: one-tap fix-it ---
+  document.querySelectorAll('.bug').forEach(b => {
+    b.addEventListener('click', () => {
+      if (b.classList.contains('is-fixed')) return;
+      b.textContent = b.dataset.fix;
+      b.classList.add('is-fixed');
+      // Update status
+      const card = b.closest('.fixit');
+      const status = card.querySelector('.fixit-status');
+      status.textContent = '✓ fixed · +10 XP';
+      status.style.color = 'var(--status-success)';
+    });
+  });
+
+  // --- Tab 7: combo multiplier ---
+  let combo = 0;
+  const updateCombo = () => {
+    document.getElementById('combo-num').textContent = combo;
+    document.querySelectorAll('.combo-cell').forEach((cell, i) => {
+      cell.classList.remove('is-pass', 'is-active');
+      if (i < combo) cell.classList.add('is-pass');
+      else if (i === combo) cell.classList.add('is-active');
+    });
+    const multi = document.getElementById('combo-multi');
+    if (combo >= 3) {
+      multi.textContent = combo >= 5 ? '2.0× XP' : '1.5× XP';
+      multi.style.opacity = '1';
+    } else {
+      multi.textContent = '1.0× XP';
+      multi.style.opacity = '0.3';
+    }
+  };
+  document.getElementById('combo-btn').addEventListener('click', () => {
+    combo = Math.min(5, combo + 1);
+    updateCombo();
+  });
+  document.getElementById('combo-miss').addEventListener('click', () => {
+    combo = 0;
+    updateCombo();
+  });
+  updateCombo();
+
+  // --- Tab 8: Daily Challenge ---
+  document.querySelectorAll('#daily-opts .predict-opt').forEach(o => {
+    o.addEventListener('click', () => {
+      const correct = o.dataset.correct === 'true';
+      o.classList.add(correct ? 'is-correct' : 'is-wrong');
+      if (!correct) {
+        document.querySelector('#daily-opts .predict-opt[data-correct="true"]').classList.add('is-correct');
+      }
+      document.querySelectorAll('#daily-opts .predict-opt').forEach(x => x.setAttribute('disabled', ''));
+      document.getElementById('daily-feedback').classList.add('is-visible');
+    });
+  });
+
+  // --- Tab 9: Fill-in-the-blank ---
+  let activeChip = null;
+  document.querySelectorAll('.blank-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (chip.classList.contains('is-used')) return;
+      document.querySelectorAll('.blank-chip').forEach(c => c.classList.remove('is-active'));
+      chip.classList.add('is-active');
+      activeChip = chip;
+    });
+  });
+  document.querySelectorAll('.blank-slot').forEach(slot => {
+    slot.addEventListener('click', () => {
+      if (!activeChip) {
+        slot.classList.add('is-selected');
+        setTimeout(() => slot.classList.remove('is-selected'), 200);
+        return;
+      }
+      if (slot.classList.contains('is-filled')) return;
+      const val = activeChip.dataset.val;
+      slot.textContent = val;
+      // Right answer → green, wrong → reset chip back to active
+      if (val === slot.dataset.correct) {
+        slot.classList.add('is-filled');
+        activeChip.classList.add('is-used');
+        activeChip.classList.remove('is-active');
+        activeChip = null;
+        // Update status
+        const remaining = document.querySelectorAll('.blank-slot:not(.is-filled)').length;
+        const status = document.getElementById('blank-status');
+        if (remaining === 0) {
+          status.textContent = '✓ ALL BLANKS FILLED · +15 XP';
+          status.style.color = 'var(--status-success)';
+        } else {
+          status.textContent = `${remaining} BLANK${remaining > 1 ? 'S' : ''} REMAINING`;
+        }
+      } else {
+        // Brief red flash, restore blank
+        slot.style.background = 'rgba(224, 112, 96, 0.3)';
+        slot.style.borderColor = 'var(--status-error)';
+        setTimeout(() => {
+          slot.textContent = '___';
+          slot.style.background = '';
+          slot.style.borderColor = '';
+        }, 600);
+      }
+    });
+  });
+
+  // --- Tab 11: Runnable inline code ---
+  document.getElementById('run-pill')?.addEventListener('click', (e) => {
+    e.currentTarget.textContent = '⏳ RUNNING';
+    setTimeout(() => {
+      e.currentTarget.textContent = '▶ RUN';
+      document.getElementById('run-output').style.display = 'block';
+    }, 350);
+  });
+</script>
+
+</body>
+</html>

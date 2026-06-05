@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- InfraLearn PWA icon. Dark amber palette consistent with the app theme.
+       The diamond emblem matches the curriculum's ◆ section glyph; the
+       smaller dot is the app's brand ".". Stays crisp at any install size. -->
+  <rect width="512" height="512" rx="96" fill="#0B0A08"/>
+  <g fill="#F5B842">
+    <!-- Large rotated diamond -->
+    <path d="M256 96 L416 256 L256 416 L96 256 Z" fill="#F5B842" opacity="0.18"/>
+    <path d="M256 144 L368 256 L256 368 L144 256 Z" fill="none" stroke="#F5B842" stroke-width="6"/>
+    <!-- Inner glyph -->
+    <path d="M256 208 L304 256 L256 304 L208 256 Z" fill="#F5B842"/>
+    <!-- Brand dot -->
+    <circle cx="368" cy="368" r="14" fill="#F5B842"/>
+  </g>
+</svg>

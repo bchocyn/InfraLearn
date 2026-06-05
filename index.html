@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- theme-color: amber accent shows in the browser chrome on Android/Chromium
+       PWAs; matches the manifest theme_color. iOS uses the black-translucent
+       status-bar style below, which is unaffected by theme-color. -->
+  <meta name="theme-color" content="#F5B842" />
+  <meta name="description" content="InfraLearn" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <!-- Multi-size icon links. The browser picks the closest match for tab
+       favicons; the OS picks the closest match for installed home-screen
+       icons (apple-touch-icon-*, icon-*). SVG is accepted by all modern
+       targets; a small subset of older iOS may ignore SVG apple-touch-icon
+       and fall back to the manifest icons. -->
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="icon" type="image/svg+xml" sizes="16x16" href="favicon-16.svg" />
+  <link rel="icon" type="image/svg+xml" sizes="32x32" href="favicon-32.svg" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.svg" />
+  <link rel="apple-touch-icon" sizes="152x152" href="icon-152.svg" />
+  <link rel="apple-touch-icon" sizes="167x167" href="icon-167.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="InfraLearn" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- Content Security Policy: lock to same-origin except for the Pyodide CDN
+       that PracticeBlock loads on first Run. Pyodide needs three things:
+         1. script-src: load pyodide.js from cdn.jsdelivr.net.
+         2. connect-src: fetch the .wasm interpreter + python_stdlib.zip + packages
+            from the same CDN at runtime.
+         3. wasm-unsafe-eval: compile the WebAssembly module the interpreter ships in.
+       Styles still allow 'unsafe-inline' because React inline style props use it.
+       Everything else stays same-origin. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" />
+  <title>InfraLearn</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

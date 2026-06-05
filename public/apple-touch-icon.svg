@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- 180×180 apple-touch-icon for iOS home-screen install. iOS auto-applies
+       its own rounded-square mask, so we draw a full-bleed background and
+       inset the glyph into the safe zone. iOS Safari accepts SVG here on
+       17+; older versions fall back to no icon (acceptable degrade). -->
+  <rect width="180" height="180" fill="#0B0A08"/>
+  <g>
+    <path d="M90 36 L144 90 L90 144 L36 90 Z" fill="#F5B842" opacity="0.18"/>
+    <path d="M90 52 L128 90 L90 128 L52 90 Z" fill="none" stroke="#F5B842" stroke-width="3"/>
+    <path d="M90 74 L106 90 L90 106 L74 90 Z" fill="#F5B842"/>
+    <circle cx="128" cy="128" r="5" fill="#F5B842"/>
+  </g>
+</svg>

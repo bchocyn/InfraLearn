@@ -1,0 +1,66 @@
+{
+  "name": "InfraLearn",
+  "short_name": "InfraLearn",
+  "description": "InfraLearn",
+  "id": "/MLOps-Fundaments-learning-page/",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "theme_color": "#F5B842",
+  "background_color": "#0B0A08",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "favicon-16.svg",         "sizes": "16x16",   "type": "image/svg+xml", "purpose": "any" },
+    { "src": "favicon-32.svg",         "sizes": "32x32",   "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-152.svg",           "sizes": "152x152", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-167.svg",           "sizes": "167x167", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "apple-touch-icon.svg",   "sizes": "180x180", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.svg",           "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-512.svg",           "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable-512.svg",  "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "icon.svg",               "sizes": "any",     "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-home.svg",
+      "sizes": "390x844",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Home — streak, daily practice, reviews due"
+    },
+    {
+      "src": "screenshot-lesson.svg",
+      "sizes": "390x844",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Lesson — built-in code blocks and diagrams"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Continue lesson",
+      "short_name": "Continue",
+      "description": "Jump back into your active learning path",
+      "url": "./#/",
+      "icons": [{ "src": "icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Daily practice",
+      "short_name": "Practice",
+      "description": "5-question daily session — keeps your streak alive",
+      "url": "./#/",
+      "icons": [{ "src": "icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Reviews due",
+      "short_name": "Reviews",
+      "description": "Spaced-repetition reviews waiting for you",
+      "url": "./#/reviews",
+      "icons": [{ "src": "icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- 16×16 favicon — tab-strip size. Strip everything except the solid
+       inner diamond on a dark square. Outlined glyph at 16px aliases into
+       a fuzzy blob; solid fill is the only thing that reads. -->
+  <rect width="16" height="16" rx="3" fill="#0B0A08"/>
+  <path d="M8 3 L13 8 L8 13 L3 8 Z" fill="#F5B842"/>
+</svg>

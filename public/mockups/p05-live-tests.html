@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>05 · Live tests — InfraLearn mockups</title><link rel="stylesheet" href="shared.css"/></head>
+<body><div class="app">
+<div class="topnav"><a href="index.html">← Mockups</a><span class="crumb">05 · Live tests</span></div>
+<div class="kicker">PATTERN · LIVE TEST-PASSING INDICATORS</div>
+<h1 class="title">Tests flip green as you type<span class="dot">.</span></h1>
+
+<div class="card">
+  <span class="desc-tag tag-effort">Effort: large (per-language)</span>
+  <span class="desc-tag tag-impact">Impact: Sandbox + practice blocks</span>
+  <span class="desc-tag tag-evidence">Sandpack · FreeCodeCamp</span>
+  <p>As the learner types, hidden tests light up green when their condition is met. No "Run" button required — feedback is continuous. Try typing the function below:</p>
+
+  <div class="practice">
+    <div class="practice-header">▶ Practice · Python</div>
+    <div class="practice-prompt">Write a function <code>greet(name)</code> that returns <code>"Hello, {name}!"</code></div>
+    <textarea class="practice-editor" id="practice-editor" spellcheck="false" autocorrect="off" autocapitalize="off">def greet(name):
+    pass</textarea>
+    <div class="tests" id="practice-tests">
+      <div class="test" data-id="t1"><span class="mark">·</span><span class="desc">Function named <code>greet</code></span></div>
+      <div class="test" data-id="t2"><span class="mark">·</span><span class="desc">Takes a single argument</span></div>
+      <div class="test" data-id="t3"><span class="mark">·</span><span class="desc">Returns a non-None value (no <code>pass</code>)</span></div>
+      <div class="test" data-id="t4"><span class="mark">·</span><span class="desc">Uses an f-string</span></div>
+      <div class="test" data-id="t5"><span class="mark">·</span><span class="desc">Includes the word "Hello"</span></div>
+    </div>
+  </div>
+  <div class="note"><strong>Dopamine:</strong> watching a test FLIP from grey to green is irresistible. Each ✓ is a +XP. <strong>Caveat:</strong> GitHub research warned against live-while-typing for "red flicker" — on-blur or debounced 250ms is gentler.</div>
+</div>
+
+</div>
+<script>
+const editor = document.getElementById('practice-editor');
+const runTests = () => {
+  const code = editor.value;
+  const checks = [
+    ['t1', /def\s+greet/.test(code)],
+    ['t2', /def\s+greet\s*\(\s*\w+\s*\)/.test(code)],
+    ['t3', /return\s+[^\s]/.test(code) && !/^\s*pass\s*$/m.test(code.split('return')[0] || '')],
+    ['t4', /f["']/.test(code)],
+    ['t5', /Hello/i.test(code)],
+  ];
+  checks.forEach(([id, ok]) => {
+    const el = document.querySelector(`.test[data-id="${id}"]`);
+    el.classList.toggle('is-pass', ok);
+    el.querySelector('.mark').textContent = ok ? '✓' : '·';
+  });
+};
+editor.addEventListener('input', runTests);
+runTests();
+</script>
+</body></html>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 152 152" width="152" height="152">
+  <!-- 152×152 older iPad home-screen icon. -->
+  <rect width="152" height="152" rx="30" fill="#0B0A08"/>
+  <g>
+    <path d="M76 30 L122 76 L76 122 L30 76 Z" fill="#F5B842" opacity="0.18"/>
+    <path d="M76 44 L108 76 L76 108 L44 76 Z" fill="none" stroke="#F5B842" stroke-width="3"/>
+    <path d="M76 62 L90 76 L76 90 L62 76 Z" fill="#F5B842"/>
+    <circle cx="108" cy="108" r="4" fill="#F5B842"/>
+  </g>
+</svg>

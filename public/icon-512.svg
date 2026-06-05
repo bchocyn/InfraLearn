@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- InfraLearn 512px icon — used for Android splash and high-DPI install
+       surfaces. Identical geometry to the master icon.svg; kept as a separate
+       file so manifest can reference an explicit 512x512 size. -->
+  <rect width="512" height="512" rx="96" fill="#0B0A08"/>
+  <g>
+    <path d="M256 96 L416 256 L256 416 L96 256 Z" fill="#F5B842" opacity="0.18"/>
+    <path d="M256 144 L368 256 L256 368 L144 256 Z" fill="none" stroke="#F5B842" stroke-width="6"/>
+    <path d="M256 208 L304 256 L256 304 L208 256 Z" fill="#F5B842"/>
+    <circle cx="368" cy="368" r="14" fill="#F5B842"/>
+  </g>
+</svg>

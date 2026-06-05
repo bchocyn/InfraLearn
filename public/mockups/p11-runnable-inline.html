@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>11 · Runnable inline — InfraLearn mockups</title><link rel="stylesheet" href="shared.css"/></head>
+<body><div class="app">
+<div class="topnav"><a href="index.html">← Mockups</a><span class="crumb">11 · Runnable inline ⭐</span></div>
+<div class="kicker">PATTERN · RUNNABLE INLINE CODE BLOCKS</div>
+<h1 class="title">Every code block gets a ▶ Run<span class="dot">.</span></h1>
+
+<div class="card">
+  <span class="desc-tag tag-effort">Effort: medium</span>
+  <span class="desc-tag tag-impact">Impact: every static code block</span>
+  <span class="desc-tag tag-evidence">Codecademy · ACM SIGCSE 2023</span>
+  <p>Every <code>code</code> block in a lesson gets a small "▶ Run" pill. Tap → expands to an inline mini-REPL using existing Pyodide/sandbox runtime. No leaving the lesson, no separate IDE setup. Apply the concept where you read it.</p>
+
+  <div class="card" style="background: var(--bg-elevated);">
+    <p style="font-size: 13px; margin: 0 0 8px;">A list comprehension with a filter:</p>
+    <div style="position: relative; background: var(--bg-base); border-radius: 6px; padding: 12px; font-family: var(--font-mono); font-size: 13px;">
+      <pre style="margin: 0; padding: 0; background: transparent; border: 0; white-space: pre;">nums = [1, 2, 3, 4, 5, 6]
+evens = [n for n in nums if n % 2 == 0]
+print(evens)</pre>
+      <button id="run-pill" style="position: absolute; top: 8px; right: 8px; background: var(--accent-amber); color: #000; border: 0; border-radius: 6px; padding: 4px 10px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer;">▶ RUN</button>
+    </div>
+    <div id="run-output" style="margin-top: 10px; padding: 10px; background: var(--bg-base); border-left: 3px solid var(--el-earth); border-radius: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); display: none;">
+      <div class="card-kicker" style="color: var(--el-earth);">▼ OUTPUT</div>
+      [2, 4, 6]
+    </div>
+  </div>
+
+  <div class="note"><strong>Why it wins:</strong> Removes the "set up Python" cliff between reading and doing. Reuses already-shipped PracticeBlock + Pyodide. Every static code block becomes a try-it moment. Codecademy's structural lift over standard MOOC completion (~5%).</div>
+</div>
+
+</div>
+<script>
+document.getElementById('run-pill').addEventListener('click', (e) => {
+  e.currentTarget.textContent = '⏳ RUNNING';
+  setTimeout(() => {
+    e.currentTarget.textContent = '▶ RUN';
+    document.getElementById('run-output').style.display = 'block';
+  }, 350);
+});
+</script>
+</body></html>

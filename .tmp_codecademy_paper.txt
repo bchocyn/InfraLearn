@@ -1,0 +1,480 @@
+Information Systems Education Journal (ISEDJ)                                 17 (3)
+ISSN: 1545-679X                                                         June 2019
+
+Using Codecademy Interactive Lessons
+     as an Instructional Supplement
+    in a Python Programming Course
+
+                       Jason H. Sharp
+                   jsharp@tarleton.edu
+Marketing and Computer Information Systems
+                Tarleton State University
+                Stephenville, TX 76402
+
+                                                   Abstract
+
+With the recent renewed interest in programming, online learning environments like Codecademy have
+become quite popular, boasting some 25 million members worldwide. The purpose of this paper is to
+describe the author's experience using Codecademy Interactive Lessons as an instructional supplement
+in an introductory Python programming course. The paper provides a brief background of the literature,
+a description of how the author implemented the interactive lessons, a discussion of the positives and
+negatives, the extent to which the interactive lessons met the course skill outcomes, and conclusions
+about the overall experience. In sum, the Codecademy Interactive Lessons fulfilled 3 of the 6 course
+skill outcomes and overall, the positives outweighed the negatives.
+
+Keywords: Codecademy, Python programming, Interactive lessons, Online learning environments
+
+                     1. INTRODUCTION                Interactive Lessons as an instructional
+                                                    supplement in an introductory Python
+"Teaching the world how to code" ~ Codecademy       programming course. The paper provides a brief
+                                                    background of the literature, a description of how
+Codecademy provides free, online, interactive       the author implemented the interactive lessons, a
+lessons for a variety of programming topics.        discussion of the positives and negatives, an
+Founded in 2011 by Zach Sims and Ryan Bubinski      evaluation of the extent in which the interactive
+(Codecademy, n.d.), Codecademy purports to          lessons meet the course skills outcomes, and
+have 25 million learners around the world.          conclusions about the overall experience. The
+According to their web site, Codecademy is "an      focus of the paper centers on the implementation,
+education company" and the goal is to make          evaluation, and fulfillment of course skill
+Codecademy "the best place for our team to          outcomes.
+learn, teach, and create the online learning
+experience of the future" (About, n.d., para. 1).                          2. BACKGROUND
+Because, "education is broken" (About, n.d.,
+para. 4), Codecademy considers itself a disruptive  While there is a growing stream of research
+force for "building the education the world needs   related to online learning environments in general
+­ the first truly net native education" (About,     (e.g., Herrington, Oliver & Reeves, 2003; Huang,
+n.d., para. 3). As the Codecademy web site          2002; Johnson & Aragon, 2002; Michinov,
+asserts, "come help us build the education the      Brunot, Le Bohec, Juhel, & Delaval, 2011; Oncu &
+world deserves" (About, n.d., para. 4).             Cacir, 2011) and smart learning content (e.g.
+                                                    Brusilovsky et al., 2014), studies specifically
+The purpose of this paper is to describe the        focused on the use of Codeacademy as an
+author's experience using Codecademy                instructional supplement are lacking. The
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)  Page 20
+https://isedj.org/; http://iscap.info
+Information Systems Education Journal (ISEDJ)                                 17 (3)
+ISSN: 1545-679X                                                         June 2019
+
+following are representative studies of the use of   alignment.
+Codecademy for teaching and learning.
+                                                     In an attempt to increase student engagement
+Kim and Ko (2017) included Codecademy in their       and performance in a Fundamentals of Software
+study of online coding tutorials. They argue that    Development course teaching Python
+the research investigating online learning           programming, Fotaris, Mastoras, Leinfellner, and
+environments for programming is both "sparse"        Rosunally (2016) gamified the course using the
+and "narrow" resulting in "little holistic guidance  Kahoot! Classroom Response System, which is a
+about how to choose effective tutorials . . ." (p.   game-based learning and trivia platform, the
+321). Based upon a set of curriculum design          classroom version of the TV game show "Who
+dimensions the authors identified four               Wants To Be A Millionaire?", and Codecademy's
+pedagogical principles to form the basis of the      Python programming course. To implement the
+study including: (1) connecting to learners' prior   gamification strategy the authors replaced the
+knowledge, (2) organizing declarative                traditional one-hour topical lectures with three
+knowledge, (3) practice and feedback, and (4)        20-minute micro-lectures each followed by a
+encouraging meta-cognitive learning. From these      Kahoot! session in which students responded to
+four guiding principles, the authors developed       questions. The typical review session comprised
+nine groupings by which to analyze the data          of question and answer time was replaced with
+collected. The nine groupings consisted of: (1)      the "Who Wants To Be A Millionaire?" game
+personalization, (2) utilization, (3) contents, (4)  consisting of Python-related questions. Finally,
+organization, (5) context, (6) actionability, (7)    Codecademy's Python programming course was
+feedback, (8) transfer learning, and (9) support.    used for students to practice coding. For each of
+Within these nine groupings, the authors derived     these components points were awarded and a
+24 pedagogical principles specifically related to    leaderboard was provided in Blackboard. To
+coding tutorials. In all but one of the principles,  gather data the authors observed student
+the authors marked them either yes or no. Across     behavior, conducted an online survey, gathered
+the 23 pedagogical principles Codecademy             self-reported data from students, and
+received 20 "yes" responses that it met the          synthesized classroom administrative data such
+criteria. The authors concluded that "most online    as attendance, tardiness, use of material,
+coding tutorials are still immature and do not yet   completion rates, and academic performance.
+achieve many key principles in learning sciences"    Results of the study indicated an overall positive
+(p. 325).                                            response from students to the gamified approach
+                                                     to the course, completion rates of assignments
+In a study exploring the design of online learning   increased slightly, and overall student academic
+environment for programming education Olsson         performance increased by about 8%.
+and Mozelius (2016) analyzed Codeacademy and
+MyProgrammingLab by asking the following             Lee and Ko (2015) included the Codecademy
+question, "what are the most important factors in    Python course in a larger study designed to
+the design of virtual learning environments for      examine whether novice programmers "produced
+self-learning of fundamental skills and              measurable learning outcomes" after using three
+knowledge"? (p. 534). They suggested that both       different online learning tools. In addition to the
+"seem like promising additional tools for self-      Codecademy Python course, the tools included
+learning in programming courses at the university    were Gidget and Gidget Puzzle Designer. Each of
+level" (p. 94). Using a case study research          these tools represented a different form of online
+method they collected data via interviews,           learning environment which Lee and Ko identified
+questionnaires, and group discussions. According     as tutorial, game, and canvas. Using a pretest-
+to the authors the student's overall experience      posttest research design the authors
+with Codecademy was positive. The immediate          hypothesized that there would be "no difference
+feedback, in particular, was cited by a students as  in learner's post-test performance among the
+a major benefit. Other features of Codecademy        conditions after completing their assigned
+that students liked included the structure of the    learning activity" (p. 238). Overall, the study
+lessons and the forum. In sum, the authors           indicated that none of the online learning
+identified the most important design factors as      environments resulted in statistically significant
+follows: (1) usability and user-friendliness, (2)    differences in student performance. However,
+clear and well-formulated feedback, (3)              there were statistically significant results in
+gamification, (4) unambiguous exercises, (5) GUI     student performance between Codecademy and
+design and multi-modality, and (6) curriculum        Gidget Puzzle Designer on the posttest, indicating
+                                                     that structured tutorials may improve student
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)  Page 21
+https://isedj.org/; http://iscap.info
+Information Systems Education Journal (ISEDJ)                                              17 (3)
+ISSN: 1545-679X                                                                      June 2019
+
+knowledge over non-structured environments.          majors (25 out of 30). The course consisted of 26
+                                                     men and 4 females.
+Figueroa and Amoloza (2015) incorporated three
+online interactive platforms into a multimedia       Rather than offer the interactive lessons as an
+course for non-computer science majors to study      optional supplement for which the students could
+the impact of these platforms on programming         complete or not complete, the author decided to
+anxiety and perceived learning. The platforms        require the interactive lessons as a part of the
+included Blockly, Code.org, and Codecademy. In       course requirements constituting 10% of the
+this particular study, Codecademy's JavaScript       overall course grade. This decision was made to
+programming course was used. Students were           motivate the students to complete the interactive
+administered the Programming Anxiety Survey,         lessons. A breakdown of the course requirements
+consisting of six questions, before taking the       and percent of course grade is provided in Table
+course and after taking the course. The analysis     1. A list of the knowledge and skill outcomes is
+of the survey data indicated a statistically         provided in Appendix A.
+significant difference between the average scores
+before and after taking the course. Furthermore,     Course Requirements             %
+data collected also indicated a positive result
+among students in terms of perceived learning.       Lab Assignments                 35%
+The authors conclude that the combination of the
+three online interactive platforms resulted in "a    Codecademy Interactive Lessons  10%
+significant decrease in learning anxiety and an
+increase in perceived learning among students        Quizzes                         10%
+who took the course" (p. 65).
+                                                     Exams (2)                       30%
+                   3. IMPLEMENTATION
+                                                     Final Exam                      15%
+Codecademy Teaching Resources
+As a part of its educational strategy Codecademy     Table 1. Breakdown of Course Requirements
+provides several teaching resources including
+teacher training, class resources, and classroom     Topics Covered
+tracking. Teacher training allows instructors to go  The textbook for the course was "Starting Out
+through the same interactive lessons as the          with Python Programming" (Gaddis, 2018).
+students free of charge. Class Resources include     Because the course was taught in an 8-week
+free lesson plans and quizzes. Classroom Tracking    summer session the author covered the first six
+allows the instructor to create student accounts     chapters: (1) Introduction to Computers and
+and to track individual performance by overview      Programming, (2) Input, Processing, and Output,
+and by unit. The tracking allows for the instructor  (3) Decision Structures and Boolean Logic, (4)
+to see the percentage of each individual course      Repetition Structures, (5) Functions, and (6) Files
+completed.                                           and Exceptions. While the Codecademy Python
+                                                     course consists of 21 individual courses covered
+Course Requirements and Outcomes                     in 36 lessons the author selected those courses
+While planning to teach Python programming for       which matched the content of the textbook
+the first time, the author decided to implement      chapters: (1) Python Syntax, (2) Tip Calculator,
+the interactive Python lessons provided by           (3) Strings & Console Output, (5) Conditionals &
+Codecademy. The idea of these free, online,          Control Flow, (7) Functions, and (14) Loops (See
+interactive lessons was appealing to the author as   Appendix B). Additional courses were available to
+an additional means to potentially engage            provide students an opportunity to apply the
+students beyond the traditional textbook             concepts from the main courses. For each
+materials. He was curious to see how the             textbook chapter the associated interactive
+student's would respond to the interactive nature    lessons were provided on the course schedule
+of the lessons and see if the students thought       (See Appendix C).
+they were a worthwhile activity in addition to the
+customary quizzes, exams, and assignments.           4. POSITIVES AND NEGATIVES
+
+The course itself was offered online in an 8-week    Positives
+summer session via Blackboard Learn 9. A total       The author identified several positive aspects of
+of thirty students were enrolled in the course. The  implementing the Python interactive lessons as
+majority of students were either Computer            an instructional supplement. First, and perhaps
+Information Systems or Information Technology        most obvious, the interactive lessons are free.
+                                                     With the rising cost of traditional textbooks and
+                                                     the additional expense of adding publisher's
+                                                     interactive content (e.g., MyProgrammingLab)
+                                                     they provide an easily accessible, no-cost
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)               Page 22
+https://isedj.org/; http://iscap.info
+Information Systems Education Journal (ISEDJ)                                 17 (3)
+ISSN: 1545-679X                                                         June 2019
+
+alternative which is quite attractive to both         instructional strategy students may simply rush
+instructors and students.                             through the interactive lessons to get them
+                                                      completed rather than taking their time to learn,
+Second, the interactive lessons are self-paced        understand, and apply the content.
+and students can repeat the individual courses as
+many times as they wish. If the student is having     From the author's perspective, there were
+difficulty with a particular topic they can spend as  actually very few negatives from the standpoint
+much time with it as needed. Additionally,            of creating and managing the Python course in
+students can access the content at their              Codecademy. It would have been nice if the
+convenience and do not need to install special        students were automatically notified that their
+software or have lab access. With Internet access     accounts were created and what their username
+and a browser the student is good to go.              and password was rather than the author having
+                                                      to send an individual message to each student in
+Third, because of the interactive nature of the       Blackboard. The fact that the author had to
+lessons student receive immediate feedback on         manually enter the percent completed values
+the code that they are writing. It is no surprise to  from the tracking system to the Blackboard
+instructors that today's students prefer hands-on     gradebook was also a bit time-consuming.
+activity over reading a textbook or passively
+listening to a lecture. The author found that the          5. EVALUATION OF SKILL OUTCOMES
+feedback provided by the interactive lessons was
+user-friendly and provided enough guidance to         In addition to identifying the positives and
+scaffold the learning experience and help to solve    negatives, the author evaluated the use of
+logical or syntactical errors.                        Codecademy as an instructional supplement in
+                                                      terms of meeting the course skill outcomes (see
+Finally, from the author's perspective, setting up    Appendix A).
+and managing a Codecademy course via the
+Classroom Tracking interface was quite simple         SO1: Students will create Python programs
+and intuitive. Basically, the instructor chooses the  using the Python interpreter and the IDLE
+course they want to use and then can customize        IDE
+its name and description to match the course          Because the Python lessons are embedded within
+syllabus. The instructor then adds the students to    the Codecademy online, interactive environment
+the course and a username and password is             a specific interpreter and/or IDE is not used. This
+automatically created for each student. Students      skill outcome was met outside of Codecademy
+can be added, edited, and deleted at any time. An     using the Python interpreter and IDLE IDE
+easy-to-follow "Pupil Tracker Guide" is provided      provided on the Python website.
+by Codeacademy. The students can then login
+and change these items if they choose. As             SO2: Students will apply the steps in the
+students complete individual courses the tracking     program development process
+interface displays an overview of each student's      The program development process followed was
+progress as well as individual performance by         that provided by Gaddis (2017): (1) Design the
+lesson. The author then entered the completion        program, (2) Write the code, (3) Correct syntax
+percentage into the gradebook in Blackboard. The      errors, (4) Test the program, and (5) Correct logic
+performance matrix can also be downloaded as a        errors. This skill outcome is partially met using
+comma-separate values (.csv) file and opened          the interactive lessons. The structure of the
+and edited in Excel.                                  majority of the interactive lessons is to provide
+                                                      students with a prompt to write a single line of
+Negatives                                             code and provide immediate feedback or to
+The implementation of the Python interactive          provide students with partial code for which they
+lessons was not without its negatives. As with any    complete. Students are not required to design
+interactive coding environment there is limited       and write a program from start to finish. Some
+opportunity for creativity by the students since      may find this as a shortcoming of the interactive
+the "solutions" are predefined. The downside of       lessons as they provide only partial snippets of
+this approach is that students only see potentially   code to be completed, rather than working
+one way of solving a problem ­ they are not           through the full program development process.
+allowed to think "outside of the box". Another
+possible downside is that they simply employ a        SO3: Students will implement variables,
+trial-and-error approach to problem solving until     literals, and constants
+they receive the correct answer rather than           The interactive lessons provide students the
+enlisting critical thinking skills. As with any       opportunity to implement variables, literals, and
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)  Page 23
+https://isedj.org/; http://iscap.info
+Information Systems Education Journal (ISEDJ)                                                    17 (3)
+ISSN: 1545-679X                                                                            June 2019
+
+constants. Students are required to declare         Outcome Met Partially Met              Not Met
+variables, literals, and constants and assign                                                   X
+appropriate values to them. These exercises are     SO1
+provided in Lesson 2 - Python Syntax, Exercises
+10-13; Lesson 3 - Tip Calculator, Exercises 1-5;    SO2                 X
+and Lesson 4-5 - Strings & Console Output,
+Exercises 1-13.                                     SO3     X
+
+                                                    SO4     X
+
+                                                    SO5     X
+
+                                                    SO6                 X
+
+SO4: Students will select appropriate               Table 2. Evaluation of Skill Outcomes
+arithmetic, logical, and relational operators
+The interactive lessons provide students the                6. CONCLUSION
+opportunity to select appropriate arithmetic,
+logical, and relational operators. These exercises  Overall, the author's experience with the
+are provide in Lesson 2 - Python Syntax,            Codecademy interactive lessons for Python was
+Exercises 10-13; Lesson 3 - Tip Calculator,         positive in terms of an instructional supplement
+Exercises 1-5; Lesson 7 - Conditionals & Control    to the textbook materials. The interactive lessons
+Flow, Exercises 1-10.                               provided adequate depth and breadth of the
+                                                    Python syntax and allowed students additional
+SO5: Students will implement sequence,              coding practice with immediate feedback in an
+selection, and repetition control structures        environment conducive to their own schedule and
+The interactive lessons provide students the        learning speed. Additionally, the interactive
+opportunity to implement sequence, selection,       lessons met or partially met five of the six course
+and repetition structures. These exercises are      skill outcomes. Another upside being that the
+provided in Lesson 2 - Python Syntax, Exercises     students were afforded this opportunity with no
+10-13; and Lesson 9 ­ Conditionals & Control        additional cost to the course. For those perhaps
+Flow, Exercises 11-15; Lesson 24-25 ­ Loops,        interested in implementing one of the interactive
+Exercises 1-19.                                     lessons the management is simple and intuitive
+                                                    and is not a significant addition of time
+SO6: Students will analyze, design,                 commitment to the instructor. While anecdotal
+                                                    comments might be made from the student's
+implement, test, and debug domain-specific          perspective at this point, a potential opportunity
+                                                    for future research is to survey students on their
+applications which demonstrate basic                attitudes toward the benefits and challenges of
+                                                    the interactive lessons and to correlate
+computation,   input/output,  control               completion percentages with overall course
+                                                    grade.
+structures, operators, exception handling,
+
+and functions
+
+The interactive lessons partially provide students
+
+the opportunity to analyze, design, implement,
+
+test, and debug domain-specific applications                7. REFERENCES
+
+demonstrating basic computation, input/output,
+
+control structures, operators, and functions.       About.  (n.d.)      Retrieved          from
+
+Coverage of functions is provided in Lesson 11-     https://www.codecademy.com/about
+
+12 ­ Functions, Exercises 1-19. As noted in SO2,
+
+the design of the interactive lessons lack the      Brusilovsky, P., Edwards, S., Kumar, A., Malmi,
+                                                          L., Benotti, L., Buck, D., . . . Wollowski, M.
+ability for the students to create full programs          (2014). Increasing adoption of smart learning
+                                                          content for Computer Science education.
+from scratch, instead providing partial code              Proceedings of the Nineteenth Annual
+                                                          Conference on Innovation and Technology in
+snippets for completion.                                  Computer Science Education, 1-27.
+
+In sum, the Codecademy interactive lessons met      Codecademy. (n.d.). In Wikipedia. Retrieved from
+three skill outcomes (SO3, SO4, and SO5),                 https://en.wikipedia.org/wiki/Codecademy
+partially met two skill outcomes (S02, S06) and
+did not meet one skill outcome (S01). See Table
+2 for a summary of the evaluation of the skill
+outcomes as either met, partially met, or not met.
+
+                                                    Figueroa, R. B., & Amoloza, E. M. (2015).
+                                                          Addressing programming anxiety among
+                                                          non-computer science distance learners: A
+                                                          UPOU case study. International Journal for
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)                     Page 24
+https://isedj.org/; http://iscap.info
+Information Systems Education Journal (ISEDJ)                                 17 (3)
+ISSN: 1545-679X                                                         June 2019
+
+      Educational Media and Technology, 9(1), 56-    Kim, A. S., & Ko, A. J. (2017). A pedagogical
+      67.                                                  analysis of online coding tutorials.
+                                                           Proceedings of SIGCSE, 321-326.
+Fotaris, P., Mastoras, T., Leinfellner, R., &
+      Rosunally, Y. (2016). Climbing up the          Lee, M. J., & Ko, A. J. (2015). Comparing the
+      leaderboard: An empirical study of applying          effectiveness of online learning approaches
+      gamification techniques to a computer                on CS1 learning outcomes. Proceedings of the
+      programming class. The Electronic Journal of         Eleventh International Computing Education
+      e-Learning, 14(2), 94-110.                           Research Conference, 237-246.
+
+Gaddis, T. (2017). Starting Out with Python.         Michinov, N., Brunot, S., Le Bohec, O., Juhel, J.,
+      Pearson, Boston.                                     & Delaval, M. (2011). Procrastination,
+                                                           participation, and performance in online
+Herrington, J., Oliver, R., & Reeves, T. C. (2003).        learning environments. Computers &
+      Patterns of engagement in authentic online           Education, 56(1), 243-252.
+      learning environments. Australian Journal of
+      Educational Technology, 19(1), 59-71.          Oncu, S., & Cakir, H. (2011). Research in online
+                                                           learning environments: Priorities and
+Huang, H. M. (2002). Toward constructivism for             methodologies. Computers & Education,
+      adult learners in online learning                    57(1), 1098-1108.
+      environments. British Journal of Educational
+      Technology, 33(1), 27-37.                      Olsson, M., & Mozelius, P. (2016). On design of
+                                                           online learning environments for
+Johnson, S. D., & Aragon, S. R. (2002). An                 programming education. Proceedings of the
+      instructional strategy framework for online          European Conference on e-Learning, 533-
+      learning environments. Proceedings of the            539.
+      Academy for Human Resource Development,
+      1022-1029.
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)  Page 25
+https://isedj.org/; http://iscap.info
+Information Systems Education Journal (ISEDJ)                                 17 (3)
+ISSN: 1545-679X                                                         June 2019
+
+                                         Appendix A - Knowledge and Skill Outcomes
+
+Knowledge Outcomes:
+       Students will become familiar with the Python interpreter and the IDLE Integrated
+            Development Environment (IDE)
+       Students will describe the steps in the program development process
+       Students will explain the characteristics of variables, literals, and constants and their
+            appropriate usage
+       Students will distinguish between arithmetic, logical, and relational operators and their
+            appropriate usage
+       Students will identify and describe sequence, selection, and repetition control structures
+       Students will describe exception handling
+       Students will understand the benefits of modularization and the use of functions
+
+Skill Outcomes:
+       Students will create Python programs using the Python interpreter and the IDLE IDE
+       Students will apply the steps in the program development process
+       Students will implement variables, literals, and constants
+       Students will select appropriate arithmetic, logical, and relational operators
+       Students will implement sequence, selection, and repetition control structures
+       Students will analyze, design, implement, test, and debug domain-specific applications which
+            demonstrate basic computation, input/output, control structures, operators, exception
+            handling, and functions
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)  Page 26
+https://isedj.org/; http://iscap.info
+Information Systems Education Journal (ISEDJ)                                          17 (3)
+ISSN: 1545-679X                                                                  June 2019
+
+                       Appendix B - Overview of Codecademy Python Lessons Used*
+
+Lesson Course                    Exercises     Objectives
+                                 1-9            Become familiar with Codecademy platform
+1   1. Python Syntax                            Understand why Python is used and recognize basic terminology including
+
+2   1. Python Syntax             10-13               `variables' and `Boolean'
+                                                Understand and create whitespace and multi-line comments
+3   2. Tip Calculator            1-5            Perform mathematical operations using python syntax
+                                                Create numbers using `modulo'
+4   3. Strings & Console Output  1-9            Practice creating comments, variable and arithmetic operations
+                                                Plenary activity synthesizing lessons 1&2: Python syntax
+5   3. Strings & Console Output  10-13          Create a `tip calculator' using python syntax, variables and arithmetic
+
+7   5. Conditionals & Control Flow 1-4               operations
+                                                Explain what a string is and how to create one
+8   5. Conditionals & Control Flow 5-10         Create variables using indexing
+                                                Implement lower(), upper() and str() string methods
+9   5. Conditionals & Control Flow 11-15        Compare when dot notation should be used
+                                                Demonstrate how to print strings and variables including how to concatenate
+11  7. Functions                 1-11           Explain how to convert a non-string into a string and why you would need to
+                                                Demonstrate how to use the % operator
+12  7. Functions                 12-19          Understand what control flow is
+                                 1-8            Recognize and practice using 6 comparators (==, !=, <=, >=, <, >)
+24  14. Loops                                   Explain what a comparator is
+                                                Recognize 3 types of Boolean operations (AND, OR, NOT)
+25  14. Loops                    9-19           Demonstrate how to use Boolean operations to return `True' or `False' values
+                                                Recognize IF, ELSE and ELIF statements
+                                                Create simple controlled flows using IF, ELIF and ELSE statements
+                                                Practice creating control flow with conditionals and Boolean operations
+                                                Demonstrate and understand how to define a function with and without
+
+                                                     parameters
+                                                Demonstrate and understand how to call functions
+                                                Demonstrate importing functions both specific and universal
+                                                Practice creating functions
+                                                Demonstrate and understand what the max, min, abs and type functions do
+                                                Practice making functions
+                                                Understand how a While/ Else loop functions
+                                                Understand how to prevent an infinite loop
+                                                Create while loops integrated with lists, inputs and mathematical operators
+                                                Plenary: Practice making loops using the correct syntax
+                                                Understand how a For/ Else loop works
+                                                Create a For/ Else loop
+
+*Adapted from Codecademy Python Unit Overview
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)           Page 27
+https://isedj.org/; http://iscap.info
+Information Systems Education Journal (ISEDJ)                                                          17 (3)
+ISSN: 1545-679X                                                                                  June 2019
+
+                                               Appendix C ­ Course Schedule
+
+Date            Tentative Schedule                         Assignment Due*   Quizzes** Codecademy Lessons***
+Week 1          Course Introduction
+June 12-18      Chapter 1 - Introduction to Computers and  Lab 01*           Ch 00**  Python Syntax & Tip Calculator
+                Programming                                Lab 02*           Ch 02**  Strings & Console Output
+Week 2          Chapter 2 - Input, Processing, and Output  Lab 03*           Ch 03**  Conditionals & Control Flow
+June 19-25                                                 Exam 1****
+Week 3          Chapter 3 - Decision Structures and        Lab 04*           Ch 04**  Loops
+June 26-July 2  Boolean Logic                              Lab 05*           Ch 05**  Functions
+Week 4          Exam 1 (Chapter 1-3)                       Exam 2****
+July 3-9                                                   Lab 06*           Ch 06**
+Week 5          Chapter 4 - Repetition Structures          Final Exam****
+July 10-16
+Week 6          Chapter 5 - Functions
+July 17-23
+Week 7          Exam 2 (Chapter 4-5)
+July 24-30
+Week 8          Chapter 6 - Files and Exceptions
+July 31-Aug 6
+Week 9          Final Exam
+Aug 7-13
+
+©2019 ISCAP (Information Systems and Computing Academic Professionals)                                        Page 28
+https://isedj.org/; http://iscap.info
+

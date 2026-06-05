@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844">
+  <!-- Lesson-screen preview for the install dialog. Same brand palette,
+       different layout signal so the screenshot carousel doesn't look
+       redundant — emphasizes "real lessons with code." -->
+  <rect width="390" height="844" fill="#0B0A08"/>
+
+  <!-- Header -->
+  <text x="20" y="50" fill="#9A938A" font-family="ui-monospace, monospace" font-size="11" letter-spacing="1.2">DEVOPS · LESSON 7 / 24</text>
+  <text x="20" y="86" fill="#F5F0E8" font-family="Georgia, serif" font-size="26" font-weight="700">Building hardened CI pipelines</text>
+  <text x="20" y="108" fill="#9A938A" font-family="ui-sans-serif, sans-serif" font-size="13">12 min · intermediate</text>
+
+  <!-- Progress dots (page 2 of 5) -->
+  <circle cx="28"  cy="138" r="4" fill="#F5B842"/>
+  <circle cx="48"  cy="138" r="4" fill="#F5B842"/>
+  <circle cx="68"  cy="138" r="4" fill="#3a3530"/>
+  <circle cx="88"  cy="138" r="4" fill="#3a3530"/>
+  <circle cx="108" cy="138" r="4" fill="#3a3530"/>
+
+  <!-- Body card -->
+  <rect x="16" y="160" width="358" height="200" rx="12" fill="#16130f" stroke="#3a3530"/>
+  <text x="32" y="190" fill="#F5F0E8" font-family="Georgia, serif" font-size="18" font-weight="600">Why pin dependencies?</text>
+  <text x="32" y="218" fill="#cfc7bc" font-family="ui-sans-serif, sans-serif" font-size="13">A floating `latest` tag means today's green build</text>
+  <text x="32" y="236" fill="#cfc7bc" font-family="ui-sans-serif, sans-serif" font-size="13">can be tomorrow's red build — even with no code</text>
+  <text x="32" y="254" fill="#cfc7bc" font-family="ui-sans-serif, sans-serif" font-size="13">change. Pin to a content hash and you lock the</text>
+  <text x="32" y="272" fill="#cfc7bc" font-family="ui-sans-serif, sans-serif" font-size="13">exact bytes that go through CI.</text>
+  <text x="32" y="312" fill="#F5B842" font-family="ui-monospace, monospace" font-size="11" letter-spacing="1.2">KEY IDEA</text>
+  <text x="32" y="334" fill="#F5F0E8" font-family="Georgia, serif" font-size="14" font-style="italic">Reproducibility &gt; freshness.</text>
+
+  <!-- Code block -->
+  <rect x="16" y="380" width="358" height="180" rx="12" fill="#08070a" stroke="#3a3530"/>
+  <text x="32" y="406" fill="#9A938A" font-family="ui-monospace, monospace" font-size="10" letter-spacing="1.2">DOCKERFILE</text>
+  <text x="32" y="436" fill="#cfc7bc" font-family="ui-monospace, monospace" font-size="12">FROM python:3.12@sha256:a1b2…  </text>
+  <text x="32" y="436" fill="#7AB8E0" font-family="ui-monospace, monospace" font-size="12"></text>
+  <text x="32" y="458" fill="#9A938A" font-family="ui-monospace, monospace" font-size="11"># pin the exact layer — never `latest`</text>
+  <text x="32" y="486" fill="#cfc7bc" font-family="ui-monospace, monospace" font-size="12">COPY requirements.lock .</text>
+  <text x="32" y="508" fill="#cfc7bc" font-family="ui-monospace, monospace" font-size="12">RUN pip install -r requirements.lock</text>
+  <text x="32" y="530" fill="#9A938A" font-family="ui-monospace, monospace" font-size="11"># lock = hashes, not just versions</text>
+
+  <!-- Diagram bail-out card (lock icon) -->
+  <rect x="16" y="580" width="358" height="100" rx="12" fill="#16130f" stroke="#F5B842" stroke-opacity="0.3"/>
+  <text x="32" y="606" fill="#F5B842" font-family="ui-monospace, monospace" font-size="11" letter-spacing="1.2">HARDENED BUILD PIPELINE</text>
+  <text x="32" y="638" fill="#F5F0E8" font-family="Georgia, serif" font-size="15" font-weight="600">src → lockfile → image hash → registry</text>
+  <text x="32" y="660" fill="#9A938A" font-family="ui-sans-serif, sans-serif" font-size="12">Each arrow validates the next.</text>
+
+  <!-- Footer nav -->
+  <rect x="16" y="700" width="170" height="48" rx="10" fill="none" stroke="#3a3530"/>
+  <text x="101" y="730" fill="#9A938A" font-family="ui-sans-serif, sans-serif" font-size="13" text-anchor="middle">← Back</text>
+  <rect x="204" y="700" width="170" height="48" rx="10" fill="#F5B842"/>
+  <text x="289" y="730" fill="#0B0A08" font-family="ui-sans-serif, sans-serif" font-size="13" font-weight="700" text-anchor="middle">Next →</text>
+</svg>

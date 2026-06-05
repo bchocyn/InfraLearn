@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>08 · Daily Challenge — InfraLearn mockups</title><link rel="stylesheet" href="shared.css"/></head>
+<body><div class="app">
+<div class="topnav"><a href="index.html">← Mockups</a><span class="crumb">08 · Daily Challenge ⭐</span></div>
+<div class="kicker">PATTERN · DAILY CHALLENGE SLOT (TOP PICK)</div>
+<h1 class="title">One question, every day<span class="dot">.</span></h1>
+
+<div class="card">
+  <span class="desc-tag tag-effort">Effort: small</span>
+  <span class="desc-tag tag-impact">Impact: Home + retention</span>
+  <span class="desc-tag tag-evidence">Brilliant.org · ustwo case study</span>
+  <p>Pinned card on Home above the lesson CTA. ONE question pulled from concepts the user already learned (reuses spaced-rep store). 60-90 seconds. Contributes to streak. Returns daily.</p>
+
+  <div class="card" style="background: linear-gradient(180deg, var(--accent-amber-bg), transparent); border-color: var(--accent-amber);">
+    <div class="card-kicker" style="color: var(--accent-amber);">🎯 TODAY'S CHALLENGE · ~60s</div>
+    <h2 style="font-size: 16px; margin-top: 4px;">Why does <code>list.pop(0)</code> degrade past 1M elements?</h2>
+    <div class="predict-opts" id="daily-opts" style="margin-top: 10px;">
+      <button class="predict-opt" data-correct="false">Hash collisions pile up</button>
+      <button class="predict-opt" data-correct="true">Every element shifts left — O(n)</button>
+      <button class="predict-opt" data-correct="false">Python GIL serializes the operation</button>
+    </div>
+    <div class="predict-feedback" id="daily-feedback">
+      <span class="xp-chip">+8 XP</span>
+      <span class="xp-chip" style="background: var(--el-water); color: #000;">🔥 streak day</span>
+      <strong>Lists are contiguous memory.</strong> Popping index 0 forces every other element to shift down. Use <code>collections.deque</code> for O(1) popleft. <em>Locked in for tomorrow's check.</em>
+    </div>
+  </div>
+
+  <div class="note"><strong>Why it wins:</strong> 60-90s commitment that anchors daily return. Reuses existing free-recall + spaced-rep — zero new content authoring. Brilliant's #1 retention driver per ustwo case study. Identified as the top single-feature pick across all 3 research agents.</div>
+</div>
+
+</div>
+<script>
+document.querySelectorAll('#daily-opts .predict-opt').forEach(o => {
+  o.addEventListener('click', () => {
+    const correct = o.dataset.correct === 'true';
+    o.classList.add(correct ? 'is-correct' : 'is-wrong');
+    if (!correct) document.querySelector('#daily-opts .predict-opt[data-correct="true"]').classList.add('is-correct');
+    document.querySelectorAll('#daily-opts .predict-opt').forEach(x => x.setAttribute('disabled', ''));
+    document.getElementById('daily-feedback').classList.add('is-visible');
+  });
+});
+</script>
+</body></html>

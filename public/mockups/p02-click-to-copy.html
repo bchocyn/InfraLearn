@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>02 · Click-to-copy chips — InfraLearn mockups</title><link rel="stylesheet" href="shared.css"/></head>
+<body><div class="app">
+<div class="topnav"><a href="index.html">← Mockups</a><span class="crumb">02 · Click-to-copy chips</span></div>
+<div class="kicker">PATTERN · CLICK-TO-COPY CHIPS</div>
+<h1 class="title">Tap any chip<span class="dot">.</span></h1>
+
+<div class="card">
+  <span class="desc-tag tag-effort">Effort: small</span>
+  <span class="desc-tag tag-impact">Impact: every lesson</span>
+  <span class="desc-tag tag-evidence">Stripe Docs · Tailwind Docs</span>
+  <p>Every inline <code>&lt;code&gt;</code> chip becomes tappable. Tap → copies to clipboard → ✓ toast. Zero friction reward for engaging with examples.</p>
+  <p style="font-size: 13.5px;">Try tapping any chip below:<br>
+    Use <code class="clip">.join()</code> instead of <code class="clip">+=</code> in a loop. Convert with <code class="clip">int("5")</code> or <code class="clip">"5" + str(3)</code>. The pattern <code class="clip">f"{x=}"</code> prints both name and value.
+  </p>
+  <div class="note"><strong>Dopamine:</strong> ~80ms haptic-feeling toast. Pure-learning anchored — copying example code is THE primary mode of engagement in a coding lesson.</div>
+</div>
+
+<div class="card">
+  <div class="card-kicker">Implementation</div>
+  <p>~30-line change: a global event listener in <code>Lesson.jsx</code> that delegates clicks on any descendant <code>&lt;code&gt;</code>, calls <code>navigator.clipboard.writeText()</code>, and mounts a global <code>&lt;CopyToast&gt;</code>. CSS-only hover affordance.</p>
+</div>
+
+</div>
+<div class="copy-toast" id="copy-toast">✓ Copied</div>
+<script>
+document.querySelectorAll('code.clip').forEach(c => {
+  c.addEventListener('click', () => {
+    const txt = c.textContent;
+    navigator.clipboard?.writeText(txt).catch(() => {});
+    c.classList.add('is-copied');
+    const toast = document.getElementById('copy-toast');
+    toast.textContent = `✓ Copied: ${txt}`;
+    toast.classList.add('is-visible');
+    setTimeout(() => { c.classList.remove('is-copied'); toast.classList.remove('is-visible'); }, 1200);
+  });
+});
+</script>
+</body></html>

@@ -1,0 +1,112 @@
+{
+  "dragon": {
+    "name": "Dragon",
+    "element": "fire",
+    "archetype": "the slow burn",
+    "tiers": {
+      "1": "dragon_1.png",
+      "2": "dragon_2.png",
+      "3": "dragon_3.png",
+      "4": "dragon_4.png"
+    }
+  },
+  "phoenix": {
+    "name": "Phoenix",
+    "element": "fire",
+    "archetype": "restarts strong",
+    "tiers": {
+      "1": "phoenix_1.png",
+      "2": "phoenix_2.png",
+      "3": "phoenix_3.png",
+      "4": "phoenix_4.png"
+    }
+  },
+  "griffin": {
+    "name": "Griffin",
+    "element": "sky",
+    "archetype": "pattern-spotter",
+    "tiers": {
+      "1": "griffin_1.png",
+      "2": "griffin_2.png",
+      "3": "griffin_3.png",
+      "4": "griffin_4.png"
+    }
+  },
+  "unicorn": {
+    "name": "Unicorn",
+    "element": "mystic",
+    "archetype": "topic-hopper",
+    "tiers": {
+      "1": "unicorn_1.png",
+      "2": "unicorn_2.png",
+      "3": "unicorn_3.png",
+      "4": "unicorn_4.png"
+    }
+  },
+  "kraken": {
+    "name": "Kraken",
+    "element": "water",
+    "archetype": "deep diver",
+    "tiers": {
+      "1": "kraken_1.png",
+      "2": "kraken_2.png",
+      "3": "kraken_3.png",
+      "4": "kraken_4.png"
+    }
+  },
+  "hydra": {
+    "name": "Hydra",
+    "element": "water",
+    "archetype": "multitasker",
+    "tiers": {
+      "1": "hydra_1.png",
+      "2": "hydra_2.png",
+      "3": "hydra_3.png",
+      "4": "hydra_4.png"
+    }
+  },
+  "cerberus": {
+    "name": "Cerberus",
+    "element": "earth",
+    "archetype": "guardian",
+    "tiers": {
+      "1": "cerberus_1.png",
+      "2": "cerberus_2.png",
+      "3": "cerberus_3.png",
+      "4": "cerberus_4.png"
+    }
+  },
+  "pegasus": {
+    "name": "Pegasus",
+    "element": "sky",
+    "archetype": "momentum-driven",
+    "tiers": {
+      "1": "pegasus_1.png",
+      "2": "pegasus_2.png",
+      "3": "pegasus_3.png",
+      "4": "pegasus_4.png"
+    }
+  },
+  "sphinx": {
+    "name": "Sphinx",
+    "element": "mystic",
+    "archetype": "riddle-solver",
+    "tiers": {
+      "1": "sphinx_1.png",
+      "2": "sphinx_2.png",
+      "3": "sphinx_3.png",
+      "4": "sphinx_4.png"
+    }
+  },
+  "wyvern": {
+    "name": "Wyvern",
+    "element": "earth",
+    "archetype": "lab builder",
+    "tiers": {
+      "1": "wyvern_1.png",
+      "2": "wyvern_2.png",
+      "3": "wyvern_3.png",
+      "4": "wyvern_4.png"
+    }
+  }
+}
