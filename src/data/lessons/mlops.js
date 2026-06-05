@@ -671,7 +671,7 @@ export default {
               {
                 "id": "u",
                 "label": "Users",
-                "subtitle": "incoming requests",
+                "subtitle": "requests",
                 "x": 0.08,
                 "y": 0.5,
                 "accent": "water"
@@ -679,7 +679,7 @@ export default {
               {
                 "id": "s",
                 "label": "Splitter",
-                "subtitle": "hash(user_id) % 100",
+                "subtitle": "hash % 100",
                 "x": 0.32,
                 "y": 0.5,
                 "accent": "sky"
@@ -703,7 +703,7 @@ export default {
               {
                 "id": "m",
                 "label": "Metrics store",
-                "subtitle": "events + assignments",
+                "subtitle": "events",
                 "x": 0.9,
                 "y": 0.5,
                 "accent": "earth"
@@ -1312,7 +1312,7 @@ export default {
               {
                 "id": "docs",
                 "label": "Docs",
-                "subtitle": "PDFs · wiki · tickets",
+                "subtitle": "PDFs+wiki",
                 "accent": "amber",
                 "x": 0.1,
                 "y": 0.22
@@ -1336,7 +1336,7 @@ export default {
               {
                 "id": "store",
                 "label": "Vector DB",
-                "subtitle": "qdrant · pgvector",
+                "subtitle": "qdrant",
                 "accent": "fire",
                 "x": 0.9,
                 "y": 0.22
@@ -2028,14 +2028,14 @@ export default {
                 "from": "api",
                 "to": "reg",
                 "kind": "dashed",
-                "label": "load Production",
+                "label": "load",
                 "accent": "earth"
               },
               {
                 "from": "train",
                 "to": "reg",
                 "kind": "dashed",
-                "label": "register run",
+                "label": "register",
                 "accent": "amber"
               },
               {
@@ -2370,7 +2370,7 @@ export default {
               {
                 "id": "m",
                 "label": "model",
-                "subtitle": "in-process memory",
+                "subtitle": "in-process",
                 "x": 0.78,
                 "y": 0.5,
                 "accent": "earth"
@@ -2505,7 +2505,7 @@ export default {
               {
                 "id": "m2",
                 "label": "M2 Stats",
-                "subtitle": "summarize batch",
+                "subtitle": "summarize",
                 "x": 0.37,
                 "y": 0.5,
                 "accent": "sky"
@@ -2521,7 +2521,7 @@ export default {
               {
                 "id": "m4",
                 "label": "M4 Alert",
-                "subtitle": "threshold + sink",
+                "subtitle": "threshold",
                 "x": 0.9,
                 "y": 0.5,
                 "accent": "fire"
@@ -2758,7 +2758,7 @@ export default {
               {
                 "id": "lin",
                 "label": "Wx + b",
-                "subtitle": "linreg stops here",
+                "subtitle": "linreg",
                 "x": 0.45,
                 "y": 0.5,
                 "accent": "sky"
@@ -5120,11 +5120,11 @@ export default {
             "type": "diagram",
             "title": "CI/CD for an ML pipeline — gates between stages",
             "nodes": [
-              { "id": "data",  "label": "Data + DVC",       "subtitle": "versioned snapshot",  "x": 0.08, "y": 0.5,  "accent": "earth" },
-              { "id": "train", "label": "Train job",        "subtitle": "fit on snapshot",     "x": 0.3,  "y": 0.5,  "accent": "sky" },
-              { "id": "eval",  "label": "Eval gate",        "subtitle": "auc > 0.82 + fairness","x": 0.5, "y": 0.5,  "accent": "fire" },
-              { "id": "reg",   "label": "Registry",         "subtitle": "MLflow / Vertex",      "x": 0.7,  "y": 0.5,  "accent": "amber" },
-              { "id": "serve", "label": "Serving",          "subtitle": "shadow → canary → prod","x": 0.92,"y": 0.5,  "accent": "fire" }
+              { "id": "data",  "label": "Data + DVC",       "subtitle": "versioned",   "x": 0.08, "y": 0.5,  "accent": "earth" },
+              { "id": "train", "label": "Train job",        "subtitle": "fit",         "x": 0.3,  "y": 0.5,  "accent": "sky" },
+              { "id": "eval",  "label": "Eval gate",        "subtitle": "auc > 0.82",  "x": 0.5,  "y": 0.5,  "accent": "fire" },
+              { "id": "reg",   "label": "Registry",         "subtitle": "MLflow",      "x": 0.7,  "y": 0.5,  "accent": "amber" },
+              { "id": "serve", "label": "Serving",          "subtitle": "canary",      "x": 0.92, "y": 0.5,  "accent": "fire" }
             ],
             "edges": [
               { "from": "data",  "to": "train", "kind": "dashed", "label": "X, y",     "accent": "earth" },

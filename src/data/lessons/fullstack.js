@@ -108,10 +108,10 @@ export default {
             "title": "The CSS box model",
             "height": 260,
             "nodes": [
-              { "id": "margin",  "label": "margin",  "subtitle": "outside space",  "accent": "amber", "x": 0.15, "y": 0.5 },
-              { "id": "border",  "label": "border",  "subtitle": "the visible edge", "accent": "fire",  "x": 0.38, "y": 0.5 },
-              { "id": "padding", "label": "padding", "subtitle": "inside space",   "accent": "earth", "x": 0.62, "y": 0.5 },
-              { "id": "content", "label": "content", "subtitle": "text & children", "accent": "sky",   "x": 0.86, "y": 0.5 }
+              { "id": "margin",  "label": "margin",  "subtitle": "outside",      "accent": "amber", "x": 0.15, "y": 0.5 },
+              { "id": "border",  "label": "border",  "subtitle": "edge",         "accent": "fire",  "x": 0.38, "y": 0.5 },
+              { "id": "padding", "label": "padding", "subtitle": "inside",       "accent": "earth", "x": 0.62, "y": 0.5 },
+              { "id": "content", "label": "content", "subtitle": "text",         "accent": "sky",   "x": 0.86, "y": 0.5 }
             ],
             "edges": [
               { "from": "margin",  "to": "border",  "kind": "solid", "label": "wraps" },
@@ -210,10 +210,10 @@ export default {
             "title": "What happens during await",
             "height": 240,
             "nodes": [
-              { "id": "call",   "label": "fetch()",    "subtitle": "kicks off request",  "accent": "amber", "x": 0.10, "y": 0.5 },
-              { "id": "net",    "label": "Network",    "subtitle": "round-trip in flight", "accent": "water", "x": 0.36, "y": 0.5 },
-              { "id": "queue",  "label": "Microtask",  "subtitle": "resolved promise enqueued", "accent": "fire", "x": 0.64, "y": 0.5 },
-              { "id": "resume", "label": "Resume",     "subtitle": "function continues",  "accent": "sky",   "x": 0.90, "y": 0.5 }
+              { "id": "call",   "label": "fetch()",    "subtitle": "kicks off",   "accent": "amber", "x": 0.10, "y": 0.5 },
+              { "id": "net",    "label": "Network",    "subtitle": "in flight",   "accent": "water", "x": 0.36, "y": 0.5 },
+              { "id": "queue",  "label": "Microtask",  "subtitle": "resolved",    "accent": "fire",  "x": 0.64, "y": 0.5 },
+              { "id": "resume", "label": "Resume",     "subtitle": "continues",   "accent": "sky",   "x": 0.90, "y": 0.5 }
             ],
             "edges": [
               { "from": "call",  "to": "net",    "kind": "solid",  "label": "send" },
@@ -571,10 +571,10 @@ export default {
             "subtitle": "CLIENT · MIDDLEWARE · ROUTE · RESPONSE",
             "height": 240,
             "nodes": [
-              { "id": "client",  "label": "Client",       "subtitle": "browser · curl",     "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "node",    "label": "Node server",  "subtitle": "event loop",         "accent": "fire",  "x": 0.34, "y": 0.5 },
-              { "id": "mw",      "label": "Middleware",   "subtitle": "auth · parse · log", "accent": "amber", "x": 0.60, "y": 0.5 },
-              { "id": "route",   "label": "Route handler","subtitle": "your logic",         "accent": "water", "x": 0.88, "y": 0.5 }
+              { "id": "client",  "label": "Client",       "subtitle": "browser",      "accent": "sky",   "x": 0.10, "y": 0.5 },
+              { "id": "node",    "label": "Node server",  "subtitle": "event loop",   "accent": "fire",  "x": 0.34, "y": 0.5 },
+              { "id": "mw",      "label": "Middleware",   "subtitle": "auth+parse",   "accent": "amber", "x": 0.60, "y": 0.5 },
+              { "id": "route",   "label": "Route handler","subtitle": "your logic",   "accent": "water", "x": 0.88, "y": 0.5 }
             ],
             "edges": [
               { "from": "client", "to": "node",  "kind": "dashed", "label": "request" },
@@ -852,9 +852,9 @@ export default {
             "subtitle": "VALIDATE · THROW · LOG · RESPOND",
             "height": 240,
             "nodes": [
-              { "id": "in",    "label": "Request",          "subtitle": "unknown blob",       "accent": "water", "x": 0.10, "y": 0.5 },
-              { "id": "val",   "label": "Validator",        "subtitle": "schema parse",       "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "throw", "label": "Throw / next(err)","subtitle": "structured error",   "accent": "fire",  "x": 0.64, "y": 0.5 },
+              { "id": "in",    "label": "Request",          "subtitle": "blob",         "accent": "water", "x": 0.10, "y": 0.5 },
+              { "id": "val",   "label": "Validator",        "subtitle": "schema",       "accent": "amber", "x": 0.36, "y": 0.5 },
+              { "id": "throw", "label": "Throw / next(err)","subtitle": "structured",   "accent": "fire",  "x": 0.64, "y": 0.5 },
               { "id": "out",   "label": "Error handler",    "subtitle": "shape + log",        "accent": "earth", "x": 0.88, "y": 0.5 }
             ],
             "edges": [
@@ -955,10 +955,10 @@ export default {
             "subtitle": "CACHE · UI · NETWORK",
             "height": 240,
             "nodes": [
-              { "id": "mount", "label": "Component mounts","subtitle": "asks for /users/42",  "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "cache", "label": "Cache hit",       "subtitle": "show stale data now", "accent": "earth", "x": 0.38, "y": 0.5 },
-              { "id": "net",   "label": "Revalidate",      "subtitle": "fetch in background", "accent": "water", "x": 0.66, "y": 0.5 },
-              { "id": "ui",    "label": "UI updates",      "subtitle": "if data changed",     "accent": "amber", "x": 0.92, "y": 0.5 }
+              { "id": "mount", "label": "Component mounts","subtitle": "/users/42",   "accent": "sky",   "x": 0.10, "y": 0.5 },
+              { "id": "cache", "label": "Cache hit",       "subtitle": "stale shown", "accent": "earth", "x": 0.38, "y": 0.5 },
+              { "id": "net",   "label": "Revalidate",      "subtitle": "bg fetch",    "accent": "water", "x": 0.66, "y": 0.5 },
+              { "id": "ui",    "label": "UI updates",      "subtitle": "if changed",  "accent": "amber", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "mount", "to": "cache", "kind": "solid",  "label": "instant" },
@@ -1188,10 +1188,10 @@ export default {
             "subtitle": "APP · ORM · POSTGRES",
             "height": 240,
             "nodes": [
-              { "id": "client", "label": "Client",   "subtitle": "form validation", "accent": "sky",   "x": 0.12, "y": 0.5 },
-              { "id": "orm",    "label": "ORM",      "subtitle": "schema checks",   "accent": "water", "x": 0.38, "y": 0.5 },
-              { "id": "pg",     "label": "Postgres", "subtitle": "table constraints","accent": "fire",  "x": 0.64, "y": 0.5 },
-              { "id": "disk",   "label": "Row",      "subtitle": "on disk",         "accent": "earth", "x": 0.90, "y": 0.5 }
+              { "id": "client", "label": "Client",   "subtitle": "form",         "accent": "sky",   "x": 0.12, "y": 0.5 },
+              { "id": "orm",    "label": "ORM",      "subtitle": "schema",       "accent": "water", "x": 0.38, "y": 0.5 },
+              { "id": "pg",     "label": "Postgres", "subtitle": "constraints",  "accent": "fire",  "x": 0.64, "y": 0.5 },
+              { "id": "disk",   "label": "Row",      "subtitle": "on disk",      "accent": "earth", "x": 0.90, "y": 0.5 }
             ],
             "edges": [
               { "from": "client", "to": "orm",  "kind": "solid",  "label": "submit" },
@@ -1401,10 +1401,10 @@ export default {
             "subtitle": "SCHEMA · DIFF · APPLY",
             "height": 240,
             "nodes": [
-              { "id": "schema", "label": "schema.prisma", "subtitle": "your source of truth", "accent": "sky",   "x": 0.15, "y": 0.5 },
-              { "id": "mig",    "label": "migration",     "subtitle": "generated sql",        "accent": "water", "x": 0.42, "y": 0.5 },
-              { "id": "deploy", "label": "deploy",        "subtitle": "ci runs it",           "accent": "amber", "x": 0.68, "y": 0.5 },
-              { "id": "db",     "label": "Postgres",      "subtitle": "applied",              "accent": "fire",  "x": 0.92, "y": 0.5 }
+              { "id": "schema", "label": "schema.prisma", "subtitle": "truth",       "accent": "sky",   "x": 0.15, "y": 0.5 },
+              { "id": "mig",    "label": "migration",     "subtitle": "gen sql",     "accent": "water", "x": 0.42, "y": 0.5 },
+              { "id": "deploy", "label": "deploy",        "subtitle": "ci runs",     "accent": "amber", "x": 0.68, "y": 0.5 },
+              { "id": "db",     "label": "Postgres",      "subtitle": "applied",     "accent": "fire",  "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "schema", "to": "mig",    "kind": "solid",  "label": "diff" },
@@ -2174,10 +2174,10 @@ export default {
             "subtitle": "DEV · GIT · BUILD · PaaS",
             "height": 250,
             "nodes": [
-              { "id": "dev",   "label": "Developer", "subtitle": "GIT PUSH",        "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "repo",  "label": "GitHub",    "subtitle": "MAIN OR PR",      "accent": "water", "x": 0.32, "y": 0.5 },
-              { "id": "build", "label": "Build",     "subtitle": "INSTALL · BUILD", "accent": "water", "x": 0.56, "y": 0.5 },
-              { "id": "paas",  "label": "PaaS",      "subtitle": "VERCEL · FLY",    "accent": "amber", "x": 0.80, "y": 0.5 },
+              { "id": "dev",   "label": "Developer", "subtitle": "GIT PUSH",  "accent": "sky",   "x": 0.10, "y": 0.5 },
+              { "id": "repo",  "label": "GitHub",    "subtitle": "MAIN/PR",   "accent": "water", "x": 0.32, "y": 0.5 },
+              { "id": "build", "label": "Build",     "subtitle": "INSTALL",   "accent": "water", "x": 0.56, "y": 0.5 },
+              { "id": "paas",  "label": "PaaS",      "subtitle": "VERCEL",    "accent": "amber", "x": 0.80, "y": 0.5 },
               { "id": "prev",  "label": "Preview",   "subtitle": "PR URL",          "accent": "amber", "x": 0.56, "y": 0.92 }
             ],
             "edges": [
@@ -2373,11 +2373,11 @@ export default {
             "subtitle": "PR · BUILD · TEST · DEPLOY",
             "height": 260,
             "nodes": [
-              { "id": "trig",  "label": "Trigger",  "subtitle": "PUSH · PR",       "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "build", "label": "Build",    "subtitle": "INSTALL · CACHE", "accent": "water", "x": 0.30, "y": 0.5 },
-              { "id": "test",  "label": "Test",     "subtitle": "MATRIX RUN",      "accent": "water", "x": 0.52, "y": 0.5 },
-              { "id": "gate",  "label": "Gate",     "subtitle": "APPROVAL",        "accent": "amber", "x": 0.74, "y": 0.5 },
-              { "id": "prod",  "label": "Prod",     "subtitle": "DEPLOY · ALIAS",  "accent": "fire",  "x": 0.93, "y": 0.5 }
+              { "id": "trig",  "label": "Trigger",  "subtitle": "PUSH",      "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "build", "label": "Build",    "subtitle": "INSTALL",   "accent": "water", "x": 0.30, "y": 0.5 },
+              { "id": "test",  "label": "Test",     "subtitle": "MATRIX",    "accent": "water", "x": 0.52, "y": 0.5 },
+              { "id": "gate",  "label": "Gate",     "subtitle": "APPROVE",   "accent": "amber", "x": 0.74, "y": 0.5 },
+              { "id": "prod",  "label": "Prod",     "subtitle": "DEPLOY",    "accent": "fire",  "x": 0.93, "y": 0.5 }
             ],
             "edges": [
               { "from": "trig",  "to": "build", "kind": "solid",  "label": "start" },
@@ -2534,10 +2534,10 @@ export default {
             "subtitle": "APP · COLLECT · STORE · ALERT",
             "height": 260,
             "nodes": [
-              { "id": "user",  "label": "User",       "subtitle": "BROWSER · MOBILE", "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "app",   "label": "App",        "subtitle": "PROD INSTANCE",    "accent": "fire",  "x": 0.32, "y": 0.5 },
-              { "id": "agent", "label": "Agent",      "subtitle": "SDK · OTEL",       "accent": "water", "x": 0.56, "y": 0.5 },
-              { "id": "store", "label": "Store",      "subtitle": "LOGS · METRICS",   "accent": "earth", "x": 0.80, "y": 0.5 },
+              { "id": "user",  "label": "User",       "subtitle": "BROWSER",    "accent": "sky",   "x": 0.08, "y": 0.5 },
+              { "id": "app",   "label": "App",        "subtitle": "PROD",       "accent": "fire",  "x": 0.32, "y": 0.5 },
+              { "id": "agent", "label": "Agent",      "subtitle": "SDK",        "accent": "water", "x": 0.56, "y": 0.5 },
+              { "id": "store", "label": "Store",      "subtitle": "LOGS",       "accent": "earth", "x": 0.80, "y": 0.5 },
               { "id": "alert", "label": "Alert",      "subtitle": "PAGE · SLACK",     "accent": "amber", "x": 0.56, "y": 0.92 }
             ],
             "edges": [

@@ -374,7 +374,7 @@ export default {
               {
                 "id": "t1",
                 "label": "Thread 1",
-                "subtitle": "own stack · own PC",
+                "subtitle": "own stack",
                 "accent": "sky",
                 "x": 0.18,
                 "y": 0.78
@@ -382,7 +382,7 @@ export default {
               {
                 "id": "t2",
                 "label": "Thread 2",
-                "subtitle": "own stack · own PC",
+                "subtitle": "own stack",
                 "accent": "sky",
                 "x": 0.5,
                 "y": 0.78
@@ -390,7 +390,7 @@ export default {
               {
                 "id": "t3",
                 "label": "Thread 3",
-                "subtitle": "own stack · own PC",
+                "subtitle": "own stack",
                 "accent": "sky",
                 "x": 0.82,
                 "y": 0.78
@@ -1586,7 +1586,7 @@ export default {
               {
                 "id": "src",
                 "label": "Source",
-                "subtitle": "file / socket / API",
+                "subtitle": "file / API",
                 "x": 0.1,
                 "y": 0.5,
                 "accent": "water"
@@ -1693,7 +1693,7 @@ export default {
               {
                 "id": "hdr",
                 "label": "list header",
-                "subtitle": "len=3, cap=4, refs",
+                "subtitle": "len=3 cap=4",
                 "x": 0.1,
                 "y": 0.5,
                 "accent": "amber"
@@ -2201,7 +2201,7 @@ export default {
               {
                 "id": "iter",
                 "label": "iterable",
-                "subtitle": "list / range / file",
+                "subtitle": "list / file",
                 "x": 0.08,
                 "y": 0.5,
                 "accent": "water"
@@ -2225,7 +2225,7 @@ export default {
               {
                 "id": "else",
                 "label": "else clause",
-                "subtitle": "only if no break",
+                "subtitle": "no break",
                 "x": 0.92,
                 "y": 0.5,
                 "accent": "earth"
@@ -2811,7 +2811,7 @@ export default {
               {
                 "id": "in",
                 "label": "you type path",
-                "subtitle": "`../logs/app.log`",
+                "subtitle": "`../app.log`",
                 "x": 0.08,
                 "y": 0.5,
                 "accent": "water"
@@ -2835,7 +2835,7 @@ export default {
               {
                 "id": "norm",
                 "label": "normalize",
-                "subtitle": "collapse `.` and `..`",
+                "subtitle": "collapse `.`",
                 "x": 0.62,
                 "y": 0.5,
                 "accent": "amber"
@@ -3143,7 +3143,7 @@ export default {
               {
                 "id": "idx",
                 "label": "Staging (index)",
-                "subtitle": "next commit draft",
+                "subtitle": "next commit",
                 "x": 0.5,
                 "y": 0.5,
                 "accent": "amber"
@@ -3360,7 +3360,7 @@ export default {
               {
                 "id": "loc",
                 "label": "local .git",
-                "subtitle": "main + origin/main",
+                "subtitle": "main+origin",
                 "x": 0.52,
                 "y": 0.5,
                 "accent": "sky"
@@ -4388,7 +4388,7 @@ export default {
               {
                 "id": "src",
                 "label": "log file",
-                "subtitle": "/var/log/app.log",
+                "subtitle": "app.log",
                 "x": 0.08,
                 "y": 0.5,
                 "accent": "amber"
@@ -4658,21 +4658,21 @@ export default {
                 "from": "client",
                 "to": "kex",
                 "kind": "dashed",
-                "label": "hello + algos",
+                "label": "hello",
                 "accent": "water"
               },
               {
                 "from": "kex",
                 "to": "auth",
                 "kind": "solid",
-                "label": "shared secret",
+                "label": "secret",
                 "accent": "amber"
               },
               {
                 "from": "auth",
                 "to": "server",
                 "kind": "dashed",
-                "label": "signed challenge",
+                "label": "signed",
                 "accent": "sky"
               },
               {
@@ -4680,7 +4680,7 @@ export default {
                 "to": "client",
                 "kind": "solid",
                 "curve": -0.3,
-                "label": "encrypted shell",
+                "label": "encrypted",
                 "accent": "sky"
               }
             ]
@@ -5183,7 +5183,7 @@ export default {
               {
                 "id": "c",
                 "label": "Client",
-                "subtitle": "browser / curl",
+                "subtitle": "BROWSER",
                 "x": 0.1,
                 "y": 0.5,
                 "accent": "water"
@@ -5191,7 +5191,7 @@ export default {
               {
                 "id": "req",
                 "label": "Request",
-                "subtitle": "method · path · body",
+                "subtitle": "METHOD+PATH",
                 "x": 0.4,
                 "y": 0.5,
                 "accent": "amber"
@@ -5199,7 +5199,7 @@ export default {
               {
                 "id": "s",
                 "label": "Server",
-                "subtitle": "routes + handles",
+                "subtitle": "ROUTES",
                 "x": 0.7,
                 "y": 0.5,
                 "accent": "sky"
@@ -5207,7 +5207,7 @@ export default {
               {
                 "id": "res",
                 "label": "Response",
-                "subtitle": "status · headers · body",
+                "subtitle": "STATUS+BODY",
                 "x": 0.4,
                 "y": 0.85,
                 "accent": "amber"
@@ -6520,7 +6520,7 @@ export default {
               {
                 "id": "cli",
                 "label": "Client",
-                "subtitle": "curl / browser",
+                "subtitle": "BROWSER",
                 "x": 0.08,
                 "y": 0.5,
                 "accent": "water"
@@ -6528,7 +6528,7 @@ export default {
               {
                 "id": "req",
                 "label": "Request",
-                "subtitle": "method · path · body",
+                "subtitle": "METHOD+PATH",
                 "x": 0.35,
                 "y": 0.25,
                 "accent": "amber"
@@ -6536,7 +6536,7 @@ export default {
               {
                 "id": "srv",
                 "label": "Server",
-                "subtitle": "routes + handler",
+                "subtitle": "ROUTES",
                 "x": 0.62,
                 "y": 0.5,
                 "accent": "sky"
@@ -6544,7 +6544,7 @@ export default {
               {
                 "id": "res",
                 "label": "Response",
-                "subtitle": "status · headers · body",
+                "subtitle": "STATUS+BODY",
                 "x": 0.35,
                 "y": 0.75,
                 "accent": "amber"
@@ -6552,7 +6552,7 @@ export default {
               {
                 "id": "db",
                 "label": "Backend",
-                "subtitle": "db · cache · API",
+                "subtitle": "DB+CACHE",
                 "x": 0.9,
                 "y": 0.5,
                 "accent": "fire"
@@ -7171,7 +7171,7 @@ export default {
               {
                 "id": "outer",
                 "label": "make_counter()",
-                "subtitle": "OUTER · DEFINES n",
+                "subtitle": "OUTER",
                 "accent": "amber",
                 "x": 0.15,
                 "y": 0.5
@@ -7179,7 +7179,7 @@ export default {
               {
                 "id": "env",
                 "label": "n = 0",
-                "subtitle": "CAPTURED CELL",
+                "subtitle": "CAPTURED",
                 "accent": "earth",
                 "x": 0.5,
                 "y": 0.5
@@ -7187,7 +7187,7 @@ export default {
               {
                 "id": "inner",
                 "label": "inc()",
-                "subtitle": "INNER · RETURNED",
+                "subtitle": "INNER",
                 "accent": "fire",
                 "x": 0.85,
                 "y": 0.5
@@ -7292,7 +7292,7 @@ export default {
               {
                 "id": "raise",
                 "label": "raise",
-                "subtitle": "DEEP · CONTRACT BROKEN",
+                "subtitle": "DEEP",
                 "accent": "fire",
                 "x": 0.1,
                 "y": 0.5
@@ -7300,7 +7300,7 @@ export default {
               {
                 "id": "mid",
                 "label": "mid layer",
-                "subtitle": "PASSES THROUGH",
+                "subtitle": "PASSES",
                 "accent": "amber",
                 "x": 0.4,
                 "y": 0.5

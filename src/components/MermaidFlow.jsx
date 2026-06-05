@@ -13,6 +13,14 @@ const LABEL_FONT = '600 10px "JetBrains Mono Variable", ui-monospace, monospace'
 const LABEL_PAD_X = 8;
 const LABEL_PAD_Y = 3;
 const LABEL_GAP_MARGIN = 10;
+const EDGE_LABEL_HEIGHT = 14;
+// Required vertical clearance between an inter-row edge label and the
+// destination row's node label/subtitle. Keeps the cream pill from sitting
+// on top of either text.
+const EDGE_LABEL_CLEARANCE = 8;
+// Required horizontal clearance between an inter-row edge label and any
+// unrelated node whose bounding box would otherwise underlap it.
+const EDGE_LABEL_H_CLEARANCE = 6;
 
 const ICON_GLYPH = {
   person: '\u{1F464}',
@@ -100,8 +108,79 @@ function computeLayout(nodes, edges, groups, ctx, viewportW) {
       if (need > rowGap[ri]) rowGap[ri] = need;
     }
   });
+
+  // Fix 3: 3+-node rows with subtitle overhang.
+  // The pairwise loop above doesn't account for the LEFTMOST node's left
+  // overhang or the RIGHTMOST node's right overhang spilling outside the row
+  // bounds, nor for the compounding effect of three or more subtitles that
+  // each push slightly into their neighbor. For rows of 3+ nodes, recompute
+  // the total required width and inflate rowGap until it fits.
+  rows.forEach((row, ri) => {
+    if (row.items.length < 3) return;
+    const hasSub = row.items.some((e) => subWidths.get(e.n.id) > widths.get(e.n.id));
+    if (!hasSub) return;
+    // sum of widths is fixed; what matters is that EACH adjacent pair has
+    // enough gap to fit (rightOverhang(i) + leftOverhang(i+1) + minPad).
+    // Take the worst pair as the row gap so all pairs clear simultaneously.
+    let worst = rowGap[ri];
+    for (let i = 0; i < row.items.length - 1; i++) {
+      const a = row.items[i].n;
+      const b = row.items[i + 1].n;
+      const overhangR = Math.max(0, (subWidths.get(a.id) - widths.get(a.id)) / 2);
+      const overhangL = Math.max(0, (subWidths.get(b.id) - widths.get(b.id)) / 2);
+      const need = overhangR + overhangL + 18; // 1.5x the original 12px breathing room
+      if (need > worst) worst = need;
+    }
+    rowGap[ri] = worst;
+  });
+
+  // Fix 1: inter-row edge label vertical clearance.
+  // For each edge crossing rows (from row Rf to row Rt where Rt !== Rf),
+  // the edge label lands at the midpoint of the vertical run. We need that
+  // midpoint to leave clearance above the destination row's node label AND
+  // below the source row's subtitle (if any). Track the max inter-row label
+  // height for each "row gap slot" — i.e. the space between row[ri-1] and
+  // row[ri] — and use it to expand the row spacing below.
+  const interRowSpacing = rows.map(() => 0);
+  const interRowEdges = []; // collected once, reused for Fix 2
+  if (Array.isArray(edges)) {
+    for (const e of edges) {
+      const from = idToRow.get(e.from);
+      const to = idToRow.get(e.to);
+      if (from === undefined || to === undefined || from === to) continue;
+      if (!e.label) {
+        interRowEdges.push({ edge: e, from, to, labelW: 0 });
+        continue;
+      }
+      const labelW = measureEdgeLabel(e.label, ctx);
+      interRowEdges.push({ edge: e, from, to, labelW });
+      // The label sits at midY between row Rf and row Rt. The first row
+      // immediately above the label (Rt going downward, or Rf+1 in normal
+      // top-down flow) is what gets crashed into. We bump the spacing slot
+      // for the LOWER of the two rows.
+      const slot = Math.max(from, to);
+      // Need EDGE_LABEL_HEIGHT + 2 * EDGE_LABEL_CLEARANCE total padding in
+      // the inter-row gap on TOP of the natural ROW_GAP. The natural
+      // ROW_GAP (56) accommodates ~one line of subtitle; if a label sits in
+      // the middle, we need extra height so it clears both rows.
+      const need = EDGE_LABEL_HEIGHT + EDGE_LABEL_CLEARANCE * 2;
+      if (need > interRowSpacing[slot]) interRowSpacing[slot] = need;
+    }
+  }
+
   const rowWidths = rows.map((row, ri) => row.items.reduce((sum, e) => sum + widths.get(e.n.id), 0) + rowGap[ri] * Math.max(0, row.items.length - 1));
-  const maxRowW = Math.max(...rowWidths, 240);
+  // For 3+-node rows the end-subtitle overhang may also widen contentW so
+  // the row visually fits without clipping. Account for half-subtitle on
+  // each side.
+  const rowEndOverhang = rows.map((row) => {
+    if (!row.items.length) return 0;
+    const first = row.items[0].n;
+    const last = row.items[row.items.length - 1].n;
+    const leftO = Math.max(0, (subWidths.get(first.id) - widths.get(first.id)) / 2);
+    const rightO = Math.max(0, (subWidths.get(last.id) - widths.get(last.id)) / 2);
+    return leftO + rightO;
+  });
+  const maxRowW = Math.max(...rowWidths.map((w, i) => w + rowEndOverhang[i]), 240);
   const contentW = Math.max(maxRowW + FRAME_PAD * 2, viewportW);
   const positions = new Map();
   let y = FRAME_PAD;
@@ -115,9 +194,90 @@ function computeLayout(nodes, edges, groups, ctx, viewportW) {
       positions.set(entry.n.id, { x, y, w, h, cx: x + w / 2, cy: y + h / 2, row: ri });
       x += w + rowGap[ri];
     }
-    y += 32 + rowExtra + ROW_GAP;
+    // Fix 1: add inter-row spacing AFTER this row, i.e. the slot leading
+    // into row ri+1. We stored extra height keyed by the lower row index,
+    // so consult interRowSpacing[ri + 1] when advancing to the next row.
+    const nextExtra = ri + 1 < rows.length ? interRowSpacing[ri + 1] : 0;
+    y += 32 + rowExtra + ROW_GAP + nextExtra;
   });
   const contentH = y - ROW_GAP + FRAME_PAD;
+
+  // Fix 2: inter-row edge label horizontal positioning.
+  // Now that nodes have absolute positions, compute the resolved (midX,
+  // midY) for each inter-row edge label and shift it horizontally if it
+  // collides with an unrelated node's bounding box. Store the resolved
+  // coords on a Map keyed by edge index for the renderer.
+  const edgeLabelPositions = new Map();
+  if (Array.isArray(edges)) {
+    edges.forEach((e, i) => {
+      if (!e.label) return;
+      const a = positions.get(e.from);
+      const b = positions.get(e.to);
+      if (!a || !b) return;
+      if (a.row === b.row) return; // same-row uses orthogonalPath defaults
+      const labelW = measureEdgeLabel(e.label, ctx);
+      const path = orthogonalPath(a, b);
+      let midX = path.midX;
+      const midY = path.midY;
+      const labelBox = {
+        x: midX - labelW / 2,
+        y: midY - EDGE_LABEL_HEIGHT / 2,
+        w: labelW,
+        h: EDGE_LABEL_HEIGHT,
+      };
+      // Collect every node that might collide (excluding endpoints).
+      const obstacles = [];
+      positions.forEach((p, id) => {
+        if (id === e.from || id === e.to) return;
+        // Only nodes whose Y band overlaps the label band can collide.
+        const nodeTop = p.y - 4;
+        const nodeBot = p.y + p.h + (anySubtitle ? 16 : 4);
+        if (labelBox.y + labelBox.h < nodeTop) return;
+        if (labelBox.y > nodeBot) return;
+        obstacles.push({
+          x: p.x - EDGE_LABEL_H_CLEARANCE,
+          y: nodeTop,
+          w: p.w + EDGE_LABEL_H_CLEARANCE * 2,
+          h: nodeBot - nodeTop,
+        });
+      });
+      const intersects = (box) => obstacles.some((o) =>
+        box.x < o.x + o.w && box.x + box.w > o.x && box.y < o.y + o.h && box.y + box.h > o.y);
+      if (intersects(labelBox)) {
+        // Try shifting toward the source node (label "exits" from source).
+        const sourceX = a.cx;
+        const destX = b.cx;
+        const dir = destX >= sourceX ? -1 : 1; // shift back toward source
+        const step = 16;
+        const maxShift = Math.abs(destX - sourceX);
+        let shifted = false;
+        for (let off = step; off <= maxShift; off += step) {
+          for (const sign of [dir, -dir]) {
+            const tryX = midX + sign * off;
+            const tryBox = { ...labelBox, x: tryX - labelW / 2 };
+            // Keep within contentW with FRAME_PAD slack.
+            if (tryBox.x < FRAME_PAD - 4) continue;
+            if (tryBox.x + tryBox.w > contentW - FRAME_PAD + 4) continue;
+            if (!intersects(tryBox)) {
+              midX = tryX;
+              shifted = true;
+              break;
+            }
+          }
+          if (shifted) break;
+        }
+        if (!shifted) {
+          // Fallback: park the label just above the source node's outgoing
+          // anchor, where the edge starts. This is always free of other
+          // nodes because the source node is its own endpoint and excluded.
+          midX = sourceX + (dir === -1 ? -labelW / 2 - 4 : labelW / 2 + 4);
+          // Clamp to canvas.
+          midX = Math.max(FRAME_PAD + labelW / 2, Math.min(contentW - FRAME_PAD - labelW / 2, midX));
+        }
+      }
+      edgeLabelPositions.set(i, { midX, midY });
+    });
+  }
 
   const groupBoxes = [];
   if (Array.isArray(groups)) {
@@ -131,7 +291,7 @@ function computeLayout(nodes, edges, groups, ctx, viewportW) {
       groupBoxes.push({ id: g.id, label: g.label, x: minX, y: minY, w: maxX - minX, h: maxY - minY });
     }
   }
-  return { positions, rows, contentW, contentH, groupBoxes };
+  return { positions, rows, contentW, contentH, groupBoxes, edgeLabelPositions };
 }
 
 function orthogonalPath(a, b) {
@@ -218,7 +378,7 @@ export default function MermaidFlow({
     return <figure className="mflow" ref={containerRef} />;
   }
 
-  const { positions, contentW, contentH, groupBoxes } = layout;
+  const { positions, contentW, contentH, groupBoxes, edgeLabelPositions } = layout;
   const filterId = `mflow-sketch-${uid}`;
   const markerNormalId = `mflow-arrow-${uid}`;
   const markerRedId = `mflow-arrow-red-${uid}`;
@@ -403,7 +563,11 @@ export default function MermaidFlow({
             const a = positions.get(e.from);
             const b = positions.get(e.to);
             if (!a || !b) return null;
-            const { midX, midY } = orthogonalPath(a, b);
+            // For inter-row edges, computeLayout has already resolved a
+            // collision-free (midX, midY) and stored it in edgeLabelPositions.
+            // Same-row edges still use the orthogonal path's midpoint.
+            const resolved = edgeLabelPositions && edgeLabelPositions.get(i);
+            const { midX, midY } = resolved || orthogonalPath(a, b);
             const text = String(e.label);
             const w = text.length * 5.6 + LABEL_PAD_X * 2;
             return (

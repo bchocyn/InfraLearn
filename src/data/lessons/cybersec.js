@@ -51,10 +51,10 @@ export default {
             "title": "Threat → asset → control",
             "height": 220,
             "nodes": [
-              { "id": "attacker", "label": "attacker",   "subtitle": "WHO & WHY",       "accent": "fire",  "x": 0.08, "y": 0.5 },
-              { "id": "vector",   "label": "vector",     "subtitle": "HOW THEY GET IN", "accent": "amber", "x": 0.35, "y": 0.5 },
-              { "id": "asset",    "label": "asset",      "subtitle": "WHAT YOU PROTECT","accent": "earth", "x": 0.62, "y": 0.5 },
-              { "id": "control",  "label": "control",    "subtitle": "DEFENDER MOVE",   "accent": "water", "x": 0.92, "y": 0.5 }
+              { "id": "attacker", "label": "attacker",   "subtitle": "WHO & WHY",    "accent": "fire",  "x": 0.08, "y": 0.5 },
+              { "id": "vector",   "label": "vector",     "subtitle": "ENTRY POINT",  "accent": "amber", "x": 0.35, "y": 0.5 },
+              { "id": "asset",    "label": "asset",      "subtitle": "PROTECTED",    "accent": "earth", "x": 0.62, "y": 0.5 },
+              { "id": "control",  "label": "control",    "subtitle": "DEFENSE",      "accent": "water", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "attacker", "to": "vector",  "kind": "dashed", "label": "intent" },
@@ -134,10 +134,10 @@ export default {
             "title": "The request path",
             "height": 220,
             "nodes": [
-              { "id": "user",   "label": "user",    "subtitle": "BROWSER · DEVICE", "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "authn",  "label": "authn",   "subtitle": "WHO ARE YOU",      "accent": "amber", "x": 0.38, "y": 0.5 },
-              { "id": "authz",  "label": "authz",   "subtitle": "ARE YOU ALLOWED",  "accent": "amber", "x": 0.66, "y": 0.5 },
-              { "id": "asset",  "label": "asset",   "subtitle": "DATA · ACTION",    "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "user",   "label": "user",    "subtitle": "BROWSER",    "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "authn",  "label": "authn",   "subtitle": "WHO?",       "accent": "amber", "x": 0.38, "y": 0.5 },
+              { "id": "authz",  "label": "authz",   "subtitle": "ALLOWED?",   "accent": "amber", "x": 0.66, "y": 0.5 },
+              { "id": "asset",  "label": "asset",   "subtitle": "DATA",       "accent": "earth", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "user",  "to": "authn", "kind": "dashed", "label": "credentials" },
@@ -234,10 +234,10 @@ export default {
             "title": "TLS 1.3 handshake — abridged",
             "height": 220,
             "nodes": [
-              { "id": "hi",     "label": "ClientHello", "subtitle": "PROPOSED CIPHERS",  "accent": "water", "x": 0.10, "y": 0.5 },
-              { "id": "srv",    "label": "ServerHello", "subtitle": "CERT · KEY SHARE",  "accent": "sky",   "x": 0.38, "y": 0.5 },
-              { "id": "verify", "label": "verify",      "subtitle": "CHAIN · SIGNATURE", "accent": "amber", "x": 0.65, "y": 0.5 },
-              { "id": "secure", "label": "encrypted",   "subtitle": "SESSION KEY READY", "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "hi",     "label": "ClientHello", "subtitle": "CIPHERS",     "accent": "water", "x": 0.10, "y": 0.5 },
+              { "id": "srv",    "label": "ServerHello", "subtitle": "CERT+KEY",    "accent": "sky",   "x": 0.38, "y": 0.5 },
+              { "id": "verify", "label": "verify",      "subtitle": "SIGNATURE",   "accent": "amber", "x": 0.65, "y": 0.5 },
+              { "id": "secure", "label": "encrypted",   "subtitle": "KEY READY",   "accent": "earth", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "hi",     "to": "srv",    "kind": "dashed", "label": "offer" },
@@ -415,10 +415,10 @@ export default {
             "title": "Trust boundary: where to validate",
             "height": 220,
             "nodes": [
-              { "id": "untrusted", "label": "untrusted", "subtitle": "USER · CLIENT · INTERNET", "accent": "fire",  "x": 0.10, "y": 0.5 },
-              { "id": "boundary",  "label": "validate",  "subtitle": "SCHEMA · TYPES · LIMITS",  "accent": "amber", "x": 0.40, "y": 0.5 },
-              { "id": "logic",     "label": "logic",     "subtitle": "TRUSTED CODE PATH",        "accent": "water", "x": 0.68, "y": 0.5 },
-              { "id": "store",     "label": "store",     "subtitle": "PARAMETERIZED ONLY",       "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "untrusted", "label": "untrusted", "subtitle": "EXTERNAL",   "accent": "fire",  "x": 0.10, "y": 0.5 },
+              { "id": "boundary",  "label": "validate",  "subtitle": "SCHEMA",     "accent": "amber", "x": 0.40, "y": 0.5 },
+              { "id": "logic",     "label": "logic",     "subtitle": "TRUSTED",    "accent": "water", "x": 0.68, "y": 0.5 },
+              { "id": "store",     "label": "store",     "subtitle": "PARAM ONLY", "accent": "earth", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "untrusted", "to": "boundary", "kind": "dashed", "label": "input" },
@@ -498,10 +498,10 @@ export default {
             "title": "The secrets pipeline",
             "height": 220,
             "nodes": [
-              { "id": "kms",   "label": "KMS",    "subtitle": "ROOT KEY · HSM",    "accent": "amber", "x": 0.10, "y": 0.5 },
-              { "id": "vault", "label": "vault",  "subtitle": "ENCRYPTED STORE",   "accent": "earth", "x": 0.38, "y": 0.5 },
-              { "id": "app",   "label": "app",    "subtitle": "SHORT-LIVED TOKEN", "accent": "water", "x": 0.66, "y": 0.5 },
-              { "id": "audit", "label": "audit",  "subtitle": "WHO READ WHAT",     "accent": "sky",   "x": 0.92, "y": 0.5 }
+              { "id": "kms",   "label": "KMS",    "subtitle": "ROOT KEY",    "accent": "amber", "x": 0.10, "y": 0.5 },
+              { "id": "vault", "label": "vault",  "subtitle": "ENCRYPTED",   "accent": "earth", "x": 0.38, "y": 0.5 },
+              { "id": "app",   "label": "app",    "subtitle": "SHORT TOKEN", "accent": "water", "x": 0.66, "y": 0.5 },
+              { "id": "audit", "label": "audit",  "subtitle": "READ TRAIL",  "accent": "sky",   "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "kms",   "to": "vault", "kind": "dashed", "label": "wraps" },
@@ -599,10 +599,10 @@ export default {
             "title": "Four-layer onion",
             "height": 240,
             "nodes": [
-              { "id": "net",  "label": "network", "subtitle": "WAF · VPC · SEGMENT",  "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "host", "label": "host",    "subtitle": "FIREWALL · HARDENING", "accent": "water", "x": 0.36, "y": 0.5 },
-              { "id": "app",  "label": "app",     "subtitle": "AUTHN · AUTHZ · VALIDATE", "accent": "amber", "x": 0.62, "y": 0.5 },
-              { "id": "data", "label": "data",    "subtitle": "ENCRYPT · AUDIT · RBAC",   "accent": "earth", "x": 0.88, "y": 0.5 }
+              { "id": "net",  "label": "network", "subtitle": "WAF+VPC",     "accent": "sky",   "x": 0.10, "y": 0.5 },
+              { "id": "host", "label": "host",    "subtitle": "FIREWALL",    "accent": "water", "x": 0.36, "y": 0.5 },
+              { "id": "app",  "label": "app",     "subtitle": "AUTH+VALID",  "accent": "amber", "x": 0.62, "y": 0.5 },
+              { "id": "data", "label": "data",    "subtitle": "ENCRYPT+RBAC","accent": "earth", "x": 0.88, "y": 0.5 }
             ],
             "edges": [
               { "from": "net",  "to": "host", "kind": "dashed", "label": "filter" },
@@ -903,10 +903,10 @@ export default {
             "title": "Cross-site POST",
             "height": 220,
             "nodes": [
-              { "id": "victim",   "label": "victim",   "subtitle": "LOGGED INTO BANK", "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "evil",     "label": "evil.com", "subtitle": "HIDDEN FORM",      "accent": "fire",  "x": 0.36, "y": 0.5 },
-              { "id": "browser",  "label": "browser",  "subtitle": "ATTACHES COOKIE",  "accent": "sky",   "x": 0.64, "y": 0.5 },
-              { "id": "bank",     "label": "bank.com", "subtitle": "ACCEPTS REQUEST",  "accent": "amber", "x": 0.92, "y": 0.5 }
+              { "id": "victim",   "label": "victim",   "subtitle": "BANK SESSION", "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "evil",     "label": "evil.com", "subtitle": "HIDDEN FORM",  "accent": "fire",  "x": 0.36, "y": 0.5 },
+              { "id": "browser",  "label": "browser",  "subtitle": "SENDS COOKIE", "accent": "sky",   "x": 0.64, "y": 0.5 },
+              { "id": "bank",     "label": "bank.com", "subtitle": "ACCEPTS REQ",  "accent": "amber", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "victim",  "to": "evil",    "kind": "dashed", "label": "visit" },
@@ -1099,10 +1099,10 @@ export default {
             "title": "Trust boundaries",
             "height": 240,
             "nodes": [
-              { "id": "edge",  "label": "edge",      "subtitle": "PARSE & VALIDATE",  "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "app",   "label": "app logic", "subtitle": "TYPED DOMAIN MODEL","accent": "amber", "x": 0.38, "y": 0.5 },
-              { "id": "data",  "label": "data layer","subtitle": "PARAMETERIZED",    "accent": "earth", "x": 0.66, "y": 0.5 },
-              { "id": "render","label": "render",    "subtitle": "ENCODE PER CONTEXT","accent": "water", "x": 0.92, "y": 0.5 }
+              { "id": "edge",  "label": "edge",      "subtitle": "VALIDATE",   "accent": "sky",   "x": 0.10, "y": 0.5 },
+              { "id": "app",   "label": "app logic", "subtitle": "TYPED MODEL", "accent": "amber", "x": 0.38, "y": 0.5 },
+              { "id": "data",  "label": "data layer","subtitle": "PARAM ONLY",  "accent": "earth", "x": 0.66, "y": 0.5 },
+              { "id": "render","label": "render",    "subtitle": "ENCODE",     "accent": "water", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "edge",  "to": "app",   "kind": "dashed", "label": "validated" },
@@ -1305,10 +1305,10 @@ export default {
             "subtitle": "PRINCIPAL · POLICY · RESOURCE",
             "height": 240,
             "nodes": [
-              { "id": "user",   "label": "Principal",    "subtitle": "USER · ROLE · SA",   "accent": "water", "x": 0.10, "y": 0.5 },
-              { "id": "policy", "label": "IAM policy",   "subtitle": "ALLOW / DENY",       "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "audit",  "label": "Access Analyzer", "subtitle": "UNUSED PERMS",    "accent": "sky",   "x": 0.62, "y": 0.5 },
-              { "id": "data",   "label": "Resource",     "subtitle": "S3 · RDS · KMS",     "accent": "earth", "x": 0.90, "y": 0.5 }
+              { "id": "user",   "label": "Principal",    "subtitle": "USER+ROLE",  "accent": "water", "x": 0.10, "y": 0.5 },
+              { "id": "policy", "label": "IAM policy",   "subtitle": "ALLOW/DENY", "accent": "amber", "x": 0.36, "y": 0.5 },
+              { "id": "audit",  "label": "Access Analyzer", "subtitle": "UNUSED",  "accent": "sky",   "x": 0.62, "y": 0.5 },
+              { "id": "data",   "label": "Resource",     "subtitle": "S3+RDS",     "accent": "earth", "x": 0.90, "y": 0.5 }
             ],
             "edges": [
               { "from": "user",   "to": "policy", "kind": "dashed", "label": "assume" },
@@ -1402,10 +1402,10 @@ export default {
             "subtitle": "PLAINTEXT · DEK · KEK · STORE",
             "height": 250,
             "nodes": [
-              { "id": "app",  "label": "App",          "subtitle": "WANTS TO STORE",   "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "kms",  "label": "KMS (KEK)",    "subtitle": "ROOT KEY HSM",     "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "dek",  "label": "Data key",     "subtitle": "ONE-TIME DEK",     "accent": "amber", "x": 0.62, "y": 0.5 },
-              { "id": "store","label": "Object store", "subtitle": "CIPHERTEXT + WDEK", "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "app",  "label": "App",          "subtitle": "STORES",     "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "kms",  "label": "KMS (KEK)",    "subtitle": "ROOT KEY",   "accent": "amber", "x": 0.36, "y": 0.5 },
+              { "id": "dek",  "label": "Data key",     "subtitle": "ONE-TIME",   "accent": "amber", "x": 0.62, "y": 0.5 },
+              { "id": "store","label": "Object store", "subtitle": "CT + WDEK",  "accent": "earth", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "app",   "to": "kms",   "kind": "dashed", "label": "GenDataKey" },
@@ -2191,10 +2191,10 @@ export default {
             "title": "Scope: tokenized vs in-house",
             "height": 240,
             "nodes": [
-              { "id": "browser", "label": "browser",        "subtitle": "USER CHECKOUT",  "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "iframe",  "label": "Stripe iframe",  "subtitle": "PAN STAYS HERE", "accent": "amber", "x": 0.34, "y": 0.5 },
-              { "id": "token",   "label": "token",          "subtitle": "PCI-OUT-OF-SCOPE","accent": "sky",  "x": 0.62, "y": 0.5 },
-              { "id": "api",     "label": "your API",       "subtitle": "TOKEN ONLY",     "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "browser", "label": "browser",        "subtitle": "CHECKOUT",   "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "iframe",  "label": "Stripe iframe",  "subtitle": "HOLDS PAN",  "accent": "amber", "x": 0.34, "y": 0.5 },
+              { "id": "token",   "label": "token",          "subtitle": "OUT OF PCI", "accent": "sky",   "x": 0.62, "y": 0.5 },
+              { "id": "api",     "label": "your API",       "subtitle": "TOKEN ONLY", "accent": "earth", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "browser", "to": "iframe", "kind": "dashed", "label": "PAN" },
@@ -2291,10 +2291,10 @@ export default {
             "title": "Evidence pipeline",
             "height": 240,
             "nodes": [
-              { "id": "action",  "label": "privileged action", "subtitle": "STRUCTURED EVENT", "accent": "amber", "x": 0.08, "y": 0.5 },
-              { "id": "sign",    "label": "sign + chain",      "subtitle": "HMAC PREV-HASH",   "accent": "sky",   "x": 0.34, "y": 0.5 },
-              { "id": "archive", "label": "WORM archive",      "subtitle": "S3 OBJECT LOCK",   "accent": "earth", "x": 0.62, "y": 0.5 },
-              { "id": "qsa",     "label": "auditor",           "subtitle": "SAMPLES + VERIFIES","accent": "fire", "x": 0.92, "y": 0.5 }
+              { "id": "action",  "label": "privileged action", "subtitle": "STRUCTURED","accent": "amber", "x": 0.08, "y": 0.5 },
+              { "id": "sign",    "label": "sign + chain",      "subtitle": "HMAC HASH", "accent": "sky",   "x": 0.34, "y": 0.5 },
+              { "id": "archive", "label": "WORM archive",      "subtitle": "S3 LOCK",   "accent": "earth", "x": 0.62, "y": 0.5 },
+              { "id": "qsa",     "label": "auditor",           "subtitle": "SAMPLES",   "accent": "fire",  "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "action",  "to": "sign",    "kind": "dashed", "label": "emit" },
@@ -2361,11 +2361,11 @@ export default {
             "subtitle": "FOUR STAGES, ONE FAILURE PER STAGE",
             "height": 220,
             "nodes": [
-              { "id": "src",     "label": "log sources", "subtitle": "FW · EDR · CLOUD · APP", "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "norm",    "label": "normalize",   "subtitle": "COMMON SCHEMA",         "accent": "sky",   "x": 0.32, "y": 0.5 },
-              { "id": "store",   "label": "index",       "subtitle": "SEARCHABLE STORE",      "accent": "earth", "x": 0.56, "y": 0.5 },
-              { "id": "rules",   "label": "detections",  "subtitle": "CORRELATION RULES",     "accent": "amber", "x": 0.78, "y": 0.5 },
-              { "id": "soc",     "label": "SOC analyst", "subtitle": "TRIAGE THE ALERT",      "accent": "water", "x": 0.96, "y": 0.5 }
+              { "id": "src",     "label": "log sources", "subtitle": "FW+EDR",    "accent": "sky",   "x": 0.08, "y": 0.5 },
+              { "id": "norm",    "label": "normalize",   "subtitle": "SCHEMA",    "accent": "sky",   "x": 0.32, "y": 0.5 },
+              { "id": "store",   "label": "index",       "subtitle": "SEARCH",    "accent": "earth", "x": 0.56, "y": 0.5 },
+              { "id": "rules",   "label": "detections",  "subtitle": "RULES",     "accent": "amber", "x": 0.78, "y": 0.5 },
+              { "id": "soc",     "label": "SOC analyst", "subtitle": "TRIAGE",    "accent": "water", "x": 0.96, "y": 0.5 }
             ],
             "edges": [
               { "from": "src",   "to": "norm",  "kind": "dashed", "label": "raw" },
@@ -2469,10 +2469,10 @@ export default {
             "subtitle": "FROM EVENT TO EVIDENCE",
             "height": 220,
             "nodes": [
-              { "id": "app",    "label": "app event",   "subtitle": "WHO · WHAT · WHEN",  "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "sign",   "label": "sign + hash", "subtitle": "TAMPER-EVIDENT",     "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "wormm",  "label": "WORM store",  "subtitle": "APPEND-ONLY",        "accent": "earth", "x": 0.66, "y": 0.5 },
-              { "id": "audit",  "label": "auditor",     "subtitle": "READS THE TRAIL",    "accent": "water", "x": 0.92, "y": 0.5 }
+              { "id": "app",    "label": "app event",   "subtitle": "WHO+WHAT",    "accent": "sky",   "x": 0.08, "y": 0.5 },
+              { "id": "sign",   "label": "sign + hash", "subtitle": "TAMPER-EVT",  "accent": "amber", "x": 0.36, "y": 0.5 },
+              { "id": "wormm",  "label": "WORM store",  "subtitle": "APPEND ONLY", "accent": "earth", "x": 0.66, "y": 0.5 },
+              { "id": "audit",  "label": "auditor",     "subtitle": "READS TRAIL", "accent": "water", "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "app",   "to": "sign",  "kind": "dashed", "label": "emit" },
@@ -2558,11 +2558,11 @@ export default {
             "subtitle": "WIRE · HOST · ENDPOINT",
             "height": 220,
             "nodes": [
-              { "id": "atk",   "label": "attacker",    "subtitle": "EXTERNAL · INSIDER", "accent": "fire",  "x": 0.08, "y": 0.5 },
-              { "id": "ips",   "label": "IPS",         "subtitle": "INLINE · BLOCKS",    "accent": "amber", "x": 0.32, "y": 0.5 },
-              { "id": "ids",   "label": "network IDS", "subtitle": "TAP · ALERTS",       "accent": "amber", "x": 0.56, "y": 0.5 },
-              { "id": "edr",   "label": "EDR agent",   "subtitle": "ON THE HOST",        "accent": "amber", "x": 0.78, "y": 0.5 },
-              { "id": "soc",   "label": "SOC",         "subtitle": "TRIAGES ALERTS",     "accent": "water", "x": 0.96, "y": 0.5 }
+              { "id": "atk",   "label": "attacker",    "subtitle": "EXTERNAL", "accent": "fire",  "x": 0.08, "y": 0.5 },
+              { "id": "ips",   "label": "IPS",         "subtitle": "BLOCKS",   "accent": "amber", "x": 0.32, "y": 0.5 },
+              { "id": "ids",   "label": "network IDS", "subtitle": "ALERTS",   "accent": "amber", "x": 0.56, "y": 0.5 },
+              { "id": "edr",   "label": "EDR agent",   "subtitle": "ON HOST",  "accent": "amber", "x": 0.78, "y": 0.5 },
+              { "id": "soc",   "label": "SOC",         "subtitle": "TRIAGE",   "accent": "water", "x": 0.96, "y": 0.5 }
             ],
             "edges": [
               { "from": "atk", "to": "ips", "kind": "dashed", "label": "traffic" },
@@ -2658,11 +2658,11 @@ export default {
             "subtitle": "ALERT → IC → CONTAIN",
             "height": 220,
             "nodes": [
-              { "id": "alert",  "label": "alert fires",  "subtitle": "SIEM · EDR · USER",  "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "ic",     "label": "declare IC",   "subtitle": "ONE PERSON IN CHARGE","accent": "water", "x": 0.32, "y": 0.5 },
-              { "id": "scope",  "label": "scope",        "subtitle": "WHAT IS AFFECTED",    "accent": "amber", "x": 0.56, "y": 0.5 },
-              { "id": "cont",   "label": "contain",      "subtitle": "ISOLATE · REVOKE",    "accent": "amber", "x": 0.78, "y": 0.5 },
-              { "id": "ev",     "label": "preserve",     "subtitle": "MEMORY · DISK · LOGS","accent": "earth", "x": 0.96, "y": 0.5 }
+              { "id": "alert",  "label": "alert fires",  "subtitle": "SIEM",     "accent": "sky",   "x": 0.08, "y": 0.5 },
+              { "id": "ic",     "label": "declare IC",   "subtitle": "ONE LEAD", "accent": "water", "x": 0.32, "y": 0.5 },
+              { "id": "scope",  "label": "scope",        "subtitle": "AFFECTED", "accent": "amber", "x": 0.56, "y": 0.5 },
+              { "id": "cont",   "label": "contain",      "subtitle": "ISOLATE",  "accent": "amber", "x": 0.78, "y": 0.5 },
+              { "id": "ev",     "label": "preserve",     "subtitle": "EVIDENCE", "accent": "earth", "x": 0.96, "y": 0.5 }
             ],
             "edges": [
               { "from": "alert", "to": "ic",    "kind": "dashed", "label": "page" },
@@ -2760,10 +2760,10 @@ export default {
             "subtitle": "ATTACK · DETECT · IMPROVE",
             "height": 220,
             "nodes": [
-              { "id": "red",   "label": "red team",   "subtitle": "EMULATES ADVERSARY", "accent": "fire",  "x": 0.10, "y": 0.5 },
-              { "id": "sig",   "label": "telemetry",  "subtitle": "LOGS · EDR · NET",   "accent": "sky",   "x": 0.35, "y": 0.5 },
-              { "id": "blue",  "label": "blue team",  "subtitle": "DETECTS · RESPONDS", "accent": "water", "x": 0.60, "y": 0.5 },
-              { "id": "rule",  "label": "new rule",   "subtitle": "DETECTION ADDED",    "accent": "amber", "x": 0.88, "y": 0.5 }
+              { "id": "red",   "label": "red team",   "subtitle": "EMULATES",  "accent": "fire",  "x": 0.10, "y": 0.5 },
+              { "id": "sig",   "label": "telemetry",  "subtitle": "LOGS+EDR",  "accent": "sky",   "x": 0.35, "y": 0.5 },
+              { "id": "blue",  "label": "blue team",  "subtitle": "DETECTS",   "accent": "water", "x": 0.60, "y": 0.5 },
+              { "id": "rule",  "label": "new rule",   "subtitle": "ADDED",     "accent": "amber", "x": 0.88, "y": 0.5 }
             ],
             "edges": [
               { "from": "red",  "to": "sig",  "kind": "dashed", "label": "attacks" },

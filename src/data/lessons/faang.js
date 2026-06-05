@@ -296,7 +296,7 @@ export default {
               {
                 "id": "cau",
                 "label": "Node",
-                "subtitle": "causal · vector clock",
+                "subtitle": "causal",
                 "accent": "sky",
                 "x": 0.36,
                 "y": 0.5
@@ -320,7 +320,7 @@ export default {
               {
                 "id": "rc",
                 "label": "Replicas",
-                "subtitle": "respect happens-before",
+                "subtitle": "happens-before",
                 "accent": "fire",
                 "x": 0.82,
                 "y": 0.5
@@ -613,16 +613,16 @@ export default {
                 "accent": "amber"
               },
               {
-                "from": "p2",
+                "from": "p1",
                 "to": "c",
-                "label": "vote yes/no",
+                "label": "vote",
                 "kind": "dashed",
                 "accent": "water"
               },
               {
                 "from": "c",
                 "to": "log",
-                "label": "commit decision",
+                "label": "commit",
                 "kind": "solid",
                 "accent": "fire"
               }
@@ -873,7 +873,7 @@ export default {
               {
                 "id": "rec",
                 "label": "Recruiter Screen",
-                "subtitle": "30 min, fit + logistics",
+                "subtitle": "30 MIN",
                 "x": 0.08,
                 "y": 0.5,
                 "accent": "water"
@@ -881,7 +881,7 @@ export default {
               {
                 "id": "tech",
                 "label": "Tech Screen",
-                "subtitle": "1 coding round, phone",
+                "subtitle": "1 CODING",
                 "x": 0.3,
                 "y": 0.5,
                 "accent": "sky"
@@ -889,7 +889,7 @@ export default {
               {
                 "id": "onsite",
                 "label": "Onsite Loop",
-                "subtitle": "4-6 rounds, 1 day",
+                "subtitle": "4-6 ROUNDS",
                 "x": 0.55,
                 "y": 0.5,
                 "accent": "amber"
@@ -897,7 +897,7 @@ export default {
               {
                 "id": "debrief",
                 "label": "Debrief",
-                "subtitle": "interviewers vote",
+                "subtitle": "VOTE",
                 "x": 0.78,
                 "y": 0.5,
                 "accent": "fire"
@@ -905,7 +905,7 @@ export default {
               {
                 "id": "offer",
                 "label": "Offer / Reject",
-                "subtitle": "or team-match queue",
+                "subtitle": "MATCH",
                 "x": 0.95,
                 "y": 0.5,
                 "accent": "earth"
@@ -2575,10 +2575,10 @@ export default {
               { "id": "db",     "label": "db",     "subtitle": "INDEX SCAN",     "accent": "earth", "x": 0.78, "y": 0.5 }
             ],
             "edges": [
-              { "from": "client", "to": "api", "kind": "dashed", "label": "cursor" },
+              { "from": "client", "to": "api", "kind": "dashed", "label": "cursor in" },
               { "from": "api",    "to": "db",  "kind": "dashed", "label": "seek" },
-              { "from": "db",     "to": "api", "kind": "dashed", "label": "rows" },
-              { "from": "api",    "to": "client", "kind": "dashed", "label": "next" }
+              { "from": "db",     "to": "api", "kind": "dashed" },
+              { "from": "api",    "to": "client", "kind": "dashed" }
             ]
           }
         ]

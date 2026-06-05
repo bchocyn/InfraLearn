@@ -718,7 +718,7 @@ export default {
               {
                 "id": "qkv",
                 "label": "W_Q, W_K, W_V",
-                "subtitle": "three projections",
+                "subtitle": "project",
                 "x": 0.3,
                 "y": 0.5,
                 "accent": "sky"
@@ -734,7 +734,7 @@ export default {
               {
                 "id": "soft",
                 "label": "softmax + mask",
-                "subtitle": "weights sum to 1",
+                "subtitle": "weights",
                 "x": 0.78,
                 "y": 0.5,
                 "accent": "amber"
@@ -1520,7 +1520,7 @@ export default {
               {
                 "id": "m",
                 "label": "Model",
-                "subtitle": "outputs p ∈ [0,1]",
+                "subtitle": "p ∈ [0,1]",
                 "x": 0.1,
                 "y": 0.5,
                 "accent": "sky"
@@ -1528,7 +1528,7 @@ export default {
               {
                 "id": "c",
                 "label": "Calibration",
-                "subtitle": "Platt / isotonic",
+                "subtitle": "Platt",
                 "x": 0.4,
                 "y": 0.5,
                 "accent": "amber"
@@ -1536,7 +1536,7 @@ export default {
               {
                 "id": "t",
                 "label": "Threshold τ",
-                "subtitle": "business choice",
+                "subtitle": "business",
                 "x": 0.7,
                 "y": 0.5,
                 "accent": "earth"
@@ -1544,7 +1544,7 @@ export default {
               {
                 "id": "d",
                 "label": "Decision",
-                "subtitle": "approve / hold",
+                "subtitle": "approve",
                 "x": 0.95,
                 "y": 0.5,
                 "accent": "fire"
@@ -1769,7 +1769,7 @@ export default {
               {
                 "id": "x",
                 "label": "x",
-                "subtitle": "784 pixels in [0,1]",
+                "subtitle": "784 pixels",
                 "x": 0.05,
                 "y": 0.5,
                 "accent": "water"
@@ -1777,7 +1777,7 @@ export default {
               {
                 "id": "l1",
                 "label": "W₁·x + b₁",
-                "subtitle": "784 → 128",
+                "subtitle": "→ 128",
                 "x": 0.28,
                 "y": 0.5,
                 "accent": "sky"
@@ -1785,7 +1785,7 @@ export default {
               {
                 "id": "relu",
                 "label": "ReLU",
-                "subtitle": "max(0, ·)",
+                "subtitle": "max(0,·)",
                 "x": 0.5,
                 "y": 0.5,
                 "accent": "amber"
@@ -1793,7 +1793,7 @@ export default {
               {
                 "id": "l2",
                 "label": "W₂·h + b₂",
-                "subtitle": "128 → 10 logits",
+                "subtitle": "→ 10",
                 "x": 0.72,
                 "y": 0.5,
                 "accent": "sky"
@@ -1801,7 +1801,7 @@ export default {
               {
                 "id": "sm",
                 "label": "softmax",
-                "subtitle": "probs over 10 digits",
+                "subtitle": "probs",
                 "x": 0.93,
                 "y": 0.5,
                 "accent": "fire"
@@ -1999,7 +1999,7 @@ export default {
               {
                 "id": "app",
                 "label": "Orchestrator",
-                "subtitle": "embed · retrieve · rerank",
+                "subtitle": "embed+rerank",
                 "accent": "sky",
                 "x": 0.36,
                 "y": 0.5
@@ -2189,7 +2189,7 @@ export default {
               {
                 "id": "data",
                 "label": "Dataset",
-                "subtitle": "instruction · response",
+                "subtitle": "instr+resp",
                 "accent": "water",
                 "x": 0.08,
                 "y": 0.5
@@ -2197,7 +2197,7 @@ export default {
               {
                 "id": "base",
                 "label": "Base 7B",
-                "subtitle": "frozen · 4-bit",
+                "subtitle": "4-bit",
                 "accent": "amber",
                 "x": 0.36,
                 "y": 0.5
@@ -2205,7 +2205,7 @@ export default {
               {
                 "id": "lora",
                 "label": "LoRA adapter",
-                "subtitle": "r=16 · ~10M params",
+                "subtitle": "~10M",
                 "accent": "sky",
                 "x": 0.62,
                 "y": 0.5
@@ -2688,7 +2688,7 @@ export default {
               {
                 "id": "x",
                 "label": "Input x",
-                "subtitle": "batch of data",
+                "subtitle": "batch",
                 "x": 0.05,
                 "y": 0.5,
                 "accent": "water"
@@ -3681,8 +3681,8 @@ export default {
             "height": 220,
             "nodes": [
               { "id": "client", "label": "Client", "subtitle": "your app", "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "gw",     "label": "API gateway", "subtitle": "auth · rate limit", "accent": "amber", "x": 0.34, "y": 0.5 },
-              { "id": "worker", "label": "Model worker", "subtitle": "decode loop · GPU", "accent": "fire", "x": 0.62, "y": 0.5 },
+              { "id": "gw",     "label": "API gateway", "subtitle": "auth+rate", "accent": "amber", "x": 0.34, "y": 0.5 },
+              { "id": "worker", "label": "Model worker", "subtitle": "decode", "accent": "fire", "x": 0.62, "y": 0.5 },
               { "id": "stream", "label": "Stream + cache", "subtitle": "SSE chunks · prompt cache", "accent": "sky", "x": 0.88, "y": 0.28 },
               { "id": "ledger", "label": "Cost ledger", "subtitle": "tokens · $ · logs", "accent": "earth", "x": 0.88, "y": 0.72 }
             ],
@@ -3792,10 +3792,10 @@ export default {
             "subtitle": "SYSTEM · FEW-SHOT · USER · OUTPUT",
             "height": 220,
             "nodes": [
-              { "id": "user",   "label": "User input",      "subtitle": "raw question",      "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "tmpl",   "label": "Prompt template", "subtitle": "rules + examples", "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "llm",    "label": "LLM",             "subtitle": "claude-sonnet-4-6","accent": "fire",  "x": 0.64, "y": 0.5 },
-              { "id": "out",    "label": "Structured out",  "subtitle": "JSON · tags",       "accent": "sky",   "x": 0.92, "y": 0.5 }
+              { "id": "user",   "label": "User input",      "subtitle": "question",  "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "tmpl",   "label": "Prompt template", "subtitle": "rules",     "accent": "amber", "x": 0.36, "y": 0.5 },
+              { "id": "llm",    "label": "LLM",             "subtitle": "claude",    "accent": "fire",  "x": 0.64, "y": 0.5 },
+              { "id": "out",    "label": "Structured out",  "subtitle": "JSON",      "accent": "sky",   "x": 0.92, "y": 0.5 }
             ],
             "edges": [
               { "from": "user", "to": "tmpl", "kind": "dashed", "label": "slot in" },
@@ -3899,11 +3899,11 @@ export default {
             "subtitle": "CHUNK · EMBED · STORE · RETRIEVE · GENERATE",
             "height": 240,
             "nodes": [
-              { "id": "q",     "label": "Query",        "subtitle": "user question",   "accent": "water", "x": 0.06, "y": 0.5 },
-              { "id": "emb",   "label": "Embedder",     "subtitle": "vectorize",       "accent": "amber", "x": 0.28, "y": 0.5 },
-              { "id": "vdb",   "label": "Vector DB",    "subtitle": "top-k search",    "accent": "earth", "x": 0.50, "y": 0.5 },
-              { "id": "ctx",   "label": "Prompt + ctx", "subtitle": "stuff & cite",    "accent": "amber", "x": 0.72, "y": 0.5 },
-              { "id": "llm",   "label": "LLM",          "subtitle": "claude-sonnet-4-6","accent": "fire", "x": 0.94, "y": 0.5 }
+              { "id": "q",     "label": "Query",        "subtitle": "question",  "accent": "water", "x": 0.06, "y": 0.5 },
+              { "id": "emb",   "label": "Embedder",     "subtitle": "vector",    "accent": "amber", "x": 0.28, "y": 0.5 },
+              { "id": "vdb",   "label": "Vector DB",    "subtitle": "top-k",     "accent": "earth", "x": 0.50, "y": 0.5 },
+              { "id": "ctx",   "label": "Prompt + ctx", "subtitle": "stuff",     "accent": "amber", "x": 0.72, "y": 0.5 },
+              { "id": "llm",   "label": "LLM",          "subtitle": "claude",    "accent": "fire",  "x": 0.94, "y": 0.5 }
             ],
             "edges": [
               { "from": "q",   "to": "emb", "kind": "dashed", "label": "encode" },
@@ -4046,10 +4046,10 @@ export default {
             "subtitle": "TEXT · VECTOR · INDEX · NEIGHBORS",
             "height": 220,
             "nodes": [
-              { "id": "txt",   "label": "Text",       "subtitle": "doc or query",     "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "enc",   "label": "Encoder",    "subtitle": "embedding model",  "accent": "amber", "x": 0.34, "y": 0.5 },
-              { "id": "vec",   "label": "Vector",     "subtitle": "1536 floats",      "accent": "sky",   "x": 0.60, "y": 0.5 },
-              { "id": "idx",   "label": "HNSW index", "subtitle": "approx kNN",       "accent": "earth", "x": 0.88, "y": 0.5 }
+              { "id": "txt",   "label": "Text",       "subtitle": "doc",         "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "enc",   "label": "Encoder",    "subtitle": "embed model", "accent": "amber", "x": 0.34, "y": 0.5 },
+              { "id": "vec",   "label": "Vector",     "subtitle": "1536 floats", "accent": "sky",   "x": 0.60, "y": 0.5 },
+              { "id": "idx",   "label": "HNSW index", "subtitle": "approx kNN",  "accent": "earth", "x": 0.88, "y": 0.5 }
             ],
             "edges": [
               { "from": "txt", "to": "enc", "kind": "dashed", "label": "tokens" },
@@ -4131,10 +4131,10 @@ export default {
             "subtitle": "USER · LLM · TOOL · RESULT · ANSWER",
             "height": 240,
             "nodes": [
-              { "id": "user", "label": "User",       "subtitle": "question",         "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "llm",  "label": "LLM",        "subtitle": "claude-sonnet-4-6","accent": "fire",  "x": 0.34, "y": 0.5 },
-              { "id": "orch", "label": "Orchestrator","subtitle": "parses tool_use", "accent": "amber", "x": 0.60, "y": 0.5 },
-              { "id": "tool", "label": "Tool",       "subtitle": "your function",    "accent": "earth", "x": 0.86, "y": 0.5 }
+              { "id": "user", "label": "User",       "subtitle": "question",  "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "llm",  "label": "LLM",        "subtitle": "claude",    "accent": "fire",  "x": 0.34, "y": 0.5 },
+              { "id": "orch", "label": "Orchestrator","subtitle": "tool_use", "accent": "amber", "x": 0.60, "y": 0.5 },
+              { "id": "tool", "label": "Tool",       "subtitle": "function",  "accent": "earth", "x": 0.86, "y": 0.5 }
             ],
             "edges": [
               { "from": "user", "to": "llm",  "kind": "dashed", "label": "ask" },
@@ -4237,10 +4237,10 @@ export default {
             "subtitle": "GOLDEN · CANDIDATE · JUDGE · DASHBOARD",
             "height": 220,
             "nodes": [
-              { "id": "golden", "label": "Golden set",  "subtitle": "100 hard cases",  "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "cand",   "label": "Candidate",   "subtitle": "new prompt/model","accent": "fire",  "x": 0.34, "y": 0.5 },
-              { "id": "judge",  "label": "LLM judge",   "subtitle": "claude-opus-4-8", "accent": "amber", "x": 0.60, "y": 0.5 },
-              { "id": "dash",   "label": "Trace store", "subtitle": "LangSmith",       "accent": "earth", "x": 0.86, "y": 0.5 }
+              { "id": "golden", "label": "Golden set",  "subtitle": "100 cases", "accent": "water", "x": 0.08, "y": 0.5 },
+              { "id": "cand",   "label": "Candidate",   "subtitle": "new prompt","accent": "fire",  "x": 0.34, "y": 0.5 },
+              { "id": "judge",  "label": "LLM judge",   "subtitle": "claude",    "accent": "amber", "x": 0.60, "y": 0.5 },
+              { "id": "dash",   "label": "Trace store", "subtitle": "LangSmith", "accent": "earth", "x": 0.86, "y": 0.5 }
             ],
             "edges": [
               { "from": "golden", "to": "cand",  "kind": "dashed", "label": "run" },

@@ -20,7 +20,7 @@ export default {
               {
                 "id": "push",
                 "label": "push",
-                "subtitle": "git → main / PR",
+                "subtitle": "git → main",
                 "accent": "water",
                 "x": 0.05,
                 "y": 0.5
@@ -28,7 +28,7 @@ export default {
               {
                 "id": "lint",
                 "label": "lint",
-                "subtitle": "ruff · eslint",
+                "subtitle": "ruff",
                 "accent": "amber",
                 "x": 0.26,
                 "y": 0.5
@@ -36,7 +36,7 @@ export default {
               {
                 "id": "test",
                 "label": "test",
-                "subtitle": "unit + integration",
+                "subtitle": "unit + int",
                 "accent": "sky",
                 "x": 0.46,
                 "y": 0.5
@@ -44,7 +44,7 @@ export default {
               {
                 "id": "build",
                 "label": "build",
-                "subtitle": "docker → registry",
+                "subtitle": "docker",
                 "accent": "earth",
                 "x": 0.68,
                 "y": 0.5
@@ -52,7 +52,7 @@ export default {
               {
                 "id": "deploy",
                 "label": "deploy",
-                "subtitle": "k8s · fly · render",
+                "subtitle": "k8s · fly",
                 "accent": "fire",
                 "x": 0.92,
                 "y": 0.5
@@ -720,40 +720,40 @@ export default {
                 "id": "git",
                 "label": "git push",
                 "subtitle": "commit SHA",
-                "x": 0.05,
-                "y": 0.5,
+                "x": 0.06,
+                "y": 0.3,
                 "accent": "water"
               },
               {
                 "id": "ci",
                 "label": "CI build",
                 "subtitle": "tag = SHA",
-                "x": 0.3,
-                "y": 0.2,
+                "x": 0.29,
+                "y": 0.3,
                 "accent": "sky"
               },
               {
                 "id": "reg",
                 "label": "registry",
                 "subtitle": "image:SHA",
-                "x": 0.55,
-                "y": 0.5,
+                "x": 0.52,
+                "y": 0.3,
                 "accent": "earth"
               },
               {
                 "id": "deploy",
                 "label": "deploy + smoke",
                 "subtitle": "gate",
-                "x": 0.8,
-                "y": 0.2,
+                "x": 0.78,
+                "y": 0.3,
                 "accent": "amber"
               },
               {
                 "id": "prod",
                 "label": "prod",
                 "subtitle": "current + previous",
-                "x": 0.8,
-                "y": 0.8,
+                "x": 0.78,
+                "y": 0.82,
                 "accent": "fire"
               }
             ],
@@ -768,7 +768,7 @@ export default {
                 "from": "ci",
                 "to": "reg",
                 "kind": "dashed",
-                "label": "push :SHA"
+                "label": "push"
               },
               {
                 "from": "reg",
@@ -781,12 +781,6 @@ export default {
                 "to": "prod",
                 "kind": "dashed",
                 "label": "promote"
-              },
-              {
-                "from": "prod",
-                "to": "reg",
-                "kind": "solid",
-                "label": "pins tags"
               }
             ]
           }
@@ -932,7 +926,7 @@ export default {
               {
                 "id": "svc",
                 "label": "Service",
-                "subtitle": "ClusterIP + endpoints",
+                "subtitle": "ClusterIP",
                 "x": 0.55,
                 "y": 0.5,
                 "accent": "sky"
@@ -1723,13 +1717,13 @@ export default {
                 "from": "app",
                 "to": "sdk",
                 "kind": "dashed",
-                "label": "isOn(key, user)"
+                "label": "isOn(key)"
               },
               {
                 "from": "sdk",
                 "to": "flagd",
                 "kind": "dashed",
-                "label": "GET /flags/:key"
+                "label": "GET /flags"
               },
               {
                 "from": "flagd",
@@ -1744,7 +1738,7 @@ export default {
                 "to": "mem",
                 "kind": "solid",
                 "accent": "fire",
-                "label": "loads on boot",
+                "label": "on boot",
                 "curve": 0.3
               }
             ]
@@ -2006,7 +2000,7 @@ export default {
               {
                 "id": "find",
                 "label": "find",
-                "subtitle": "produces paths",
+                "subtitle": "paths",
                 "x": 0.08,
                 "y": 0.5,
                 "accent": "water"
@@ -2014,7 +2008,7 @@ export default {
               {
                 "id": "xargs1",
                 "label": "xargs grep -l",
-                "subtitle": "paths → matching paths",
+                "subtitle": "match",
                 "x": 0.3,
                 "y": 0.5,
                 "accent": "sky"
@@ -2030,7 +2024,7 @@ export default {
               {
                 "id": "xargs2",
                 "label": "xargs grep -c",
-                "subtitle": "paths → path:count",
+                "subtitle": "count",
                 "x": 0.7,
                 "y": 0.5,
                 "accent": "earth"
@@ -2364,7 +2358,7 @@ export default {
               {
                 "id": "dev",
                 "label": "Dockerfile",
-                "subtitle": "your source recipe",
+                "subtitle": "recipe",
                 "x": 0.05,
                 "y": 0.5,
                 "accent": "water"
@@ -2380,7 +2374,7 @@ export default {
               {
                 "id": "reg",
                 "label": "Registry",
-                "subtitle": "Docker Hub / ECR / GHCR",
+                "subtitle": "ECR / GHCR",
                 "x": 0.55,
                 "y": 0.5,
                 "accent": "earth"
@@ -3629,7 +3623,7 @@ export default {
               {
                 "id": "client",
                 "label": "Client",
-                "subtitle": "curl api.example.com",
+                "subtitle": "curl",
                 "x": 0.05,
                 "y": 0.5,
                 "accent": "water"
@@ -3645,7 +3639,7 @@ export default {
               {
                 "id": "ingress",
                 "label": "Ingress controller",
-                "subtitle": "nginx / Envoy pod",
+                "subtitle": "nginx pod",
                 "x": 0.52,
                 "y": 0.5,
                 "accent": "sky"
@@ -3653,7 +3647,7 @@ export default {
               {
                 "id": "svc",
                 "label": "ClusterIP VIP",
-                "subtitle": "programmed by kube-proxy",
+                "subtitle": "kube-proxy",
                 "x": 0.75,
                 "y": 0.5,
                 "accent": "earth"
@@ -4124,9 +4118,9 @@ export default {
             "title": "The three storage shapes",
             "height": 220,
             "nodes": [
-              { "id": "obj",   "label": "object", "subtitle": "S3 · GCS · BLOB",     "accent": "earth", "x": 0.18, "y": 0.5 },
-              { "id": "blk",   "label": "block",  "subtitle": "EBS · PD · DISK",     "accent": "earth", "x": 0.5,  "y": 0.5 },
-              { "id": "file",  "label": "file",   "subtitle": "EFS · FILESTORE · NFS", "accent": "earth", "x": 0.82, "y": 0.5 }
+              { "id": "obj",   "label": "object", "subtitle": "S3+GCS",    "accent": "earth", "x": 0.18, "y": 0.5 },
+              { "id": "blk",   "label": "block",  "subtitle": "EBS+DISK",  "accent": "earth", "x": 0.5,  "y": 0.5 },
+              { "id": "file",  "label": "file",   "subtitle": "EFS+NFS",   "accent": "earth", "x": 0.82, "y": 0.5 }
             ],
             "edges": []
           }
@@ -4420,10 +4414,9 @@ export default {
               { "id": "orig", "label": "origin", "subtitle": "US-EAST · 200MS", "accent": "earth", "x": 0.9,  "y": 0.5 }
             ],
             "edges": [
-              { "from": "user", "to": "edge", "kind": "dashed", "label": "request" },
+              { "from": "user", "to": "edge", "kind": "dashed", "label": "5ms hit" },
               { "from": "edge", "to": "fn",   "kind": "dashed", "label": "miss" },
-              { "from": "fn",   "to": "orig", "kind": "dashed", "label": "fetch" },
-              { "from": "edge", "to": "user", "kind": "dashed", "label": "5ms" }
+              { "from": "fn",   "to": "orig", "kind": "dashed", "label": "fetch" }
             ]
           }
         ]
@@ -4609,10 +4602,10 @@ export default {
             "subtitle": "CONTROL TO CONVENIENCE SLIDER",
             "height": 220,
             "nodes": [
-              { "id": "iaas", "label": "IaaS", "subtitle": "RENT THE VM", "accent": "fire", "x": 0.15, "y": 0.5 },
-              { "id": "paas", "label": "PaaS", "subtitle": "RENT THE RUNTIME", "accent": "amber", "x": 0.4, "y": 0.5 },
-              { "id": "faas", "label": "FaaS", "subtitle": "RENT THE FUNCTION", "accent": "sky", "x": 0.65, "y": 0.5 },
-              { "id": "saas", "label": "SaaS", "subtitle": "RENT THE APP", "accent": "water", "x": 0.9, "y": 0.5 }
+              { "id": "iaas", "label": "IaaS", "subtitle": "RENT VM",      "accent": "fire",  "x": 0.15, "y": 0.5 },
+              { "id": "paas", "label": "PaaS", "subtitle": "RENT RUNTIME", "accent": "amber", "x": 0.4,  "y": 0.5 },
+              { "id": "faas", "label": "FaaS", "subtitle": "RENT FUNC",    "accent": "sky",   "x": 0.65, "y": 0.5 },
+              { "id": "saas", "label": "SaaS", "subtitle": "RENT APP",     "accent": "water", "x": 0.9,  "y": 0.5 }
             ],
             "edges": [
               { "from": "iaas", "to": "paas", "kind": "dashed", "label": "less ops" },
@@ -4857,10 +4850,10 @@ export default {
             "subtitle": "IDENTITY · POLICY · ROLE",
             "height": 220,
             "nodes": [
-              { "id": "user", "label": "Identity", "subtitle": "USER · GROUP · SVC", "accent": "amber", "x": 0.15, "y": 0.5 },
-              { "id": "role", "label": "Role", "subtitle": "TEMP CREDENTIALS", "accent": "amber", "x": 0.45, "y": 0.5 },
-              { "id": "policy", "label": "Policy", "subtitle": "ALLOW · DENY", "accent": "amber", "x": 0.72, "y": 0.5 },
-              { "id": "resource", "label": "Resource", "subtitle": "S3 · EC2 · DB", "accent": "earth", "x": 0.95, "y": 0.5 }
+              { "id": "user", "label": "Identity",   "subtitle": "USER+GRP",   "accent": "amber", "x": 0.15, "y": 0.5 },
+              { "id": "role", "label": "Role",       "subtitle": "TEMP CRED",  "accent": "amber", "x": 0.45, "y": 0.5 },
+              { "id": "policy", "label": "Policy",   "subtitle": "ALLOW/DENY", "accent": "amber", "x": 0.72, "y": 0.5 },
+              { "id": "resource", "label": "Resource","subtitle": "S3+EC2",    "accent": "earth", "x": 0.95, "y": 0.5 }
             ],
             "edges": [
               { "from": "user", "to": "role", "kind": "dashed", "label": "assume" },
@@ -5042,10 +5035,10 @@ export default {
             "subtitle": "FLEXIBILITY VS DISCOUNT",
             "height": 220,
             "nodes": [
-              { "id": "od", "label": "On-demand", "subtitle": "PAY AS YOU GO", "accent": "earth", "x": 0.15, "y": 0.5 },
-              { "id": "sp", "label": "Spot", "subtitle": "-70% · INTERRUPTIBLE", "accent": "earth", "x": 0.4, "y": 0.5 },
-              { "id": "ri", "label": "Reserved", "subtitle": "1-3 YR COMMIT", "accent": "earth", "x": 0.65, "y": 0.5 },
-              { "id": "sv", "label": "Savings plan", "subtitle": "FLEXIBLE COMMIT", "accent": "earth", "x": 0.9, "y": 0.5 }
+              { "id": "od", "label": "On-demand",    "subtitle": "PAY-AS-YOU-GO", "accent": "earth", "x": 0.15, "y": 0.5 },
+              { "id": "sp", "label": "Spot",         "subtitle": "-70% RISKY",    "accent": "earth", "x": 0.4,  "y": 0.5 },
+              { "id": "ri", "label": "Reserved",     "subtitle": "1-3 YR",        "accent": "earth", "x": 0.65, "y": 0.5 },
+              { "id": "sv", "label": "Savings plan", "subtitle": "FLEXIBLE",      "accent": "earth", "x": 0.9,  "y": 0.5 }
             ],
             "edges": []
           },
