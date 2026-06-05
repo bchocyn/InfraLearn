@@ -14,6 +14,12 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Force JS actions (checkout, setup-node, upload-pages-artifact) to use the
+# Node 24 runtime instead of the deprecated Node 20 runtime — GitHub flips the
+# default on 2026-06-16 and removes Node 20 from runners on 2026-09-16.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,7 +30,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Bump our build's Node runtime to 22 LTS (Node 20 hit EOL in April
+          # 2026; 22 is the current LTS line). Independent of the actions
+          # runtime knob above.
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
