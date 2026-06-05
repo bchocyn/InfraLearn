@@ -550,10 +550,10 @@ export const DAILY_QUESTIONS = {
     novice: [
       {
         q: 'What does RAM hold while a program runs?',
-        opts: ['Permanent files', 'Working data the CPU needs right now', 'Network packets'],
-        answer: 1,
+        opts: ['Working data the CPU needs right now', 'Permanent files', 'Network packets'],
+        answer: 0,
         whyWrong: {
-          0: 'Permanent files live on disk (SSD/HDD). RAM loses its contents the moment power is gone.',
+          1: 'Permanent files live on disk (SSD/HDD). RAM loses its contents the moment power is gone.',
           2: 'Network packets briefly pass through RAM, but RAM is general-purpose working memory, not a packet buffer.',
         },
         whyCorrect: 'RAM is the CPU\'s scratch pad — fast, volatile, and the place running programs keep their variables, stacks, and heap allocations while they execute.',
@@ -561,10 +561,10 @@ export const DAILY_QUESTIONS = {
       },
       {
         q: 'Which command lists files in a directory?',
-        opts: ['ls', 'cat', 'grep'],
-        answer: 0,
+        opts: ['cat', 'ls', 'grep'],
+        answer: 1,
         whyWrong: {
-          1: '`cat` prints file contents to stdout — it doesn\'t enumerate the directory.',
+          0: '`cat` prints file contents to stdout — it doesn\'t enumerate the directory.',
           2: '`grep` searches inside files for a pattern. Useful, but it\'s a filter, not a directory lister.',
         },
         whyCorrect: '`ls` is the canonical directory listing tool. `ls -lah` adds long-form, hidden files, and human-readable sizes.',
@@ -572,11 +572,11 @@ export const DAILY_QUESTIONS = {
       },
       {
         q: 'A "file path" is...',
-        opts: ['The CPU instruction queue', 'The address that locates a file on disk', 'A network route'],
-        answer: 1,
+        opts: ['The CPU instruction queue', 'A network route', 'The address that locates a file on disk'],
+        answer: 2,
         whyWrong: {
           0: 'The CPU instruction queue is hardware-internal scheduling — unrelated to user-visible filenames.',
-          2: 'Network routes (IPs, hops) move packets between machines. Paths name files within one filesystem.',
+          1: 'Network routes (IPs, hops) move packets between machines. Paths name files within one filesystem.',
         },
         whyCorrect: 'A path — like `/home/user/notes.txt` — is a string that names exactly one file inside a filesystem hierarchy.',
         bestPractices: 'Prefer absolute paths in scripts (`/var/log/app.log`) so they don\'t silently break when the working directory changes.',
@@ -585,10 +585,10 @@ export const DAILY_QUESTIONS = {
     junior: [
       {
         q: 'Which of these is a process attribute, not a file attribute?',
-        opts: ['Owner', 'PID', 'Permissions'],
-        answer: 1,
+        opts: ['PID', 'Owner', 'Permissions'],
+        answer: 0,
         whyWrong: {
-          0: 'Both files AND processes have owners. The owner attribute exists on both, so it\'s not exclusive to processes.',
+          1: 'Both files AND processes have owners. The owner attribute exists on both, so it\'s not exclusive to processes.',
           2: 'Permissions (rwx for user/group/other) are a file/inode attribute. Processes have a UID and capabilities, not chmod-style bits.',
         },
         whyCorrect: 'PID — Process ID — only exists for live processes. It\'s the kernel\'s handle into the task struct and dies with the process.',
@@ -596,10 +596,10 @@ export const DAILY_QUESTIONS = {
       },
       {
         q: 'What does "stdin" usually refer to?',
-        opts: ['Standard input stream', 'A storage device', 'A scheduler'],
-        answer: 0,
+        opts: ['A storage device', 'Standard input stream', 'A scheduler'],
+        answer: 1,
         whyWrong: {
-          1: 'Storage devices show up under `/dev/sd*` or `/dev/nvme*`. stdin is file descriptor 0, not a physical device.',
+          0: 'Storage devices show up under `/dev/sd*` or `/dev/nvme*`. stdin is file descriptor 0, not a physical device.',
           2: 'The scheduler is a kernel component that picks the next process to run. stdin is just a stream.',
         },
         whyCorrect: 'stdin is file descriptor 0 — the default input stream a program reads from. By default it\'s the terminal, but pipes and `<` redirect it.',
@@ -609,11 +609,11 @@ export const DAILY_QUESTIONS = {
     senior: [
       {
         q: 'What is the kernel\'s primary job?',
-        opts: ['Drawing the UI', 'Mediating between hardware and software', 'Hosting web servers'],
-        answer: 1,
+        opts: ['Drawing the UI', 'Hosting web servers', 'Mediating between hardware and software'],
+        answer: 2,
         whyWrong: {
           0: 'UI drawing is a userspace concern (X11, Wayland, the compositor). The kernel exposes input devices and framebuffers; it doesn\'t draw widgets.',
-          2: 'Web servers (nginx, Apache) are userspace processes. The kernel gives them sockets, but doesn\'t serve HTTP itself.',
+          1: 'Web servers (nginx, Apache) are userspace processes. The kernel gives them sockets, but doesn\'t serve HTTP itself.',
         },
         whyCorrect: 'The kernel arbitrates access to CPU, memory, disks, and network — exposing safe syscall interfaces so user processes don\'t corrupt each other or the hardware.',
         bestPractices: 'When perf is mysterious, profile syscalls (`strace -c`, `perf trace`). Userspace bugs often hide as "kernel slowness" until you see the syscall pattern.',
@@ -622,10 +622,10 @@ export const DAILY_QUESTIONS = {
     distinguished: [
       {
         q: 'In a context switch, what is most expensive on modern CPUs?',
-        opts: ['Saving registers', 'TLB / cache flushes', 'Updating the PID counter'],
-        answer: 1,
+        opts: ['TLB / cache flushes', 'Saving registers', 'Updating the PID counter'],
+        answer: 0,
         whyWrong: {
-          0: 'Saving the register file is a few hundred cycles at most — negligible vs. losing your warm caches.',
+          1: 'Saving the register file is a few hundred cycles at most — negligible vs. losing your warm caches.',
           2: 'PID housekeeping is a couple of pointer writes. Not on the hot path.',
         },
         whyCorrect: 'Switching to another address space invalidates the TLB and pollutes L1/L2 caches. The new process pays thousands of cycles in cache misses before it\'s warm again — that\'s where the real cost hides.',
@@ -648,21 +648,21 @@ export const DAILY_QUESTIONS = {
       },
       {
         q: 'A container is best described as...',
-        opts: ['A heavy VM with its own kernel', 'A lightweight isolated process bundle', 'A type of database'],
-        answer: 1,
+        opts: ['A heavy VM with its own kernel', 'A type of database', 'A lightweight isolated process bundle'],
+        answer: 2,
         whyWrong: {
           0: 'That describes a VM. VMs run a full guest kernel via a hypervisor. Containers share the host kernel — that\'s why they\'re lightweight.',
-          2: 'Databases store data. Containers are a packaging + isolation mechanism for any process (including databases).',
+          1: 'Databases store data. Containers are a packaging + isolation mechanism for any process (including databases).',
         },
         whyCorrect: 'A container is a process (or process tree) isolated via Linux namespaces and constrained via cgroups. It packages its filesystem and dependencies in an image but shares the host kernel.',
         bestPractices: 'Treat containers as immutable. Build an image, tag it, run it. Mutating a running container is a sign you\'re using it wrong.',
       },
       {
         q: 'What does "cd" do in a shell?',
-        opts: ['Copies a directory', 'Changes the working directory', 'Deletes a directory'],
-        answer: 1,
+        opts: ['Changes the working directory', 'Copies a directory', 'Deletes a directory'],
+        answer: 0,
         whyWrong: {
-          0: 'Copy is `cp -r dir/ dest/`. `cd` doesn\'t move bytes.',
+          1: 'Copy is `cp -r dir/ dest/`. `cd` doesn\'t move bytes.',
           2: 'Delete is `rm -rf` (use with extreme care). `cd` just moves where you\'re standing.',
         },
         whyCorrect: '`cd` (change directory) updates the shell\'s `PWD` — every subsequent relative path resolves from that location.',
@@ -683,11 +683,11 @@ export const DAILY_QUESTIONS = {
       },
       {
         q: 'A Dockerfile is...',
-        opts: ['A running container', 'A recipe for building an image', 'A registry URL'],
-        answer: 1,
+        opts: ['A running container', 'A registry URL', 'A recipe for building an image'],
+        answer: 2,
         whyWrong: {
           0: 'A running container is an instance of an image. The Dockerfile is the build-time recipe, not the runtime artifact.',
-          2: 'Registry URLs (like `docker.io/library/python`) point at hosted images. The Dockerfile produces what gets pushed there.',
+          1: 'Registry URLs (like `docker.io/library/python`) point at hosted images. The Dockerfile produces what gets pushed there.',
         },
         whyCorrect: 'A Dockerfile is a declarative build script — each instruction (`FROM`, `COPY`, `RUN`) produces a cached layer in the resulting image.',
         bestPractices: 'Order Dockerfile instructions from least- to most-frequently-changed (dependencies before app code). Multi-stage builds keep final images small.',
@@ -696,10 +696,10 @@ export const DAILY_QUESTIONS = {
     senior: [
       {
         q: 'Why use Infrastructure-as-Code?',
-        opts: ['Faster runtime', 'Reproducible, version-controlled infra', 'Lower egress cost'],
-        answer: 1,
+        opts: ['Reproducible, version-controlled infra', 'Faster runtime', 'Lower egress cost'],
+        answer: 0,
         whyWrong: {
-          0: 'IaC describes infra, it doesn\'t make running services faster. The underlying VM is the same speed whether you clicked it in a console or terraform-applied it.',
+          1: 'IaC describes infra, it doesn\'t make running services faster. The underlying VM is the same speed whether you clicked it in a console or terraform-applied it.',
           2: 'Egress cost is a function of how much data you move, not how you provisioned. IaC neither raises nor lowers it directly.',
         },
         whyCorrect: 'IaC turns infra into reviewable code — diffs in PRs, history in git, identical environments across dev/staging/prod, and easy disaster recovery by re-applying the manifests.',
@@ -724,21 +724,21 @@ export const DAILY_QUESTIONS = {
     novice: [
       {
         q: 'In supervised learning, what does the model learn from?',
-        opts: ['Random noise', 'Labeled examples', 'Its own predictions only'],
-        answer: 1,
+        opts: ['Random noise', 'Its own predictions only', 'Labeled examples'],
+        answer: 2,
         whyWrong: {
           0: 'Random noise is what regularization tries to avoid memorizing. A model trained on pure noise generalizes to nothing.',
-          2: 'Learning purely from its own predictions is closer to unsupervised / self-supervised setups. Supervised means an external teacher signal.',
+          1: 'Learning purely from its own predictions is closer to unsupervised / self-supervised setups. Supervised means an external teacher signal.',
         },
         whyCorrect: 'Supervised learning means each input x has a known label y. The model minimizes the gap between its prediction ŷ and y — labels are the "supervision".',
         bestPractices: 'Audit label quality before model quality. A 10% label noise rate caps your achievable accuracy regardless of how fancy the architecture is.',
       },
       {
         q: 'What is a "feature" in ML?',
-        opts: ['A bug', 'An input variable to the model', 'A type of GPU'],
-        answer: 1,
+        opts: ['An input variable to the model', 'A bug', 'A type of GPU'],
+        answer: 0,
         whyWrong: {
-          0: 'That\'s the software engineering joke meaning. Different domain.',
+          1: 'That\'s the software engineering joke meaning. Different domain.',
           2: 'GPUs are hardware. Features live in your dataset columns, not on a circuit board.',
         },
         whyCorrect: 'A feature is one column / dimension of input — age, pixel intensity, embedding component, etc. The model maps features to predictions.',
@@ -759,11 +759,11 @@ export const DAILY_QUESTIONS = {
     junior: [
       {
         q: 'What is model serving?',
-        opts: ['Training a model', 'Exposing a trained model to make predictions', 'Visualizing weights'],
-        answer: 1,
+        opts: ['Training a model', 'Visualizing weights', 'Exposing a trained model to make predictions'],
+        answer: 2,
         whyWrong: {
           0: 'Training is the offline learning phase. Serving is what happens after — using the result in production.',
-          2: 'Visualizing weights is a debugging / interpretability activity. Useful, but not what "serving" means.',
+          1: 'Visualizing weights is a debugging / interpretability activity. Useful, but not what "serving" means.',
         },
         whyCorrect: 'Serving puts a trained model behind an API (REST, gRPC, batch job) so other systems can send inputs and get predictions back — usually with latency, throughput, and version constraints.',
         bestPractices: 'Wrap models with versioned APIs (e.g. `/v1/predict`). Roll new models out behind A/B or shadow traffic before flipping 100%.',
@@ -800,21 +800,21 @@ export const DAILY_QUESTIONS = {
     novice: [
       {
         q: 'What is a function?',
-        opts: ['Reusable named block of code', 'A variable type', 'A network port'],
-        answer: 0,
+        opts: ['A network port', 'A variable type', 'Reusable named block of code'],
+        answer: 2,
         whyWrong: {
+          0: 'Network ports (80, 443, ...) are TCP/UDP endpoints. Functions are a programming construct.',
           1: 'Variables hold values. Functions are callable blocks. Different building blocks of a program.',
-          2: 'Network ports (80, 443, ...) are TCP/UDP endpoints. Functions are a programming construct.',
         },
         whyCorrect: 'A function packages a named block of behavior you can call with inputs (arguments) and get outputs (return value) — the fundamental unit of code reuse.',
         bestPractices: 'Keep functions small (one screen, one job). Pure functions (no side effects) are easiest to test and reason about.',
       },
       {
         q: 'Which data structure is FIFO?',
-        opts: ['Stack', 'Queue', 'Tree'],
-        answer: 1,
+        opts: ['Queue', 'Stack', 'Tree'],
+        answer: 0,
         whyWrong: {
-          0: 'A stack is LIFO — Last In, First Out. Think stack of plates: you grab the top one.',
+          1: 'A stack is LIFO — Last In, First Out. Think stack of plates: you grab the top one.',
           2: 'A tree is hierarchical (parent → children), not ordered as a single in/out line.',
         },
         whyCorrect: 'A queue is First In, First Out — the first thing pushed is the first thing popped. Like a line at a checkout.',
@@ -835,11 +835,11 @@ export const DAILY_QUESTIONS = {
     junior: [
       {
         q: 'Big-O of binary search on a sorted array?',
-        opts: ['O(n)', 'O(log n)', 'O(n log n)'],
-        answer: 1,
+        opts: ['O(n)', 'O(n log n)', 'O(log n)'],
+        answer: 2,
         whyWrong: {
           0: 'O(n) is a linear scan. Binary search halves the range each step, so it\'s exponentially faster than that.',
-          2: 'O(n log n) is sorting (mergesort, heapsort). Binary search assumes the array is *already* sorted and just locates one element.',
+          1: 'O(n log n) is sorting (mergesort, heapsort). Binary search assumes the array is *already* sorted and just locates one element.',
         },
         whyCorrect: 'Each comparison eliminates half the remaining range, so after k steps you\'ve narrowed n down to n/2^k. Solve for k: O(log₂ n).',
         bestPractices: 'Binary search needs a sorted, random-access structure. If you find yourself sorting once to search many times, the sort cost amortizes — that\'s when it really shines.',
@@ -876,21 +876,21 @@ export const DAILY_QUESTIONS = {
     novice: [
       {
         q: 'A neural network is loosely inspired by what?',
-        opts: ['Banking ledgers', 'Networks of biological neurons', 'Phone networks'],
-        answer: 1,
+        opts: ['Banking ledgers', 'Phone networks', 'Networks of biological neurons'],
+        answer: 2,
         whyWrong: {
           0: 'Banking ledgers are double-entry bookkeeping. No relation to NN topology.',
-          2: 'Phone networks route calls between subscribers. The graph structure differs and there\'s no learning involved.',
+          1: 'Phone networks route calls between subscribers. The graph structure differs and there\'s no learning involved.',
         },
         whyCorrect: 'Neural nets borrow the metaphor of neurons firing through weighted connections. The math (weighted sums + nonlinearity) is a vastly simplified abstraction, but the inspiration is biological.',
         bestPractices: 'Don\'t over-extend the brain analogy when debugging. NNs are matrix multiplications + activations — the math, not the metaphor, is what predicts behavior.',
       },
       {
         q: 'What\'s an "epoch" in training?',
-        opts: ['One sample', 'One full pass through the dataset', 'One GPU'],
-        answer: 1,
+        opts: ['One full pass through the dataset', 'One sample', 'One GPU'],
+        answer: 0,
         whyWrong: {
-          0: 'One sample is a single example. The unit that processes one sample at a time is a "step" (or "iteration" in batch=1).',
+          1: 'One sample is a single example. The unit that processes one sample at a time is a "step" (or "iteration" in batch=1).',
           2: 'A GPU is hardware. Epochs are a logical training-progress unit, independent of hardware count.',
         },
         whyCorrect: 'An epoch is one complete sweep over every example in the training set. Multiple epochs = repeated passes; the model usually needs many to converge.',
@@ -913,11 +913,11 @@ export const DAILY_QUESTIONS = {
     senior: [
       {
         q: 'Why use a validation set distinct from train and test?',
-        opts: ['Compress data', 'Tune hyperparameters without leaking test info', 'Speed up training'],
-        answer: 1,
+        opts: ['Compress data', 'Speed up training', 'Tune hyperparameters without leaking test info'],
+        answer: 2,
         whyWrong: {
           0: 'Validation sets don\'t compress anything — they\'re held-out data, same format as train.',
-          2: 'Adding a val set actually means LESS training data. The trade is honest evaluation, not speed.',
+          1: 'Adding a val set actually means LESS training data. The trade is honest evaluation, not speed.',
         },
         whyCorrect: 'Hyperparameter search (LR, layers, regularization) needs a feedback signal. If you tune on test, you overfit to test and your final number is dishonest. Val provides that signal; test is sacred final evaluation.',
         bestPractices: 'Typical split: 70/15/15 or 80/10/10 (train/val/test). Touch the test set exactly once, at the very end, after all decisions are frozen.',
@@ -952,11 +952,11 @@ export const DAILY_QUESTIONS = {
       },
       {
         q: 'A cache is mainly used to...',
-        opts: ['Permanently store data', 'Serve hot data faster', 'Encrypt traffic'],
-        answer: 1,
+        opts: ['Permanently store data', 'Encrypt traffic', 'Serve hot data faster'],
+        answer: 2,
         whyWrong: {
           0: 'Permanent storage is the database. Caches are explicitly NOT durable — data can evict at any time.',
-          2: 'Encryption is TLS/TLS-terminating proxies. Different layer.',
+          1: 'Encryption is TLS/TLS-terminating proxies. Different layer.',
         },
         whyCorrect: 'A cache trades durability and capacity for latency. It keeps the most-accessed data in fast memory (RAM, edge) so reads don\'t hammer the origin.',
         bestPractices: 'Always have a "cache miss → backing store" path tested. And design for cache invalidation up front — it\'s famously one of the two hard problems in CS.',
@@ -965,10 +965,10 @@ export const DAILY_QUESTIONS = {
     junior: [
       {
         q: 'CAP theorem says you can have at most two of...',
-        opts: ['Cost, Auth, Performance', 'Consistency, Availability, Partition-tolerance', 'CPU, API, Persistence'],
-        answer: 1,
+        opts: ['Consistency, Availability, Partition-tolerance', 'Cost, Auth, Performance', 'CPU, API, Persistence'],
+        answer: 0,
         whyWrong: {
-          0: 'Those are real concerns, but they\'re not the letters in CAP. CAP is a specific distributed-systems result.',
+          1: 'Those are real concerns, but they\'re not the letters in CAP. CAP is a specific distributed-systems result.',
           2: 'Same — those are real but not the CAP triplet.',
         },
         whyCorrect: 'CAP: under a network Partition, you must choose between Consistency (all reads see the latest write) and Availability (every request gets a non-error response). You cannot have both during a partition.',
@@ -991,11 +991,11 @@ export const DAILY_QUESTIONS = {
     distinguished: [
       {
         q: 'In a write-heavy service, what is often the first bottleneck?',
-        opts: ['CPU', 'Disk / log throughput', 'DNS'],
-        answer: 1,
+        opts: ['CPU', 'DNS', 'Disk / log throughput'],
+        answer: 2,
         whyWrong: {
           0: 'CPU bottlenecks show up on compute-heavy workloads (ML inference, JSON parsing at scale). Writes are usually I/O-bound first.',
-          2: 'DNS is a one-time resolution at connection setup. Doesn\'t scale with write volume.',
+          1: 'DNS is a one-time resolution at connection setup. Doesn\'t scale with write volume.',
         },
         whyCorrect: 'Durable writes hit the storage subsystem — the WAL fsync on a transactional DB, or the commit log on Kafka — and that\'s a serial, latency-bound path. You typically saturate disk IOPS / log throughput before CPU.',
         bestPractices: 'Batch writes (group commits, log appends), use SSDs / NVMe for hot logs, and partition aggressively so each shard\'s write rate stays under the disk\'s sustained IOPS budget.',
