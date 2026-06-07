@@ -1,10 +1,45 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+
+// After the build emits dist/, substitute the service worker's
+// __PRECACHE_MANIFEST__ sentinel with the REAL emitted asset list (hashed
+// JS/CSS/font chunks + beast sprites), as base-relative paths the SW warms at
+// install. Without this the sentinel stays `[]` and offline-first silently
+// fails for not-yet-visited routes (their lazy chunks 503 offline).
+function precacheManifest() {
+  return {
+    name: 'precache-manifest',
+    apply: 'build',
+    closeBundle() {
+      const dist = path.resolve('dist');
+      const swPath = path.join(dist, 'sw.js');
+      if (!fs.existsSync(swPath)) return;
+      const list = [];
+      const collect = (sub, test) => {
+        const dir = path.join(dist, sub);
+        if (!fs.existsSync(dir)) return;
+        for (const f of fs.readdirSync(dir)) if (test.test(f)) list.push(`${sub}/${f}`);
+      };
+      collect('assets', /\.(js|css|woff2?)$/); // chunks + bundled fonts
+      collect('beasts', /\.png$/);             // sprite art
+      const json = JSON.stringify(list.sort());
+      const sw = fs.readFileSync(swPath, 'utf8').replace(
+        /\/\*__PRECACHE_MANIFEST_START__\*\/[\s\S]*?\/\*__PRECACHE_MANIFEST_END__\*\//,
+        `/*__PRECACHE_MANIFEST_START__*/${json}/*__PRECACHE_MANIFEST_END__*/`,
+      );
+      fs.writeFileSync(swPath, sw);
+      // eslint-disable-next-line no-console
+      console.log(`[precache-manifest] injected ${list.length} assets into dist/sw.js`);
+    },
+  };
+}
 
 // GitHub Pages project site is served from a subpath.
 // This base must match the repo name so assets (incl. /beasts/*.png) resolve.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), precacheManifest()],
   base: '/InfraLearn/',
   build: {
     rollupOptions: {

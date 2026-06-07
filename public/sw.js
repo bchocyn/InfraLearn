@@ -27,11 +27,11 @@ const CACHE_VERSION = 'infralearn-v3';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const ASSETS_CACHE = `${CACHE_VERSION}-assets`;
 
-// Build-time-injected precache manifest. The vite-precache-manifest plugin
-// (see vite.config.js) replaces the `__PRECACHE_MANIFEST__` sentinel below
-// with a JSON array of hashed JS/CSS chunks, woff2 font files, icons, and
-// critical beast PNGs. An empty array keeps the SW functional in dev / when
-// the placeholder isn't substituted.
+// Build-time-injected precache manifest. The `precache-manifest` plugin in
+// vite.config.js replaces the sentinel below (after the build emits dist/)
+// with a JSON array of the hashed JS/CSS/font chunks + beast sprites, as
+// base-relative paths. An empty array keeps the SW functional in dev / before
+// substitution.
 const PRECACHE_ASSETS = /*__PRECACHE_MANIFEST_START__*/[]/*__PRECACHE_MANIFEST_END__*/;
 
 // The shell URL the SW falls back to when offline. Computed relative to the
