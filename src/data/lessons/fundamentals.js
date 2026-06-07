@@ -1489,7 +1489,7 @@ export default {
             "options": [
               "`\"53\"` — Python coerces the int to a string for concat",
               "`8` — Python coerces the string to an int for math",
-              "`TypeError: can only concatenate str (not \"int\") to str`",
+              "`TypeError` — can't concatenate `str` and `int`",
               "`SyntaxError` — the expression is rejected at parse time"
             ],
             "answer": 2,
