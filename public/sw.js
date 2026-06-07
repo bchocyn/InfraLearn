@@ -156,7 +156,9 @@ self.addEventListener('fetch', (event) => {
       try {
         const fresh = await fetch(req);
         const cache = await caches.open(SHELL_CACHE);
-        cache.put(shellURL(), fresh.clone()).catch(() => {});
+        // Only cache a real, successful same-origin shell — never a 4xx/5xx,
+        // opaque, or redirected response (would poison the offline shell).
+        if (fresh && fresh.ok && fresh.type === 'basic') cache.put(shellURL(), fresh.clone()).catch(() => {});
         return fresh;
       } catch (_) {
         // 1. Try the cached app shell — keeps HashRouter alive offline.

@@ -2,7 +2,7 @@
   "name": "InfraLearn",
   "short_name": "InfraLearn",
   "description": "InfraLearn",
-  "id": "/MLOps-Fundaments-learning-page/",
+  "id": "/InfraLearn/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

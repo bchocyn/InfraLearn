@@ -51,7 +51,6 @@ const GLOBAL_ROWS = [
   { keys: ['g', 'h'], label: 'Go home' },
   { keys: ['g', 'r'], label: 'Go to roadmap' },
   { keys: ['g', 'l'], label: 'Go to library' },
-  { keys: ['g', 's'], label: 'Go to sandbox' },
   { keys: ['?'],      label: 'Toggle this help' },
 ];
 
@@ -61,15 +60,6 @@ const LESSON_ROWS = [
   { keys: ['←'], label: 'Previous page / lesson' },
   { keys: ['h'], label: 'Previous page / lesson' },
   { keys: ['m'], label: 'Mark lesson complete' },
-];
-
-const SANDBOX_ROWS = [
-  { keys: ['1'], label: 'Python tab' },
-  { keys: ['2'], label: 'Bash tab' },
-  { keys: ['3'], label: 'YAML tab' },
-  { keys: ['4'], label: 'SQL tab' },
-  { keys: ['5'], label: 'Dockerfile tab' },
-  { keys: ['6'], label: 'JSON tab' },
 ];
 
 const REVIEWS_ROWS = [
@@ -84,9 +74,6 @@ const REVIEWS_ROWS = [
 function contextualSection(pathname) {
   if (pathname.startsWith('/lesson/')) {
     return { title: 'LESSON', rows: LESSON_ROWS };
-  }
-  if (pathname.startsWith('/sandbox')) {
-    return { title: 'SANDBOX', rows: SANDBOX_ROWS };
   }
   if (pathname.startsWith('/reviews')) {
     return { title: 'REVIEWS', rows: REVIEWS_ROWS };

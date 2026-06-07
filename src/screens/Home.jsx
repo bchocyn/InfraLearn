@@ -114,7 +114,7 @@ export default function Home() {
       {/* Daily Challenge — ONE recall question pulled from learned concepts.
           Pinned here so it sits above the path selector but below the streak
           / companion cluster. Renders its own empty + done states. */}
-      <DailyChallengeCard />
+      <div data-tour="daily"><DailyChallengeCard /></div>
 
       <QuickPickers />
 
@@ -188,34 +188,6 @@ export default function Home() {
       <ReviewsDueTeaser />
 
       <WeakSpotsTeaser />
-
-      {/* Sandbox card — surfaces the NeetCode-style multi-language playground
-          (Python / Bash / YAML / SQL / Dockerfile / JSON) without crowding the
-          tab bar. Per mobile-ux-principles (progressive disclosure) this lives
-          on Home rather than as a 6th tab. */}
-      <button
-        type="button"
-        className="card"
-        onClick={() => nav('/sandbox')}
-        aria-label="Open Sandbox playground"
-        style={{
-          borderLeft: '3px solid var(--el-sky)',
-          cursor: 'pointer', width: '100%', textAlign: 'left',
-          font: 'inherit', color: 'inherit', minHeight: 44, display: 'block',
-        }}
-      >
-        <div className="kicker" style={{ color: 'var(--el-sky)' }}>SANDBOX · MULTI-LANGUAGE</div>
-        <div className="row" style={{ marginTop: 6 }}>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>
-            🧪 Run Python, Bash, YAML, SQL, Dockerfile, JSON
-          </span>
-          <span className="spacer" />
-          <span style={{ color: 'var(--accent-amber)' }}>→</span>
-        </div>
-        <div className="caption" style={{ marginTop: 4 }}>
-          Free-form playground. Python runs via Pyodide, Bash via in-browser shell sim, the rest lint as you type.
-        </div>
-      </button>
 
       <div className="row" style={{ gap: 8 }}>
         <button className="btn btn-block" onClick={() => nav('/roadmap')}>◇ ROADMAP</button>
@@ -321,9 +293,10 @@ function StreakBadge() {
   const flameAnim = streak >= 3 && STREAK_MILESTONES.has(streak);
 
   return (
-    <div style={{ flexShrink: 0, textAlign: 'right' }}>
+    <div style={{ flexShrink: 0, textAlign: 'right', position: 'relative' }}>
       <button
         type="button"
+        data-tour="streak"
         onClick={() => setOpen((v) => !v)}
         aria-label={`Streak: ${streak} days${highWater > streak ? `, best ${highWater}` : ''}. Tap for details.`}
         aria-expanded={open}
@@ -353,7 +326,12 @@ function StreakBadge() {
         <div
           className="card fade-in"
           style={{
-            marginTop: 8,
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            right: 0,
+            width: 244,
+            maxWidth: 'calc(100vw - 36px)',
+            zIndex: 30,
             textAlign: 'left',
             borderColor: 'rgba(245,184,66,.3)',
           }}
@@ -451,6 +429,7 @@ function ReviewsDueTeaser() {
   return (
     <div
       className="card"
+      data-tour="reviews"
       style={{ borderLeft: '3px solid var(--el-water)', cursor: 'pointer' }}
       onClick={() => nav('/reviews')}
     >

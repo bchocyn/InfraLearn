@@ -114,7 +114,7 @@ export default function DailyChallengeCard() {
     <ActiveChallenge
       challenge={challenge}
       conceptMeta={conceptMeta}
-      onAnswer={(correct) => answerDailyChallenge(correct)}
+      onAnswer={(correct, confidence) => answerDailyChallenge(correct, confidence)}
     />
   );
 }
@@ -126,16 +126,23 @@ export default function DailyChallengeCard() {
 // flips local `picked`, which then drives `answer()` synchronously.
 function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
   const [picked, setPicked] = useState(null);          // MCQ pick index
+  const [confidence, setConfidence] = useState(null);  // 'guess'|'likely'|'certain'
   const [revealed, setRevealed] = useState(false);     // tap-to-reveal mode
   const [recallVerdict, setRecallVerdict] = useState(null); // 'right' | 'wrong'
 
   const title = challenge.title;
+  const isMcq = challenge.kind === 'mcq';
 
-  // MCQ submit — mark + bubble the verdict in one tick.
-  const submitMcq = (i) => {
+  // MCQ: pick an option first, THEN state your confidence — only on the
+  // confidence tap do we reveal the verdict and record the calibration.
+  const pickOption = (i) => {
     if (picked !== null) return;
     setPicked(i);
-    onAnswer(i === challenge.answer);
+  };
+  const chooseConfidence = (level) => {
+    if (picked === null || confidence !== null) return;
+    setConfidence(level);
+    onAnswer(picked === challenge.answer, level);
   };
   // Tap-to-reveal self-grade — same shape as DailyPractice recall flow.
   const selfGrade = (v) => {
@@ -144,8 +151,7 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
     onAnswer(v === 'right');
   };
 
-  const isMcq = challenge.kind === 'mcq';
-  const answered = isMcq ? picked !== null : recallVerdict !== null;
+  const answered = isMcq ? (picked !== null && confidence !== null) : recallVerdict !== null;
   const correct = isMcq ? (picked === challenge.answer) : (recallVerdict === 'right');
 
   return (
@@ -166,13 +172,14 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
             let cls = 'daily-opt';
             if (answered && isAnswer) cls += ' daily-opt-correct';
             else if (answered && wasPicked) cls += ' daily-opt-wrong';
+            else if (!answered && wasPicked) cls += ' daily-opt-selected';
             return (
               <button
                 key={i}
                 type="button"
                 className={cls}
-                disabled={answered}
-                onClick={() => submitMcq(i)}
+                disabled={picked !== null}
+                onClick={() => pickOption(i)}
               >
                 <span className="daily-opt-letter">{String.fromCharCode(65 + i)}</span>
                 <span className="daily-opt-text">{opt}</span>
@@ -181,6 +188,17 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {isMcq && picked !== null && confidence === null && (
+        <div className="daily-confidence">
+          <div className="daily-confidence-q mono">HOW SURE ARE YOU?</div>
+          <div className="daily-confidence-opts">
+            <button type="button" className="daily-conf-btn" onClick={() => chooseConfidence('guess')}>🤷 Guess</button>
+            <button type="button" className="daily-conf-btn" onClick={() => chooseConfidence('likely')}>👍 Likely</button>
+            <button type="button" className="daily-conf-btn" onClick={() => chooseConfidence('certain')}>💪 Certain</button>
+          </div>
         </div>
       )}
 
@@ -226,6 +244,9 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
           <div className={`daily-verdict ${correct ? 'daily-verdict-right' : 'daily-verdict-wrong'}`}>
             {correct ? '✓ Correct' : '✗ Not quite'}
           </div>
+          {isMcq && confidence && (
+            <div className="daily-calib-note">{calibNote(confidence, correct)}</div>
+          )}
           {challenge.explain && (
             <div className="daily-explain">{challenge.explain}</div>
           )}
@@ -345,4 +366,22 @@ function firstParagraph(body) {
     }
   }
   return '';
+}
+
+// Short calibration nudge shown after a daily-challenge MCQ — pairs the user's
+// stated confidence against the actual outcome so over/under-confidence is felt.
+function calibNote(confidence, correct) {
+  if (confidence === 'certain') {
+    return correct
+      ? '💪 Certain and right — well calibrated.'
+      : '⚠️ You were certain but missed — that gap is exactly what to re-read.';
+  }
+  if (confidence === 'guess') {
+    return correct
+      ? '🍀 A guess that landed — you may know more than you think.'
+      : '🤷 A guess that missed — no shame, now you know.';
+  }
+  return correct
+    ? '👍 Pretty sure and right — solid.'
+    : '🔍 You leaned the wrong way — close, but worth a second look.';
 }

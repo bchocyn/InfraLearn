@@ -60,7 +60,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   .app-suspense-text { animation: none; opacity: 1; }
 }
 
-.kicker { font-family: var(--font-mono); font-size: 10px; letter-spacing: .18em; color: var(--text-tertiary); text-transform: uppercase; }
+.kicker { font-family: var(--font-mono); font-size: 10px; letter-spacing: .18em; color: var(--text-tertiary); text-transform: uppercase; overflow-wrap: anywhere; }
 .h1 { font-family: var(--font-serif); font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
 .h1 .dot { color: var(--accent-amber); }
 .h2 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin: 0; }
@@ -562,17 +562,26 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 
 .ob-path-grid {
   display: grid;
-  /* auto-fit with a min width prevents iPhone overflow — paths reflow to
-   * 2 columns at phone widths and 3 columns once there's room. */
+  /* Adaptive grid — the CSS twin of SwiftUI's LazyVGrid(.adaptive(minimum:)).
+   * Tracks never drop below 150px, so phones keep 2 columns and desktop packs
+   * a few wider ones; the count adjusts, the tiles stay uniform. */
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
 }
 .ob-path-cell {
-  background: var(--bg-card); border: 1.5px solid var(--border-default); border-radius: 14px;
-  padding: 16px; min-height: 78px;
-  display: flex; flex-direction: row; gap: 14px; align-items: center;
-  text-align: left;
-  cursor: pointer; transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  /* Each tile is its own query container so .ob-path-name can size to the TILE
+   * width (cqw) instead of the viewport. That's what lets the long single-word
+   * labels shrink a hair on the tightest tiles rather than wrapping — the CSS
+   * equivalent of SwiftUI's .lineLimit(1).minimumScaleFactor(). The old vw font
+   * couldn't see the cell, so desktop-mode's narrow columns still wrapped. */
+  container-type: inline-size;
+  background: var(--bg-card); border: 1.5px solid var(--border-default); border-radius: 16px;
+  padding: 12px 10px; min-height: 96px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  text-align: center;
+  cursor: pointer;
+  /* Springy lift on select/hover, mirroring SwiftUI's default spring. */
+  transition: transform .18s cubic-bezier(.34, 1.56, .64, 1), border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 .ob-path-cell:hover {
   transform: translateY(-2px);
@@ -586,11 +595,11 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .ob-path-icon {
   flex: 0 0 48px;
   width: 48px; height: 48px;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--bg-elevated);
   border: 1px solid transparent;
   display: flex; align-items: center; justify-content: center;
-  font-size: 30px;
+  font-size: 28px;
   line-height: 1;
   transition: background .15s ease, border-color .15s ease;
 }
@@ -599,23 +608,21 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   border-color: var(--accent-amber-dim);
 }
 .ob-path-meta {
-  flex: 1;
-  display: flex; flex-direction: column; gap: 4px;
-  text-align: left;
-  min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 0; max-width: 100%;
 }
 .ob-path-name {
   font-family: var(--font-serif);
-  /* clamp() shrinks the serif label proportionally on phone widths so
-     no-space words ("Cybersecurity") fit alongside the 48px icon. The wrap
-     fallback handles edge cases — anywhere breaks long words, balance gives
-     the wrap a clean shape. */
-  font-size: clamp(13.5px, 3.6vw, 16px);
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.15;
-  overflow-wrap: anywhere;
-  text-wrap: balance;
+  /* nowrap forbids the line break; cqw scales the glyphs to the tile so
+     "Cybersecurity"/"Fundamentals" shrink slightly on the narrowest tiles
+     instead of wrapping. The plain px above is the fallback for engines
+     without container-query units. */
+  white-space: nowrap;
+  font-size: 15px;
+  font-size: clamp(12px, 11.5cqw, 15px);
   transition: color .15s ease;
 }
 .ob-path-cell.active .ob-path-name { color: var(--accent-amber); }
@@ -624,6 +631,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   font-size: 10px;
   letter-spacing: .08em;
   color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .ob-tier-cell {
@@ -899,7 +907,14 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   padding: 1px 5px;
   border-radius: 4px;
   border: 1px solid rgba(245,184,66,.12);
-  white-space: nowrap;
+  /* Inline code must break/wrap so a long snippet (e.g. a full constructor
+     call) can't run off the right edge of a phone. white-space:normal is
+     EXPLICIT so it can't inherit `nowrap` from a list/step/table ancestor —
+     that inheritance was why long inline code still clipped in lab steps.
+     Block code keeps its own pre-wrap rule (.lesson-body pre code below). */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .lesson-body pre {
@@ -1819,7 +1834,12 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   display: block;
   margin: 12px 0;
 }
-.lesson-body svg text { font-size: clamp(10px, 2.6vw, 14px); }
+/* Exclude diagrams that set their own fontSize attributes (sequence: 9-11px;
+   walkthrough: 8.5-12px). This blanket rule overrides those presentation
+   attributes, inflating the text to ~12.5px — which made walkthrough subtitles
+   (TLS TERMINATION, PER-IP BUCKETS) overrun their node boxes and sequence
+   labels collide across lanes. Scoped out, each renders at its intended size. */
+.lesson-body svg:not(.sequence-svg):not(.walkthrough-svg) text { font-size: clamp(10px, 2.6vw, 14px); }
 .lesson-body figure { margin: 12px 0; }
 @media (max-width: 360px) {
   .lesson-body svg[data-stackable="true"] { /* future stacked-mode hook */ }
@@ -2733,40 +2753,262 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .mflow-svg {
   display: block;
   height: auto;
-  max-width: none;
+  /* Scale a too-wide diagram DOWN to fit its container instead of scrolling.
+     The inline width={contentW} sets the native size; max-width:100% caps it to
+     the container; height:auto keeps the viewBox aspect ratio. Narrow diagrams
+     render at native size (no upscaling); wide 3-node-row diagrams shrink a
+     little on a phone rather than showing a horizontal scrollbar. */
+  max-width: 100%;
+}
+
+/* ───────── First-run coach tour (CoachTour.jsx) ───────── */
+.coach-overlay { position: fixed; inset: 0; z-index: 9000; }
+/* When no element is spotlit (fallback), dim the whole screen flat. */
+.coach-overlay-flat { background: rgba(8, 7, 5, 0.62); }
+.coach-spot {
+  position: fixed;
+  border-radius: 14px;
+  /* The huge spread box-shadow paints the dim everywhere EXCEPT this rect —
+     the classic spotlight cut-out. The inset + outline draw the amber ring. */
+  box-shadow: 0 0 0 9999px rgba(8, 7, 5, 0.62);
+  outline: 2px solid var(--accent-amber);
+  pointer-events: none;
+  transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease;
+  animation: coach-pulse 1.8s ease-in-out infinite;
+}
+@keyframes coach-pulse {
+  0%, 100% { outline-color: var(--accent-amber); }
+  50%      { outline-color: var(--accent-amber-dim); }
+}
+.coach-tip {
+  position: fixed; z-index: 9001;
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent-amber);
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  animation: coach-fade .22s ease both;
+}
+@keyframes coach-fade { from { opacity: 0; } to { opacity: 1; } }
+.coach-tip-step { font-size: 10px; letter-spacing: .12em; color: var(--text-tertiary); margin-bottom: 6px; }
+.coach-tip-title { font-family: var(--font-serif); font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.coach-tip-body { font-size: 13px; line-height: 1.45; color: var(--text-secondary); margin: 0 0 12px; }
+.coach-tip-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.coach-skip, .coach-next {
+  min-height: 38px; padding: 0 14px; border-radius: 9px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em;
+  cursor: pointer; transition: background .15s ease, border-color .15s ease;
+}
+.coach-skip { background: transparent; border: 1px solid var(--border-default); color: var(--text-tertiary); }
+.coach-skip:hover { border-color: var(--border-strong); color: var(--text-secondary); }
+.coach-next { background: var(--accent-amber); border: 1px solid var(--accent-amber); color: #1a1206; font-weight: 700; }
+.coach-next:hover { background: var(--accent-amber-dim); }
+@media (prefers-reduced-motion: reduce) {
+  .coach-spot, .coach-tip { animation: none; }
 }
 .mflow-node-rect {
   fill: var(--bg-elevated);
-  stroke: var(--accent-amber);
-  stroke-width: 1.5;
+  stroke: var(--border-default);
+  stroke-width: 1;
+}
+/* Colored category chip on the left of the card + its glyph / initial. */
+.mflow-node-ico { fill: var(--accent-amber); }
+.mflow-node-glyph {
+  font-family: 'Inter Tight', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  fill: #fff;
+  dominant-baseline: central;
 }
 .mflow-node-label {
   font-family: 'Inter Tight', system-ui, sans-serif;
-  font-size: clamp(11px, 2.8vw, 13px);
-  font-weight: 600;
-  fill: var(--accent-amber);
-  dominant-baseline: middle;
-}
-.mflow-node-icon {
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--text-primary);
   dominant-baseline: middle;
 }
 .mflow-node-subtitle {
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: 8px;
+  letter-spacing: 0.04em;
   fill: var(--text-tertiary);
-  dominant-baseline: hanging;
+  dominant-baseline: middle;
 }
 
-.mflow-node[data-accent="fire"]  .mflow-node-rect  { stroke: var(--el-fire); }
-.mflow-node[data-accent="fire"]  .mflow-node-label { fill:   var(--el-fire); }
-.mflow-node[data-accent="water"] .mflow-node-rect  { stroke: var(--el-water); }
-.mflow-node[data-accent="water"] .mflow-node-label { fill:   var(--el-water); }
-.mflow-node[data-accent="earth"] .mflow-node-rect  { stroke: var(--el-earth); }
-.mflow-node[data-accent="earth"] .mflow-node-label { fill:   var(--el-earth); }
-.mflow-node[data-accent="sky"]   .mflow-node-rect  { stroke: var(--el-sky); }
-.mflow-node[data-accent="sky"]   .mflow-node-label { fill:   var(--el-sky); }
+/* Accent lives on the icon chip now — not the card border or the title. */
+.mflow-node[data-accent="fire"]  .mflow-node-ico { fill: var(--el-fire); }
+.mflow-node[data-accent="water"] .mflow-node-ico { fill: var(--el-water); }
+.mflow-node[data-accent="earth"] .mflow-node-ico { fill: var(--el-earth); }
+.mflow-node[data-accent="sky"]   .mflow-node-ico { fill: var(--el-sky); }
+
+/* Data-flow packets — a dot travels the edge path (SMIL animateMotion). */
+.mflow-packet { filter: drop-shadow(0 0 2.5px var(--accent-amber)); }
+.wt-packet { filter: drop-shadow(0 0 3px var(--accent-amber)); }
+@media (prefers-reduced-motion: reduce) {
+  .mflow-packet, .wt-packet { display: none; }
+}
+
+/* ───────── Progress panel: consistency heatmap + rank ladder ───────── */
+.heatmap-wrap { margin: 2px 0 0; }
+.heatmap { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 2px; }
+.heatmap-col { display: flex; flex-direction: column; gap: 3px; flex: 0 0 auto; }
+.heatmap-cell {
+  width: 11px; height: 11px; border-radius: 3px;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+}
+.heatmap-cell.on { background: var(--accent-amber); border-color: var(--accent-amber); }
+.heatmap-cell.today { box-shadow: 0 0 0 1.5px var(--accent-amber); }
+.heatmap-cell.future { visibility: hidden; }
+.heatmap-meta {
+  display: flex; align-items: center; font-size: 11px; color: var(--text-tertiary);
+  margin-top: 8px; font-family: var(--font-mono); letter-spacing: .03em;
+}
+.heatmap-meta .spacer { flex: 1; }
+
+.rank-ladder-wrap { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border-subtle); }
+.rank-ladder { display: flex; align-items: flex-start; }
+.rank-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+.rank-step::before {
+  content: ''; position: absolute; top: 5.5px; left: -50%; width: 100%; height: 2px;
+  background: var(--border-default); z-index: 0;
+}
+.rank-step:first-child::before { display: none; }
+.rank-step.done::before { background: var(--accent-amber); }
+.rank-dot {
+  width: 13px; height: 13px; border-radius: 50%; z-index: 1;
+  background: var(--bg-elevated); border: 2px solid var(--border-default);
+}
+.rank-step.done .rank-dot { background: var(--accent-amber); border-color: var(--accent-amber); }
+.rank-step.current .rank-dot { box-shadow: 0 0 0 3px var(--accent-amber-bg); }
+.rank-name { font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
+.rank-step.current .rank-name { color: var(--accent-amber); }
+.rank-caption { text-align: center; font-size: 11px; color: var(--text-tertiary); margin-top: 9px; }
+
+/* ───────── Weekly recap ───────── */
+.week-recap-kicker { color: var(--accent-amber); margin-bottom: 8px; }
+.week-recap-stats { display: flex; gap: 8px; }
+.wr-stat { flex: 1; text-align: center; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 8px 4px; }
+.wr-num { display: block; font-family: var(--font-serif); font-size: 20px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.wr-lbl { display: block; font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 4px; }
+
+/* ───────── Build-along (guided stepped "try it yourself") ───────── */
+.build-along {
+  margin: 14px 0 16px; padding: 14px 14px 12px;
+  background: var(--bg-card); border: 1px solid var(--border-default);
+  border-left: 3px solid var(--el-sky); border-radius: 12px;
+}
+.build-along-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.build-along-kicker { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--el-sky); }
+.build-along-count { flex: 0 0 auto; font-size: 10px; letter-spacing: .08em; color: var(--text-tertiary); }
+.build-along-title { font-family: var(--font-serif); font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.build-along-goal { font-size: 13px; color: var(--text-secondary); margin: 4px 0 10px; line-height: 1.45; }
+.build-along-code {
+  margin: 0 0 12px; padding: 11px 12px; background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle); border-radius: 8px;
+  font-family: var(--font-mono); font-size: clamp(10px, 2.5vw, 12px); line-height: 1.55;
+  color: var(--text-primary); white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2;
+}
+.build-along-chunk { color: var(--text-tertiary); transition: color .2s ease; }
+.build-along-chunk.is-new { color: var(--text-primary); background: var(--accent-amber-bg); border-radius: 3px; }
+.build-along-step { margin-bottom: 12px; }
+.build-along-step-title { font-weight: 700; font-size: 14px; color: var(--text-primary); margin-bottom: 3px; }
+.build-along-step-say { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.build-along-nav { display: flex; gap: 8px; }
+.build-along-btn {
+  flex: 1; min-height: 40px; border-radius: 9px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .03em;
+  background: transparent; border: 1px solid var(--border-default); color: var(--text-secondary);
+  transition: background .15s ease, border-color .15s ease;
+}
+.build-along-btn:disabled { opacity: .4; cursor: not-allowed; }
+.build-along-btn:not(:disabled):hover { border-color: var(--border-strong); }
+.build-along-btn-next { background: var(--el-sky); border-color: var(--el-sky); color: #0b0a08; font-weight: 700; }
+.build-along-done {
+  margin-top: 12px; padding: 10px 12px; border-radius: 9px;
+  background: var(--accent-amber-bg); border: 1px solid var(--accent-amber-dim);
+  font-size: 13px; color: var(--text-secondary); line-height: 1.5;
+}
+.build-along-done strong { color: var(--accent-amber); }
+
+/* ───────── Projects screen (labs + design challenges) ───────── */
+.projects-screen { padding-bottom: 24px; }
+.projects-header { margin-bottom: 6px; }
+.projects-h1 { font-family: var(--font-serif); font-size: 26px; font-weight: 700; margin: 0 0 4px; }
+.projects-sub { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; margin: 0 0 8px; max-width: 42ch; }
+.projects-progress { font-size: 11px; letter-spacing: .08em; color: var(--accent-amber); text-transform: uppercase; }
+.projects-section { margin-top: 18px; }
+.projects-kicker { margin-bottom: 10px; }
+.projects-grid { display: flex; flex-direction: column; gap: 10px; }
+.project-card {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--bg-card); border: 1px solid var(--border-default);
+  border-radius: 12px; padding: 12px 13px; color: inherit; font: inherit;
+  transition: border-color .15s ease, transform .1s ease;
+}
+.project-card:hover { border-color: var(--accent-amber); }
+.project-card:active { transform: scale(.99); }
+.project-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+.project-kind { font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; padding: 2px 7px; border-radius: 999px; }
+.project-kind-lab { color: var(--el-sky); border: 1px solid var(--el-sky); }
+.project-kind-sd { color: var(--accent-amber); border: 1px solid var(--accent-amber); }
+.project-done { font-family: var(--font-mono); font-size: 9px; letter-spacing: .06em; color: var(--status-success); }
+.project-tier { font-family: var(--font-mono); font-size: 9px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-tertiary); border: 1px solid var(--border-subtle); border-radius: 999px; padding: 2px 6px; }
+.project-title { font-family: var(--font-serif); font-size: 15.5px; font-weight: 700; line-height: 1.3; color: var(--text-primary); }
+.project-tagline { font-size: 12.5px; color: var(--text-secondary); line-height: 1.4; margin-top: 4px; }
+.project-meta { display: flex; gap: 4px; flex-wrap: wrap; font-size: 10px; letter-spacing: .03em; color: var(--text-tertiary); margin-top: 8px; }
+
+/* ───────── Synthesis Challenge (read-only integration prompt) ───────── */
+.synthesis-block {
+  margin: 16px 0; padding: 14px 14px 13px;
+  background: var(--bg-card); border: 1px solid var(--border-default);
+  border-left: 3px solid var(--accent-amber); border-radius: 12px;
+}
+.synthesis-kicker { font-size: 10px; letter-spacing: .12em; color: var(--accent-amber); margin-bottom: 7px; }
+.synthesis-prompt { font-size: 14.5px; line-height: 1.5; color: var(--text-primary); }
+.synthesis-nudge { font-size: 12px; color: var(--text-tertiary); font-style: italic; margin: 8px 0 10px; line-height: 1.4; }
+.synthesis-actions { display: flex; gap: 8px; }
+.synthesis-btn {
+  min-height: 40px; border-radius: 9px; cursor: pointer; padding: 0 14px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .02em;
+  border: 1px solid var(--border-default); background: transparent; color: var(--text-secondary);
+  transition: border-color .15s ease, background .15s ease;
+}
+.synthesis-btn-primary { flex: 1; background: var(--accent-amber); border-color: var(--accent-amber); color: #0b0a08; font-weight: 700; }
+.synthesis-btn-secondary:hover { border-color: var(--border-strong); }
+.synthesis-hint {
+  margin-top: 10px; padding: 9px 11px; border-radius: 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+  font-size: 12.5px; color: var(--text-secondary); line-height: 1.45;
+}
+.synthesis-answer {
+  margin-top: 12px; padding: 11px 12px; border-radius: 9px;
+  background: var(--accent-amber-bg); border: 1px solid var(--accent-amber-dim);
+}
+.synthesis-answer-kicker { font-size: 9px; letter-spacing: .1em; color: var(--accent-amber); margin-bottom: 5px; }
+.synthesis-answer-body { font-size: 13.5px; line-height: 1.55; color: var(--text-primary); }
+
+/* ── Daily-challenge confidence step + calibration readout ── */
+.daily-opt-selected { border-color: var(--accent-amber); background: var(--accent-amber-bg); }
+.daily-confidence { margin-top: 10px; }
+.daily-confidence-q { font-size: 10px; letter-spacing: .1em; color: var(--text-tertiary); margin-bottom: 6px; }
+.daily-confidence-opts { display: flex; gap: 6px; }
+.daily-conf-btn {
+  flex: 1; min-height: 40px; border-radius: 9px; cursor: pointer; padding: 0 4px;
+  font-size: 12px; font-weight: 600;
+  background: var(--bg-elevated); border: 1px solid var(--border-default); color: var(--text-secondary);
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.daily-conf-btn:hover { border-color: var(--accent-amber); color: var(--text-primary); }
+.daily-calib-note { font-size: 12.5px; color: var(--text-secondary); margin-top: 6px; line-height: 1.45; }
+
+.calib-readout { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border-subtle); }
+.calib-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 9px; }
+.calib-sub { font-weight: 400; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em; }
+.calib-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.calib-label { font-size: 11.5px; color: var(--text-secondary); width: 78px; flex: 0 0 auto; }
+.calib-bar { flex: 1; height: 7px; border-radius: 999px; background: var(--bg-elevated); overflow: hidden; }
+.calib-bar-fill { display: block; height: 100%; background: var(--accent-amber); border-radius: 999px; }
+.calib-val { font-size: 10.5px; color: var(--text-tertiary); width: 34px; text-align: right; flex: 0 0 auto; }
 
 /* ───── Diagram callouts ─────────────────────────────────────────────────
  * Small numbered badges in the top-right corner of a node. Used so prose
@@ -3203,8 +3445,10 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   border-radius: 10px;
   line-height: 1.25;
 }
-.lesson-nav-back { justify-content: flex-start; }
-.lesson-nav-continue { justify-content: space-between; }
+.lesson-nav-back { grid-column: 1; justify-content: center; }
+.lesson-nav-continue { grid-column: 3; justify-content: center; }
+.lesson-nav-label { font-size: 14px; font-weight: 600; }
+.lesson-nav-continue .lesson-nav-label { color: #0B0A08; }
 .lesson-nav-back:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -3241,6 +3485,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .lesson-nav-continue .lesson-nav-kicker { color: rgba(11, 10, 8, 0.7); }
 @media (max-width: 360px) {
   .lesson-nav { grid-template-columns: 1fr; }
+  .lesson-nav-back, .lesson-nav-continue { grid-column: 1; }
   .lesson-nav-pageindicator {
     order: -1;
     padding: 4px 0;
@@ -3813,6 +4058,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   color: var(--text-primary);
   margin: 0 0 6px;
   letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
 }
 .reviews-prompt {
   font-size: 14px;
@@ -3855,6 +4101,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 .reviews-grades {
   display: grid;
@@ -4530,10 +4777,11 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   color: var(--text-tertiary);
   background: var(--bg-card);
 }
-.predict-option-text { flex: 1 1 auto; }
+.predict-option-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .predict-option-text code {
   font-family: var(--font-mono);
   font-size: 12px;
+  overflow-wrap: anywhere;
   padding: 1px 4px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -5821,6 +6069,10 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 }
 .sd-phase-dot-btn:hover { border-color: var(--accent-amber); }
 .sd-phase-dot-btn:active { transform: scale(0.95); }
+/* "Ship it for real" capstone phase — earth/green accent so the build phase
+   reads as the payoff (kind: 'build', added by the project-based-learning pass). */
+.sd-phase-card[data-kind="build"] { border-color: var(--el-earth); }
+.sd-phase-card[data-kind="build"] .sd-phase-kicker { color: var(--el-earth); }
 .sd-phase-dot-num {
   font-family: var(--font-mono);
   font-size: 11px;

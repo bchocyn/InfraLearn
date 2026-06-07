@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 // Self-hosted fonts (bundled into the build — no third-party requests).
 import '@fontsource-variable/fraunces';
 import '@fontsource-variable/inter-tight';
@@ -21,6 +21,7 @@ import Roadmap from './screens/Roadmap.jsx';
 import { ACCENT_PRESETS, BG_THEMES } from './screens/settingsThemes.js';
 import Onboarding from './screens/Onboarding.jsx';
 import EvolutionNotice from './components/EvolutionNotice.jsx';
+import CoachTour from './components/CoachTour.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import KeyboardHelp from './components/KeyboardHelp.jsx';
 import { useStore } from './store/useStore.js';
@@ -32,9 +33,9 @@ import { useStore } from './store/useStore.js';
 // plugins via its editors).
 const Lesson           = lazy(() => import('./screens/Lesson.jsx'));
 const Library          = lazy(() => import('./screens/Library.jsx'));
+const Projects         = lazy(() => import('./screens/Projects.jsx'));
 const ByteBeast        = lazy(() => import('./screens/ByteBeast.jsx'));
 const Settings         = lazy(() => import('./screens/Settings.jsx'));
-const Sandbox          = lazy(() => import('./screens/Sandbox.jsx'));
 const Reviews          = lazy(() => import('./screens/Reviews.jsx'));
 const ReviewWeakSpots  = lazy(() => import('./screens/ReviewWeakSpots.jsx'));
 
@@ -102,11 +103,11 @@ function useGlobalShortcuts(onToggleHelp) {
           h: '/',
           r: '/roadmap',
           l: '/library',
-          s: '/sandbox',
         }[k];
         clearChord();
         if (dest) {
           e.preventDefault();
+          e.stopImmediatePropagation(); // suppress Lesson's sibling h/l window listener
           nav(dest);
         }
         return;
@@ -201,16 +202,18 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/roadmap" element={<Roadmap />} />
             <Route path="/library" element={<Library />} />
+            <Route path="/projects" element={<Projects />} />
             <Route path="/beast" element={<ByteBeast />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/lesson/:id" element={<Lesson />} />
             <Route path="/weak-spots" element={<ReviewWeakSpots />} />
             <Route path="/reviews" element={<Reviews />} />
-            <Route path="/sandbox" element={<Sandbox />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </main>
       <EvolutionNotice />
+      <CoachTour />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );

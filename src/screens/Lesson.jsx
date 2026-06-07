@@ -14,6 +14,7 @@ import LintEditor, {
   validateJson,
 } from '../components/LintEditor.jsx';
 import AnimatedDiagram from '../components/AnimatedDiagram.jsx';
+import BuildAlongBlock from '../components/BuildAlongBlock.jsx';
 import { VIZ_REGISTRY } from '../components/viz/index.jsx';
 import mathQuizzes from '../data/mathQuizzes.js';
 import { practiceStorageKey } from '../utils/practiceKey.js';
@@ -592,6 +593,8 @@ function Block({ block, idx, lessonId }) {
       return <KanbanBlock block={block} idx={idx} />;
     case 'walkthrough':
       return <WalkthroughBlock block={block} />;
+    case 'build-along':
+      return <BuildAlongBlock block={block} />;
     case 'sequence':
       return <SequenceBlock block={block} />;
     case 'compare':
@@ -682,8 +685,9 @@ function InteractiveVizBlock({ block, idx }) {
 //     scenario: string,                  // 2-4 sentence problem framing
 //     estimatedMin?: number,             // pill in the header
 //     phases: [{
-//       kind: 'requirements' | 'estimation' | 'api'
-//           | 'data-model' | 'scaling' | 'pitfalls' | 'observability',
+//       kind: 'requirements' | 'estimation' | 'api' | 'data-model'
+//           | 'scaling' | 'pitfalls' | 'observability' | 'build',
+//           // 'build' = the "Ship it for real" capstone phase (project-based learning)
 //       title: string,                   // e.g. "Phase 1: Requirements"
 //       prompt: string,                  // shown above the phase blocks
 //       blocks: Block[],                 // predict / explain-back / fill-blank / fix-it
@@ -1392,14 +1396,15 @@ function PredictBlock({ block, idx }) {
 //      Honesty XP is the load-bearing detail — without it ADHD readers
 //      silently rubber-stamp every answer ("yeah close enough"). The
 //      revisit option is incentivized just enough to be picked.
+// Synthesis Challenge — a read-only integration prompt. The learner thinks
+// through how the lesson's concepts fit together, then reveals a strong model
+// answer to check against. (Formerly the interactive "explain it back" block;
+// the typing + self-grade mechanic was removed per product direction, while the
+// synthesis prompts + model answers were kept. Block type stays "explain-back".)
 function ExplainBackBlock({ block, idx }) {
   const addXp = useStore((s) => s.addXp);
-  const practicePass = useStore((s) => s.practicePass);
-  const practiceMiss = useStore((s) => s.practiceMiss);
-  const [text, setText] = useState('');
   const [hintOpen, setHintOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const [grade, setGrade] = useState(null); // 'pass' | 'fail' | null
   const prompt = block.prompt || '';
   const modelAnswer = block.modelAnswer || '';
   const hint = block.hint || null;
@@ -1408,45 +1413,29 @@ function ExplainBackBlock({ block, idx }) {
   const onReveal = () => {
     if (revealed) return;
     setRevealed(true);
-  };
-  const onGrade = (kind) => {
-    if (grade) return;
-    setGrade(kind);
-    if (kind === 'pass') {
-      addXp?.(12, 'explain-back:pass');
-      practicePass?.();
-    } else {
-      addXp?.(3, 'explain-back:revisit');
-      practiceMiss?.();
-    }
+    addXp?.(5, 'synthesis:reveal');
   };
 
   return (
-    <div className="explain-back-block" data-grade={grade || undefined}>
-      <div className="explain-back-kicker mono">EXPLAIN IT BACK</div>
-      <div className="explain-back-prompt">{renderInline(prompt, `eb-${idx}`)}</div>
-      <textarea
-        className="explain-back-textarea"
-        rows={5}
-        placeholder="Type your answer in your own words…"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        disabled={revealed}
-        aria-label="Your answer"
-      />
+    <div className="synthesis-block" data-revealed={revealed || undefined}>
+      <div className="synthesis-kicker mono">◆ SYNTHESIS CHALLENGE</div>
+      <div className="synthesis-prompt">{renderInline(prompt, `syn-${idx}`)}</div>
+      <p className="synthesis-nudge">
+        Think it through end-to-end before you reveal — that&apos;s where the learning is.
+      </p>
       {!revealed && (
-        <div className="explain-back-actions">
+        <div className="synthesis-actions">
           <button
             type="button"
-            className="explain-back-btn explain-back-btn-primary"
+            className="synthesis-btn synthesis-btn-primary"
             onClick={onReveal}
           >
-            Show model answer
+            Reveal a strong answer →
           </button>
           {hint && (
             <button
               type="button"
-              className="explain-back-btn explain-back-btn-secondary"
+              className="synthesis-btn synthesis-btn-secondary"
               onClick={() => setHintOpen((h) => !h)}
               aria-expanded={hintOpen}
             >
@@ -1456,55 +1445,12 @@ function ExplainBackBlock({ block, idx }) {
         </div>
       )}
       {!revealed && hintOpen && hint && (
-        <div className="explain-back-hint">{renderInline(hint, `eh-${idx}`)}</div>
+        <div className="synthesis-hint">{renderInline(hint, `syn-h-${idx}`)}</div>
       )}
       {revealed && (
-        <div className="explain-back-compare">
-          <div className="explain-back-col explain-back-col-user">
-            <div className="explain-back-col-kicker mono">YOUR ANSWER</div>
-            <div className="explain-back-col-body">
-              {text.trim() ? text : <span className="explain-back-empty">(you left this blank)</span>}
-            </div>
-          </div>
-          <div className="explain-back-col explain-back-col-model">
-            <div className="explain-back-col-kicker mono">MODEL ANSWER</div>
-            <div className="explain-back-col-body">{renderInline(modelAnswer, `em-${idx}`)}</div>
-          </div>
-        </div>
-      )}
-      {revealed && !grade && (
-        <div className="explain-back-grade-row">
-          <button
-            type="button"
-            className="explain-back-btn explain-back-grade explain-back-grade-pass"
-            onClick={() => onGrade('pass')}
-          >
-            ✓ Close enough
-          </button>
-          <button
-            type="button"
-            className="explain-back-btn explain-back-grade explain-back-grade-fail"
-            onClick={() => onGrade('fail')}
-          >
-            ✗ Need to revisit
-          </button>
-        </div>
-      )}
-      {grade && (
-        <div className={`explain-back-feedback explain-back-feedback-${grade}`}>
-          <div className="explain-back-feedback-row">
-            <span className={`explain-back-feedback-badge is-${grade}`}>
-              {grade === 'pass' ? '✓ LOGGED — KEEP MOVING' : '✗ MARKED FOR REVIEW'}
-            </span>
-            <span className="explain-back-xp-chip mono">
-              {grade === 'pass' ? '+12 XP' : '+3 XP · HONESTY'}
-            </span>
-          </div>
-          <div className="explain-back-feedback-body">
-            {grade === 'pass'
-              ? 'Self-explained answers stick ~50% better than re-reads. That tradeoff is the whole point of this block.'
-              : 'Flagged honestly — the bit you fuzzed is exactly the bit worth re-reading. Scroll back up, then keep going.'}
-          </div>
+        <div className="synthesis-answer">
+          <div className="synthesis-answer-kicker mono">A STRONG ANSWER</div>
+          <div className="synthesis-answer-body">{renderInline(modelAnswer, `syn-a-${idx}`)}</div>
         </div>
       )}
     </div>
@@ -1530,6 +1476,16 @@ function ExplainBackBlock({ block, idx }) {
 const WT_VIEWBOX_W = 360;
 const WT_NODE_W = 96;
 const WT_NODE_H = 46;
+const WT_MIN_NODE_W = 56;
+// Walkthroughs crowd when 4+ nodes share the 360px viewBox horizontally — six
+// 96px boxes need ~616px and overlap badly. Shrink the box proportionally
+// (mirrors AnimatedDiagram.nodeWidthFor) so the boxes stop trampling each
+// other; never below WT_MIN_NODE_W. ≤3 nodes keep the full width.
+function wtNodeWidthFor(count) {
+  if (count <= 3) return WT_NODE_W;
+  const fit = Math.floor((WT_VIEWBOX_W - 16) / count) - 4;
+  return Math.max(WT_MIN_NODE_W, Math.min(WT_NODE_W, fit));
+}
 const WT_ACCENT_VAR = {
   amber: 'var(--accent-amber)',
   fire: 'var(--el-fire)',
@@ -1544,6 +1500,10 @@ function wtAccent(a) {
 function WalkthroughBlock({ block }) {
   const nodes = Array.isArray(block.nodes) ? block.nodes : [];
   const steps = Array.isArray(block.steps) ? block.steps : [];
+  const reducedSetting = useStore((s) => s.settings.reducedMotion);
+  const reduced = reducedSetting
+    || (typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [stepIndex, setStepIndex] = useState(0);
   const containerRef = useRef(null);
   const [measuredWidth, setMeasuredWidth] = useState(null);
@@ -1571,31 +1531,61 @@ function WalkthroughBlock({ block }) {
   // Stack vertically on very narrow viewports — same threshold the static
   // diagram uses — so the diagram never horizontally scrolls at 375px.
   const stacked = measuredWidth != null && measuredWidth < 360;
+
+  // Group nodes into rows by y (±0.12) and space each row EVENLY across the
+  // viewBox (source x is used only for left→right ordering). This stops the
+  // cramped / overlapping boxes that raw x positions produced.
+  const rows = [];
+  if (!stacked) {
+    const sorted = nodes
+      .map((n, idx) => ({ n, idx, y: typeof n.y === 'number' ? n.y : 0.5 }))
+      .sort((a, b) => a.y - b.y || a.idx - b.idx);
+    for (const e of sorted) {
+      const last = rows[rows.length - 1];
+      if (last && Math.abs(e.y - last.y) <= 0.12) {
+        last.items.push(e);
+        last.y = (last.y * (last.items.length - 1) + e.y) / last.items.length;
+      } else {
+        rows.push({ y: e.y, items: [e] });
+      }
+    }
+    rows.forEach((row) => row.items.sort((a, b) => ((a.n.x ?? 0.5) - (b.n.x ?? 0.5)) || a.idx - b.idx));
+  }
+
+  // Size the cards for the WIDEST ROW, not the total node count — a 2-per-row
+  // flow gets wide, readable cards instead of being shrunk as if all 8 nodes
+  // shared one row (which forced the "…" truncation the user saw).
+  const maxPerRow = stacked ? 1 : Math.max(1, ...rows.map((r) => r.items.length));
+  const nodeW = stacked
+    ? WT_NODE_W
+    // Width from the per-slot spacing so nodes keep an ~8px gap even at 6+ per
+    // row — the old Math.max(56, …) floor could exceed the slot and overlap.
+    : Math.max(40, Math.min(132, Math.floor(WT_VIEWBOX_W / (maxPerRow + 1)) - 8));
+
   const H = stacked
     ? Math.max(220, nodes.length * (WT_NODE_H + 24) + 32)
-    : 220;
+    : Math.max(180, rows.length * (WT_NODE_H + 36) + 16);
 
-  // Position nodes. Horizontal layout uses the proportional x/y from the
-  // schema; stacked layout drops one node per row centered on the viewBox.
   const positions = new Map();
   if (stacked) {
     const cx = WT_VIEWBOX_W / 2;
     const slotH = (H - 16) / Math.max(nodes.length, 1);
     nodes.forEach((n, i) => {
       const cy = 8 + slotH * (i + 0.5);
-      positions.set(n.id, { cx, cy, x: cx - WT_NODE_W / 2, y: cy - WT_NODE_H / 2 });
+      positions.set(n.id, { cx, cy, x: cx - nodeW / 2, y: cy - WT_NODE_H / 2 });
     });
   } else {
-    nodes.forEach((n) => {
-      const cx = Math.max(
-        WT_NODE_W / 2 + 4,
-        Math.min(WT_VIEWBOX_W - WT_NODE_W / 2 - 4, (n.x ?? 0.5) * WT_VIEWBOX_W),
-      );
-      const cy = Math.max(
-        WT_NODE_H / 2 + 6,
-        Math.min(H - WT_NODE_H / 2 - 6, (n.y ?? 0.5) * H),
-      );
-      positions.set(n.id, { cx, cy, x: cx - WT_NODE_W / 2, y: cy - WT_NODE_H / 2 });
+    const rowCount = rows.length;
+    rows.forEach((row, ri) => {
+      const cy = rowCount <= 1
+        ? H / 2
+        : (WT_NODE_H / 2 + 10) + (H - WT_NODE_H - 20) * (ri / (rowCount - 1));
+      const m = row.items.length;
+      row.items.forEach((e, ci) => {
+        const cxRaw = (WT_VIEWBOX_W * (ci + 1)) / (m + 1);
+        const cx = Math.max(nodeW / 2 + 4, Math.min(WT_VIEWBOX_W - nodeW / 2 - 4, cxRaw));
+        positions.set(e.n.id, { cx, cy, x: cx - nodeW / 2, y: cy - WT_NODE_H / 2 });
+      });
     });
   }
 
@@ -1676,7 +1666,7 @@ function WalkthroughBlock({ block }) {
             const len = Math.hypot(dx, dy) || 1;
             const ux = dx / len;
             const uy = dy / len;
-            const hw = WT_NODE_W / 2 + 2;
+            const hw = nodeW / 2 + 2;
             const hh = WT_NODE_H / 2 + 2;
             const t1 = Math.min(
               ux !== 0 ? hw / Math.abs(ux) : Infinity,
@@ -1697,6 +1687,27 @@ function WalkthroughBlock({ block }) {
               );
               labelText = match && match.label ? String(match.label) : null;
             }
+            // Dodge: a label on a branch/skip edge can land on an intermediate
+            // node. If the label box overlaps a non-endpoint node, slide it
+            // horizontally clear (to the side of the column).
+            const labelW = labelText ? labelText.length * 5.5 + 10 : 0;
+            let lx = midX;
+            if (labelText) {
+              const hitsNode = (cx) => nodes.some((n) => {
+                if (n.id === e.from || n.id === e.to) return false;
+                const p = positions.get(n.id);
+                if (!p) return false;
+                return Math.abs(cx - p.cx) < labelW / 2 + nodeW / 2 + 3
+                  && Math.abs(midY - p.cy) < 7 + WT_NODE_H / 2;
+              });
+              if (hitsNode(lx)) {
+                const shift = nodeW / 2 + labelW / 2 + 8;
+                const right = midX + shift;
+                const left = midX - shift;
+                if (right + labelW / 2 <= WT_VIEWBOX_W - 2 && !hitsNode(right)) lx = right;
+                else if (left - labelW / 2 >= 2 && !hitsNode(left)) lx = left;
+              }
+            }
             return (
               <g
                 key={`wt-e-${i}`}
@@ -1712,12 +1723,21 @@ function WalkthroughBlock({ block }) {
                   opacity={active ? 1 : 0.35}
                   markerEnd={`url(#${active ? `wt-arrow-${uid}` : `wt-arrow-dim-${uid}`})`}
                 />
+                {active && !reduced && (
+                  <circle r={3.6} className="wt-packet" fill="var(--accent-amber)">
+                    <animateMotion
+                      dur="1.05s"
+                      repeatCount="indefinite"
+                      path={`M ${x1} ${y1} L ${x2} ${y2}`}
+                    />
+                  </circle>
+                )}
                 {labelText && (
                   <g className="walkthrough-edge-label">
                     <rect
-                      x={midX - (labelText.length * 5.5 + 10) / 2}
+                      x={lx - labelW / 2}
                       y={midY - 7}
-                      width={labelText.length * 5.5 + 10}
+                      width={labelW}
                       height={13}
                       rx={3}
                       ry={3}
@@ -1726,7 +1746,7 @@ function WalkthroughBlock({ block }) {
                       strokeWidth={0.8}
                     />
                     <text
-                      x={midX}
+                      x={lx}
                       y={midY}
                       textAnchor="middle"
                       dominantBaseline="central"
@@ -1747,6 +1767,23 @@ function WalkthroughBlock({ block }) {
             if (!p) return null;
             const acc = wtAccent(n.accent);
             const active = activeNodeSet.has(n.id);
+            // Clip text to the node so subtitles never spill into neighbours.
+            // Keep the FULL label/subtitle so the words stay readable. When the
+            // text is wider than its node, SVG textLength + lengthAdjust (below)
+            // condenses the glyphs to fit the box instead of spilling into the
+            // neighbouring node. A hard cap only trims genuinely absurd lengths
+            // (which would otherwise over-squeeze to illegibility).
+            const textAvail = nodeW - 8;
+            const HARD = Math.max(10, Math.floor(textAvail / 4));
+            const shownLabel = n.label && n.label.length > HARD
+              ? `${n.label.slice(0, HARD - 1)}…` : (n.label || '');
+            const subRaw = n.subtitle ? String(n.subtitle).toUpperCase() : null;
+            const shownSub = subRaw && subRaw.length > HARD
+              ? `${subRaw.slice(0, HARD - 1)}…` : subRaw;
+            // Squeeze only when the text would overrun the box (conservative
+            // per-glyph widths: serif title ~7.5px, mono subtitle ~6.8px).
+            const labelLen = shownLabel.length * 7.5 > textAvail ? textAvail : undefined;
+            const subLen = shownSub && shownSub.length * 6.8 > textAvail ? textAvail : undefined;
             return (
               <g
                 key={n.id}
@@ -1757,7 +1794,7 @@ function WalkthroughBlock({ block }) {
                 <rect
                   x={p.x}
                   y={p.y}
-                  width={WT_NODE_W}
+                  width={nodeW}
                   height={WT_NODE_H}
                   rx={8}
                   ry={8}
@@ -1783,21 +1820,25 @@ function WalkthroughBlock({ block }) {
                   fontWeight={600}
                   fill="var(--text-primary)"
                   fontFamily="var(--font-serif), serif"
+                  textLength={labelLen}
+                  lengthAdjust="spacingAndGlyphs"
                 >
-                  {n.label}
+                  {shownLabel}
                 </text>
-                {n.subtitle && (
+                {shownSub && (
                   <text
                     x={p.cx + 1.5}
                     y={p.cy + 9}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    fontSize={7.5}
+                    fontSize={8.5}
                     fill="var(--text-tertiary)"
                     fontFamily="var(--font-mono), monospace"
-                    letterSpacing="0.08em"
+                    letterSpacing="0.06em"
+                    textLength={subLen}
+                    lengthAdjust="spacingAndGlyphs"
                   >
-                    {String(n.subtitle).toUpperCase()}
+                    {shownSub}
                   </text>
                 )}
               </g>
@@ -1885,7 +1926,7 @@ function seqAccent(a) {
 
 function SequenceBlock({ block }) {
   const actors = Array.isArray(block.actors) ? block.actors.slice(0, 4) : [];
-  const events = Array.isArray(block.events) ? block.events.slice(0, 6) : [];
+  const events = Array.isArray(block.events) ? block.events.slice(0, 12) : [];
   if (actors.length < 2 || events.length === 0) return null;
 
   // Lane x-positions: evenly distributed across the viewBox with a small
@@ -1978,7 +2019,7 @@ function SequenceBlock({ block }) {
               const bot = rowY + r;
               // Cubic curve out to the right and back — 22px wide loop.
               const d = `M ${x} ${top} C ${cx + 22} ${top}, ${cx + 22} ${bot}, ${x} ${bot}`;
-              const labelX = cx + 26;
+              const labelX = Math.min(cx + 26, SEQ_VIEWBOX_W - 4);
               return (
                 <g key={`ev-${i}`} className="sequence-self-loop">
                   <path
@@ -1993,6 +2034,7 @@ function SequenceBlock({ block }) {
                     <text
                       className={dashed ? 'sequence-arrow-label sequence-arrow-label-dashed' : 'sequence-arrow-label'}
                       x={labelX}
+                      textAnchor={labelX >= SEQ_VIEWBOX_W - 60 ? 'end' : 'start'}
                       y={rowY - 2}
                       dominantBaseline="central"
                       fontFamily="'Inter Tight', var(--font-sans), sans-serif"
@@ -2278,37 +2320,12 @@ const LINT_VALIDATORS = {
 };
 
 // Storage-key derivation lives in src/utils/practiceKey.js so the inline
-// editor, PracticeBlock, and LintEditor all hit the same bucket — the
-// "Open in Sandbox" hand-off can therefore never silently target the wrong
-// localStorage entry.
-
-// Languages that have a real editor in the sandbox. Bash is excluded — the
-// sandbox bash tab is a shell sim, not a code editor, so handing off code
-// would be confusing.
-const SANDBOX_HANDOFF_LANGS = new Set(['python', 'yaml', 'sql', 'dockerfile', 'json']);
+// editor, PracticeBlock, and LintEditor all hit the same bucket.
 
 function PracticeInline({ block, lessonId }) {
   const lang = (block.lang || 'python').toLowerCase();
   const label = `TRY IT · ${lang.toUpperCase()}`;
-  const nav = useNavigate();
   const starter = block.starter || '';
-  const inlineKey = practiceStorageKey(lessonId, starter);
-
-  const onOpenInSandbox = () => {
-    if (typeof window === 'undefined') return;
-    let code = starter;
-    try {
-      const saved = window.localStorage.getItem(inlineKey);
-      if (saved != null) code = saved;
-    } catch (_) { /* ignore */ }
-    try {
-      window.sessionStorage.setItem(
-        'sandbox-handoff',
-        JSON.stringify({ lang, code, fromLessonId: lessonId || null }),
-      );
-    } catch (_) { /* ignore */ }
-    nav('/sandbox');
-  };
 
   let body = null;
   if (lang === 'python') {
@@ -2342,18 +2359,6 @@ function PracticeInline({ block, lessonId }) {
         <div className="practice-inline-prompt">{block.prompt}</div>
       )}
       <div className="practice-inline-body">{body}</div>
-      {SANDBOX_HANDOFF_LANGS.has(lang) && (
-        <div className="practice-inline-handoff">
-          <button
-            type="button"
-            className="btn btn-ghost practice-inline-handoff-btn"
-            onClick={onOpenInSandbox}
-            title="Open this snippet in the Sandbox"
-          >
-            ↗ Open in Sandbox
-          </button>
-        </div>
-      )}
       {block.hint && (
         <details className="practice-inline-hint">
           <summary>Hint</summary>
@@ -2989,10 +2994,6 @@ export default function Lesson() {
       <div className="lesson-nav">
         {(() => {
           // Prev side — collapse to previous lesson when at page 0.
-          const prevLabel = !isFirstPage ? 'PREV PAGE' : 'BACK';
-          const prevTitle = !isFirstPage
-            ? `Page ${safePage}`
-            : prev ? prev.title : 'Start of path';
           const prevDisabled = isFirstPage && !prev;
           const onPrev = () => {
             if (!isFirstPage) setCurrentPage(safePage - 1);
@@ -3006,10 +3007,7 @@ export default function Lesson() {
               aria-label={!isFirstPage ? 'Previous page' : (prev ? `Back to ${prev.title}` : 'No previous lesson')}
             >
               <span className="lesson-nav-icon">←</span>
-              <span className="lesson-nav-text">
-                <span className="lesson-nav-kicker">{prevLabel}</span>
-                <span className="lesson-nav-title">{prevTitle}</span>
-              </span>
+              <span className="lesson-nav-label">Back</span>
             </button>
           );
         })()}
@@ -3023,10 +3021,7 @@ export default function Lesson() {
         {(() => {
           // Next side — collapse to next lesson when at the last page.
           const isEdge = isLastPage;
-          const nextLabel = !isEdge ? 'NEXT PAGE' : (next ? 'CONTINUE' : 'DONE');
-          const nextTitle = !isEdge
-            ? `Page ${safePage + 2}`
-            : next ? next.title : 'Back to the map';
+          const nextText = (isEdge && !next) ? 'Done' : 'Continue';
           const onNext = () => {
             if (!isEdge) setCurrentPage(safePage + 1);
             else if (next) nav(`/lesson/${next.id}`);
@@ -3038,10 +3033,7 @@ export default function Lesson() {
               onClick={onNext}
               aria-label={!isEdge ? 'Next page' : (next ? `Continue to ${next.title}` : 'Back to the map')}
             >
-              <span className="lesson-nav-text">
-                <span className="lesson-nav-kicker">{nextLabel}</span>
-                <span className="lesson-nav-title">{nextTitle}</span>
-              </span>
+              <span className="lesson-nav-label">{nextText}</span>
               <span className="lesson-nav-icon">→</span>
             </button>
           );

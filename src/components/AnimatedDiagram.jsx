@@ -101,12 +101,16 @@ export default function AnimatedDiagram({
   const hasGroups = Array.isArray(groups) && groups.length > 0;
   const hasSubtitles = safeNodes.some((n) => typeof n.subtitle === 'string' && n.subtitle.length > 0);
   const hasEdgeLabels = safeEdges.some((e) => typeof e.label === 'string' && e.label.length > 0);
-  const useFlow = Array.isArray(nodes) && (
+  // Hub/fan diagrams (one source → many leaves) render cleanest as a chip list
+  // even when they carry edge labels or subtitles — the flow renderer fans every
+  // edge out of one point, so the labels pile up on top of each other and on the
+  // nodes. The chip list shows each edge as "source →label→ target", no overlap.
+  const useChipList = Array.isArray(nodes) && nodes.length >= 4 && isHubDiamond && !hasGroups;
+  const useFlow = !useChipList && Array.isArray(nodes) && (
     hasGroups
-    || (nodes.length >= 4 && !isHubDiamond)
+    || nodes.length >= 4
     || (nodes.length >= 2 && (hasSubtitles || hasEdgeLabels))
   );
-  const useChipList = !useFlow && Array.isArray(nodes) && nodes.length >= 4 && isHubDiamond;
   if (useFlow) {
     return (
       <MermaidFlow

@@ -164,7 +164,7 @@ export default function ReviewWeakSpots() {
                   >
                     {LETTERS[j] || '?'}
                   </span>
-                  <span style={{ flex: '1 1 auto', lineHeight: 1.45 }}>{opt}</span>
+                  <span style={{ flex: '1 1 auto', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.45 }}>{opt}</span>
                   {isCorrect && (
                     <span style={{ color: 'var(--status-success, #8FA876)', fontWeight: 600 }}>
                       ✓

@@ -878,7 +878,7 @@ export default function Roadmap() {
                   y={n.y + (kind === 'lab' ? 22 : 20)}
                   fontFamily="JetBrains Mono, ui-monospace, monospace"
                   fontSize="8.5"
-                  textAnchor="middle"
+                  textAnchor={n.x > 250 ? 'end' : n.x < 110 ? 'start' : 'middle'}
                   fill="#F4EFE3"
                   style={{ paintOrder: 'stroke', stroke: '#0B0A08', strokeWidth: 3 }}
                 >

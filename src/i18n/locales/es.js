@@ -5,6 +5,7 @@ export const es = {
   'tab.learn': 'Aprende',
   'tab.roadmap': 'Mapa',
   'tab.library': 'Biblioteca',
+  'tab.projects': 'Proyectos',
   'tab.beast': 'Byte Beast',
   'tab.settings': 'Ajustes',
 

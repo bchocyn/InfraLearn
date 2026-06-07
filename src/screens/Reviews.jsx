@@ -112,6 +112,10 @@ export default function Reviews() {
   if (total === 0 || done) {
     return (
       <div className="screen fade-in">
+        {/* Mount here too: grading the last card flips `done`, unmounting the
+            active branch's CelebrationMoment before it could show the XP/level/
+            badge burst. A fresh mount runs its effect with `celebrate` set. */}
+        <CelebrationMoment />
         <div className="reviews-header row">
           <span className="kicker">REVIEW · DONE</span>
         </div>

@@ -109,6 +109,29 @@ export default function Library() {
         Search and filter across every concept, lab, and language.
       </p>
 
+      <button
+        type="button"
+        className="card"
+        onClick={() => nav('/projects')}
+        aria-label="Open Projects"
+        style={{
+          width: '100%', textAlign: 'left', cursor: 'pointer',
+          font: 'inherit', color: 'inherit', display: 'block',
+          borderLeft: '3px solid var(--accent-amber)', marginBottom: 12, minHeight: 44,
+        }}
+      >
+        <div className="row" style={{ alignItems: 'center', gap: 10 }}>
+          <span aria-hidden style={{ fontSize: 22 }}>🛠</span>
+          <span style={{ flex: 1 }}>
+            <span className="kicker" style={{ color: 'var(--accent-amber)' }}>PROJECTS</span>
+            <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, marginTop: 2 }}>
+              Build labs &amp; design challenges — ship something real
+            </span>
+          </span>
+          <span aria-hidden style={{ color: 'var(--accent-amber)' }}>→</span>
+        </div>
+      </button>
+
       <input
         type="search"
         value={search}

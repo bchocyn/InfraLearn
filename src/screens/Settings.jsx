@@ -1,5 +1,8 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
+import ProgressPanel from '../components/ProgressPanel.jsx';
+import WeekRecap from '../components/WeekRecap.jsx';
 import { PATHS, PATH_KEYS } from '../data/content.js';
 import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
 import { LOCALES, getLocale, setLocale, useT } from '../i18n/index.js';
@@ -50,8 +53,22 @@ export default function Settings() {
 
 function ProfileTab() {
   const s = useStore();
+  const nav = useNavigate();
   return (
     <>
+      <WeekRecap />
+      <ProgressPanel />
+      <div className="card">
+        <div className="kicker" style={{ marginBottom: 8 }}>How it works</div>
+        <p className="caption" style={{ margin: '0 0 10px' }}>
+          A quick tour of Home — the daily challenge, reviews, your path, and your Byte Beast.
+        </p>
+        <button type="button" className="btn btn-block"
+          onClick={() => { s.resetTour(); nav('/'); }}>
+          ↺ Replay the app tour
+        </button>
+      </div>
+
       <div className="card">
         <div className="kicker" style={{ marginBottom: 8 }}>Display name</div>
         <input value={s.displayName} onChange={(e) => s.setName(e.target.value)}
