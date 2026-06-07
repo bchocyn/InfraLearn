@@ -25,6 +25,7 @@ export default function BeastSprite({ species, tier = 1, size = 96, className = 
   const [src, setSrc] = useState(null);
   useEffect(() => {
     let live = true;
+    setSrc(null); // reset on species/tier change so the old sprite doesn't flash
     loadManifest().then((m) => {
       const file = m?.[species]?.tiers?.[String(tier)];
       if (live && file) setSrc(asset(file));
@@ -55,8 +56,9 @@ export default function BeastSprite({ species, tier = 1, size = 96, className = 
       alt={`${species} tier ${tier}`}
       width={size}
       height={size}
-      style={{ width: size, height: size, imageRendering: 'pixelated', ...style }}
+      style={{ width: size, height: size, imageRendering: 'auto', ...style }}
       draggable={false}
+      onError={() => setSrc(null)}
     />
   );
 }

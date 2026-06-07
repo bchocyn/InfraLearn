@@ -26,10 +26,12 @@ export const BEASTS = {
 export const SPECIES_KEYS = Object.keys(BEASTS);
 
 // Evolution requirements. Tier is the *current* form (1..4).
-// T1->T2: Junior + 40% path. T2->T3: Senior + path Gold. T3->T4: 100% path complete.
+// T1->T2: Junior + 40% path. T2->T3: Senior + Silver (66%). T3->T4: 100% path.
+// (T2->T3 used to gate on Gold/100%, which made T3 unreachable — beasts jumped
+// 2->4 at 100%. Silver gives T3 a distinct resting state; gold still qualifies.)
 export const EVO_RULES = [
   { from: 1, to: 2, needLevel: 'junior', needPathPct: 0.40, label: 'Junior + 40% of path' },
-  { from: 2, to: 3, needLevel: 'senior', needBadge: 'gold', label: 'Senior + Gold medal' },
+  { from: 2, to: 3, needLevel: 'senior', needBadge: 'silver', label: 'Senior + Silver medal' },
   { from: 3, to: 4, needLevel: 'senior', needPathPct: 1.0, label: '100% the entire path' },
 ];
 
