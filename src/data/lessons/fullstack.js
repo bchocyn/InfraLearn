@@ -13,19 +13,40 @@ export default {
             "text": "A page made of `<div>` and `<span>` *looks* identical to one made of `<header>`, `<main>`, and `<article>`. But only the second one is **navigable** for a blind user and **rankable** for Google. Semantics is a contract."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "How the accessibility tree builds",
-            "height": 240,
+            "why": "Get the markup right and the spoken experience builds itself — bad tags poison every layer downstream.",
             "nodes": [
               { "id": "html",  "label": "HTML",       "subtitle": "raw markup",    "accent": "amber", "x": 0.10, "y": 0.5 },
               { "id": "dom",   "label": "DOM",        "subtitle": "parsed tree",   "accent": "sky",   "x": 0.36, "y": 0.5 },
-              { "id": "a11y",  "label": "a11y tree",  "subtitle": "roles + names", "accent": "water", "x": 0.64, "y": 0.5 },
-              { "id": "sr",    "label": "Screen Reader", "subtitle": "spoken output", "accent": "fire", "x": 0.90, "y": 0.5 }
+              { "id": "a11y",  "label": "a11y tree",  "subtitle": "roles + names", "accent": "water", "x": 0.30, "y": 0.85 },
+              { "id": "sr",    "label": "Screen Reader", "subtitle": "spoken output", "accent": "fire", "x": 0.70, "y": 0.85 }
             ],
-            "edges": [
-              { "from": "html", "to": "dom",  "kind": "solid",  "label": "parse" },
-              { "from": "dom",  "to": "a11y", "kind": "dashed", "label": "derive" },
-              { "from": "a11y", "to": "sr",   "kind": "solid",  "label": "speak" }
+            "steps": [
+              {
+                "title": "You write the HTML",
+                "description": "Everything starts with your **markup** — the tags you choose are the only signal the rest of the chain ever gets.",
+                "activeNodes": ["html"],
+                "activeEdges": []
+              },
+              {
+                "title": "Browser parses it into the DOM",
+                "description": "The browser reads your HTML and builds the **DOM**, a live tree of nodes it can render and script.",
+                "activeNodes": ["html", "dom"],
+                "activeEdges": [{ "from": "html", "to": "dom", "label": "parse" }]
+              },
+              {
+                "title": "It derives the accessibility tree",
+                "description": "From the DOM the browser computes the **a11y tree** — each node's `role` and accessible name. A `<div onClick>` has neither.",
+                "activeNodes": ["dom", "a11y"],
+                "activeEdges": [{ "from": "dom", "to": "a11y", "label": "derive" }]
+              },
+              {
+                "title": "The screen reader speaks it",
+                "description": "Assistive tech walks the a11y tree and reads it aloud. \"Navigation, 4 items\" only happens if a real `<nav>` made it this far.",
+                "activeNodes": ["a11y", "sr"],
+                "activeEdges": [{ "from": "a11y", "to": "sr", "label": "speak" }]
+              }
             ]
           }
         ]
@@ -108,10 +129,10 @@ export default {
             "title": "The CSS box model",
             "height": 260,
             "nodes": [
-              { "id": "margin",  "label": "margin",  "subtitle": "outside",      "accent": "amber", "x": 0.15, "y": 0.5 },
-              { "id": "border",  "label": "border",  "subtitle": "edge",         "accent": "fire",  "x": 0.38, "y": 0.5 },
-              { "id": "padding", "label": "padding", "subtitle": "inside",       "accent": "earth", "x": 0.62, "y": 0.5 },
-              { "id": "content", "label": "content", "subtitle": "text",         "accent": "sky",   "x": 0.86, "y": 0.5 }
+              { "id": "margin",  "label": "margin",  "subtitle": "outside",      "accent": "amber", "x": 0.30, "y": 0.5 },
+              { "id": "border",  "label": "border",  "subtitle": "edge",         "accent": "fire",  "x": 0.70, "y": 0.5 },
+              { "id": "padding", "label": "padding", "subtitle": "inside",       "accent": "earth", "x": 0.30, "y": 0.9 },
+              { "id": "content", "label": "content", "subtitle": "text",         "accent": "sky",   "x": 0.70, "y": 0.9 }
             ],
             "edges": [
               { "from": "margin",  "to": "border",  "kind": "solid", "label": "wraps" },
@@ -210,10 +231,10 @@ export default {
             "title": "What happens during await",
             "height": 240,
             "nodes": [
-              { "id": "call",   "label": "fetch()",    "subtitle": "kicks off",   "accent": "amber", "x": 0.10, "y": 0.5 },
-              { "id": "net",    "label": "Network",    "subtitle": "in flight",   "accent": "water", "x": 0.36, "y": 0.5 },
-              { "id": "queue",  "label": "Microtask",  "subtitle": "resolved",    "accent": "fire",  "x": 0.64, "y": 0.5 },
-              { "id": "resume", "label": "Resume",     "subtitle": "continues",   "accent": "sky",   "x": 0.90, "y": 0.5 }
+              { "id": "call",   "label": "fetch()",    "subtitle": "kicks off",   "accent": "amber", "x": 0.30, "y": 0.5 },
+              { "id": "net",    "label": "Network",    "subtitle": "in flight",   "accent": "water", "x": 0.70, "y": 0.5 },
+              { "id": "queue",  "label": "Microtask",  "subtitle": "resolved",    "accent": "fire",  "x": 0.30, "y": 0.85 },
+              { "id": "resume", "label": "Resume",     "subtitle": "continues",   "accent": "sky",   "x": 0.70, "y": 0.85 }
             ],
             "edges": [
               { "from": "call",  "to": "net",    "kind": "solid",  "label": "send" },
@@ -369,10 +390,10 @@ export default {
             "title": "Render pipeline",
             "height": 240,
             "nodes": [
-              { "id": "state",  "label": "state",   "subtitle": "the truth",       "accent": "amber", "x": 0.10, "y": 0.5 },
-              { "id": "comp",   "label": "Component", "subtitle": "pure function", "accent": "fire",  "x": 0.36, "y": 0.5 },
-              { "id": "vdom",   "label": "Virtual DOM", "subtitle": "diff target", "accent": "sky",   "x": 0.64, "y": 0.5 },
-              { "id": "dom",    "label": "Real DOM",   "subtitle": "browser paints", "accent": "earth", "x": 0.90, "y": 0.5 }
+              { "id": "state",  "label": "state",   "subtitle": "the truth",       "accent": "amber", "x": 0.30, "y": 0.5 },
+              { "id": "comp",   "label": "Component", "subtitle": "pure function", "accent": "fire",  "x": 0.70, "y": 0.5 },
+              { "id": "vdom",   "label": "Virtual DOM", "subtitle": "diff target", "accent": "sky",   "x": 0.30, "y": 0.85 },
+              { "id": "dom",    "label": "Real DOM",   "subtitle": "browser paints", "accent": "earth", "x": 0.70, "y": 0.85 }
             ],
             "edges": [
               { "from": "state", "to": "comp", "kind": "solid",  "label": "input" },
@@ -483,19 +504,41 @@ export default {
             "text": "**`useEffect` runs *after* render**, useful for things that touch the outside world: subscriptions, fetches, timers, DOM measurements. The **dependency array** tells React *when* to re-run it — empty array = once, `[id]` = when id changes, no array = every render (almost never what you want)."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Effect lifecycle",
-            "height": 240,
+            "why": "Effects run *after* paint and clean up *before* the next run — that ordering is why the cleanup return exists.",
+            "height": 320,
             "nodes": [
-              { "id": "render",  "label": "render",   "subtitle": "JSX returned",      "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "commit",  "label": "commit",   "subtitle": "DOM updated",       "accent": "earth", "x": 0.36, "y": 0.5 },
-              { "id": "effect",  "label": "effect",   "subtitle": "side effect runs",  "accent": "fire",  "x": 0.64, "y": 0.5 },
-              { "id": "cleanup", "label": "cleanup",  "subtitle": "before next effect","accent": "amber", "x": 0.90, "y": 0.5 }
+              { "id": "render",  "label": "render",   "subtitle": "JSX returned",      "accent": "sky",   "x": 0.30, "y": 0.2 },
+              { "id": "commit",  "label": "commit",   "subtitle": "DOM updated",       "accent": "earth", "x": 0.70, "y": 0.2 },
+              { "id": "effect",  "label": "effect",   "subtitle": "side effect runs",  "accent": "fire",  "x": 0.50, "y": 0.5 },
+              { "id": "cleanup", "label": "cleanup",  "subtitle": "before next effect","accent": "amber", "x": 0.50, "y": 0.8 }
             ],
-            "edges": [
-              { "from": "render",  "to": "commit",  "kind": "solid",  "label": "paint" },
-              { "from": "commit",  "to": "effect",  "kind": "dashed", "label": "after" },
-              { "from": "effect",  "to": "cleanup", "kind": "dashed", "label": "deps change" }
+            "steps": [
+              {
+                "title": "Render returns JSX",
+                "description": "The component runs and returns its JSX. Nothing has touched the screen yet — this is pure description.",
+                "activeNodes": ["render"],
+                "activeEdges": []
+              },
+              {
+                "title": "React commits to the DOM",
+                "description": "React reconciles and **paints** the changes to the real DOM. The user now sees the new UI.",
+                "activeNodes": ["render", "commit"],
+                "activeEdges": [{ "from": "render", "to": "commit", "label": "paint" }]
+              },
+              {
+                "title": "The effect runs after paint",
+                "description": "Only *after* the browser paints does your `useEffect` body fire — the safe moment to fetch, subscribe, or measure the DOM.",
+                "activeNodes": ["commit", "effect"],
+                "activeEdges": [{ "from": "commit", "to": "effect", "label": "after" }]
+              },
+              {
+                "title": "Cleanup runs before the next effect",
+                "description": "When deps change (or the component unmounts), the function you `return` runs first — cancel timers, abort fetches, unsubscribe.",
+                "activeNodes": ["effect", "cleanup"],
+                "activeEdges": [{ "from": "effect", "to": "cleanup", "label": "deps change" }]
+              }
             ]
           },
           {
@@ -566,21 +609,46 @@ export default {
             "text": "**Express** is a thin layer on top of Node's built-in `http` module. It adds routing, middleware chains, and ergonomic request/response helpers — nothing more, nothing less."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Express request lifecycle",
-            "subtitle": "CLIENT · MIDDLEWARE · ROUTE · RESPONSE",
-            "height": 240,
+            "why": "Every request walks the chain in registration order — that's why where you `app.use()` something is a routing decision.",
             "nodes": [
-              { "id": "client",  "label": "Client",       "subtitle": "browser",      "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "node",    "label": "Node server",  "subtitle": "event loop",   "accent": "fire",  "x": 0.34, "y": 0.5 },
-              { "id": "mw",      "label": "Middleware",   "subtitle": "auth+parse",   "accent": "amber", "x": 0.60, "y": 0.5 },
-              { "id": "route",   "label": "Route handler","subtitle": "your logic",   "accent": "water", "x": 0.88, "y": 0.5 }
+              { "id": "client",  "label": "Client",       "subtitle": "browser",      "accent": "sky",   "x": 0.30, "y": 0.25 },
+              { "id": "node",    "label": "Node server",  "subtitle": "event loop",   "accent": "fire",  "x": 0.70, "y": 0.25 },
+              { "id": "mw",      "label": "Middleware",   "subtitle": "auth+parse",   "accent": "amber", "x": 0.30, "y": 0.75 },
+              { "id": "route",   "label": "Route handler","subtitle": "your logic",   "accent": "water", "x": 0.70, "y": 0.75 }
             ],
-            "edges": [
-              { "from": "client", "to": "node",  "kind": "dashed", "label": "request" },
-              { "from": "node",   "to": "mw",    "kind": "solid",  "label": "chain" },
-              { "from": "mw",     "to": "route", "kind": "solid",  "label": "next()" },
-              { "from": "route",  "to": "client","kind": "dashed", "label": "json", "curve": 0.4 }
+            "steps": [
+              {
+                "title": "Client sends a request",
+                "description": "A browser fires an HTTP request at your server. It lands on Node's single event-loop thread.",
+                "activeNodes": ["client"],
+                "activeEdges": []
+              },
+              {
+                "title": "Node hands it to the chain",
+                "description": "The Express app receives the request and starts walking the **middleware chain** in the order you registered it.",
+                "activeNodes": ["client", "node"],
+                "activeEdges": [{ "from": "client", "to": "node", "label": "request" }]
+              },
+              {
+                "title": "Middleware runs, then calls next()",
+                "description": "Each middleware parses, authenticates, or logs — then calls `next()` to pass control downstream. Forget `next()` and the request hangs.",
+                "activeNodes": ["node", "mw"],
+                "activeEdges": [{ "from": "node", "to": "mw", "label": "chain" }]
+              },
+              {
+                "title": "Control reaches your route handler",
+                "description": "Once the chain clears, the matching **route handler** runs your actual logic — the trusted, parsed `req` is finally yours.",
+                "activeNodes": ["mw", "route"],
+                "activeEdges": [{ "from": "mw", "to": "route", "label": "next()" }]
+              },
+              {
+                "title": "Handler responds to the client",
+                "description": "The handler calls `res.json(...)` and the response travels back. One request in, one response out.",
+                "activeNodes": ["route", "client"],
+                "activeEdges": [{ "from": "route", "to": "client", "label": "json" }]
+              }
             ]
           }
         ]
@@ -704,10 +772,10 @@ export default {
             "subtitle": "CLIENT · SERVER · OUTCOME",
             "height": 240,
             "nodes": [
-              { "id": "c2xx", "label": "2xx", "subtitle": "success",         "accent": "earth", "x": 0.12, "y": 0.5 },
-              { "id": "c3xx", "label": "3xx", "subtitle": "redirect",        "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "c4xx", "label": "4xx", "subtitle": "client's fault",  "accent": "water", "x": 0.62, "y": 0.5 },
-              { "id": "c5xx", "label": "5xx", "subtitle": "server's fault",  "accent": "fire",  "x": 0.88, "y": 0.5 }
+              { "id": "c2xx", "label": "2xx", "subtitle": "success",         "accent": "earth", "x": 0.30, "y": 0.5 },
+              { "id": "c3xx", "label": "3xx", "subtitle": "redirect",        "accent": "amber", "x": 0.70, "y": 0.5 },
+              { "id": "c4xx", "label": "4xx", "subtitle": "client's fault",  "accent": "water", "x": 0.30, "y": 0.85 },
+              { "id": "c5xx", "label": "5xx", "subtitle": "server's fault",  "accent": "fire",  "x": 0.70, "y": 0.85 }
             ],
             "edges": [
               { "from": "c2xx", "to": "c3xx", "kind": "dashed", "label": "moved" },
@@ -852,10 +920,10 @@ export default {
             "subtitle": "VALIDATE · THROW · LOG · RESPOND",
             "height": 240,
             "nodes": [
-              { "id": "in",    "label": "Request",          "subtitle": "blob",         "accent": "water", "x": 0.10, "y": 0.5 },
-              { "id": "val",   "label": "Validator",        "subtitle": "schema",       "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "throw", "label": "Throw / next(err)","subtitle": "structured",   "accent": "fire",  "x": 0.64, "y": 0.5 },
-              { "id": "out",   "label": "Error handler",    "subtitle": "shape + log",        "accent": "earth", "x": 0.88, "y": 0.5 }
+              { "id": "in",    "label": "Request",          "subtitle": "blob",         "accent": "water", "x": 0.30, "y": 0.5 },
+              { "id": "val",   "label": "Validator",        "subtitle": "schema",       "accent": "amber", "x": 0.70, "y": 0.5 },
+              { "id": "throw", "label": "Throw / next(err)","subtitle": "structured",   "accent": "fire",  "x": 0.30, "y": 0.85 },
+              { "id": "out",   "label": "Error handler",    "subtitle": "shape + log",        "accent": "earth", "x": 0.70, "y": 0.85 }
             ],
             "edges": [
               { "from": "in",    "to": "val",   "kind": "solid",  "label": "parse" },
@@ -955,10 +1023,10 @@ export default {
             "subtitle": "CACHE · UI · NETWORK",
             "height": 240,
             "nodes": [
-              { "id": "mount", "label": "Component mounts","subtitle": "/users/42",   "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "cache", "label": "Cache hit",       "subtitle": "stale shown", "accent": "earth", "x": 0.38, "y": 0.5 },
-              { "id": "net",   "label": "Revalidate",      "subtitle": "bg fetch",    "accent": "water", "x": 0.66, "y": 0.5 },
-              { "id": "ui",    "label": "UI updates",      "subtitle": "if changed",  "accent": "amber", "x": 0.92, "y": 0.5 }
+              { "id": "mount", "label": "Component mounts","subtitle": "/users/42",   "accent": "sky",   "x": 0.30, "y": 0.5 },
+              { "id": "cache", "label": "Cache hit",       "subtitle": "stale shown", "accent": "earth", "x": 0.70, "y": 0.5 },
+              { "id": "net",   "label": "Revalidate",      "subtitle": "bg fetch",    "accent": "water", "x": 0.30, "y": 0.85 },
+              { "id": "ui",    "label": "UI updates",      "subtitle": "if changed",  "accent": "amber", "x": 0.70, "y": 0.85 }
             ],
             "edges": [
               { "from": "mount", "to": "cache", "kind": "solid",  "label": "instant" },
@@ -1073,20 +1141,40 @@ export default {
             ]
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Defense at the edge",
-            "subtitle": "TLS · CORS · LIMIT · HELMET",
-            "height": 240,
+            "why": "Each layer rejects a different attacker cheaply — and the order matters: drop bad traffic before you spend cycles parsing it.",
             "nodes": [
-              { "id": "tls",    "label": "HTTPS",      "subtitle": "tls termination",  "accent": "water", "x": 0.10, "y": 0.5 },
-              { "id": "cors",   "label": "CORS",       "subtitle": "origin allowlist", "accent": "sky",   "x": 0.34, "y": 0.5 },
-              { "id": "limit",  "label": "Rate limit", "subtitle": "per-ip bucket",    "accent": "amber", "x": 0.60, "y": 0.5 },
-              { "id": "helmet", "label": "Helmet",     "subtitle": "security headers", "accent": "fire",  "x": 0.88, "y": 0.5 }
+              { "id": "tls",    "label": "HTTPS",      "subtitle": "tls termination",  "accent": "water", "x": 0.30, "y": 0.5 },
+              { "id": "cors",   "label": "CORS",       "subtitle": "origin allowlist", "accent": "sky",   "x": 0.70, "y": 0.5 },
+              { "id": "limit",  "label": "Rate limit", "subtitle": "per-ip bucket",    "accent": "amber", "x": 0.30, "y": 0.85 },
+              { "id": "helmet", "label": "Helmet",     "subtitle": "security headers", "accent": "fire",  "x": 0.70, "y": 0.85 }
             ],
-            "edges": [
-              { "from": "tls",   "to": "cors",   "kind": "solid",  "label": "decrypted" },
-              { "from": "cors",  "to": "limit",  "kind": "solid",  "label": "allowed" },
-              { "from": "limit", "to": "helmet", "kind": "dashed", "label": "in budget" }
+            "steps": [
+              {
+                "title": "HTTPS decrypts the request",
+                "description": "TLS termination is the floor — the bytes arrive private. Everything downstream now sees plaintext it can inspect.",
+                "activeNodes": ["tls"],
+                "activeEdges": []
+              },
+              {
+                "title": "CORS checks the origin",
+                "description": "The **origin allowlist** decides whether a browser from another site is even allowed to read your response. `evil.com` stops here.",
+                "activeNodes": ["tls", "cors"],
+                "activeEdges": [{ "from": "tls", "to": "cors", "label": "decrypted" }]
+              },
+              {
+                "title": "Rate limit checks the budget",
+                "description": "The **per-IP bucket** rejects floods before you spend any work on them — brute-force and dumb bots die here, in budget or not.",
+                "activeNodes": ["cors", "limit"],
+                "activeEdges": [{ "from": "cors", "to": "limit", "label": "allowed" }]
+              },
+              {
+                "title": "Helmet sets safe headers",
+                "description": "Finally `helmet` stamps ~15 **security headers** on the response — clickjacking, sniffing, and downgrade defenses, all in one line.",
+                "activeNodes": ["limit", "helmet"],
+                "activeEdges": [{ "from": "limit", "to": "helmet", "label": "in budget" }]
+              }
             ]
           }
         ]
@@ -1141,6 +1229,12 @@ export default {
             "type": "quote",
             "text": "HTTPS is the floor, not the ceiling. Helmet, CORS, and a rate limit are the next three steps — and they're all one line each.",
             "cite": "the day-one checklist"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've now seen **HTTPS termination**, a **CORS allowlist**, **per-IP rate limits**, **`helmet` headers**, and **input validation**. A logged-in user's browser is tricked into POSTing to your API from `evil.com`. Walk the request through your middleware stack in order, say which layer (if any) stops it, and name the one trade-off you'd accept to keep the stack cheap.",
+            "modelAnswer": "Order matters because each layer should reject traffic before a more expensive one runs: HTTPS first (bytes arrive private), then CORS, then the rate limit, then the body parser, then validation, then the route. For this specific attack — a cross-site request from a logged-in user — none of these layers actually blocks it: CORS only stops `evil.com` from *reading* the response, not from *sending* a state-changing POST, and HTTPS/rate-limit/helmet/validation are about transport, volume, headers, and payload shape, not request forgery. The real defense is CSRF protection (SameSite=Lax/Strict cookies or a CSRF token), which this defense-in-depth stack deliberately doesn't include. So the integration point is recognizing the gap: these five cheap wins cover scanners, brute force, sniffing, and malformed input, but cross-site *writes* need a sixth layer. The trade-off I'd accept: every layer adds a little latency and config surface (a too-strict CORS origin or rate limit will block legitimate clients first), so I keep limits generous globally and only tighten on auth/write endpoints, accepting that a determined attacker who already has valid creds isn't stopped by edge middleware at all.",
+            "hint": "Order = cheap-rejects-first. Then ask: which of these actually stops a cross-site *write*?"
           }
         ]
       }
@@ -1188,10 +1282,10 @@ export default {
             "subtitle": "APP · ORM · POSTGRES",
             "height": 240,
             "nodes": [
-              { "id": "client", "label": "Client",   "subtitle": "form",         "accent": "sky",   "x": 0.12, "y": 0.5 },
-              { "id": "orm",    "label": "ORM",      "subtitle": "schema",       "accent": "water", "x": 0.38, "y": 0.5 },
-              { "id": "pg",     "label": "Postgres", "subtitle": "constraints",  "accent": "fire",  "x": 0.64, "y": 0.5 },
-              { "id": "disk",   "label": "Row",      "subtitle": "on disk",      "accent": "earth", "x": 0.90, "y": 0.5 }
+              { "id": "client", "label": "Client",   "subtitle": "form",         "accent": "sky",   "x": 0.30, "y": 0.5 },
+              { "id": "orm",    "label": "ORM",      "subtitle": "schema",       "accent": "water", "x": 0.70, "y": 0.5 },
+              { "id": "pg",     "label": "Postgres", "subtitle": "constraints",  "accent": "fire",  "x": 0.30, "y": 0.85 },
+              { "id": "disk",   "label": "Row",      "subtitle": "on disk",      "accent": "earth", "x": 0.70, "y": 0.85 }
             ],
             "edges": [
               { "from": "client", "to": "orm",  "kind": "solid",  "label": "submit" },
@@ -1293,10 +1387,10 @@ export default {
             "subtitle": "INNER · LEFT · FULL",
             "height": 240,
             "nodes": [
-              { "id": "u",     "label": "users",    "subtitle": "left table",  "accent": "earth", "x": 0.15, "y": 0.5 },
-              { "id": "inner", "label": "INNER",    "subtitle": "intersection","accent": "fire",  "x": 0.40, "y": 0.5 },
-              { "id": "left",  "label": "LEFT",     "subtitle": "users + null","accent": "water", "x": 0.65, "y": 0.5 },
-              { "id": "p",     "label": "posts",    "subtitle": "right table", "accent": "earth", "x": 0.90, "y": 0.5 }
+              { "id": "u",     "label": "users",    "subtitle": "left table",  "accent": "earth", "x": 0.25, "y": 0.5 },
+              { "id": "inner", "label": "INNER",    "subtitle": "intersection","accent": "fire",  "x": 0.35, "y": 0.85 },
+              { "id": "left",  "label": "LEFT",     "subtitle": "users + null","accent": "water", "x": 0.65, "y": 0.85 },
+              { "id": "p",     "label": "posts",    "subtitle": "right table", "accent": "earth", "x": 0.75, "y": 0.5 }
             ],
             "edges": [
               { "from": "u", "to": "inner", "kind": "solid",  "label": "match" },
@@ -1396,20 +1490,40 @@ export default {
             ]
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Migration flow",
-            "subtitle": "SCHEMA · DIFF · APPLY",
-            "height": 240,
+            "why": "The schema is the truth, the migration is the audit log — that's why you never `ALTER TABLE` by hand in prod.",
             "nodes": [
-              { "id": "schema", "label": "schema.prisma", "subtitle": "truth",       "accent": "sky",   "x": 0.15, "y": 0.5 },
-              { "id": "mig",    "label": "migration",     "subtitle": "gen sql",     "accent": "water", "x": 0.42, "y": 0.5 },
-              { "id": "deploy", "label": "deploy",        "subtitle": "ci runs",     "accent": "amber", "x": 0.68, "y": 0.5 },
-              { "id": "db",     "label": "Postgres",      "subtitle": "applied",     "accent": "fire",  "x": 0.92, "y": 0.5 }
+              { "id": "schema", "label": "schema.prisma", "subtitle": "truth",       "accent": "sky",   "x": 0.30, "y": 0.5 },
+              { "id": "mig",    "label": "migration",     "subtitle": "gen sql",     "accent": "water", "x": 0.70, "y": 0.5 },
+              { "id": "deploy", "label": "deploy",        "subtitle": "ci runs",     "accent": "amber", "x": 0.30, "y": 0.85 },
+              { "id": "db",     "label": "Postgres",      "subtitle": "applied",     "accent": "fire",  "x": 0.70, "y": 0.85 }
             ],
-            "edges": [
-              { "from": "schema", "to": "mig",    "kind": "solid",  "label": "diff" },
-              { "from": "mig",    "to": "deploy", "kind": "solid",  "label": "commit" },
-              { "from": "deploy", "to": "db",     "kind": "dashed", "label": "apply" }
+            "steps": [
+              {
+                "title": "You edit schema.prisma",
+                "description": "The schema file is the single **source of truth** for your tables. You change the shape here, never the DB directly.",
+                "activeNodes": ["schema"],
+                "activeEdges": []
+              },
+              {
+                "title": "Prisma diffs it into a migration",
+                "description": "`prisma migrate dev` compares the schema to the last state and **generates a SQL migration file** — the exact change, in plain SQL.",
+                "activeNodes": ["schema", "mig"],
+                "activeEdges": [{ "from": "schema", "to": "mig", "label": "diff" }]
+              },
+              {
+                "title": "You commit it; CI deploys",
+                "description": "The migration is committed to git like code. CI runs `prisma migrate deploy`, so every environment applies the same versioned change.",
+                "activeNodes": ["mig", "deploy"],
+                "activeEdges": [{ "from": "mig", "to": "deploy", "label": "commit" }]
+              },
+              {
+                "title": "Postgres applies the change",
+                "description": "The migration runs against the real database. Schema and DB never drift — fix a bad one by writing the **next** migration, never editing this one.",
+                "activeNodes": ["deploy", "db"],
+                "activeEdges": [{ "from": "deploy", "to": "db", "label": "apply" }]
+              }
             ]
           }
         ]
@@ -1560,6 +1674,12 @@ export default {
             "type": "quote",
             "text": "Your slow page is usually N+1. Your second-slowest is a missing index on a foreign key.",
             "cite": "every backend perf review"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "A `/users` list page that also shows each user's recent posts takes 3 seconds. You have three tools: **`EXPLAIN ANALYZE`**, **indexes** (which speed reads but tax writes), and **eager-loading** (JOIN / ORM `include`) to kill **N+1**. Lay out the order you'd apply them to diagnose and fix this page, and name the trade-off that stops you from just indexing everything.",
+            "modelAnswer": "Diagnose before you touch anything: this is almost certainly N+1 — 1 query for the user list plus N queries for each user's posts — so I'd confirm by counting queries or watching the query log, not by guessing. The first fix is structural, not an index: collapse the N+1 with eager-loading — a `LEFT JOIN posts ON posts.author_id = users.id` or an ORM `include`, turning 1+N round trips into 1 (or 2) queries. Then I run `EXPLAIN ANALYZE` on that one query: if I see a `Seq Scan` on `posts`, the JOIN is scanning the whole posts table per user, so I add a B-tree index on the foreign key `posts(author_id)` — that's the single highest-value index here, turning each lookup into O(log n). I'd re-run `EXPLAIN ANALYZE` to confirm it flipped to an Index Scan and the time dropped. The trade-off that stops me from indexing every column: every index makes reads faster but taxes *writes* — each INSERT/UPDATE must maintain every index touching that column — so I only index FKs and the columns this hot query actually filters or orders on, and I measure with EXPLAIN rather than adding indexes 'just in case.' The integration insight: fixing the round-trip count (N+1) and fixing per-query speed (indexes) are different problems, and you must do them in that order — a perfect index on a query you run N times is still N round trips.",
+            "hint": "Fix the round-trip count first (N+1), then make the remaining query fast (index the FK), measuring with EXPLAIN at each step."
           }
         ]
       }
@@ -2174,11 +2294,11 @@ export default {
             "subtitle": "DEV · GIT · BUILD · PaaS",
             "height": 250,
             "nodes": [
-              { "id": "dev",   "label": "Developer", "subtitle": "GIT PUSH",  "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "repo",  "label": "GitHub",    "subtitle": "MAIN/PR",   "accent": "water", "x": 0.32, "y": 0.5 },
-              { "id": "build", "label": "Build",     "subtitle": "INSTALL",   "accent": "water", "x": 0.56, "y": 0.5 },
-              { "id": "paas",  "label": "PaaS",      "subtitle": "VERCEL",    "accent": "amber", "x": 0.80, "y": 0.5 },
-              { "id": "prev",  "label": "Preview",   "subtitle": "PR URL",          "accent": "amber", "x": 0.56, "y": 0.92 }
+              { "id": "dev",   "label": "Developer", "subtitle": "GIT PUSH",  "accent": "sky",   "x": 0.30, "y": 0.15 },
+              { "id": "repo",  "label": "GitHub",    "subtitle": "MAIN/PR",   "accent": "water", "x": 0.70, "y": 0.15 },
+              { "id": "build", "label": "Build",     "subtitle": "INSTALL",   "accent": "water", "x": 0.30, "y": 0.50 },
+              { "id": "paas",  "label": "PaaS",      "subtitle": "VERCEL",    "accent": "amber", "x": 0.70, "y": 0.50 },
+              { "id": "prev",  "label": "Preview",   "subtitle": "PR URL",          "accent": "amber", "x": 0.50, "y": 0.85 }
             ],
             "edges": [
               { "from": "dev",   "to": "repo",  "kind": "solid",  "label": "push" },
@@ -2283,11 +2403,11 @@ export default {
             "subtitle": "DEV · CI · VAULT · APP",
             "height": 250,
             "nodes": [
-              { "id": "dev",   "label": "Developer",   "subtitle": ".ENV.LOCAL",      "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "ci",    "label": "CI",          "subtitle": "ACTIONS SECRETS", "accent": "water", "x": 0.36, "y": 0.5 },
-              { "id": "vault", "label": "Vault",       "subtitle": "DOPPLER · ASM",   "accent": "amber", "x": 0.62, "y": 0.5 },
-              { "id": "app",   "label": "Prod app",    "subtitle": "PROCESS.ENV",     "accent": "fire",  "x": 0.88, "y": 0.5 },
-              { "id": "git",   "label": "Git",         "subtitle": "NEVER",           "accent": "earth", "x": 0.36, "y": 0.92 }
+              { "id": "dev",   "label": "Developer",   "subtitle": ".ENV.LOCAL",      "accent": "sky",   "x": 0.30, "y": 0.25 },
+              { "id": "ci",    "label": "CI",          "subtitle": "ACTIONS SECRETS", "accent": "water", "x": 0.70, "y": 0.25 },
+              { "id": "vault", "label": "Vault",       "subtitle": "DOPPLER · ASM",   "accent": "amber", "x": 0.30, "y": 0.60 },
+              { "id": "app",   "label": "Prod app",    "subtitle": "PROCESS.ENV",     "accent": "fire",  "x": 0.70, "y": 0.60 },
+              { "id": "git",   "label": "Git",         "subtitle": "NEVER",           "accent": "earth", "x": 0.50, "y": 0.92 }
             ],
             "edges": [
               { "from": "dev",   "to": "ci",    "kind": "dashed", "label": "push" },
@@ -2376,8 +2496,8 @@ export default {
               { "id": "trig",  "label": "Trigger",  "subtitle": "PUSH",      "accent": "water", "x": 0.08, "y": 0.5 },
               { "id": "build", "label": "Build",    "subtitle": "INSTALL",   "accent": "water", "x": 0.30, "y": 0.5 },
               { "id": "test",  "label": "Test",     "subtitle": "MATRIX",    "accent": "water", "x": 0.52, "y": 0.5 },
-              { "id": "gate",  "label": "Gate",     "subtitle": "APPROVE",   "accent": "amber", "x": 0.74, "y": 0.5 },
-              { "id": "prod",  "label": "Prod",     "subtitle": "DEPLOY",    "accent": "fire",  "x": 0.93, "y": 0.5 }
+              { "id": "gate",  "label": "Gate",     "subtitle": "APPROVE",   "accent": "amber", "x": 0.30, "y": 0.85 },
+              { "id": "prod",  "label": "Prod",     "subtitle": "DEPLOY",    "accent": "fire",  "x": 0.70, "y": 0.85 }
             ],
             "edges": [
               { "from": "trig",  "to": "build", "kind": "solid",  "label": "start" },
@@ -2391,11 +2511,11 @@ export default {
             "title": "CI/CD pipeline on push",
             "caption": "Watch what happens after `git push` to main.",
             "nodes": [
-              { "id": "dev",      "label": "Developer", "subtitle": "GIT PUSH",    "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "repo",     "label": "GitHub",    "subtitle": "REPO",        "accent": "water", "x": 0.32, "y": 0.5 },
-              { "id": "runner",   "label": "Runner",    "subtitle": "UBUNTU VM",   "accent": "amber", "x": 0.56, "y": 0.5 },
-              { "id": "artifact", "label": "Artifact",  "subtitle": "BUILD OUT",   "accent": "earth", "x": 0.78, "y": 0.5 },
-              { "id": "prod",     "label": "Prod",      "subtitle": "DEPLOY",      "accent": "fire",  "x": 0.95, "y": 0.5 }
+              { "id": "dev",      "label": "Developer", "subtitle": "GIT PUSH",    "accent": "sky",   "x": 0.10, "y": 0.5 },
+              { "id": "repo",     "label": "GitHub",    "subtitle": "REPO",        "accent": "water", "x": 0.30, "y": 0.5 },
+              { "id": "runner",   "label": "Runner",    "subtitle": "UBUNTU VM",   "accent": "amber", "x": 0.50, "y": 0.5 },
+              { "id": "artifact", "label": "Artifact",  "subtitle": "BUILD OUT",   "accent": "earth", "x": 0.70, "y": 0.5 },
+              { "id": "prod",     "label": "Prod",      "subtitle": "DEPLOY",      "accent": "fire",  "x": 0.90, "y": 0.5 }
             ],
             "steps": [
               {
@@ -2529,22 +2649,48 @@ export default {
             ]
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Signals to alerts",
-            "subtitle": "APP · COLLECT · STORE · ALERT",
-            "height": 260,
+            "why": "Every hop is cheap until the last one — alert only on what you'd wake up for, everything else is a dashboard.",
+            "height": 320,
             "nodes": [
-              { "id": "user",  "label": "User",       "subtitle": "BROWSER",    "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "app",   "label": "App",        "subtitle": "PROD",       "accent": "fire",  "x": 0.32, "y": 0.5 },
-              { "id": "agent", "label": "Agent",      "subtitle": "SDK",        "accent": "water", "x": 0.56, "y": 0.5 },
-              { "id": "store", "label": "Store",      "subtitle": "LOGS",       "accent": "earth", "x": 0.80, "y": 0.5 },
-              { "id": "alert", "label": "Alert",      "subtitle": "PAGE · SLACK",     "accent": "amber", "x": 0.56, "y": 0.92 }
+              { "id": "user",  "label": "User",       "subtitle": "BROWSER",    "accent": "sky",   "x": 0.30, "y": 0.18 },
+              { "id": "app",   "label": "App",        "subtitle": "PROD",       "accent": "fire",  "x": 0.70, "y": 0.18 },
+              { "id": "agent", "label": "Agent",      "subtitle": "SDK",        "accent": "water", "x": 0.30, "y": 0.52 },
+              { "id": "store", "label": "Store",      "subtitle": "LOGS",       "accent": "earth", "x": 0.70, "y": 0.52 },
+              { "id": "alert", "label": "Alert",      "subtitle": "PAGE · SLACK",     "accent": "amber", "x": 0.50, "y": 0.86 }
             ],
-            "edges": [
-              { "from": "user",  "to": "app",   "kind": "solid",  "label": "request" },
-              { "from": "app",   "to": "agent", "kind": "dashed", "label": "emit" },
-              { "from": "agent", "to": "store", "kind": "solid",  "label": "ship" },
-              { "from": "store", "to": "alert", "kind": "dashed", "label": "rule",  "curve": 0.3 }
+            "steps": [
+              {
+                "title": "A user hits production",
+                "description": "Real traffic does what localhost never will — a slow query, a flaky third-party, a 14-day memory leak. The signal starts here.",
+                "activeNodes": ["user"],
+                "activeEdges": []
+              },
+              {
+                "title": "The app handles the request",
+                "description": "Your **prod app** serves the request and, along the way, has something worth recording — an error, a latency number, a trace span.",
+                "activeNodes": ["user", "app"],
+                "activeEdges": [{ "from": "user", "to": "app", "label": "request" }]
+              },
+              {
+                "title": "An agent emits the signal",
+                "description": "The **SDK** (Sentry, OpenTelemetry…) captures the event with its stack and context, then hands it off — your code doesn't block on this.",
+                "activeNodes": ["app", "agent"],
+                "activeEdges": [{ "from": "app", "to": "agent", "label": "emit" }]
+              },
+              {
+                "title": "It ships to a store",
+                "description": "The agent **ships** logs, metrics, and traces to a backend where they're indexed and aggregated — cheap to keep, fast to query.",
+                "activeNodes": ["agent", "store"],
+                "activeEdges": [{ "from": "agent", "to": "store", "label": "ship" }]
+              },
+              {
+                "title": "A rule fires an alert",
+                "description": "A threshold **rule** matches and pages you or pings Slack. The whole point: only the wake-up-worthy ones page — the rest just sit on a dashboard.",
+                "activeNodes": ["store", "alert"],
+                "activeEdges": [{ "from": "store", "to": "alert", "label": "rule" }]
+              }
             ]
           },
           {
@@ -2857,6 +3003,12 @@ export default {
             "type": "quote",
             "text": "Session stores trust. JWT stores signatures. Cookies are the envelope. PASETO is JWT with the safeties on.",
             "cite": "the four-way mnemonic"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've separated **sessions** (storage), **JWT/PASETO** (token format), and **cookies** (transport) — three different layers people constantly conflate. Design end-to-end auth for a first-party web app that needs **instant logout**, then say what you'd change for a **mobile + service-to-service** client, and name the trade-off you accept in the second design.",
+            "modelAnswer": "These are three independent axes, so I pick one from each layer to fit the requirement. For the first-party web app that needs instant logout, *where trust lives* is the deciding factor: I want server-side sessions (a random session ID in Redis) so logout is just deleting the row — instant revocation, which stateless tokens can't give me. Transport is an HttpOnly + Secure + SameSite=Lax cookie, because the client is a browser and HttpOnly keeps the ID out of reach of XSS, while SameSite also buys CSRF protection. Token format is almost irrelevant here since the cookie carries an opaque ID the server looks up. The trade-off accepted: every request pays a Redis round trip, and if the session store is down nobody can authenticate — I'm trading scalability/availability for instant revocation and simplicity. For mobile + service-to-service, cookies and a shared session store stop fitting (non-browser clients, cross-domain, want any node to verify without I/O), so I switch to a stateless token: a short-TTL (15m) JWT — or PASETO v4.public if it's greenfield with no JWT lock-in, because PASETO pins the algorithm and removes the `alg`-confusion / `alg:none` footguns — sent in the `Authorization: Bearer` header, paired with a refresh-token row in the DB. The trade-off I now accept: revocation is no longer instant — a stolen access token is valid until it expires (mitigated only by short TTL + a refresh blocklist), and a leaked signing secret forges every user. So the through-line is: instant logout pushes you to server-side storage; horizontal/cross-client scaling pushes you to stateless signatures — and you can't fully have both.",
+            "hint": "Pick one choice per layer (storage / format / transport) and let the hard requirement — instant logout vs stateless scaling — drive it."
           }
         ]
       }
@@ -2977,6 +3129,12 @@ export default {
             "type": "quote",
             "text": "Aside reads, through writes, back for throughput, around for bulk. Five patterns, one mnemonic — pick the one whose failure mode you can survive.",
             "cite": "the caching cheat sheet"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen the **five patterns**, why **cache-aside** is the default, the role of **short TTLs**, **delete-on-write invalidation**, and the **fill-vs-invalidate / thundering-herd race**. Design the caching for a read-heavy `GET /users/:id` endpoint that must never serve obviously stale data after an edit, then name the one failure mode you're deliberately choosing to live with.",
+            "modelAnswer": "I'd pick cache-aside because the workload is read-heavy with occasional writes and I want the app to own the write path so consistency stays biased toward the DB. Read path: check Redis for `user:42`; on a hit return it (~1ms), on a miss query Postgres, then `SETEX` the row with a deliberately short TTL (say 60s) so even if invalidation is ever missed, drift self-heals within a minute. Write path: write to Postgres first, then **delete** the key — not overwrite it — so the next reader refills from the canonical row; overwriting risks caching a half-built object. That delete is what keeps it from serving obviously stale data after an edit. The two named hazards integrate here: a hot key that just got invalidated can let many concurrent readers all miss and stampede the DB (thundering herd), and two of those readers racing fill-vs-invalidate can briefly resurrect stale data — so on hot keys I wrap the fill in a single-flight mutex so one DB query serves N waiting readers. The failure mode I deliberately accept: cache-aside is only *eventually* consistent — there's a tiny window between the DB write committing and the cache delete landing where a reader can still get the old value, and the short TTL caps how long any missed invalidation can linger. I accept that millisecond-to-60-second staleness window in exchange for cheap reads and a simple, survivable failure story (a Redis crash costs latency, never data — unlike write-back, which would cost durability).",
+            "hint": "Cache-aside + short TTL + delete (not overwrite) on write; then say which consistency window you're knowingly accepting."
           }
         ]
       }
@@ -3101,7 +3259,7 @@ export default {
                       { "id": 2, "correct": "message_id" },
                       { "id": 3, "correct": "message_id" }
                     ],
-                    "options": ["conversation_id", "message_id", "sender_id", "client_msg_id", "created_at"],
+                    "options": ["conversation_id", "message_id", "message_id", "sender_id", "client_msg_id", "created_at"],
                     "explain": "**`conversation_id` as the partition key** = all messages in one chat live on one node (or replica set), so a 50-message history fetch is a single-partition read. **`message_id` as the clustering key** with **DESC order** = the latest messages live at the start of the row, so `LIMIT 50` is O(1) regardless of how many messages the conversation has. This is the pattern: partition by the entity that defines the query, cluster by the dimension you'll paginate on. Get it wrong and you'll do scatter-gather across 256 nodes for every read."
                   }
                 ],
@@ -3161,6 +3319,47 @@ export default {
                   }
                 ],
                 "reference": "**Reconnect protocol:** (1) Client persists `last_message_id` per conversation locally. (2) On reconnect, send `{type: 'sync', cursors: [{conv_id, last_id}]}`. (3) Server does bounded range queries (LIMIT 100/conv); if any conv has > 100 messages in the gap, return `{conv_id, status: 'full_reload_required'}` and let the UI prompt. (4) Client renders received messages **after deduping by `client_msg_id`** (LRU cache of last 1K IDs). (5) After sync, normal real-time WS resumes. **Server-side resilience:** WebSocket server restart = clients reconnect within 1-2s (exponential backoff capped at 30s); behind NLB so any healthy server can pick them up. **Cross-AZ failure:** Cassandra is multi-AZ replicated; Kafka topics replication factor 3 across AZs; Redis Sentinel for failover (~10s). **Message ack flow:** client sends → server persists to Cassandra → server acks back to sender on the WS → server fans out to subscribers. If the network drops between persist and ack, client retries with same `client_msg_id` and server dedupes."
+              },
+              {
+                "kind": "build",
+                "title": "Phase 7: Ship it for real",
+                "prompt": "Forget the 50K-connection cluster for a second. **Build the live loop**: a WebSocket server that echoes a message to everyone in a room, persisted so history survives a refresh. Two browser tabs talking to each other is the whole win for v1.",
+                "blocks": [
+                  {
+                    "type": "predict",
+                    "prompt": "You're scaffolding your own repo for the v1 chat backend. What's the **smallest build** that proves the design end-to-end?",
+                    "options": [
+                      "Kafka shards, Cassandra, Redis presence, and 50K-connection load testing before anything works",
+                      "One WebSocket server: a client connects, joins a room, sends a message → server persists it and fans it out to others in the room. Open two browser tabs and chat",
+                      "Only the typing-indicator animation — the messages can come later",
+                      "End-to-end encryption first, since security can't be bolted on"
+                    ],
+                    "answer": 1,
+                    "explain": "The **live loop** is the product: connect → join room → send → server persists → others see it. Two browser tabs exchanging messages, with history that survives a refresh, proves the spine. Kafka fanout, Cassandra, Redis presence, and the 50K-connection budget are *scaling layers* — each one is a measurable upgrade you add after the single-server version works. (E2E encryption was an explicit v1 non-goal.) Build the thing you can see working in 30 minutes, then grow it."
+                  },
+                  {
+                    "type": "fill-blank",
+                    "prompt": "Fill in the staged plan to get your own chat backend running. Each line is one short sitting.",
+                    "code": "# 1. Scaffold your own repo: a minimal Node app using the ___1___ library (or Socket.IO)\n# 2. Implement the core: on connect, join a room; on message, persist it then broadcast to the room\n# 3. Persist: append each message to ___2___ (SQLite / Postgres) so history survives a refresh\n# 4. Add the must-have: a ping/pong ___3___ every 30s so dead connections get cleaned up\n# 5. Run it locally: open two browser tabs, send a message, watch it appear in the other instantly",
+                    "blanks": [
+                      { "id": 1, "correct": "ws" },
+                      { "id": 2, "correct": "SQLite" },
+                      { "id": 3, "correct": "heartbeat" }
+                    ],
+                    "options": ["ws", "SQLite", "heartbeat", "Kafka", "Cassandra", "gossip"],
+                    "explain": "The **`ws`** library (or Socket.IO if you want reconnection batteries-included) is the smallest real WebSocket server. **SQLite** is enough to make history survive a refresh — swap to Cassandra later behind the same append/read interface. The **heartbeat** is not optional even in v1: it's the single most common production WebSocket bug you fixed in Phase 2, and without it your two tabs will silently rot behind any proxy. Persist-then-broadcast (not broadcast-then-persist) means a message is durable before anyone sees it."
+                  },
+                  {
+                    "type": "fix-it",
+                    "prompt": "Your v1 server broadcasts messages fine, but after a flaky reconnect the same message renders twice in the other tab. One missing guard.",
+                    "code": "ws.on('message', (raw) => {\n  const msg = JSON.parse(raw);\n  db.append(msg.room, msg);\n  for (const peer of roomPeers(msg.room)) {\n    peer.send(JSON.stringify(msg));\n  }\n});\n",
+                    "bug": "db.append(msg.room, msg);",
+                    "fix": "if (db.seen(msg.client_msg_id)) return;  // at-least-once delivery: dedupe by client id before persist + fanout\n  db.append(msg.room, msg);",
+                    "lang": "javascript",
+                    "explain": "You designed for this in Phase 1 — at-least-once delivery means a client may resend the same message after a reconnect, so the server (and client) must dedupe by `client_msg_id`. Without the guard, a reconnect storm persists and re-broadcasts duplicates, and the other tab shows 'hello' twice. Checking `seen(client_msg_id)` before append + fanout closes the entire class of 'messages duplicating sometimes' bugs — and seeing your own predicted failure appear in a running app is exactly why you build it."
+                  }
+                ],
+                "reference": "**Ship-it checklist (v1, one weekend):** (1) Scaffold your own repo — a minimal Node app using the `ws` library (or Socket.IO for built-in reconnect). (2) Implement the live loop: on connect, join a room; on message, **dedupe by `client_msg_id` → persist → broadcast** to the room's peers. (3) Persist to SQLite (or one Postgres table) behind a thin append/read interface so the swap to Cassandra later is contained. (4) Add the non-negotiable **30s ping/pong heartbeat** (Phase 2) so half-open connections get terminated. (5) Run locally: open two browser tabs, send a message, watch it appear in the other instantly — then refresh one tab and confirm history reloads. **Then scale, in order:** move fanout to Redis Streams / Kafka per-conversation, add the Redis hot-cache + presence TTLs, and put the WS servers behind an NLB. Each is a separate demoable commit. **Do NOT** build E2E encryption, voice/video, or the full sharded fanout for v1 — those were stated non-goals. One server two tabs can chat through beats a half-wired cluster."
               }
             ],
             "reflection": "What's the strongest argument for SSE over WebSocket here, even though most teams default to WebSocket?"

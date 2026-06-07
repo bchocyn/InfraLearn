@@ -51,10 +51,10 @@ export default {
             "title": "Threat → asset → control",
             "height": 220,
             "nodes": [
-              { "id": "attacker", "label": "attacker",   "subtitle": "WHO & WHY",    "accent": "fire",  "x": 0.08, "y": 0.5 },
-              { "id": "vector",   "label": "vector",     "subtitle": "ENTRY POINT",  "accent": "amber", "x": 0.35, "y": 0.5 },
-              { "id": "asset",    "label": "asset",      "subtitle": "PROTECTED",    "accent": "earth", "x": 0.62, "y": 0.5 },
-              { "id": "control",  "label": "control",    "subtitle": "DEFENSE",      "accent": "water", "x": 0.92, "y": 0.5 }
+              { "id": "attacker", "label": "attacker",   "subtitle": "WHO & WHY",    "accent": "fire",  "x": 0.25, "y": 0.28 },
+              { "id": "vector",   "label": "vector",     "subtitle": "ENTRY POINT",  "accent": "amber", "x": 0.75, "y": 0.28 },
+              { "id": "asset",    "label": "asset",      "subtitle": "PROTECTED",    "accent": "earth", "x": 0.75, "y": 0.78 },
+              { "id": "control",  "label": "control",    "subtitle": "DEFENSE",      "accent": "water", "x": 0.25, "y": 0.78 }
             ],
             "edges": [
               { "from": "attacker", "to": "vector",  "kind": "dashed", "label": "intent" },
@@ -88,6 +88,12 @@ export default {
             "type": "quote",
             "text": "Security is a property of the system. You don't add it — you design without removing it.",
             "cite": "the threat-model lemma"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've met the **CIA triad**, **STRIDE**, the **attacker taxonomy** (teen → criminal → nation-state), and the **threat → asset → control** loop. Pick one real component — say a `payments-api` — and walk a teammate through how you'd threat-model it end to end using all four. Then name the one trade-off you'd consciously accept, and why.",
+            "modelAnswer": "Start from the **attacker**, not the asset: a criminal wants the card data (money) and a nation-state wants persistence — that decides how much you spend. For the `payments-api` I list **assets** and tag each with the CIA leg it lives on: the PAN is Confidentiality, the transaction log is Integrity, the checkout endpoint is Availability. Then I run **STRIDE** over the component as a forcing function — Tampering on the `amount` field, Elevation of privilege via a reused JWT, DoS on checkout — and for each threat I attach a **control** that maps back to the CIA leg it restores (HMAC idempotency key for tampering, per-endpoint subject claims + server-side ownership check for privilege, rate limiting for DoS). The **trade-off** I'd consciously accept: I'd defend hard against the criminal and the bribed insider, and *under*-invest against a true nation-state zero-day — because that defense is near-infinite cost and the realistic ROI is on the controls that stop the 99% of attacks I can actually name. The judgment is that a threat model is a budget allocator, not a guarantee — and the failure mode is the model that lives in a doc nobody re-reads after the architecture changes.",
+            "hint": "The four pieces aren't a list to recite — they're a pipeline: attacker (who/why) → asset (CIA leg) → STRIDE (what breaks it) → control (what restores that leg). The trade-off lives in *which* attacker you choose to underspend on."
           }
         ]
       }
@@ -130,19 +136,41 @@ export default {
             "text": "**MFA is stronger authentication, not stronger authorization.** A second factor makes it harder for an attacker to impersonate Alice — it does nothing to limit what Alice (or her hijacked session) can do once inside."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "The request path",
+            "why": "Two different gates, two different questions — collapse them and any logged-in user can touch any data.",
             "height": 220,
             "nodes": [
               { "id": "user",   "label": "user",    "subtitle": "BROWSER",    "accent": "water", "x": 0.08, "y": 0.5 },
               { "id": "authn",  "label": "authn",   "subtitle": "WHO?",       "accent": "amber", "x": 0.38, "y": 0.5 },
-              { "id": "authz",  "label": "authz",   "subtitle": "ALLOWED?",   "accent": "amber", "x": 0.66, "y": 0.5 },
-              { "id": "asset",  "label": "asset",   "subtitle": "DATA",       "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "authz",  "label": "authz",   "subtitle": "ALLOWED?",   "accent": "amber", "x": 0.38, "y": 0.85 },
+              { "id": "asset",  "label": "asset",   "subtitle": "DATA",       "accent": "earth", "x": 0.92, "y": 0.85 }
             ],
-            "edges": [
-              { "from": "user",  "to": "authn", "kind": "dashed", "label": "credentials" },
-              { "from": "authn", "to": "authz", "kind": "dashed", "label": "identity" },
-              { "from": "authz", "to": "asset", "kind": "dashed", "label": "allow" }
+            "steps": [
+              {
+                "title": "Request arrives",
+                "description": "The browser sends a request carrying credentials — a session cookie or a `Bearer` token. Nothing is trusted yet.",
+                "activeNodes": ["user"],
+                "activeEdges": []
+              },
+              {
+                "title": "authn — who are you?",
+                "description": "The login layer verifies the credentials and produces an **identity** (a user ID and claims). This answers *who*, not *what they may do*.",
+                "activeNodes": ["user", "authn"],
+                "activeEdges": [{ "from": "user", "to": "authn", "label": "credentials" }]
+              },
+              {
+                "title": "authz — are you allowed?",
+                "description": "The policy layer takes that identity and decides, **for this specific resource**, allow or deny. This runs on *every* request, not once at login.",
+                "activeNodes": ["authn", "authz"],
+                "activeEdges": [{ "from": "authn", "to": "authz", "label": "identity" }]
+              },
+              {
+                "title": "Access granted to the asset",
+                "description": "Only after an explicit allow does the request reach the data. Skip this gate and you get the IDOR: `GET /orders/42` hands Bob whatever Alice owns.",
+                "activeNodes": ["authz", "asset"],
+                "activeEdges": [{ "from": "authz", "to": "asset", "label": "allow" }]
+              }
             ]
           }
         ]
@@ -236,8 +264,8 @@ export default {
             "nodes": [
               { "id": "hi",     "label": "ClientHello", "subtitle": "CIPHERS",     "accent": "water", "x": 0.10, "y": 0.5 },
               { "id": "srv",    "label": "ServerHello", "subtitle": "CERT+KEY",    "accent": "sky",   "x": 0.38, "y": 0.5 },
-              { "id": "verify", "label": "verify",      "subtitle": "SIGNATURE",   "accent": "amber", "x": 0.65, "y": 0.5 },
-              { "id": "secure", "label": "encrypted",   "subtitle": "KEY READY",   "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "verify", "label": "verify",      "subtitle": "SIGNATURE",   "accent": "amber", "x": 0.38, "y": 0.85 },
+              { "id": "secure", "label": "encrypted",   "subtitle": "KEY READY",   "accent": "earth", "x": 0.92, "y": 0.85 }
             ],
             "edges": [
               { "from": "hi",     "to": "srv",    "kind": "dashed", "label": "offer" },
@@ -415,10 +443,10 @@ export default {
             "title": "Trust boundary: where to validate",
             "height": 220,
             "nodes": [
-              { "id": "untrusted", "label": "untrusted", "subtitle": "EXTERNAL",   "accent": "fire",  "x": 0.10, "y": 0.5 },
-              { "id": "boundary",  "label": "validate",  "subtitle": "SCHEMA",     "accent": "amber", "x": 0.40, "y": 0.5 },
-              { "id": "logic",     "label": "logic",     "subtitle": "TRUSTED",    "accent": "water", "x": 0.68, "y": 0.5 },
-              { "id": "store",     "label": "store",     "subtitle": "PARAM ONLY", "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "untrusted", "label": "untrusted", "subtitle": "EXTERNAL",   "accent": "fire",  "x": 0.25, "y": 0.25 },
+              { "id": "boundary",  "label": "validate",  "subtitle": "SCHEMA",     "accent": "amber", "x": 0.75, "y": 0.25 },
+              { "id": "logic",     "label": "logic",     "subtitle": "TRUSTED",    "accent": "water", "x": 0.25, "y": 0.75 },
+              { "id": "store",     "label": "store",     "subtitle": "PARAM ONLY", "accent": "earth", "x": 0.75, "y": 0.75 }
             ],
             "edges": [
               { "from": "untrusted", "to": "boundary", "kind": "dashed", "label": "input" },
@@ -500,8 +528,8 @@ export default {
             "nodes": [
               { "id": "kms",   "label": "KMS",    "subtitle": "ROOT KEY",    "accent": "amber", "x": 0.10, "y": 0.5 },
               { "id": "vault", "label": "vault",  "subtitle": "ENCRYPTED",   "accent": "earth", "x": 0.38, "y": 0.5 },
-              { "id": "app",   "label": "app",    "subtitle": "SHORT TOKEN", "accent": "water", "x": 0.66, "y": 0.5 },
-              { "id": "audit", "label": "audit",  "subtitle": "READ TRAIL",  "accent": "sky",   "x": 0.92, "y": 0.5 }
+              { "id": "app",   "label": "app",    "subtitle": "SHORT TOKEN", "accent": "water", "x": 0.38, "y": 0.85 },
+              { "id": "audit", "label": "audit",  "subtitle": "READ TRAIL",  "accent": "sky",   "x": 0.92, "y": 0.85 }
             ],
             "edges": [
               { "from": "kms",   "to": "vault", "kind": "dashed", "label": "wraps" },
@@ -571,6 +599,12 @@ export default {
             "type": "quote",
             "text": "Assume it leaked. Rotate first; investigate after.",
             "cite": "the secrets-management first rule"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen **why a secret in git is forever**, the **KMS → vault → app → audit** storage pipeline, and the **six-step rotation playbook** (detect → issue → dual-accept → rollout → cut over → audit). Design the path a single CI access key takes from creation to safe retirement so that a leak is *survivable by default* — and name the one trade-off the dual-accept window forces on you.",
+            "modelAnswer": "The key never starts as a long-lived value pasted into CI: a **KMS** root key encrypts the **vault**, the CI job pulls a **short-TTL** credential at startup (or via a sidecar), and every read leaves an **audit** trail — so even before rotation, a leaked token is already low-blast-radius because it expires in minutes and you can see who touched it. When a leak *is* suspected you don't investigate first — you run the **rotation playbook**: issue v2 *beside* v1 (never delete v1 yet), flip services to **dual-accept** both, roll clients onto v2, then cut over by marking v1 *Inactive* (reversible) and only deleting after a cooling-off window proves zero successful uses, recording the whole thing in the audit log. The **trade-off** the dual-accept window forces: for that overlap, *two* valid credentials exist, so the attacker's stolen key keeps working until you cut over — you're trading a wider attack window for a zero-downtime rollout. The judgment call is sizing that window: long enough that no client 401s mid-deploy, short enough that a compromised v1 isn't usable for hours. Shrink it with short TTLs and OIDC federation so there's rarely a static key to dual-accept at all.",
+            "hint": "Tie the storage pipeline to the rotation steps: the audit trail is what tells you v1 has zero uses left, which is what makes the 'cut over' step safe. The trade-off is purely about the dual-accept overlap — what's true about credentials *during* that window?"
           }
         ]
       }
@@ -599,10 +633,10 @@ export default {
             "title": "Four-layer onion",
             "height": 240,
             "nodes": [
-              { "id": "net",  "label": "network", "subtitle": "WAF+VPC",     "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "host", "label": "host",    "subtitle": "FIREWALL",    "accent": "water", "x": 0.36, "y": 0.5 },
-              { "id": "app",  "label": "app",     "subtitle": "AUTH+VALID",  "accent": "amber", "x": 0.62, "y": 0.5 },
-              { "id": "data", "label": "data",    "subtitle": "ENCRYPT+RBAC","accent": "earth", "x": 0.88, "y": 0.5 }
+              { "id": "net",  "label": "network", "subtitle": "WAF+VPC",     "accent": "sky",   "x": 0.30, "y": 0.30 },
+              { "id": "host", "label": "host",    "subtitle": "FIREWALL",    "accent": "water", "x": 0.70, "y": 0.30 },
+              { "id": "app",  "label": "app",     "subtitle": "AUTH+VALID",  "accent": "amber", "x": 0.30, "y": 0.70 },
+              { "id": "data", "label": "data",    "subtitle": "ENCRYPT+RBAC","accent": "earth", "x": 0.70, "y": 0.70 }
             ],
             "edges": [
               { "from": "net",  "to": "host", "kind": "dashed", "label": "filter" },
@@ -692,6 +726,12 @@ export default {
             "type": "quote",
             "text": "A single firewall is a single point of failure. Defense in depth is the only depth that matters.",
             "cite": "the layered-controls maxim"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen the **four-layer onion** (network → host → app → data), the **cost of each control**, the three **deny-default NetworkPolicies** (deny-all → narrow ingress → DB-only egress), and the **anti-patterns** that only *look* like security. An attacker phishes a developer laptop and lands a shell inside your cluster. Walk through which layers slow them down and where, then name the trade-off you accept by enforcing deny-default everywhere.",
+            "modelAnswer": "The point of the **onion** is that the phished laptop only breaches one layer — it doesn't hand over the cluster. At the **network** layer, segmentation means the dev laptop can't even reach prod; if the attacker pivots to a compromised pod, the **deny-default NetworkPolicy** stops it talking to any other pod, the **narrow ingress** rule means only the gateway on 8080 can reach payments, and the **DB-only egress** rule blocks both lateral movement and exfil to attacker S3 — so SSRF and data theft die at the same rule. At the **app** layer, authn/authz and input validation mean a reachable service still won't honor a forged identity; at the **data** layer, encryption + RBAC mean even a stolen connection returns ciphertext for rows the principal doesn't own. Each layer buys time and forces noise into a SIEM you actually alert on — that's the difference between '287 days undetected' and a Tuesday page. The **trade-off** of deny-default everywhere is **operational friction**: every new service-to-service call now needs an explicit allow rule, so onboarding is slower and a forgotten rule shows up as a confusing 'connection refused' instead of a security event. I accept that because the failure mode points the right way — deny-default fails *closed* (something's broken and visible) instead of *open* (everything's reachable and silent). The anti-pattern to avoid is mistaking a single strong layer ('we have a firewall', 'it's behind a VPN') for depth — perimeter alone fails the instant one box is owned, which is exactly the scenario here.",
+            "hint": "Trace the attacker's path through the layers in order and ask what each one denies. The trade-off isn't about security strength — it's the day-to-day operational cost of 'nothing is allowed until you say so', and which way that fails."
           }
         ]
       }
@@ -716,19 +756,41 @@ export default {
         "heading": "Vulnerable vs parameterized — the only real fix",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Injection path",
+            "why": "The bug is one crossing: input that should have been data got parsed as code. Parameterize and the crossing never happens.",
             "height": 220,
             "nodes": [
-              { "id": "attacker", "label": "attacker", "subtitle": "CRAFTED INPUT",   "accent": "fire",  "x": 0.08, "y": 0.5 },
-              { "id": "app",      "label": "app",      "subtitle": "STRING CONCAT",   "accent": "amber", "x": 0.38, "y": 0.5 },
-              { "id": "parser",   "label": "SQL parser","subtitle": "TREATS AS CODE", "accent": "sky",   "x": 0.66, "y": 0.5 },
-              { "id": "db",       "label": "database", "subtitle": "EXECUTES ALL",    "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "attacker", "label": "attacker", "subtitle": "CRAFTED INPUT",   "accent": "fire",  "x": 0.25, "y": 0.5 },
+              { "id": "app",      "label": "app",      "subtitle": "STRING CONCAT",   "accent": "amber", "x": 0.75, "y": 0.5 },
+              { "id": "parser",   "label": "SQL parser","subtitle": "TREATS AS CODE", "accent": "sky",   "x": 0.25, "y": 0.85 },
+              { "id": "db",       "label": "database", "subtitle": "EXECUTES ALL",    "accent": "earth", "x": 0.75, "y": 0.85 }
             ],
-            "edges": [
-              { "from": "attacker", "to": "app",    "kind": "dashed", "label": "payload" },
-              { "from": "app",      "to": "parser", "kind": "dashed", "label": "concat" },
-              { "from": "parser",   "to": "db",     "kind": "dashed", "label": "execute" }
+            "steps": [
+              {
+                "title": "Crafted input",
+                "description": "The attacker types a payload like `1' OR 1=1--` into a normal form field. To the app it just looks like a username.",
+                "activeNodes": ["attacker"],
+                "activeEdges": []
+              },
+              {
+                "title": "App glues it into a query",
+                "description": "The vulnerable code concatenates the input straight into a query string: `... WHERE name='{input}'`. The quote in the payload now closes the literal early.",
+                "activeNodes": ["attacker", "app"],
+                "activeEdges": [{ "from": "attacker", "to": "app", "label": "payload" }]
+              },
+              {
+                "title": "Parser reads it as code",
+                "description": "The SQL parser can't tell data from code — it sees a valid `OR 1=1` clause and a `--` comment that deletes the rest. The structure of the query has been rewritten.",
+                "activeNodes": ["app", "parser"],
+                "activeEdges": [{ "from": "app", "to": "parser", "label": "concat" }]
+              },
+              {
+                "title": "Database executes everything",
+                "description": "The DB runs the attacker's logic with full app privileges — auth bypassed, every row returned. The fix is upstream: bind values as parameters so they never reach the parser as code.",
+                "activeNodes": ["parser", "db"],
+                "activeEdges": [{ "from": "parser", "to": "db", "label": "execute" }]
+              }
             ]
           },
           {
@@ -815,10 +877,10 @@ export default {
             "title": "Stored XSS reach",
             "height": 230,
             "nodes": [
-              { "id": "attacker", "label": "attacker", "subtitle": "POSTS PAYLOAD",  "accent": "fire",  "x": 0.08, "y": 0.5 },
-              { "id": "server",   "label": "server",   "subtitle": "SAVES RAW HTML", "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "db",       "label": "DB",       "subtitle": "STORES SCRIPT",  "accent": "earth", "x": 0.62, "y": 0.5 },
-              { "id": "victim",   "label": "victim",   "subtitle": "EXECUTES IN JS", "accent": "water", "x": 0.92, "y": 0.5 }
+              { "id": "attacker", "label": "attacker", "subtitle": "POSTS PAYLOAD",  "accent": "fire",  "x": 0.30, "y": 0.33 },
+              { "id": "server",   "label": "server",   "subtitle": "SAVES RAW HTML", "accent": "amber", "x": 0.70, "y": 0.33 },
+              { "id": "db",       "label": "DB",       "subtitle": "STORES SCRIPT",  "accent": "earth", "x": 0.30, "y": 0.67 },
+              { "id": "victim",   "label": "victim",   "subtitle": "EXECUTES IN JS", "accent": "water", "x": 0.70, "y": 0.67 }
             ],
             "edges": [
               { "from": "attacker", "to": "server", "kind": "dashed", "label": "comment" },
@@ -903,10 +965,10 @@ export default {
             "title": "Cross-site POST",
             "height": 220,
             "nodes": [
-              { "id": "victim",   "label": "victim",   "subtitle": "BANK SESSION", "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "evil",     "label": "evil.com", "subtitle": "HIDDEN FORM",  "accent": "fire",  "x": 0.36, "y": 0.5 },
-              { "id": "browser",  "label": "browser",  "subtitle": "SENDS COOKIE", "accent": "sky",   "x": 0.64, "y": 0.5 },
-              { "id": "bank",     "label": "bank.com", "subtitle": "ACCEPTS REQ",  "accent": "amber", "x": 0.92, "y": 0.5 }
+              { "id": "victim",   "label": "victim",   "subtitle": "BANK SESSION", "accent": "water", "x": 0.30, "y": 0.25 },
+              { "id": "evil",     "label": "evil.com", "subtitle": "HIDDEN FORM",  "accent": "fire",  "x": 0.70, "y": 0.25 },
+              { "id": "browser",  "label": "browser",  "subtitle": "SENDS COOKIE", "accent": "sky",   "x": 0.30, "y": 0.75 },
+              { "id": "bank",     "label": "bank.com", "subtitle": "ACCEPTS REQ",  "accent": "amber", "x": 0.70, "y": 0.75 }
             ],
             "edges": [
               { "from": "victim",  "to": "evil",    "kind": "dashed", "label": "visit" },
@@ -987,19 +1049,41 @@ export default {
         "heading": "Allowlist, allowlist, allowlist",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Metadata theft via SSRF",
+            "why": "This exact chain was Capital One 2019 — 106M records. The server fetched a URL it should never have been allowed to reach.",
             "height": 230,
             "nodes": [
               { "id": "attacker", "label": "attacker", "subtitle": "SUPPLIES URL",     "accent": "fire",  "x": 0.08, "y": 0.5 },
               { "id": "app",      "label": "app",      "subtitle": "FETCHES BLINDLY",  "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "imds",     "label": "169.254...","subtitle": "EC2 METADATA",    "accent": "earth", "x": 0.64, "y": 0.5 },
-              { "id": "iam",      "label": "IAM",      "subtitle": "RETURNS CREDS",    "accent": "sky",   "x": 0.92, "y": 0.5 }
+              { "id": "imds",     "label": "169.254...","subtitle": "EC2 METADATA",    "accent": "earth", "x": 0.36, "y": 0.85 },
+              { "id": "iam",      "label": "IAM",      "subtitle": "RETURNS CREDS",    "accent": "sky",   "x": 0.92, "y": 0.85 }
             ],
-            "edges": [
-              { "from": "attacker", "to": "app",  "kind": "dashed", "label": "url=..." },
-              { "from": "app",      "to": "imds", "kind": "dashed", "label": "GET" },
-              { "from": "imds",     "to": "iam",  "kind": "dashed", "label": "creds" }
+            "steps": [
+              {
+                "title": "Attacker supplies a URL",
+                "description": "A URL field — image proxy, webhook, OG-preview — accepts user input. The attacker submits `http://169.254.169.254/...` instead of a normal link.",
+                "activeNodes": ["attacker"],
+                "activeEdges": []
+              },
+              {
+                "title": "App fetches it blindly",
+                "description": "The server does `requests.get(url)` with no allowlist and no IP check. It is now making a request *from inside your VPC* on the attacker's behalf.",
+                "activeNodes": ["attacker", "app"],
+                "activeEdges": [{ "from": "attacker", "to": "app", "label": "url=..." }]
+              },
+              {
+                "title": "Request hits the metadata service",
+                "description": "`169.254.169.254` is the link-local EC2 metadata endpoint — reachable only from the instance itself. From the open internet it's invisible; from your app it's one GET away.",
+                "activeNodes": ["app", "imds"],
+                "activeEdges": [{ "from": "app", "to": "imds", "label": "GET" }]
+              },
+              {
+                "title": "IAM credentials come back",
+                "description": "The metadata service hands back the instance role's temporary IAM credentials, which flow right back to the attacker. The cloud-side fix is IMDSv2 + `hop-limit=1`; the code-side fix is to resolve and validate the IP before connecting.",
+                "activeNodes": ["imds", "iam"],
+                "activeEdges": [{ "from": "imds", "to": "iam", "label": "creds" }]
+              }
             ]
           },
           {
@@ -1099,10 +1183,10 @@ export default {
             "title": "Trust boundaries",
             "height": 240,
             "nodes": [
-              { "id": "edge",  "label": "edge",      "subtitle": "VALIDATE",   "accent": "sky",   "x": 0.10, "y": 0.5 },
-              { "id": "app",   "label": "app logic", "subtitle": "TYPED MODEL", "accent": "amber", "x": 0.38, "y": 0.5 },
-              { "id": "data",  "label": "data layer","subtitle": "PARAM ONLY",  "accent": "earth", "x": 0.66, "y": 0.5 },
-              { "id": "render","label": "render",    "subtitle": "ENCODE",     "accent": "water", "x": 0.92, "y": 0.5 }
+              { "id": "edge",  "label": "edge",      "subtitle": "VALIDATE",   "accent": "sky",   "x": 0.30, "y": 0.32 },
+              { "id": "app",   "label": "app logic", "subtitle": "TYPED MODEL", "accent": "amber", "x": 0.70, "y": 0.32 },
+              { "id": "data",  "label": "data layer","subtitle": "PARAM ONLY",  "accent": "earth", "x": 0.30, "y": 0.68 },
+              { "id": "render","label": "render",    "subtitle": "ENCODE",     "accent": "water", "x": 0.70, "y": 0.68 }
             ],
             "edges": [
               { "from": "edge",  "to": "app",   "kind": "dashed", "label": "validated" },
@@ -1205,19 +1289,41 @@ export default {
         "heading": "Lockfiles, hashes, and SBOMs",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Supply-chain pipeline",
+            "why": "Each stage pins down a moving part — without the lockfile, tomorrow's build pulls different bytes than today's.",
             "height": 230,
             "nodes": [
-              { "id": "registry","label": "registry","subtitle": "NPM · PYPI",       "accent": "earth", "x": 0.10, "y": 0.5 },
-              { "id": "lock",    "label": "lockfile","subtitle": "PIN + HASH",       "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "scan",    "label": "scanner", "subtitle": "TRIVY · SNYK",     "accent": "sky",   "x": 0.62, "y": 0.5 },
-              { "id": "deploy",  "label": "deploy",  "subtitle": "SBOM ATTACHED",    "accent": "water", "x": 0.92, "y": 0.5 }
+              { "id": "registry","label": "registry","subtitle": "NPM · PYPI",       "accent": "earth", "x": 0.30, "y": 0.25 },
+              { "id": "lock",    "label": "lockfile","subtitle": "PIN + HASH",       "accent": "amber", "x": 0.70, "y": 0.25 },
+              { "id": "scan",    "label": "scanner", "subtitle": "TRIVY · SNYK",     "accent": "sky",   "x": 0.30, "y": 0.75 },
+              { "id": "deploy",  "label": "deploy",  "subtitle": "SBOM ATTACHED",    "accent": "water", "x": 0.70, "y": 0.75 }
             ],
-            "edges": [
-              { "from": "registry", "to": "lock",   "kind": "dashed", "label": "resolve" },
-              { "from": "lock",     "to": "scan",   "kind": "dashed", "label": "verify" },
-              { "from": "scan",     "to": "deploy", "kind": "dashed", "label": "attest" }
+            "steps": [
+              {
+                "title": "Pull from the registry",
+                "description": "Your build starts at npm or PyPI — thousands of packages, most of them transitive deps you never chose directly.",
+                "activeNodes": ["registry"],
+                "activeEdges": []
+              },
+              {
+                "title": "Resolve into a lockfile",
+                "description": "The lockfile pins every package to one exact version **and** its SHA hash. `npm ci` then installs that graph byte-for-byte and fails the build if a hash doesn't match.",
+                "activeNodes": ["registry", "lock"],
+                "activeEdges": [{ "from": "registry", "to": "lock", "label": "resolve" }]
+              },
+              {
+                "title": "Scan against known CVEs",
+                "description": "A scanner (Trivy, Snyk, `npm audit`) checks the pinned graph against the CVE feeds. Gate CI on high/critical so a known-vulnerable dep can't ship.",
+                "activeNodes": ["lock", "scan"],
+                "activeEdges": [{ "from": "lock", "to": "scan", "label": "verify" }]
+              },
+              {
+                "title": "Deploy with an SBOM attached",
+                "description": "Ship the artifact with a generated SBOM (CycloneDX/SPDX) — the queryable bill of materials. When the next CVE drops, you answer *'are we affected?'* in seconds instead of days.",
+                "activeNodes": ["scan", "deploy"],
+                "activeEdges": [{ "from": "scan", "to": "deploy", "label": "attest" }]
+              }
             ]
           },
           {
@@ -1305,10 +1411,10 @@ export default {
             "subtitle": "PRINCIPAL · POLICY · RESOURCE",
             "height": 240,
             "nodes": [
-              { "id": "user",   "label": "Principal",    "subtitle": "USER+ROLE",  "accent": "water", "x": 0.10, "y": 0.5 },
-              { "id": "policy", "label": "IAM policy",   "subtitle": "ALLOW/DENY", "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "audit",  "label": "Access Analyzer", "subtitle": "UNUSED",  "accent": "sky",   "x": 0.62, "y": 0.5 },
-              { "id": "data",   "label": "Resource",     "subtitle": "S3+RDS",     "accent": "earth", "x": 0.90, "y": 0.5 }
+              { "id": "user",   "label": "Principal",    "subtitle": "USER+ROLE",  "accent": "water", "x": 0.25, "y": 0.25 },
+              { "id": "policy", "label": "IAM policy",   "subtitle": "ALLOW/DENY", "accent": "amber", "x": 0.75, "y": 0.25 },
+              { "id": "audit",  "label": "Access Analyzer", "subtitle": "UNUSED",  "accent": "sky",   "x": 0.25, "y": 0.75 },
+              { "id": "data",   "label": "Resource",     "subtitle": "S3+RDS",     "accent": "earth", "x": 0.75, "y": 0.75 }
             ],
             "edges": [
               { "from": "user",   "to": "policy", "kind": "dashed", "label": "assume" },
@@ -1402,10 +1508,10 @@ export default {
             "subtitle": "PLAINTEXT · DEK · KEK · STORE",
             "height": 250,
             "nodes": [
-              { "id": "app",  "label": "App",          "subtitle": "STORES",     "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "kms",  "label": "KMS (KEK)",    "subtitle": "ROOT KEY",   "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "dek",  "label": "Data key",     "subtitle": "ONE-TIME",   "accent": "amber", "x": 0.62, "y": 0.5 },
-              { "id": "store","label": "Object store", "subtitle": "CT + WDEK",  "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "app",  "label": "App",          "subtitle": "STORES",     "accent": "water", "x": 0.30, "y": 0.3 },
+              { "id": "kms",  "label": "KMS (KEK)",    "subtitle": "ROOT KEY",   "accent": "amber", "x": 0.70, "y": 0.3 },
+              { "id": "dek",  "label": "Data key",     "subtitle": "ONE-TIME",   "accent": "amber", "x": 0.30, "y": 0.7 },
+              { "id": "store","label": "Object store", "subtitle": "CT + WDEK",  "accent": "earth", "x": 0.70, "y": 0.7 }
             ],
             "edges": [
               { "from": "app",   "to": "kms",   "kind": "dashed", "label": "GenDataKey" },
@@ -1523,11 +1629,11 @@ export default {
             "subtitle": "EDGE · PUBLIC · PRIVATE · DATA",
             "height": 270,
             "nodes": [
-              { "id": "net",    "label": "Internet",     "subtitle": "USER TRAFFIC",      "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "alb",    "label": "ALB",          "subtitle": "PUBLIC SUBNET",     "accent": "sky",   "x": 0.32, "y": 0.5 },
-              { "id": "app",    "label": "App tier",     "subtitle": "PRIVATE SUBNET",    "accent": "amber", "x": 0.56, "y": 0.5 },
-              { "id": "db",     "label": "RDS",          "subtitle": "DATA SUBNET",       "accent": "earth", "x": 0.78, "y": 0.5 },
-              { "id": "vpce",   "label": "VPC endpoint", "subtitle": "S3 · KMS PRIVATE",  "accent": "water", "x": 0.78, "y": 0.85 }
+              { "id": "net",    "label": "Internet",     "subtitle": "USER TRAFFIC",      "accent": "sky",   "x": 0.30, "y": 0.2 },
+              { "id": "alb",    "label": "ALB",          "subtitle": "PUBLIC SUBNET",     "accent": "sky",   "x": 0.70, "y": 0.2 },
+              { "id": "app",    "label": "App tier",     "subtitle": "PRIVATE SUBNET",    "accent": "amber", "x": 0.30, "y": 0.5 },
+              { "id": "db",     "label": "RDS",          "subtitle": "DATA SUBNET",       "accent": "earth", "x": 0.70, "y": 0.5 },
+              { "id": "vpce",   "label": "VPC endpoint", "subtitle": "S3 · KMS PRIVATE",  "accent": "water", "x": 0.50, "y": 0.8 }
             ],
             "edges": [
               { "from": "net", "to": "alb", "kind": "dashed", "label": "443" },
@@ -1585,6 +1691,12 @@ export default {
             "type": "quote",
             "text": "An open security group is the cloud equivalent of a server in the lobby. Chain the SGs by ID, filter egress, and put the data tier behind two walls.",
             "cite": "the default-deny mantra"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen **security groups vs NACLs** (stateful vs stateless), the **three-tier default-deny layout** (public ALB → private app → private data), **egress filtering**, and **VPC endpoints**. Design the network so a public web app can reach its database and S3 *without* exposing the DB or giving a compromised app a path to exfiltrate data — and name the trade-off egress filtering forces on your team.",
+            "modelAnswer": "Put each tier in its own subnet: the **ALB** in a public subnet (the only thing with `0.0.0.0/0` ingress, and only on 443), the **app** in a private subnet, the **RDS** in a private data subnet with no route to the internet at all. Wire the **security groups by reference, not CIDR** — the app SG allows ingress only from the ALB's SG, the DB SG allows 5432 only from the app's SG — so as instances scale and IPs churn, the rules track automatically and the DB is reachable *only* through the app tier (two walls). Because SGs are **stateful**, return traffic is automatic; I keep **NACLs** as a coarse stateless backstop at the subnet edge and stay alert to the stateful/stateless mismatch that silently drops return packets. For S3 and KMS I add **VPC endpoints** so that traffic rides the AWS backbone and never the public internet — which also lets me clamp **egress**: the app SG allows outbound only to the DB and those endpoints, so a compromised app can't ship the database to attacker-controlled S3 (it also kills crypto-mining call-homes). Flow Logs to a SIEM make all of it investigable. The **trade-off** egress filtering forces: every new outbound dependency — a third-party API, a new package mirror, a metrics vendor — now needs an explicit allow, so it adds friction and the occasional baffling timeout when someone forgets. I accept it because default-deny egress fails *closed and visible* rather than leaving an open exfil channel; the win is that the blast radius of a compromised app shrinks to 'can talk to its own DB and nothing else'.",
+            "hint": "The two walls in front of the DB come from chaining SGs by ID (ALB→app→DB). The exfil defense and the trade-off both live in egress: what does locking outbound to 'DB + VPC endpoints only' cost the next engineer who adds a new external dependency?"
           }
         ]
       }
@@ -1616,8 +1728,8 @@ export default {
             "nodes": [
               { "id": "pod",   "label": "Workload",    "subtitle": "POD · LAMBDA",   "accent": "water", "x": 0.10, "y": 0.5 },
               { "id": "auth",  "label": "Vault auth",  "subtitle": "OIDC · IRSA",    "accent": "amber", "x": 0.32, "y": 0.5 },
-              { "id": "vault", "label": "Vault",       "subtitle": "ISSUES LEASE",   "accent": "earth", "x": 0.58, "y": 0.5 },
-              { "id": "db",    "label": "Database",    "subtitle": "TTL CREDS",      "accent": "earth", "x": 0.86, "y": 0.5 }
+              { "id": "vault", "label": "Vault",       "subtitle": "ISSUES LEASE",   "accent": "earth", "x": 0.32, "y": 0.85 },
+              { "id": "db",    "label": "Database",    "subtitle": "TTL CREDS",      "accent": "earth", "x": 0.86, "y": 0.85 }
             ],
             "edges": [
               { "from": "pod",   "to": "auth",  "kind": "dashed", "label": "login" },
@@ -1716,11 +1828,11 @@ export default {
             "subtitle": "SOURCE · BUILD · SIGN · VERIFY",
             "height": 250,
             "nodes": [
-              { "id": "src",   "label": "Source",       "subtitle": "SIGNED COMMITS", "accent": "water", "x": 0.10, "y": 0.5 },
-              { "id": "build", "label": "Build",        "subtitle": "SLSA L3 RUNNER", "accent": "amber", "x": 0.34, "y": 0.5 },
-              { "id": "sign",  "label": "Cosign",       "subtitle": "KEYLESS OIDC",   "accent": "amber", "x": 0.58, "y": 0.5 },
-              { "id": "reg",   "label": "Registry",     "subtitle": "IMAGE + SBOM",   "accent": "earth", "x": 0.84, "y": 0.5 },
-              { "id": "atk",   "label": "Attacker",     "subtitle": "INSERTS BACKDOOR","accent": "fire",  "x": 0.34, "y": 0.92 }
+              { "id": "src",   "label": "Source",       "subtitle": "SIGNED COMMITS", "accent": "water", "x": 0.30, "y": 0.25 },
+              { "id": "build", "label": "Build",        "subtitle": "SLSA L3 RUNNER", "accent": "amber", "x": 0.70, "y": 0.25 },
+              { "id": "sign",  "label": "Cosign",       "subtitle": "KEYLESS OIDC",   "accent": "amber", "x": 0.30, "y": 0.6 },
+              { "id": "reg",   "label": "Registry",     "subtitle": "IMAGE + SBOM",   "accent": "earth", "x": 0.70, "y": 0.6 },
+              { "id": "atk",   "label": "Attacker",     "subtitle": "INSERTS BACKDOOR","accent": "fire",  "x": 0.30, "y": 0.92 }
             ],
             "edges": [
               { "from": "src",   "to": "build", "kind": "dashed", "label": "trigger" },
@@ -1986,8 +2098,8 @@ export default {
             "nodes": [
               { "id": "subject", "label": "data subject",  "subtitle": "USER REQUEST",  "accent": "water", "x": 0.08, "y": 0.5 },
               { "id": "intake",  "label": "DPO intake",    "subtitle": "VERIFY ID",     "accent": "amber", "x": 0.34, "y": 0.5 },
-              { "id": "fulfill", "label": "fulfill",       "subtitle": "EXTRACT/DELETE","accent": "sky",   "x": 0.62, "y": 0.5 },
-              { "id": "audit",   "label": "audit log",     "subtitle": "EVIDENCE",      "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "fulfill", "label": "fulfill",       "subtitle": "EXTRACT/DELETE","accent": "sky",   "x": 0.34, "y": 0.78 },
+              { "id": "audit",   "label": "audit log",     "subtitle": "EVIDENCE",      "accent": "earth", "x": 0.92, "y": 0.78 }
             ],
             "edges": [
               { "from": "subject", "to": "intake",  "kind": "dashed", "label": "request" },
@@ -2097,8 +2209,8 @@ export default {
             "nodes": [
               { "id": "design",  "label": "design",        "subtitle": "WRITE CONTROLS", "accent": "amber", "x": 0.08, "y": 0.5 },
               { "id": "operate", "label": "operate",       "subtitle": "RUN 3-12 MO",    "accent": "sky",   "x": 0.34, "y": 0.5 },
-              { "id": "collect", "label": "evidence",      "subtitle": "GATHER PROOF",   "accent": "earth", "x": 0.62, "y": 0.5 },
-              { "id": "auditor", "label": "CPA auditor",   "subtitle": "ATTEST",         "accent": "fire",  "x": 0.92, "y": 0.5 }
+              { "id": "collect", "label": "evidence",      "subtitle": "GATHER PROOF",   "accent": "earth", "x": 0.30, "y": 0.9 },
+              { "id": "auditor", "label": "CPA auditor",   "subtitle": "ATTEST",         "accent": "fire",  "x": 0.70, "y": 0.9 }
             ],
             "edges": [
               { "from": "design",  "to": "operate", "kind": "dashed", "label": "deploy" },
@@ -2193,8 +2305,8 @@ export default {
             "nodes": [
               { "id": "browser", "label": "browser",        "subtitle": "CHECKOUT",   "accent": "water", "x": 0.08, "y": 0.5 },
               { "id": "iframe",  "label": "Stripe iframe",  "subtitle": "HOLDS PAN",  "accent": "amber", "x": 0.34, "y": 0.5 },
-              { "id": "token",   "label": "token",          "subtitle": "OUT OF PCI", "accent": "sky",   "x": 0.62, "y": 0.5 },
-              { "id": "api",     "label": "your API",       "subtitle": "TOKEN ONLY", "accent": "earth", "x": 0.92, "y": 0.5 }
+              { "id": "token",   "label": "token",          "subtitle": "OUT OF PCI", "accent": "sky",   "x": 0.34, "y": 0.88 },
+              { "id": "api",     "label": "your API",       "subtitle": "TOKEN ONLY", "accent": "earth", "x": 0.92, "y": 0.88 }
             ],
             "edges": [
               { "from": "browser", "to": "iframe", "kind": "dashed", "label": "PAN" },
@@ -2291,10 +2403,10 @@ export default {
             "title": "Evidence pipeline",
             "height": 240,
             "nodes": [
-              { "id": "action",  "label": "privileged action", "subtitle": "STRUCTURED","accent": "amber", "x": 0.08, "y": 0.5 },
-              { "id": "sign",    "label": "sign + chain",      "subtitle": "HMAC HASH", "accent": "sky",   "x": 0.34, "y": 0.5 },
-              { "id": "archive", "label": "WORM archive",      "subtitle": "S3 LOCK",   "accent": "earth", "x": 0.62, "y": 0.5 },
-              { "id": "qsa",     "label": "auditor",           "subtitle": "SAMPLES",   "accent": "fire",  "x": 0.92, "y": 0.5 }
+              { "id": "action",  "label": "privileged action", "subtitle": "STRUCTURED","accent": "amber", "x": 0.30, "y": 0.35 },
+              { "id": "sign",    "label": "sign + chain",      "subtitle": "HMAC HASH", "accent": "sky",   "x": 0.70, "y": 0.35 },
+              { "id": "archive", "label": "WORM archive",      "subtitle": "S3 LOCK",   "accent": "earth", "x": 0.30, "y": 0.65 },
+              { "id": "qsa",     "label": "auditor",           "subtitle": "SAMPLES",   "accent": "fire",  "x": 0.70, "y": 0.65 }
             ],
             "edges": [
               { "from": "action",  "to": "sign",    "kind": "dashed", "label": "emit" },
@@ -2356,22 +2468,49 @@ export default {
         "heading": "The pipeline",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "SIEM event flow",
+            "why": "Four stages, one failure mode each — a collector that silently drops 5% makes every detection downstream useless.",
             "subtitle": "FOUR STAGES, ONE FAILURE PER STAGE",
-            "height": 220,
+            "height": 310,
             "nodes": [
-              { "id": "src",     "label": "log sources", "subtitle": "FW+EDR",    "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "norm",    "label": "normalize",   "subtitle": "SCHEMA",    "accent": "sky",   "x": 0.32, "y": 0.5 },
-              { "id": "store",   "label": "index",       "subtitle": "SEARCH",    "accent": "earth", "x": 0.56, "y": 0.5 },
-              { "id": "rules",   "label": "detections",  "subtitle": "RULES",     "accent": "amber", "x": 0.78, "y": 0.5 },
-              { "id": "soc",     "label": "SOC analyst", "subtitle": "TRIAGE",    "accent": "water", "x": 0.96, "y": 0.5 }
+              { "id": "src",     "label": "log sources", "subtitle": "FW+EDR",    "accent": "sky",   "x": 0.30, "y": 0.16 },
+              { "id": "norm",    "label": "normalize",   "subtitle": "SCHEMA",    "accent": "sky",   "x": 0.70, "y": 0.16 },
+              { "id": "store",   "label": "index",       "subtitle": "SEARCH",    "accent": "earth", "x": 0.30, "y": 0.50 },
+              { "id": "rules",   "label": "detections",  "subtitle": "RULES",     "accent": "amber", "x": 0.70, "y": 0.50 },
+              { "id": "soc",     "label": "SOC analyst", "subtitle": "TRIAGE",    "accent": "water", "x": 0.50, "y": 0.84 }
             ],
-            "edges": [
-              { "from": "src",   "to": "norm",  "kind": "dashed", "label": "raw" },
-              { "from": "norm",  "to": "store", "kind": "dashed", "label": "parsed" },
-              { "from": "store", "to": "rules", "kind": "dashed", "label": "search" },
-              { "from": "rules", "to": "soc",   "kind": "dashed", "label": "alert" }
+            "steps": [
+              {
+                "title": "Collect from every source",
+                "description": "Raw events stream in from firewalls, EDR, cloud trails, and app logs. **Failure mode:** a collector that drops events makes everything after it lie.",
+                "activeNodes": ["src"],
+                "activeEdges": []
+              },
+              {
+                "title": "Normalize into one schema",
+                "description": "Forty different log formats get parsed into common field names, so `src_ip` means the same thing everywhere. **Failure mode:** a vendor changes their format and parsing silently breaks.",
+                "activeNodes": ["src", "norm"],
+                "activeEdges": [{ "from": "src", "to": "norm", "label": "raw" }]
+              },
+              {
+                "title": "Index for search",
+                "description": "Parsed events land in a searchable index. Now you can finally ask *'did this IP touch anything else?'* across all sources at once.",
+                "activeNodes": ["norm", "store"],
+                "activeEdges": [{ "from": "norm", "to": "store", "label": "parsed" }]
+              },
+              {
+                "title": "Correlate with detections",
+                "description": "Rules run over the index looking for patterns — brute-force then a success, egress to a new ASN, a control-plane mutation. This is the *correlate* step that single logs can't do.",
+                "activeNodes": ["store", "rules"],
+                "activeEdges": [{ "from": "store", "to": "rules", "label": "search" }]
+              },
+              {
+                "title": "Alert the SOC analyst",
+                "description": "A matched rule fires an alert for a human to triage. **Failure mode:** alerts fire into a Slack channel everyone muted by week two — tuning is the real job.",
+                "activeNodes": ["rules", "soc"],
+                "activeEdges": [{ "from": "rules", "to": "soc", "label": "alert" }]
+              }
             ]
           },
           {
@@ -2469,10 +2608,10 @@ export default {
             "subtitle": "FROM EVENT TO EVIDENCE",
             "height": 220,
             "nodes": [
-              { "id": "app",    "label": "app event",   "subtitle": "WHO+WHAT",    "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "sign",   "label": "sign + hash", "subtitle": "TAMPER-EVT",  "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "wormm",  "label": "WORM store",  "subtitle": "APPEND ONLY", "accent": "earth", "x": 0.66, "y": 0.5 },
-              { "id": "audit",  "label": "auditor",     "subtitle": "READS TRAIL", "accent": "water", "x": 0.92, "y": 0.5 }
+              { "id": "app",    "label": "app event",   "subtitle": "WHO+WHAT",    "accent": "sky",   "x": 0.30, "y": 0.30 },
+              { "id": "sign",   "label": "sign + hash", "subtitle": "TAMPER-EVT",  "accent": "amber", "x": 0.70, "y": 0.30 },
+              { "id": "wormm",  "label": "WORM store",  "subtitle": "APPEND ONLY", "accent": "earth", "x": 0.30, "y": 0.70 },
+              { "id": "audit",  "label": "auditor",     "subtitle": "READS TRAIL", "accent": "water", "x": 0.70, "y": 0.70 }
             ],
             "edges": [
               { "from": "app",   "to": "sign",  "kind": "dashed", "label": "emit" },
@@ -2556,13 +2695,13 @@ export default {
             "type": "diagram",
             "title": "Detection placement",
             "subtitle": "WIRE · HOST · ENDPOINT",
-            "height": 220,
+            "height": 310,
             "nodes": [
-              { "id": "atk",   "label": "attacker",    "subtitle": "EXTERNAL", "accent": "fire",  "x": 0.08, "y": 0.5 },
-              { "id": "ips",   "label": "IPS",         "subtitle": "BLOCKS",   "accent": "amber", "x": 0.32, "y": 0.5 },
-              { "id": "ids",   "label": "network IDS", "subtitle": "ALERTS",   "accent": "amber", "x": 0.56, "y": 0.5 },
-              { "id": "edr",   "label": "EDR agent",   "subtitle": "ON HOST",  "accent": "amber", "x": 0.78, "y": 0.5 },
-              { "id": "soc",   "label": "SOC",         "subtitle": "TRIAGE",   "accent": "water", "x": 0.96, "y": 0.5 }
+              { "id": "atk",   "label": "attacker",    "subtitle": "EXTERNAL", "accent": "fire",  "x": 0.30, "y": 0.16 },
+              { "id": "ips",   "label": "IPS",         "subtitle": "BLOCKS",   "accent": "amber", "x": 0.70, "y": 0.16 },
+              { "id": "ids",   "label": "network IDS", "subtitle": "ALERTS",   "accent": "amber", "x": 0.30, "y": 0.50 },
+              { "id": "edr",   "label": "EDR agent",   "subtitle": "ON HOST",  "accent": "amber", "x": 0.70, "y": 0.50 },
+              { "id": "soc",   "label": "SOC",         "subtitle": "TRIAGE",   "accent": "water", "x": 0.50, "y": 0.84 }
             ],
             "edges": [
               { "from": "atk", "to": "ips", "kind": "dashed", "label": "traffic" },
@@ -2653,22 +2792,49 @@ export default {
             ]
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "First 15 minutes",
+            "why": "The first 15 minutes is no time to hunt for the runbook — drill this order so it runs on muscle memory.",
             "subtitle": "ALERT → IC → CONTAIN",
-            "height": 220,
+            "height": 310,
             "nodes": [
-              { "id": "alert",  "label": "alert fires",  "subtitle": "SIEM",     "accent": "sky",   "x": 0.08, "y": 0.5 },
-              { "id": "ic",     "label": "declare IC",   "subtitle": "ONE LEAD", "accent": "water", "x": 0.32, "y": 0.5 },
-              { "id": "scope",  "label": "scope",        "subtitle": "AFFECTED", "accent": "amber", "x": 0.56, "y": 0.5 },
-              { "id": "cont",   "label": "contain",      "subtitle": "ISOLATE",  "accent": "amber", "x": 0.78, "y": 0.5 },
-              { "id": "ev",     "label": "preserve",     "subtitle": "EVIDENCE", "accent": "earth", "x": 0.96, "y": 0.5 }
+              { "id": "alert",  "label": "alert fires",  "subtitle": "SIEM",     "accent": "sky",   "x": 0.30, "y": 0.16 },
+              { "id": "ic",     "label": "declare IC",   "subtitle": "ONE LEAD", "accent": "water", "x": 0.70, "y": 0.16 },
+              { "id": "scope",  "label": "scope",        "subtitle": "AFFECTED", "accent": "amber", "x": 0.30, "y": 0.50 },
+              { "id": "cont",   "label": "contain",      "subtitle": "ISOLATE",  "accent": "amber", "x": 0.70, "y": 0.50 },
+              { "id": "ev",     "label": "preserve",     "subtitle": "EVIDENCE", "accent": "earth", "x": 0.50, "y": 0.84 }
             ],
-            "edges": [
-              { "from": "alert", "to": "ic",    "kind": "dashed", "label": "page" },
-              { "from": "ic",    "to": "scope", "kind": "dashed", "label": "assign" },
-              { "from": "scope", "to": "cont",  "kind": "dashed", "label": "decide" },
-              { "from": "cont",  "to": "ev",    "kind": "dashed", "label": "capture" }
+            "steps": [
+              {
+                "title": "Alert fires",
+                "description": "The SIEM pages on something that smells like a breach. The clock — including any regulatory 72-hour clock — starts the moment a human sees it.",
+                "activeNodes": ["alert"],
+                "activeEdges": []
+              },
+              {
+                "title": "Declare one Incident Commander",
+                "description": "Name a single IC in the channel topic. **One** decision-maker — two ICs 'collaborating' means every call now needs consensus while the attacker keeps moving.",
+                "activeNodes": ["alert", "ic"],
+                "activeEdges": [{ "from": "alert", "to": "ic", "label": "page" }]
+              },
+              {
+                "title": "Scope the blast radius",
+                "description": "The IC assigns SMEs to find which hosts, accounts, and data are affected, then sets a severity. You can't contain what you haven't scoped.",
+                "activeNodes": ["ic", "scope"],
+                "activeEdges": [{ "from": "ic", "to": "scope", "label": "assign" }]
+              },
+              {
+                "title": "Contain — stop the bleeding",
+                "description": "Isolate hosts, revoke credentials, block IPs at the edge. Containment limits damage without yet trying to fully evict the attacker.",
+                "activeNodes": ["scope", "cont"],
+                "activeEdges": [{ "from": "scope", "to": "cont", "label": "decide" }]
+              },
+              {
+                "title": "Preserve the evidence",
+                "description": "Capture memory and disk images **before** you reimage — reimage first and the attacker's persistence is gone forever, along with your forensic trail.",
+                "activeNodes": ["cont", "ev"],
+                "activeEdges": [{ "from": "cont", "to": "ev", "label": "capture" }]
+              }
             ]
           },
           {
@@ -2760,10 +2926,10 @@ export default {
             "subtitle": "ATTACK · DETECT · IMPROVE",
             "height": 220,
             "nodes": [
-              { "id": "red",   "label": "red team",   "subtitle": "EMULATES",  "accent": "fire",  "x": 0.10, "y": 0.5 },
-              { "id": "sig",   "label": "telemetry",  "subtitle": "LOGS+EDR",  "accent": "sky",   "x": 0.35, "y": 0.5 },
-              { "id": "blue",  "label": "blue team",  "subtitle": "DETECTS",   "accent": "water", "x": 0.60, "y": 0.5 },
-              { "id": "rule",  "label": "new rule",   "subtitle": "ADDED",     "accent": "amber", "x": 0.88, "y": 0.5 }
+              { "id": "red",   "label": "red team",   "subtitle": "EMULATES",  "accent": "fire",  "x": 0.25, "y": 0.2 },
+              { "id": "sig",   "label": "telemetry",  "subtitle": "LOGS+EDR",  "accent": "sky",   "x": 0.75, "y": 0.2 },
+              { "id": "blue",  "label": "blue team",  "subtitle": "DETECTS",   "accent": "water", "x": 0.75, "y": 0.8 },
+              { "id": "rule",  "label": "new rule",   "subtitle": "ADDED",     "accent": "amber", "x": 0.25, "y": 0.8 }
             ],
             "edges": [
               { "from": "red",  "to": "sig",  "kind": "dashed", "label": "attacks" },

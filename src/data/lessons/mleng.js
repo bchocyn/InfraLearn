@@ -736,7 +736,7 @@ export default {
                 "label": "softmax + mask",
                 "subtitle": "weights",
                 "x": 0.78,
-                "y": 0.5,
+                "y": 0.3,
                 "accent": "amber"
               },
               {
@@ -744,7 +744,7 @@ export default {
                 "label": "weights · V",
                 "subtitle": "mixed values",
                 "x": 0.95,
-                "y": 0.5,
+                "y": 0.7,
                 "accent": "fire"
               }
             ],
@@ -1250,7 +1250,7 @@ export default {
                 "label": "Prompt + few-shot",
                 "subtitle": "format, simple tasks",
                 "x": 0.15,
-                "y": 0.4,
+                "y": 0.3,
                 "accent": "sky"
               },
               {
@@ -1266,7 +1266,7 @@ export default {
                 "label": "LoRA fine-tune",
                 "subtitle": "wrong behavior / tone",
                 "x": 0.85,
-                "y": 0.4,
+                "y": 0.8,
                 "accent": "fire"
               },
               {
@@ -1398,6 +1398,12 @@ export default {
           {
             "type": "quote",
             "text": "Prompt for policy, retrieve for facts, fine-tune for behavior. Mix them up and you'll pay for it twice — once in dollars, once in trust."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've now seen **prompting**, **RAG**, and **fine-tuning (LoRA)** as three different knobs. Design the adaptation strategy for a customer-support bot whose product docs change weekly, whose refund policy changes monthly, and whose tone must stay consistent across thousands of tickets. Say which knob owns each requirement, then name the one trade-off that would make you reconsider stacking all three.",
+            "modelAnswer": "Split the requirements by what each knob actually changes. **Weekly-changing docs → RAG**: re-embed the index, weights untouched, answers stay fresh with citations. **Monthly-changing refund policy → prompting**: it's a rule that lives in the system message, so editing one string ships in seconds with no retrain. **Consistent tone across thousands of tickets → fine-tuning (LoRA)**: behavior/voice is what gradient updates teach, and a LoRA adapter is cheap and hot-swappable per tenant. Each knob owns the requirement that matches *its update mechanism*: index for facts, prompt for policy, weights for behavior — and stacking them keeps fast-moving things out of the slow-to-update weights. **The trade-off I'd watch is the base-model upgrade tax**: a LoRA is frozen against one base, so every time the foundation model is upgraded I must re-train and re-eval the adapter against a held-out set. If the team can't sustain that retraining cadence, I'd drop the fine-tune and push tone into a longer prompt instead — accepting weaker, costlier-per-call adaptation in exchange for zero retraining.",
+            "hint": "Match each requirement to the knob whose *update mechanism* fits its change frequency: index re-embed (facts), edit a string (policy), gradient update (behavior). Then ask what breaks the frozen knob."
           }
         ]
       }
@@ -1514,60 +1520,67 @@ export default {
             "text": "Your classifier emits a **probability**, not a class. The threshold (default 0.5) is a business decision, not a math one. Sweep it, plot the PR curve, pick the operating point where precision and recall match your cost matrix."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "From score to decision",
+            "why": "A raw probability becomes a yes/no only after you calibrate it and cross it against a business threshold.",
             "nodes": [
               {
                 "id": "m",
                 "label": "Model",
                 "subtitle": "p ∈ [0,1]",
-                "x": 0.1,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.3,
                 "accent": "sky"
               },
               {
                 "id": "c",
                 "label": "Calibration",
                 "subtitle": "Platt",
-                "x": 0.4,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.3,
                 "accent": "amber"
               },
               {
                 "id": "t",
                 "label": "Threshold τ",
                 "subtitle": "business",
-                "x": 0.7,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.75,
                 "accent": "earth"
               },
               {
                 "id": "d",
                 "label": "Decision",
                 "subtitle": "approve",
-                "x": 0.95,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.75,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "m",
-                "to": "c",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "Model emits a score",
+                "description": "The classifier hands you a **probability** `p ∈ [0,1]`, not a class. This number is the only thing the model actually produces.",
+                "activeNodes": ["m"],
+                "activeEdges": []
               },
               {
-                "from": "c",
-                "to": "t",
-                "kind": "dashed",
-                "accent": "amber"
+                "title": "Calibrate the score",
+                "description": "Raw scores often lie — a `0.8` may not mean 80%. **Platt scaling** on a validation set bends the score so it matches real-world frequencies.",
+                "activeNodes": ["m", "c"],
+                "activeEdges": [{ "from": "m", "to": "c" }]
               },
               {
-                "from": "t",
-                "to": "d",
-                "kind": "dashed",
-                "accent": "fire"
+                "title": "Apply the threshold τ",
+                "description": "Compare the calibrated score to a cutoff `τ`. This is a **business decision**, not a math one — set it where your cost matrix says it hurts least.",
+                "activeNodes": ["c", "t"],
+                "activeEdges": [{ "from": "c", "to": "t" }]
+              },
+              {
+                "title": "Output the decision",
+                "description": "Score above `τ` means **approve**, below means reject. Only now does a probability become an action.",
+                "activeNodes": ["t", "d"],
+                "activeEdges": [{ "from": "t", "to": "d" }]
               }
             ]
           },
@@ -1762,8 +1775,9 @@ export default {
             "text": "Two linear layers, one ReLU, softmax + cross-entropy at the end. That's it. **784 → 128 → 10**, roughly 100k parameters — small enough to debug, large enough to hit 95%."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Forward pass, MNIST → digit prediction",
+            "why": "One image flows left to right through two linear layers and a softmax to become 10 probabilities — no loops, no magic.",
             "height": 220,
             "nodes": [
               {
@@ -1795,7 +1809,7 @@ export default {
                 "label": "W₂·h + b₂",
                 "subtitle": "→ 10",
                 "x": 0.72,
-                "y": 0.5,
+                "y": 0.85,
                 "accent": "sky"
               },
               {
@@ -1803,34 +1817,40 @@ export default {
                 "label": "softmax",
                 "subtitle": "probs",
                 "x": 0.93,
-                "y": 0.5,
+                "y": 0.85,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "x",
-                "to": "l1",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Flatten the image",
+                "description": "A 28×28 digit arrives as **784 pixels** in one long vector `x`. That's the raw input — no features engineered, just brightness values.",
+                "activeNodes": ["x"],
+                "activeEdges": []
               },
               {
-                "from": "l1",
-                "to": "relu",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "First linear layer",
+                "description": "Multiply by `W₁` and add `b₁` to squeeze 784 numbers down to **128**. Each output mixes every pixel — the layer is learning useful combinations.",
+                "activeNodes": ["x", "l1"],
+                "activeEdges": [{ "from": "x", "to": "l1" }]
               },
               {
-                "from": "relu",
-                "to": "l2",
-                "kind": "dashed",
-                "accent": "amber"
+                "title": "ReLU nonlinearity",
+                "description": "`max(0, ·)` zeroes out negatives. Without this kink the two linear layers would collapse into one — ReLU is what makes the net **deep**.",
+                "activeNodes": ["l1", "relu"],
+                "activeEdges": [{ "from": "l1", "to": "relu" }]
               },
               {
-                "from": "l2",
-                "to": "sm",
-                "kind": "dashed",
-                "accent": "fire"
+                "title": "Second linear layer",
+                "description": "`W₂·h + b₂` maps the 128 hidden units to **10 logits** — one raw score per digit class, not yet probabilities.",
+                "activeNodes": ["relu", "l2"],
+                "activeEdges": [{ "from": "relu", "to": "l2" }]
+              },
+              {
+                "title": "Softmax to probabilities",
+                "description": "Exponentiate and normalize so the 10 scores **sum to 1**. The biggest one is the model's predicted digit.",
+                "activeNodes": ["l2", "sm"],
+                "activeEdges": [{ "from": "l2", "to": "sm" }]
               }
             ]
           },
@@ -1984,8 +2004,9 @@ export default {
             "text": "You'll also wire an **eval harness** — a tiny labeled set with `answer / no-answer` ground truth — and track `recall@k`, `mrr`, and answer faithfulness on every change. Without eval, RAG is vibes. With eval, it's engineering."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "RAG pipeline",
+            "why": "A question fetches its own evidence first, then the LLM answers from that evidence — and an eval harness keeps the whole loop honest.",
             "height": 220,
             "nodes": [
               {
@@ -2029,35 +2050,36 @@ export default {
                 "y": 0.5
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "user",
-                "to": "app",
-                "kind": "dashed",
-                "label": "question"
+                "title": "User asks a question",
+                "description": "Everything starts with a **query** — a plain-language question the model has no memorized answer to. This is the only user input.",
+                "activeNodes": ["user"],
+                "activeEdges": []
               },
               {
-                "from": "app",
-                "to": "vstore",
-                "kind": "dashed",
-                "accent": "earth",
-                "label": "top-k",
-                "curve": 0.35
+                "title": "Orchestrator takes over",
+                "description": "The **orchestrator** embeds the question into a vector and gets ready to fetch evidence. It owns the whole request — embed, retrieve, rerank, prompt.",
+                "activeNodes": ["user", "app"],
+                "activeEdges": [{ "from": "user", "to": "app", "label": "question" }]
               },
               {
-                "from": "app",
-                "to": "llm",
-                "kind": "dashed",
-                "accent": "fire",
-                "label": "prompt + ctx",
-                "curve": 0.35
+                "title": "Retrieve top-k chunks",
+                "description": "The query vector hits the **vector store** (pgvector), which returns the **top-k** most similar chunks by cosine distance. This is the 'retrieval' in RAG.",
+                "activeNodes": ["app", "vstore"],
+                "activeEdges": [{ "from": "app", "to": "vstore", "label": "top-k" }]
               },
               {
-                "from": "llm",
-                "to": "eval",
-                "kind": "solid",
-                "accent": "amber",
-                "label": "score"
+                "title": "Generate the answer",
+                "description": "The orchestrator pastes those chunks into the prompt and calls the **LLM**, which writes an answer **with citations** grounded in the retrieved text.",
+                "activeNodes": ["app", "llm"],
+                "activeEdges": [{ "from": "app", "to": "llm", "label": "prompt + ctx" }]
+              },
+              {
+                "title": "Score every run",
+                "description": "Each answer feeds an **eval harness** tracking `recall@k` and `mrr`. Without this scoreboard, RAG is vibes; with it, it's engineering.",
+                "activeNodes": ["llm", "eval"],
+                "activeEdges": [{ "from": "llm", "to": "eval", "label": "score" }]
               }
             ]
           }
@@ -2182,8 +2204,9 @@ export default {
             "text": "This is how every team ships a custom assistant in 2026 without a GPU farm. **One consumer-grade 24 GB GPU, one afternoon, one dataset of a few thousand examples** — and you have a model that follows your house style. The eval-before / eval-after pair is the load-bearing part; without it you cannot tell whether you actually learned anything or just overfit on a training quirk."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "The training loop",
+            "why": "A frozen base plus a tiny trainable adapter is the whole trick — and the before/after eval is what proves you actually learned something.",
             "height": 220,
             "nodes": [
               {
@@ -2227,34 +2250,36 @@ export default {
                 "y": 0.75
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "data",
-                "to": "base",
-                "kind": "dashed",
-                "label": "tokens"
+                "title": "Start with the dataset",
+                "description": "A few thousand **instruction + response** pairs in your house style. This is the only thing that teaches the model what 'good' looks like.",
+                "activeNodes": ["data"],
+                "activeEdges": []
               },
               {
-                "from": "base",
-                "to": "lora",
-                "kind": "solid",
-                "label": "ΔW = B·A"
+                "title": "Feed tokens to the frozen base",
+                "description": "Tokenized examples stream into a **4-bit base 7B** model. Its weights stay frozen — quantizing them is what lets a 7B fit on one consumer GPU.",
+                "activeNodes": ["data", "base"],
+                "activeEdges": [{ "from": "data", "to": "base", "label": "tokens" }]
               },
               {
-                "from": "lora",
-                "to": "eval",
-                "kind": "dashed",
-                "accent": "earth",
-                "label": "compare",
-                "curve": 0.3
+                "title": "Train only the LoRA adapter",
+                "description": "Gradients update a tiny **~10M-param adapter** (`ΔW = B·A`), not the base. That's ~1% of the weights — cheap to train, swappable per tenant.",
+                "activeNodes": ["base", "lora"],
+                "activeEdges": [{ "from": "base", "to": "lora", "label": "ΔW = B·A" }]
               },
               {
-                "from": "lora",
-                "to": "ckpt",
-                "kind": "dashed",
-                "accent": "fire",
-                "label": "save",
-                "curve": 0.3
+                "title": "Eval before vs after",
+                "description": "Run held-out prompts through base **and** tuned model. This before/after compare is load-bearing — without it you can't tell learning from overfitting.",
+                "activeNodes": ["lora", "eval"],
+                "activeEdges": [{ "from": "lora", "to": "eval", "label": "compare" }]
+              },
+              {
+                "title": "Save the adapter",
+                "description": "Ship just the adapter — a ~30 MB `adapter_model.safetensors` that loads on top of the frozen base in one line. The base never changed.",
+                "activeNodes": ["lora", "ckpt"],
+                "activeEdges": [{ "from": "lora", "to": "ckpt", "label": "save" }]
               }
             ]
           }
@@ -2416,15 +2441,16 @@ export default {
             "text": "Data flows **input → linear → activation → … → output**. Each layer applies `z = Wx + b`, then a nonlinearity `a = σ(z)`. The output of one layer is the input of the next."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Forward pass through a 2-hidden-layer network",
+            "why": "Every layer runs the same recipe — `Wx + b` then squash — and feeds its output straight into the next.",
             "height": 240,
             "nodes": [
               {
                 "id": "x",
                 "label": "Input x",
                 "subtitle": "vector ∈ ℝⁿ",
-                "x": 0.08,
+                "x": 0.3,
                 "y": 0.5,
                 "accent": "water"
               },
@@ -2432,7 +2458,7 @@ export default {
                 "id": "h1",
                 "label": "Hidden 1",
                 "subtitle": "W₁x+b₁ → ReLU",
-                "x": 0.32,
+                "x": 0.7,
                 "y": 0.5,
                 "accent": "sky"
               },
@@ -2440,40 +2466,43 @@ export default {
                 "id": "h2",
                 "label": "Hidden 2",
                 "subtitle": "W₂a+b₂ → ReLU",
-                "x": 0.6,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.85,
                 "accent": "sky"
               },
               {
                 "id": "out",
                 "label": "Softmax",
                 "subtitle": "class probs",
-                "x": 0.88,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.85,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "x",
-                "to": "h1",
-                "kind": "dashed",
-                "label": "x",
-                "accent": "water"
+                "title": "Input arrives",
+                "description": "The network starts with a feature **vector `x`** — an image, a row of data, an embedding. Whatever it is, it's just numbers in ℝⁿ.",
+                "activeNodes": ["x"],
+                "activeEdges": []
               },
               {
-                "from": "h1",
-                "to": "h2",
-                "kind": "dashed",
-                "label": "a₁",
-                "accent": "amber"
+                "title": "First hidden layer",
+                "description": "Apply `z = W₁x + b₁`, then **ReLU** to get activation `a₁`. This layer learns a first set of combinations from the raw input.",
+                "activeNodes": ["x", "h1"],
+                "activeEdges": [{ "from": "x", "to": "h1", "label": "x" }]
               },
               {
-                "from": "h2",
-                "to": "out",
-                "kind": "dashed",
-                "label": "a₂",
-                "accent": "amber"
+                "title": "Second hidden layer",
+                "description": "Feed `a₁` into the **same recipe** — `W₂a₁ + b₂` then ReLU — producing `a₂`. Stacking layers is what lets the net model complex shapes.",
+                "activeNodes": ["h1", "h2"],
+                "activeEdges": [{ "from": "h1", "to": "h2", "label": "a₁" }]
+              },
+              {
+                "title": "Softmax output",
+                "description": "The final layer turns `a₂` into **class probabilities** that sum to 1. The forward pass is done — every step was just a transform feeding the next.",
+                "activeNodes": ["h2", "out"],
+                "activeEdges": [{ "from": "h2", "to": "out", "label": "a₂" }]
               }
             ]
           },
@@ -2682,8 +2711,9 @@ export default {
             "text": "The loop has two halves. **Forward pass:** push a batch through the layers, compute predictions, compute loss. **Backward pass:** walk the graph in reverse, asking each weight *how much did you contribute to this error?* Then nudge it in the opposite direction. Repeat a few million times."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Forward / backward through a 3-layer net",
+            "why": "Training is one round trip: data flows forward to a loss, then gradients flow backward to every weight.",
             "nodes": [
               {
                 "id": "x",
@@ -2714,7 +2744,7 @@ export default {
                 "label": "Layer 3",
                 "subtitle": "W₃, b₃",
                 "x": 0.72,
-                "y": 0.5,
+                "y": 0.85,
                 "accent": "sky"
               },
               {
@@ -2722,57 +2752,49 @@ export default {
                 "label": "Loss L",
                 "subtitle": "scalar",
                 "x": 0.93,
-                "y": 0.5,
+                "y": 0.85,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "x",
-                "to": "l1",
-                "kind": "dashed",
-                "accent": "water",
-                "label": "forward"
+                "title": "Forward: feed the batch in",
+                "description": "A **batch** of examples `x` enters the network. The forward pass begins — data moves strictly left to right.",
+                "activeNodes": ["x"],
+                "activeEdges": []
               },
               {
-                "from": "l1",
-                "to": "l2",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Forward: through layers 1 and 2",
+                "description": "Each layer applies its `W·a + b` and a nonlinearity, handing its output to the next. By Layer 2 the input has been transformed twice.",
+                "activeNodes": ["x", "l1", "l2"],
+                "activeEdges": [
+                  { "from": "x", "to": "l1", "label": "forward" },
+                  { "from": "l1", "to": "l2" }
+                ]
               },
               {
-                "from": "l2",
-                "to": "l3",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Forward: reach the loss",
+                "description": "Layer 3 produces predictions, and the **loss `L`** collapses them into a single scalar — how wrong the network was on this batch.",
+                "activeNodes": ["l2", "l3", "loss"],
+                "activeEdges": [
+                  { "from": "l2", "to": "l3" },
+                  { "from": "l3", "to": "loss" }
+                ]
               },
               {
-                "from": "l3",
-                "to": "loss",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Backward: gradient leaves the loss",
+                "description": "Now reverse. **Backprop** starts at `L` and computes `∂L/∂(layer 3)` — how much Layer 3's weights drove the error.",
+                "activeNodes": ["loss", "l3"],
+                "activeEdges": [{ "from": "loss", "to": "l3", "label": "∇ backward" }]
               },
               {
-                "from": "loss",
-                "to": "l3",
-                "kind": "dashed",
-                "accent": "fire",
-                "label": "∇ backward",
-                "curve": -0.4
-              },
-              {
-                "from": "l3",
-                "to": "l2",
-                "kind": "dashed",
-                "accent": "fire",
-                "curve": -0.4
-              },
-              {
-                "from": "l2",
-                "to": "l1",
-                "kind": "dashed",
-                "accent": "fire",
-                "curve": -0.4
+                "title": "Backward: chain rule down the stack",
+                "description": "The **chain rule** carries the gradient from Layer 3 to Layer 2 to Layer 1, multiplying local slopes along the way. Every weight learns its share of blame.",
+                "activeNodes": ["l3", "l2", "l1"],
+                "activeEdges": [
+                  { "from": "l3", "to": "l2" },
+                  { "from": "l2", "to": "l1" }
+                ]
               }
             ]
           }
@@ -3486,6 +3508,12 @@ export default {
           {
             "type": "p",
             "text": "These aren't competing options — they're orthogonal axes, and large training picks a coordinate on each. The rule: **fastest interconnect gets the chattiest parallelism**. Tensor parallel needs NVLink. Pipeline parallel tolerates InfiniBand. Data parallel survives Ethernet. Mismatch this and your $50M cluster will run at 30% utilization."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've now seen **data parallel**, **pipeline parallel**, and **tensor parallel** as three orthogonal axes. A 70B model won't fit on one GPU and won't even fit its optimizer state in a single node. Lay out a 3D-parallel plan across a cluster of 8-GPU NVLink nodes wired together with InfiniBand, mapping each parallelism axis to the right layer of the bandwidth hierarchy. Explain *why* each axis lands where it does, and name the one mismatch that would tank utilization.",
+            "modelAnswer": "Map the chattiest parallelism to the fastest wire. **Tensor parallel goes *within* a node, over NVLink** (~600 GB/s): TP needs an all-reduce on every single layer, so it can only survive the highest-bandwidth interconnect — set TP=8 to use all GPUs in a node and also to split the weights/optimizer state that won't fit on one device. **Pipeline parallel goes *across* nodes within a pod, over InfiniBand**: it only passes activations at stage boundaries, so it tolerates the slower-but-still-fast IB link; use enough microbatches to keep the pipeline bubble (~`(stages−1)/microbatches`) small. **Data parallel goes *across* pods, over the slowest network**: replicas only all-reduce gradients once per step, so they survive ordinary Ethernet — and layer ZeRO on top to shard optimizer state across replicas so the 70B's ~1 TB of Adam state isn't duplicated. So total GPUs = TP · PP · DP. **The mismatch that tanks utilization is putting a chatty axis on a slow wire** — e.g. tensor-parallel *across* nodes instead of within one. Then every layer's all-reduce waits on the network and the GPUs idle ~80% of the time, leaving a $50M cluster running at ~30% utilization.",
+            "hint": "Rank the three axes by how often they communicate (TP every layer > PP every stage > DP once per step), rank the wires by bandwidth (NVLink > IB > Ethernet), and pair them off. The trap is a chatty axis on a slow wire."
           }
         ]
       }
@@ -3794,8 +3822,8 @@ export default {
             "nodes": [
               { "id": "user",   "label": "User input",      "subtitle": "question",  "accent": "water", "x": 0.08, "y": 0.5 },
               { "id": "tmpl",   "label": "Prompt template", "subtitle": "rules",     "accent": "amber", "x": 0.36, "y": 0.5 },
-              { "id": "llm",    "label": "LLM",             "subtitle": "claude",    "accent": "fire",  "x": 0.64, "y": 0.5 },
-              { "id": "out",    "label": "Structured out",  "subtitle": "JSON",      "accent": "sky",   "x": 0.92, "y": 0.5 }
+              { "id": "llm",    "label": "LLM",             "subtitle": "claude",    "accent": "fire",  "x": 0.6, "y": 0.9 },
+              { "id": "out",    "label": "Structured out",  "subtitle": "JSON",      "accent": "sky",   "x": 0.85, "y": 0.9 }
             ],
             "edges": [
               { "from": "user", "to": "tmpl", "kind": "dashed", "label": "slot in" },
@@ -3879,6 +3907,12 @@ export default {
             "type": "quote",
             "text": "Show, don't tell. Two examples beat two paragraphs of rules.",
             "cite": "the few-shot rule"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've assembled a prompt from four moving parts: the **system/user split** (and its caching consequence), **few-shot examples**, **chain-of-thought**, and a **structured JSON output contract**. Design the prompt for a high-volume ticket classifier that must return parseable JSON, handle tricky edge cases, and stay cheap at scale. Explain what goes in the system message vs. the user turns and why, and name the trade-off you'd watch as volume grows.",
+            "modelAnswer": "Put everything *stable* in the **system message** — the role, the rules, and the output contract (\"Return JSON only: {category, urgency}\") — because a fixed system prefix is what the provider's prompt cache can reuse across every call, so it should never carry the variable ticket text. The **few-shot examples** (2-5 alternating user/assistant turns) go right before the real input to lock the schema and cover the tricky edge cases that prose rules miss — \"show, don't tell.\" Reserve **chain-of-thought** for tickets that actually need multi-step reasoning, and even then hide it in `<thinking>` tags and strip it before parsing, because CoT roughly doubles output tokens. The **JSON contract** is what makes the result machine-readable instead of prose you'd regex. **The trade-off I'd watch as volume grows is cost vs. accuracy in the token budget**: every few-shot example and every chain-of-thought token is paid on *every* request forever, so at high volume I'd trim to the fewest examples that hold accuracy and turn CoT off for the easy majority class — and I'd freeze a graded eval set, because shaving the prompt to save tokens silently breaks downstream parsing if I'm not measuring.",
+            "hint": "Stable bytes → system message (cacheable); variable input + examples → user turns. Then weigh: every example and every reasoning token is a tax paid on *every* request."
           }
         ]
       }
@@ -3902,8 +3936,8 @@ export default {
               { "id": "q",     "label": "Query",        "subtitle": "question",  "accent": "water", "x": 0.06, "y": 0.5 },
               { "id": "emb",   "label": "Embedder",     "subtitle": "vector",    "accent": "amber", "x": 0.28, "y": 0.5 },
               { "id": "vdb",   "label": "Vector DB",    "subtitle": "top-k",     "accent": "earth", "x": 0.50, "y": 0.5 },
-              { "id": "ctx",   "label": "Prompt + ctx", "subtitle": "stuff",     "accent": "amber", "x": 0.72, "y": 0.5 },
-              { "id": "llm",   "label": "LLM",          "subtitle": "claude",    "accent": "fire",  "x": 0.94, "y": 0.5 }
+              { "id": "ctx",   "label": "Prompt + ctx", "subtitle": "stuff",     "accent": "amber", "x": 0.72, "y": 0.85 },
+              { "id": "llm",   "label": "LLM",          "subtitle": "claude",    "accent": "fire",  "x": 0.94, "y": 0.85 }
             ],
             "edges": [
               { "from": "q",   "to": "emb", "kind": "dashed", "label": "encode" },
@@ -4046,10 +4080,10 @@ export default {
             "subtitle": "TEXT · VECTOR · INDEX · NEIGHBORS",
             "height": 220,
             "nodes": [
-              { "id": "txt",   "label": "Text",       "subtitle": "doc",         "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "enc",   "label": "Encoder",    "subtitle": "embed model", "accent": "amber", "x": 0.34, "y": 0.5 },
-              { "id": "vec",   "label": "Vector",     "subtitle": "1536 floats", "accent": "sky",   "x": 0.60, "y": 0.5 },
-              { "id": "idx",   "label": "HNSW index", "subtitle": "approx kNN",  "accent": "earth", "x": 0.88, "y": 0.5 }
+              { "id": "txt",   "label": "Text",       "subtitle": "doc",         "accent": "water", "x": 0.08, "y": 0.15 },
+              { "id": "enc",   "label": "Encoder",    "subtitle": "embed model", "accent": "amber", "x": 0.34, "y": 0.38 },
+              { "id": "vec",   "label": "Vector",     "subtitle": "1536 floats", "accent": "sky",   "x": 0.60, "y": 0.62 },
+              { "id": "idx",   "label": "HNSW index", "subtitle": "approx kNN",  "accent": "earth", "x": 0.88, "y": 0.85 }
             ],
             "edges": [
               { "from": "txt", "to": "enc", "kind": "dashed", "label": "tokens" },
@@ -4131,10 +4165,10 @@ export default {
             "subtitle": "USER · LLM · TOOL · RESULT · ANSWER",
             "height": 240,
             "nodes": [
-              { "id": "user", "label": "User",       "subtitle": "question",  "accent": "water", "x": 0.08, "y": 0.5 },
-              { "id": "llm",  "label": "LLM",        "subtitle": "claude",    "accent": "fire",  "x": 0.34, "y": 0.5 },
-              { "id": "orch", "label": "Orchestrator","subtitle": "tool_use", "accent": "amber", "x": 0.60, "y": 0.5 },
-              { "id": "tool", "label": "Tool",       "subtitle": "function",  "accent": "earth", "x": 0.86, "y": 0.5 }
+              { "id": "user", "label": "User",       "subtitle": "question",  "accent": "water", "x": 0.30, "y": 0.30 },
+              { "id": "llm",  "label": "LLM",        "subtitle": "claude",    "accent": "fire",  "x": 0.70, "y": 0.30 },
+              { "id": "orch", "label": "Orchestrator","subtitle": "tool_use", "accent": "amber", "x": 0.30, "y": 0.75 },
+              { "id": "tool", "label": "Tool",       "subtitle": "function",  "accent": "earth", "x": 0.70, "y": 0.75 }
             ],
             "edges": [
               { "from": "user", "to": "llm",  "kind": "dashed", "label": "ask" },
@@ -4217,6 +4251,12 @@ export default {
             "type": "quote",
             "text": "A tool's description is its job interview. Write it like you're hiring.",
             "cite": "the tool-schema rule"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen the three pieces that turn an LLM into an agent: the **tool schema** (the contract the model reads), the **agent loop** (call → run tool → feed result back, repeat until `stop_reason != tool_use`), and **errors-as-inputs** (handing failures back so the model recovers). Design a customer-support agent that can look up orders **and** issue refunds. Explain how the three pieces fit together end-to-end, and name the trade-off you'd watch when one of those tools has a side effect.",
+            "modelAnswer": "Start with the **schemas** as contracts: `search_orders` is a safe read, and its description tells the model exactly when to call it; `issue_refund` is a write, with a strict `input_schema` (order_id, amount) so the model can't fill garbage. The **agent loop** drives execution — call the model, and while `stop_reason == tool_use`, pull the requested tool block, dispatch it, append the `tool_result`, and loop again until the model stops asking for tools and emits the final answer. Cap iterations at ~5-8 so a confused model can't burn the budget chasing its tail. **Errors are just more input**: if `search_orders` raises \"no order found,\" send that string back as the tool result and the model re-asks for an email instead of crashing. **The trade-off I'd watch is autonomy vs. safety on the side-effecting tool**: `search_orders` is idempotent and safe to let the loop call freely, but `issue_refund` moves money, so I'd gate it behind a human-confirm step (or a hard policy cap, like the lesson's refuse-over-$500 rule) before executing. Letting the agent call a write tool with the same freedom as a read tool is how an unbounded loop turns one confused turn into a pile of duplicate refunds.",
+            "hint": "Walk one request through schema → loop → result, then split your tools into reads vs. writes. Which one is safe to auto-call, and what guard does the other one need?"
           }
         ]
       }
@@ -4239,8 +4279,8 @@ export default {
             "nodes": [
               { "id": "golden", "label": "Golden set",  "subtitle": "100 cases", "accent": "water", "x": 0.08, "y": 0.5 },
               { "id": "cand",   "label": "Candidate",   "subtitle": "new prompt","accent": "fire",  "x": 0.34, "y": 0.5 },
-              { "id": "judge",  "label": "LLM judge",   "subtitle": "claude",    "accent": "amber", "x": 0.60, "y": 0.5 },
-              { "id": "dash",   "label": "Trace store", "subtitle": "LangSmith", "accent": "earth", "x": 0.86, "y": 0.5 }
+              { "id": "judge",  "label": "LLM judge",   "subtitle": "claude",    "accent": "amber", "x": 0.60, "y": 0.85 },
+              { "id": "dash",   "label": "Trace store", "subtitle": "LangSmith", "accent": "earth", "x": 0.86, "y": 0.85 }
             ],
             "edges": [
               { "from": "golden", "to": "cand",  "kind": "dashed", "label": "run" },

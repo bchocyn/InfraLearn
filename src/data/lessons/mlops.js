@@ -22,8 +22,9 @@ export default {
             "text": "Read this as a *cycle*, not a pipeline. The dashed edges are where **data and feedback flow** — the loop is closed by drift detection sending you back to retrain."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "ML lifecycle as a closed loop",
+            "why": "The loop never ends — drift detection sends you back to data, because the model that's right today will be wrong tomorrow.",
             "nodes": [
               {
                 "id": "data",
@@ -46,7 +47,7 @@ export default {
                 "label": "Train",
                 "subtitle": "fit θ",
                 "x": 0.5,
-                "y": 0.05,
+                "y": -0.1,
                 "accent": "sky"
               },
               {
@@ -90,62 +91,48 @@ export default {
                 "accent": "water"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "data",
-                "to": "feat",
-                "kind": "dashed",
-                "label": "raw",
-                "accent": "earth"
+                "title": "Data → features",
+                "description": "Start by collecting and cleaning **data**, then transform the raw rows into the **features** the model actually learns from.",
+                "activeNodes": ["data", "feat"],
+                "activeEdges": [{ "from": "data", "to": "feat", "label": "raw" }]
               },
               {
-                "from": "feat",
-                "to": "train",
-                "kind": "dashed",
-                "label": "X, y",
-                "accent": "sky"
+                "title": "Train",
+                "description": "Feed `X, y` to the **train** step, which fits the parameters `θ` — this is the actual learning.",
+                "activeNodes": ["feat", "train"],
+                "activeEdges": [{ "from": "feat", "to": "train", "label": "X, y" }]
               },
               {
-                "from": "train",
-                "to": "eval",
-                "kind": "solid",
-                "label": "model",
-                "accent": "sky"
+                "title": "Evaluate",
+                "description": "Score the fresh model on a **holdout** set it never saw — this gate decides whether it's good enough to ship.",
+                "activeNodes": ["train", "eval"],
+                "activeEdges": [{ "from": "train", "to": "eval", "label": "model" }]
               },
               {
-                "from": "eval",
-                "to": "deploy",
-                "kind": "dashed",
-                "label": "promote",
-                "accent": "amber"
+                "title": "Deploy + monitor",
+                "description": "Promote the model to **serve at scale**, then **monitor** its live predictions for latency and quality.",
+                "activeNodes": ["eval", "deploy", "monitor"],
+                "activeEdges": [
+                  { "from": "eval", "to": "deploy", "label": "promote" },
+                  { "from": "deploy", "to": "monitor", "label": "predictions" }
+                ]
               },
               {
-                "from": "deploy",
-                "to": "monitor",
-                "kind": "dashed",
-                "label": "predictions",
-                "accent": "fire"
+                "title": "Detect drift",
+                "description": "Monitoring signals feed **drift** detection — the moment the live world diverges from training, accuracy is quietly rotting.",
+                "activeNodes": ["monitor", "drift"],
+                "activeEdges": [{ "from": "monitor", "to": "drift", "label": "signals" }]
               },
               {
-                "from": "monitor",
-                "to": "drift",
-                "kind": "solid",
-                "label": "signals",
-                "accent": "fire"
-              },
-              {
-                "from": "drift",
-                "to": "retrain",
-                "kind": "dashed",
-                "label": "trigger",
-                "accent": "water"
-              },
-              {
-                "from": "retrain",
-                "to": "data",
-                "kind": "dashed",
-                "label": "refresh",
-                "accent": "water"
+                "title": "Retrain — loop closes",
+                "description": "Drift **triggers** a **retrain**, which refreshes the **data** and starts the whole cycle over. The loop is the product.",
+                "activeNodes": ["drift", "retrain", "data"],
+                "activeEdges": [
+                  { "from": "drift", "to": "retrain", "label": "trigger" },
+                  { "from": "retrain", "to": "data", "label": "refresh" }
+                ]
               }
             ]
           }
@@ -285,6 +272,12 @@ export default {
           {
             "type": "p",
             "text": "**Key insight**: in ML, the deploy is the *beginning* of the work, not the end. Every stage after `train` exists because the model will be wrong tomorrow in ways it isn't wrong today — and your job is to notice before your users do."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis. You've now seen all eight stages — **data → features → train → eval → deploy → monitor → drift → retrain**. Trace a *single* concept-drift event through the loop: a competitor launches and your churn model's accuracy quietly slides. Explain how **monitoring**, the **feature store**, the **eval gate**, and **data versioning** each play a role in catching it and shipping a fix safely — then name the one trade-off you'd watch when you wire the loop to retrain *automatically*.",
+            "modelAnswer": "The decay is silent — no exception throws — so **monitoring** is what surfaces it: a sliding-window drift detector on inputs and predictions fires before accuracy formally drops, because accuracy is a trailing indicator that needs ground-truth labels that arrive late. That kicks the loop back to **data**: you pull a fresh, **versioned** slice (a new data SHA) so the retrain is reproducible and you can diff exactly what changed. The **feature store** is what makes the new model trustworthy — the rolling features are computed once from a single definition and materialized to both the warehouse (train) and the online store (serve), so the retrained model doesn't inherit train-serve skew on top of the drift. Before it ships, the **eval gate** blocks promotion unless the new θ beats the incumbent on held-out and sliced metrics — that's the safety interlock that stops an automated pipeline from shipping a worse model just because deploy is push-button. Rollback stays safe because you kept the prior model *and* the data that made it. The trade-off with **fully automatic** retraining: speed vs. stability — auto-retrain closes the loop in hours instead of a quarterly meeting, but if the trigger is too twitchy you retrain on noise (or on a transient outage's poisoned logs), thrash the production model, and chase your own tail. So you gate the auto-trigger behind a sustained drift threshold plus a hard eval gate, and keep a human approval for the final Staging→Production promotion.",
+            "hint": "Walk it stage by stage: who *notices*, who supplies *clean reproducible data*, who *blocks a bad fix*, and what the *cost of automating the trigger* is."
           }
         ]
       }
@@ -362,7 +355,7 @@ export default {
                 "label": "Final report",
                 "subtitle": "honest accuracy",
                 "x": 0.82,
-                "y": 0.82,
+                "y": 1.05,
                 "accent": "fire"
               }
             ],
@@ -433,48 +426,48 @@ export default {
                 "id": "u1",
                 "label": "Underfit",
                 "subtitle": "high bias",
-                "x": 0.18,
-                "y": 0.22,
+                "x": 0.3,
+                "y": 0.1,
                 "accent": "water"
               },
               {
                 "id": "u2",
                 "label": "train↑ val↑",
                 "subtitle": "both wrong",
-                "x": 0.18,
-                "y": 0.72,
+                "x": 0.3,
+                "y": 0.6,
                 "accent": "water"
               },
               {
                 "id": "f1",
                 "label": "Good fit",
                 "subtitle": "generalizes",
-                "x": 0.5,
-                "y": 0.22,
+                "x": 0.7,
+                "y": 0.1,
                 "accent": "sky"
               },
               {
                 "id": "f2",
                 "label": "train↓ val↓",
                 "subtitle": "both low",
-                "x": 0.5,
-                "y": 0.72,
+                "x": 0.7,
+                "y": 0.6,
                 "accent": "sky"
               },
               {
                 "id": "o1",
                 "label": "Overfit",
                 "subtitle": "memorized",
-                "x": 0.82,
-                "y": 0.22,
+                "x": 0.5,
+                "y": 0.3,
                 "accent": "fire"
               },
               {
                 "id": "o2",
                 "label": "train↓ val↑",
                 "subtitle": "gap widens",
-                "x": 0.82,
-                "y": 0.72,
+                "x": 0.5,
+                "y": 0.85,
                 "accent": "fire"
               }
             ],
@@ -704,8 +697,8 @@ export default {
                 "id": "m",
                 "label": "Metrics store",
                 "subtitle": "events",
-                "x": 0.9,
-                "y": 0.5,
+                "x": 0.5,
+                "y": 1.05,
                 "accent": "earth"
               }
             ],
@@ -864,8 +857,9 @@ export default {
             "text": "Every forward pass walks the same path. **Tokens** become vectors, vectors flow through stacked **transformer blocks**, the final vector projects back to a vocabulary-sized distribution. The loop runs once per output token."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "One forward pass through an LLM",
+            "why": "That last hop loops the output back as input — **autoregression** — so a 500-token answer is 500 full passes.",
             "nodes": [
               {
                 "id": "txt",
@@ -888,7 +882,7 @@ export default {
                 "label": "Embeddings",
                 "subtitle": "ids → vectors",
                 "x": 0.42,
-                "y": 0.5,
+                "y": 0.95,
                 "accent": "sky"
               },
               {
@@ -896,7 +890,7 @@ export default {
                 "label": "Transformer × N",
                 "subtitle": "attention + MLP",
                 "x": 0.62,
-                "y": 0.5,
+                "y": 0.95,
                 "accent": "sky"
               },
               {
@@ -916,43 +910,45 @@ export default {
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "txt",
-                "to": "tok",
-                "kind": "dashed",
-                "label": "string"
+                "title": "Raw text in",
+                "description": "It all begins with a **string** — the prompt the model is asked to continue, like `\"The cat sat\"`.",
+                "activeNodes": ["txt"],
+                "activeEdges": []
               },
               {
-                "from": "tok",
-                "to": "emb",
-                "kind": "dashed",
-                "label": "token ids"
+                "title": "Tokenize",
+                "description": "The **tokenizer** chops the string into subwords and maps them to integer **ids** with BPE.",
+                "activeNodes": ["txt", "tok"],
+                "activeEdges": [{ "from": "txt", "to": "tok", "label": "string" }]
               },
               {
-                "from": "emb",
-                "to": "blk",
-                "kind": "dashed",
-                "label": "vectors"
+                "title": "Embed",
+                "description": "Each token id is looked up in the **embedding** table, becoming a dense vector the network can do math on.",
+                "activeNodes": ["tok", "emb"],
+                "activeEdges": [{ "from": "tok", "to": "emb", "label": "token ids" }]
               },
               {
-                "from": "blk",
-                "to": "lgt",
-                "kind": "solid",
-                "label": "project"
+                "title": "Transformer stack",
+                "description": "Vectors flow through **N transformer blocks** — attention mixes context across positions, the MLP transforms each one.",
+                "activeNodes": ["emb", "blk"],
+                "activeEdges": [{ "from": "emb", "to": "blk", "label": "vectors" }]
               },
               {
-                "from": "lgt",
-                "to": "smp",
-                "kind": "dashed",
-                "label": "softmax"
+                "title": "Project to logits",
+                "description": "The final vector is projected back to a **vocab-sized logit vector** — one raw score per possible next token.",
+                "activeNodes": ["blk", "lgt"],
+                "activeEdges": [{ "from": "blk", "to": "lgt", "label": "project" }]
               },
               {
-                "from": "smp",
-                "to": "tok",
-                "kind": "arc",
-                "label": "append + loop",
-                "accent": "fire"
+                "title": "Sample + loop",
+                "description": "Softmax turns logits into probabilities; the **sampler** picks one token, appends it, and loops back to predict the next.",
+                "activeNodes": ["lgt", "smp", "tok"],
+                "activeEdges": [
+                  { "from": "lgt", "to": "smp", "label": "softmax" },
+                  { "from": "smp", "to": "tok", "label": "append + loop" }
+                ]
               }
             ]
           },
@@ -1224,7 +1220,7 @@ export default {
                 "label": "Model output",
                 "subtitle": "constrained answer",
                 "x": 0.85,
-                "y": 0.75,
+                "y": 0.95,
                 "accent": "fire"
               }
             ],
@@ -1307,71 +1303,71 @@ export default {
           {
             "type": "diagram",
             "title": "Index time vs query time",
-            "height": 320,
+            "height": 420,
             "nodes": [
               {
                 "id": "docs",
                 "label": "Docs",
                 "subtitle": "PDFs+wiki",
                 "accent": "amber",
-                "x": 0.1,
-                "y": 0.22
+                "x": 0.3,
+                "y": 0.12
               },
               {
                 "id": "chunk",
                 "label": "Chunker",
                 "subtitle": "split + overlap",
                 "accent": "sky",
-                "x": 0.37,
-                "y": 0.22
+                "x": 0.7,
+                "y": 0.12
               },
               {
                 "id": "embed",
                 "label": "Embedder",
                 "subtitle": "text → vector",
                 "accent": "sky",
-                "x": 0.64,
-                "y": 0.22
+                "x": 0.3,
+                "y": 0.3
               },
               {
                 "id": "store",
                 "label": "Vector DB",
                 "subtitle": "qdrant",
                 "accent": "fire",
-                "x": 0.9,
-                "y": 0.22
+                "x": 0.7,
+                "y": 0.3
               },
               {
                 "id": "user",
                 "label": "User",
                 "subtitle": "question",
                 "accent": "water",
-                "x": 0.1,
-                "y": 0.78
+                "x": 0.3,
+                "y": 0.62
               },
               {
                 "id": "qemb",
                 "label": "Embed q",
                 "subtitle": "same model",
                 "accent": "sky",
-                "x": 0.37,
-                "y": 0.78
+                "x": 0.7,
+                "y": 0.62
               },
               {
                 "id": "search",
                 "label": "Retrieve",
                 "subtitle": "top-k · rerank",
                 "accent": "earth",
-                "x": 0.64,
-                "y": 0.78
+                "x": 0.3,
+                "y": 0.8
               },
               {
                 "id": "llm",
                 "label": "LLM",
                 "subtitle": "answer + cite",
                 "accent": "sky",
-                "x": 0.9,
-                "y": 0.78
+                "x": 0.7,
+                "y": 0.8
               }
             ],
             "edges": [
@@ -2012,7 +2008,7 @@ export default {
                 "label": "Prometheus",
                 "subtitle": "latency + drift",
                 "x": 0.92,
-                "y": 0.5,
+                "y": 1.05,
                 "accent": "fire"
               }
             ],
@@ -2340,8 +2336,9 @@ export default {
         "heading": "Request flow",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "One predict call",
+            "why": "The model is one hop in the chain — most of a predict call is the wire, the validation, and the trip back.",
             "nodes": [
               {
                 "id": "c",
@@ -2372,7 +2369,7 @@ export default {
                 "label": "model",
                 "subtitle": "in-process",
                 "x": 0.78,
-                "y": 0.5,
+                "y": 0.72,
                 "accent": "earth"
               },
               {
@@ -2384,39 +2381,42 @@ export default {
                 "accent": "amber"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "c",
-                "to": "u",
-                "label": "POST /predict",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Client sends",
+                "description": "A **client** — `curl` or another service — fires a `POST /predict` with a JSON feature vector.",
+                "activeNodes": ["c"],
+                "activeEdges": []
               },
               {
-                "from": "u",
-                "to": "p",
-                "kind": "solid"
+                "title": "Uvicorn receives",
+                "description": "The **uvicorn** ASGI worker accepts the request and routes it into your FastAPI handler.",
+                "activeNodes": ["c", "u"],
+                "activeEdges": [{ "from": "c", "to": "u", "label": "POST /predict" }]
               },
               {
-                "from": "p",
-                "to": "m",
-                "label": "np.reshape",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "Pydantic validates",
+                "description": "**Pydantic** checks the body against your `Features` schema — junk gets a 422 here, before it ever reaches the model.",
+                "activeNodes": ["u", "p"],
+                "activeEdges": [{ "from": "u", "to": "p" }]
               },
               {
-                "from": "m",
-                "to": "r",
-                "label": "predict",
-                "kind": "dashed",
-                "accent": "earth"
+                "title": "Model predicts",
+                "description": "Validated input is reshaped and passed to the **in-process model** for inference — no network hop, just a function call.",
+                "activeNodes": ["p", "m"],
+                "activeEdges": [{ "from": "p", "to": "m", "label": "np.reshape" }]
               },
               {
-                "from": "r",
-                "to": "c",
-                "label": "200 JSON",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Shape the prediction",
+                "description": "The raw output becomes a **typed JSON prediction** — numpy types coerced so serialization can't blow up.",
+                "activeNodes": ["m", "r"],
+                "activeEdges": [{ "from": "m", "to": "r", "label": "predict" }]
+              },
+              {
+                "title": "Return to client",
+                "description": "The `200 JSON` response travels back to the **client** — one round trip complete.",
+                "activeNodes": ["r", "c"],
+                "activeEdges": [{ "from": "r", "to": "c", "label": "200 JSON" }]
               }
             ]
           }
@@ -2491,31 +2491,32 @@ export default {
         "heading": "The four milestones",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Milestone dependency graph",
+            "why": "Each milestone is a **vertical slice** — it does something observable end-to-end before the next one starts.",
             "nodes": [
               {
                 "id": "m1",
                 "label": "M1 Window",
                 "subtitle": "sliding buffer",
                 "x": 0.1,
-                "y": 0.5,
+                "y": 0.3,
                 "accent": "water"
               },
               {
                 "id": "m2",
                 "label": "M2 Stats",
                 "subtitle": "summarize",
-                "x": 0.37,
-                "y": 0.5,
+                "x": 0.9,
+                "y": 0.3,
                 "accent": "sky"
               },
               {
                 "id": "m3",
                 "label": "M3 Compare",
                 "subtitle": "ref vs live",
-                "x": 0.64,
-                "y": 0.5,
+                "x": 0.1,
+                "y": 0.7,
                 "accent": "earth"
               },
               {
@@ -2523,28 +2524,34 @@ export default {
                 "label": "M4 Alert",
                 "subtitle": "threshold",
                 "x": 0.9,
-                "y": 0.5,
+                "y": 0.7,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "m1",
-                "to": "m2",
-                "kind": "dashed",
-                "label": "batch"
+                "title": "M1 — Window",
+                "description": "Start with a **sliding buffer** of the last N predictions. Demo: print the buffer on every push — it proves the data pipeline is wired.",
+                "activeNodes": ["m1"],
+                "activeEdges": []
               },
               {
-                "from": "m2",
-                "to": "m3",
-                "kind": "dashed",
-                "label": "summary"
+                "title": "M2 — Stats",
+                "description": "Once a window fills, **summarize** it — mean, std, and a histogram per batch.",
+                "activeNodes": ["m1", "m2"],
+                "activeEdges": [{ "from": "m1", "to": "m2", "label": "batch" }]
               },
               {
-                "from": "m3",
-                "to": "m4",
-                "kind": "dashed",
-                "label": "score"
+                "title": "M3 — Compare",
+                "description": "Feed each summary into a **reference-vs-live** comparison, computing `PSI` or `KS` against a frozen baseline.",
+                "activeNodes": ["m2", "m3"],
+                "activeEdges": [{ "from": "m2", "to": "m3", "label": "summary" }]
+              },
+              {
+                "title": "M4 — Alert",
+                "description": "When the **score** crosses the threshold for K windows in a row, fire the alert — hysteresis stops pager flapping.",
+                "activeNodes": ["m3", "m4"],
+                "activeEdges": [{ "from": "m3", "to": "m4", "label": "score" }]
               }
             ]
           },
@@ -2768,7 +2775,7 @@ export default {
                 "label": "σ(·)",
                 "subtitle": "ReLU · sigmoid",
                 "x": 0.75,
-                "y": 0.5,
+                "y": 0.8,
                 "accent": "amber"
               },
               {
@@ -2776,7 +2783,7 @@ export default {
                 "label": "y",
                 "subtitle": "prediction",
                 "x": 0.95,
-                "y": 0.5,
+                "y": 0.8,
                 "accent": "earth"
               }
             ],
@@ -4490,8 +4497,8 @@ export default {
               { "id": "client",  "label": "client",       "subtitle": "APP / SDK",       "accent": "water", "x": 0.06, "y": 0.5 },
               { "id": "lb",      "label": "load balancer", "subtitle": "ROUND ROBIN",     "accent": "amber", "x": 0.28, "y": 0.5 },
               { "id": "cache",   "label": "cache",        "subtitle": "REDIS · TTL 60S",  "accent": "sky",   "x": 0.50, "y": 0.18 },
-              { "id": "server",  "label": "model server", "subtitle": "FASTAPI POOL",     "accent": "fire",  "x": 0.72, "y": 0.5 },
-              { "id": "store",   "label": "model store",  "subtitle": "S3 ARTIFACT",      "accent": "earth", "x": 0.94, "y": 0.5 }
+              { "id": "server",  "label": "model server", "subtitle": "FASTAPI POOL",     "accent": "fire",  "x": 0.4, "y": 0.85 },
+              { "id": "store",   "label": "model store",  "subtitle": "S3 ARTIFACT",      "accent": "earth", "x": 0.8, "y": 0.85 }
             ],
             "edges": [
               { "from": "client", "to": "lb",     "kind": "dashed", "label": "POST" },
@@ -4853,9 +4860,9 @@ export default {
             "nodes": [
               { "id": "src",   "label": "Source events",   "subtitle": "orders, clicks",       "x": 0.08, "y": 0.5,  "accent": "water" },
               { "id": "def",   "label": "Feature defs",    "subtitle": "Feast registry",       "x": 0.3,  "y": 0.5,  "accent": "amber" },
-              { "id": "wh",    "label": "Offline store",   "subtitle": "Snowflake / BigQuery", "x": 0.58, "y": 0.18, "accent": "earth" },
+              { "id": "wh",    "label": "Offline store",   "subtitle": "Snowflake / BigQuery", "x": 0.58, "y": 0.12, "accent": "earth" },
               { "id": "online","label": "Online store",    "subtitle": "Redis / DynamoDB",     "x": 0.58, "y": 0.82, "accent": "sky" },
-              { "id": "train", "label": "Training",        "subtitle": "batch, point-in-time", "x": 0.88, "y": 0.18, "accent": "fire" },
+              { "id": "train", "label": "Training",        "subtitle": "batch, point-in-time", "x": 0.88, "y": 0.3, "accent": "fire" },
               { "id": "infer", "label": "Inference",       "subtitle": "<20 ms lookup",        "x": 0.88, "y": 0.82, "accent": "fire" }
             ],
             "edges": [
@@ -4973,20 +4980,47 @@ export default {
             ]
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Where each drift signal comes from",
+            "why": "You watch the model's **inputs and outputs** in near-real-time — so you catch rot before the slow accuracy signal ever arrives.",
             "nodes": [
               { "id": "req",   "label": "Live requests",     "subtitle": "features X",          "x": 0.08, "y": 0.5,  "accent": "water" },
               { "id": "model", "label": "Model",             "subtitle": "f(X) → ŷ",            "x": 0.32, "y": 0.5,  "accent": "fire" },
-              { "id": "log",   "label": "Prediction log",    "subtitle": "X, ŷ, ts",            "x": 0.58, "y": 0.5,  "accent": "earth" },
+              { "id": "log",   "label": "Prediction log",    "subtitle": "X, ŷ, ts",            "x": 0.58, "y": 0.95,  "accent": "earth" },
               { "id": "mon",   "label": "Monitor",           "subtitle": "Evidently / Arize",   "x": 0.82, "y": 0.22, "accent": "amber" },
               { "id": "alarm", "label": "Alarm",             "subtitle": "PSI > 0.25 → page",   "x": 0.82, "y": 0.78, "accent": "fire" }
             ],
-            "edges": [
-              { "from": "req",   "to": "model", "kind": "dashed", "label": "X",        "accent": "water" },
-              { "from": "model", "to": "log",   "kind": "dashed", "label": "ŷ",        "accent": "fire" },
-              { "from": "log",   "to": "mon",   "kind": "solid",  "label": "window",   "accent": "amber" },
-              { "from": "mon",   "to": "alarm", "kind": "dashed", "label": "threshold","accent": "fire" }
+            "steps": [
+              {
+                "title": "Live requests arrive",
+                "description": "Real traffic streams in as **feature vectors X** — this is where input drift first shows up.",
+                "activeNodes": ["req"],
+                "activeEdges": []
+              },
+              {
+                "title": "Model scores",
+                "description": "The model runs `f(X) → ŷ`. Watching the shape of `ŷ` over time is how you catch **prediction drift** — and it needs no labels.",
+                "activeNodes": ["req", "model"],
+                "activeEdges": [{ "from": "req", "to": "model", "label": "X" }]
+              },
+              {
+                "title": "Log everything",
+                "description": "Each request is written to the **prediction log** as `X, ŷ, ts` — the raw material every drift check reads from.",
+                "activeNodes": ["model", "log"],
+                "activeEdges": [{ "from": "model", "to": "log", "label": "ŷ" }]
+              },
+              {
+                "title": "Monitor the window",
+                "description": "A **monitor** pulls a sliding window of logs and compares it against the reference with PSI or KS.",
+                "activeNodes": ["log", "mon"],
+                "activeEdges": [{ "from": "log", "to": "mon", "label": "window" }]
+              },
+              {
+                "title": "Fire the alarm",
+                "description": "Cross the **threshold** (`PSI > 0.25`) and it pages on-call — an actionable signal, not just another dashboard.",
+                "activeNodes": ["mon", "alarm"],
+                "activeEdges": [{ "from": "mon", "to": "alarm", "label": "threshold" }]
+              }
             ]
           }
         ]
@@ -5057,6 +5091,12 @@ export default {
             "type": "quote",
             "text": "Accuracy is a trailing indicator. By the time it drops, the question is how long you've been wrong — not whether.",
             "cite": "the case for input-drift monitoring"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis. You've seen the **three drifts** (input, prediction, concept), the **sliding-window stats** that detect them (PSI / KS), and the split between an **alarm** that pages you and a **dashboard** you glance at. Design the monitoring you'd put on a real-time fraud model: which signal goes on which of the three drifts, what you'd page on vs. only chart, and why you can't just wait for the accuracy number — then name the trade-off you tune to keep the on-call human sane.",
+            "modelAnswer": "Each drift gets a different sensor. **Input drift** — run PSI (or KS) on each incoming feature against the training reference over a sliding window; this catches the upstream pipeline breaking or the population shifting (a new country, a logging-format change). **Prediction drift** — watch the distribution of the *scores* the model emits; if the fraud-probability histogram suddenly skews, the model is reacting to something even before labels confirm it. **Concept drift** — the relationship between features and the truth has changed; you only see it once ground-truth labels (confirmed chargebacks) land, which is *why you can't wait for accuracy*: in fraud, labels are delayed days to weeks, so by the time accuracy formally drops you've been bleeding money the whole time. Input and prediction drift are your **leading** indicators; accuracy is the **trailing** one. Routing: a hard PSI breach above ~0.25 on a key feature, or prediction volume cratering, is an **alarm** that pages on-call — that's 'the model may be blind right now.' Gradual minor drift, label-based accuracy, and per-segment slices go on a **dashboard** for the weekly review. The trade-off you tune is **alarm sensitivity vs. alert fatigue**: thresholds too tight and the pager screams at every weekend traffic dip until people mute it (so the *real* outage gets ignored); too loose and you find out from the fraud-loss report. You tune it with sustained-window thresholds and severity tiers so only 'model is effectively down' pages a human at 3 a.m.",
+            "hint": "Map one detector to each drift, then ask which failure means 'wake someone up *now*' vs. 'discuss Monday' — and what breaks if every drift pages."
           }
         ]
       }
@@ -5117,20 +5157,47 @@ export default {
             ]
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "CI/CD for an ML pipeline — gates between stages",
+            "why": "Each arrow is a gate — a model only advances when it clears the bar, so bad versions never reach prod.",
             "nodes": [
-              { "id": "data",  "label": "Data + DVC",       "subtitle": "versioned",   "x": 0.08, "y": 0.5,  "accent": "earth" },
-              { "id": "train", "label": "Train job",        "subtitle": "fit",         "x": 0.3,  "y": 0.5,  "accent": "sky" },
-              { "id": "eval",  "label": "Eval gate",        "subtitle": "auc > 0.82",  "x": 0.5,  "y": 0.5,  "accent": "fire" },
-              { "id": "reg",   "label": "Registry",         "subtitle": "MLflow",      "x": 0.7,  "y": 0.5,  "accent": "amber" },
-              { "id": "serve", "label": "Serving",          "subtitle": "canary",      "x": 0.92, "y": 0.5,  "accent": "fire" }
+              { "id": "data",  "label": "Data + DVC",       "subtitle": "versioned",   "x": 0.2,  "y": 0.2,  "accent": "earth" },
+              { "id": "train", "label": "Train job",        "subtitle": "fit",         "x": 0.8,  "y": 0.2,  "accent": "sky" },
+              { "id": "eval",  "label": "Eval gate",        "subtitle": "auc > 0.82",  "x": 0.2,  "y": 0.5,  "accent": "fire" },
+              { "id": "reg",   "label": "Registry",         "subtitle": "MLflow",      "x": 0.8,  "y": 0.5,  "accent": "amber" },
+              { "id": "serve", "label": "Serving",          "subtitle": "canary",      "x": 0.5,  "y": 0.8,  "accent": "fire" }
             ],
-            "edges": [
-              { "from": "data",  "to": "train", "kind": "dashed", "label": "X, y",     "accent": "earth" },
-              { "from": "train", "to": "eval",  "kind": "solid",  "label": "model",    "accent": "sky" },
-              { "from": "eval",  "to": "reg",   "kind": "dashed", "label": "pass",     "accent": "amber" },
-              { "from": "reg",   "to": "serve", "kind": "dashed", "label": "promote",  "accent": "fire" }
+            "steps": [
+              {
+                "title": "Pin the data",
+                "description": "Everything starts from a **versioned dataset** — DVC stores a pointer in git so the exact bytes are reproducible later.",
+                "activeNodes": ["data"],
+                "activeEdges": []
+              },
+              {
+                "title": "Train",
+                "description": "The pipeline hands `X, y` to the **train job**, which fits the model on that pinned snapshot.",
+                "activeNodes": ["data", "train"],
+                "activeEdges": [{ "from": "data", "to": "train", "label": "X, y" }]
+              },
+              {
+                "title": "Eval gate",
+                "description": "The fresh model hits the **eval gate** — it has to clear `auc > 0.82` or it never advances.",
+                "activeNodes": ["train", "eval"],
+                "activeEdges": [{ "from": "train", "to": "eval", "label": "model" }]
+              },
+              {
+                "title": "Register",
+                "description": "Pass the gate and the model is logged to the **registry** with its lineage — version, data SHA, metrics.",
+                "activeNodes": ["eval", "reg"],
+                "activeEdges": [{ "from": "eval", "to": "reg", "label": "pass" }]
+              },
+              {
+                "title": "Promote to serving",
+                "description": "The serving layer pulls the promoted version and rolls it out as a **canary** — small traffic first, not 100%.",
+                "activeNodes": ["reg", "serve"],
+                "activeEdges": [{ "from": "reg", "to": "serve", "label": "promote" }]
+              }
             ]
           }
         ]
@@ -5176,6 +5243,12 @@ export default {
             "type": "quote",
             "text": "A model registry is your aircraft logbook — every artifact has a tail number, a lineage, and a date stamped on its retirement.",
             "cite": "the only way to keep ML auditable"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis. You've seen retrain **triggers** (schedule / drift / data-volume / performance), the **promotion ladder** (None → Staging → Production → Archived), the **CI/CD eval gate** between train and register, and the **registry + DVC** that pin the artifact and its data. Wire these into one self-driving retrain pipeline: trace what happens from the moment a drift trigger fires to a new model serving traffic, say where a *human* still has to sign off and why, and name the trade-off between trigger sensitivity and pipeline stability.",
+            "modelAnswer": "A **drift trigger** fires (PSI breach sustained over a window) and kicks off the pipeline. Step one pins the inputs: **DVC** snapshots the exact data version so the run is reproducible — same data SHA + seed → same θ — which is what lets you diff this model against the last and roll back to the data, not just the weights. The pipeline trains, then hits the **CI/CD eval gate**: the new model must beat the incumbent on held-out and *sliced* metrics or the pipeline hard-stops and registers nothing — this is the interlock that stops an automated trigger from shipping a worse model just because deploy is push-button. If it passes, it's written to the **registry** and transitioned to **Staging**, where the serving layer shadow- or canary-tests it on live traffic. The **human sign-off** lives at the Staging→Production promotion: a person confirms the canary's online metrics (latency, conversion, no Simpson's-paradox segment loss) before it takes real traffic — because offline eval can't see novelty effects, feedback loops, or calibration shifts, and an unattended promotion can silently regress the business metric. Promotion is the source of truth: serving just polls 'who's in Production?', so rollback is the *same* operation (re-promote the prior version, no redeploy). The trade-off: **trigger sensitivity vs. pipeline stability** — a twitchy trigger retrains on noise or on a transient outage's poisoned logs, thrashes the prod model, and burns compute chasing its tail; too dull and decay runs for weeks. You damp it with sustained-window thresholds plus the eval gate and the human promotion as backstops, so a false trigger costs a wasted run, never a bad deploy.",
+            "hint": "Follow one artifact: data pinned → trained → gated → registered → promoted. Then ask where automation is *unsafe* and what a hair-trigger costs you."
           }
         ]
       }
@@ -5289,6 +5362,12 @@ export default {
             "type": "quote",
             "text": "The model that wins on offline AUC isn't shipped — the model that wins on conversion is. Pick the right metric and the rest is plumbing.",
             "cite": "the only ship/no-ship rule that matters"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis. You've climbed the **rollout ladder** (shadow → canary → A/B), seen why a model can win **offline** yet lose **online**, learned which **online metric** actually decides ship/no-ship, and met the validity traps (novelty, peeking, Simpson's paradox, SRM). Design the rollout for a new recommender that beats the incumbent on offline AUC: which rung you start on and what each rung is *for*, what single metric gates the final ship, and the trade-off between calling the result fast and calling it right.",
+            "modelAnswer": "Offline AUC is necessary but not sufficient — the training labels were generated by the *old* recommender's choices, so offline eval is counterfactual and can't see feedback loops, latency regressions, or calibration shifts. So you earn confidence one rung at a time. **Shadow** first: mirror live traffic to the new model but serve none of its outputs — this validates plumbing, latency, and error rate with zero user risk (a slower model that regresses latency can erase its accuracy gains here before anyone's affected). Then **canary**: route a small slice (say 1–5%) of real traffic to it and watch the operational metrics — if it errors or tanks the guardrail, you've blast-radiused the damage. Then the full **A/B**: a proper 50/50 (or sized) split where the *decision* metric is an **online business outcome** — conversion / engagement / revenue-per-session, not AUC — because that's what you actually ship for. The guardrails before you trust the number: pre-compute **sample size** so you don't **peek** and stop the instant p < 0.05 (which inflates false positives); run a full **weekly cycle** so the **novelty effect** washes out; check **SRM** (assignments must be 50/50 ± noise, else the splitter is broken — throw it out); and **slice by segment** so **Simpson's paradox** doesn't hide a cohort loss under an overall lift. The trade-off is **speed vs. validity**: ending early or on too little traffic gives you a fast answer that's probably a false positive (novelty + peeking both bias toward 'ship'); waiting for the pre-registered sample size and a full cycle costs days but is the only honest read. You buy speed safely by failing *fast* on the cheap rungs (shadow/canary catch the obvious losers) and being patient only on the final A/B that gates the business metric.",
+            "hint": "Each rung de-risks a different thing (plumbing → blast radius → truth). Then ask: what makes a fast 'ship it' a *lie*?"
           }
         ]
       }

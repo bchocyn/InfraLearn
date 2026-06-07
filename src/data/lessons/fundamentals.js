@@ -547,6 +547,12 @@ export default {
             "type": "quote",
             "text": "Threads are for people who can't think in event loops; processes are for people who can't think at all. Both groups ship.",
             "cite": "engineering folklore"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've now got three pieces that interact: **threads share one address space while processes don't**, `counter += 1` is **load-add-store and therefore racy**, and the **GIL** serializes Python bytecode. You're asked to speed up a Python service that does both heavy number-crunching on in-memory arrays *and* lots of waiting on slow HTTP calls. Design how you'd split the work across threads vs processes, justify it using the GIL, and name the trade-off your choice forces you to pay.",
+            "modelAnswer": "Split by **what each part is bound on**. The HTTP calls are **I/O-bound**: a thread holding the GIL releases it while blocked on the socket, so a thread pool gives real concurrency there with almost no overhead, and the threads can share the in-memory results cheaply because they live in **one address space**. The number-crunching is **CPU-bound**, and here the **GIL** is the wall — only one thread runs Python bytecode at a time, so adding threads buys nothing; I push that work to a **process pool** (or `ProcessPoolExecutor`), one worker per core, each with its own GIL, so they run truly in parallel. The two **trade-offs** I'm accepting: (1) processes don't share memory, so every array I hand a worker is **pickled and copied** — passing big payloads can blow up RAM (8 workers × a 2 GB array = 16 GB), which I'd mitigate with shared memory or memory-mapped files; and (2) in the threaded I/O half, any shared mutable counter or accumulator is exposed to the **load-add-store race**, so I either guard it with a `Lock`/`Queue` or keep per-thread state and merge at the end. The judgment call is matching the concurrency primitive to the bottleneck — threads for waiting, processes for computing — and paying either the copy cost or the locking cost accordingly.",
+            "hint": "One of the two workloads releases the GIL while it waits; the other is throttled by it. Match each to threads or processes — then ask what you give up: shared memory, or copies and locks?"
           }
         ]
       }
@@ -571,8 +577,9 @@ export default {
         "heading": "The translation path",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Virtual address → physical RAM",
+            "why": "Every load and store you write runs this gauntlet — a **TLB hit** is invisible, a **miss** costs a page walk, and a **page fault** drops into the kernel.",
             "nodes": [
               {
                 "id": "proc",
@@ -615,40 +622,71 @@ export default {
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "proc",
-                "to": "vaddr",
-                "kind": "dashed",
-                "accent": "water",
-                "label": "mov rax, [ptr]"
+                "title": "The process issues an access",
+                "description": "Your code runs something like `mov rax, [ptr]` — a plain load or store. The address it uses is **virtual**, private to this process, not a real RAM location.",
+                "activeNodes": [
+                  "proc",
+                  "vaddr"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "proc",
+                    "to": "vaddr",
+                    "label": "mov rax, [ptr]"
+                  }
+                ]
               },
               {
-                "from": "vaddr",
-                "to": "tlb",
-                "kind": "dashed",
-                "accent": "sky",
-                "label": "hit?"
+                "title": "Check the TLB first",
+                "description": "The CPU asks the **TLB**, a tiny cache of recent translations. A hit returns the physical frame in ~1 cycle — fast enough to be effectively invisible.",
+                "activeNodes": [
+                  "vaddr",
+                  "tlb"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "vaddr",
+                    "to": "tlb",
+                    "label": "hit?"
+                  }
+                ]
               },
               {
-                "from": "vaddr",
-                "to": "mmu",
-                "kind": "dashed",
-                "accent": "sky",
-                "label": "miss"
+                "title": "TLB miss → page walk",
+                "description": "On a miss, the **MMU** walks 4 levels of page tables in RAM to find the mapping — 100+ cycles. If an entry is missing or swapped out, it traps to the kernel as a **page fault**.",
+                "activeNodes": [
+                  "vaddr",
+                  "mmu"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "vaddr",
+                    "to": "mmu",
+                    "label": "miss"
+                  }
+                ]
               },
               {
-                "from": "tlb",
-                "to": "ram",
-                "kind": "dashed",
-                "accent": "earth"
-              },
-              {
-                "from": "mmu",
-                "to": "ram",
-                "kind": "dashed",
-                "accent": "amber",
-                "label": "frame #"
+                "title": "Reach physical RAM",
+                "description": "Either path lands on the same **4 KiB frame** of physical RAM. The MMU hands back the frame number; the TLB caches it so the next access skips the walk.",
+                "activeNodes": [
+                  "tlb",
+                  "mmu",
+                  "ram"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "tlb",
+                    "to": "ram"
+                  },
+                  {
+                    "from": "mmu",
+                    "to": "ram",
+                    "label": "frame #"
+                  }
+                ]
               }
             ]
           },
@@ -752,6 +790,12 @@ export default {
             "type": "quote",
             "text": "If your service is slow and the disk light is solid, you're not CPU-bound — you're swapping.",
             "cite": "every on-call engineer, eventually"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've now seen the whole illusion: the **translation path** (TLB → MMU → page walk → RAM), the gap between **VSZ and RSS**, the **page cache** sitting in 'available' memory, and the **OOM killer** that fires when real RAM runs out. A service shows 100 GiB VSZ but 800 MiB RSS, runs fine for hours, then gets OOM-killed under load — with `free -h` having shown most memory as 'available' the whole time. Explain how these mechanisms fit together to produce that outcome, and name the trade-off you'd weigh before 'fixing' it by turning off swap.",
+            "modelAnswer": "The 100 GiB VSZ is virtual address space the process *reserved* — the MMU has mappings for it, but no physical frame is committed until each page is first touched, which is why **RSS** (the truth) stays tiny. As load arrives, the service touches more of those pages; each first touch is a fault that the **page walk** resolves into a freshly allocated physical frame, so RSS climbs toward real RAM. Meanwhile `free -h` looked safe because the kernel had filled 'available' with **page cache** it can evict on demand — that's reclaimable and not the problem. The OOM kill comes when *anonymous* (non-evictable) pages plus genuinely needed cache exceed RAM and there's nowhere to spill: the kernel reclaims cache, then, with no swap to push cold anonymous pages to, picks a victim by `oom_score` and kills it. So the chain is: lazy commit (VSZ ≫ RSS) → first-touch faults grow RSS → reclaim exhausts → OOM. The **trade-off** on disabling swap: `swapoff` removes the soft-failure runway — instead of degrading into slow swapping (the solid disk light), the next allocation OOMs *instantly*. You trade tail-latency spikes for abrupt kills. The usual judgment is to keep a little swap with `vm.swappiness=10` so cold pages can spill without thrashing hot ones, and to alert on **RSS** and reclaim pressure rather than on `used` — because the page cache made `used` a liar all along.",
+            "hint": "VSZ is a promise, RSS is the bill, and the page cache makes 'used' look scarier than it is. Ask what swap actually buys you before you remove it."
           }
         ]
       }
@@ -771,9 +815,10 @@ export default {
             "text": "The kernel gives every filesystem the same shape via the **VFS** (Virtual File System). That's why `cp` doesn't care whether you're copying onto ext4, NTFS, or a network mount — VFS makes them all look identical to userspace."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "From syscall to sector",
             "height": 260,
+            "why": "A `write()` that \"succeeds\" usually only reached **RAM** — the bytes aren't safe on disk until a flush or `fsync` pushes them to the block device.",
             "nodes": [
               {
                 "id": "app",
@@ -816,33 +861,65 @@ export default {
                 "y": 0.78
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "app",
-                "to": "vfs",
-                "kind": "dashed",
-                "label": "syscall"
+                "title": "App makes the syscall",
+                "description": "Your program calls `write(fd, buf, n)`. That's a **syscall** — it crosses from user space into the kernel, handing off the bytes and a file descriptor.",
+                "activeNodes": [
+                  "app",
+                  "vfs"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "app",
+                    "to": "vfs",
+                    "label": "syscall"
+                  }
+                ]
               },
               {
-                "from": "vfs",
-                "to": "fs",
-                "kind": "solid"
+                "title": "VFS routes to the filesystem",
+                "description": "The **VFS** is one generic interface over many filesystems. It dispatches the write to whichever driver owns this file — **ext4**, **xfs**, or **btrfs**.",
+                "activeNodes": [
+                  "vfs",
+                  "fs"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "vfs",
+                    "to": "fs"
+                  }
+                ]
               },
               {
-                "from": "fs",
-                "to": "pc",
-                "kind": "dashed",
-                "accent": "earth",
-                "label": "buffer",
-                "curve": 0.3
+                "title": "Buffer into the page cache",
+                "description": "The filesystem doesn't hit disk yet — it stamps the bytes into the **page cache** in RAM as **dirty pages**. Your `write()` returns now, which is why it feels instant.",
+                "activeNodes": [
+                  "fs",
+                  "pc"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "fs",
+                    "to": "pc",
+                    "label": "buffer"
+                  }
+                ]
               },
               {
-                "from": "pc",
-                "to": "blk",
-                "kind": "dashed",
-                "accent": "fire",
-                "label": "flush / fsync",
-                "curve": 0.3
+                "title": "Flush to the block device",
+                "description": "Later — on a timer or when you call **`fsync`** — dirty pages drain to the **block device** (SSD/NVMe). Only here are the bytes durable; a crash before this loses them.",
+                "activeNodes": [
+                  "pc",
+                  "blk"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "pc",
+                    "to": "blk",
+                    "label": "flush / fsync"
+                  }
+                ]
               }
             ]
           }
@@ -1094,6 +1171,12 @@ export default {
           {
             "type": "p",
             "text": "Filesystems have both — the page cache is the invalidation problem, and dentries are the naming one. Every weird `ls` output you've ever seen lives somewhere on that diagram."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've traced the full write path: `write()` lands in the **page cache**, an **inode** points at the data blocks, the **journal** records the change, and `fsync` forces the **flush** to the platter. A user reports that after a clean app restart their last few records vanished — no crash, no power loss. Walk through how these pieces conspire to lose that data, then design the durable write the app *should* have done and name the trade-off it costs.",
+            "modelAnswer": "The records were written but only ever lived in the **page cache** — `write()` returns the instant the bytes are copied there, long before they hit disk. A normal `close()` does **not** flush, and the kernel's writeback can lag by seconds, so the app's idea of \"saved\" was a dirty page the kernel hadn't yet pushed through the journal to the data blocks. On the clean restart nothing replayed those pages (the journal only protects writes that reached it), so they evaporated. The durable version: after the final `write()`, call **`fsync(fd)`** to force the page cache through the journal and onto the platter, and—because a file's *name* is a directory entry, a separate inode—`fsync` the **parent directory** too so the new entry survives. For rename-based atomic saves, the order is write-temp → fsync(temp) → rename → fsync(dir). The **trade-off**: each `fsync` is a real disk round-trip that stalls the writer, so blanket fsync-per-record can cut throughput by an order of magnitude. The judgment call is *which* writes are precious — fsync those, batch the rest, and accept that the page cache's speed is exactly the durability you're choosing to risk in between.",
+            "hint": "Where do the bytes actually live the moment `write()` returns, and which call is the only thing that forces them past the journal to the platter? Then ask what that call costs if you do it on every record."
           }
         ]
       }
@@ -1580,15 +1663,16 @@ export default {
             "text": "**Default to UTF-8 everywhere.** It's the only sane choice for new code, handles all of Unicode, and is ASCII-compatible. Specify it explicitly — never rely on the platform default (`locale.getpreferredencoding()` varies, especially on Windows)."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Where the boundary lives",
+            "why": "Decode at the **edge**, encode on the way out, and keep everything in between as `str` — that one discipline kills almost every Unicode bug.",
             "nodes": [
               {
                 "id": "src",
                 "label": "Source",
                 "subtitle": "file / API",
                 "x": 0.1,
-                "y": 0.5,
+                "y": 0.08,
                 "accent": "water"
               },
               {
@@ -1596,7 +1680,7 @@ export default {
                 "label": "bytes",
                 "subtitle": "raw octets",
                 "x": 0.4,
-                "y": 0.5,
+                "y": 0.36,
                 "accent": "earth"
               },
               {
@@ -1604,7 +1688,7 @@ export default {
                 "label": "str",
                 "subtitle": "Unicode text",
                 "x": 0.7,
-                "y": 0.5,
+                "y": 0.64,
                 "accent": "sky"
               },
               {
@@ -1612,29 +1696,62 @@ export default {
                 "label": "Your code",
                 "subtitle": "work in str",
                 "x": 0.95,
-                "y": 0.5,
+                "y": 0.92,
                 "accent": "amber"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "src",
-                "to": "bytes",
-                "kind": "dashed",
-                "label": "read",
-                "accent": "water"
+                "title": "Data arrives at the source",
+                "description": "Text reaches you from outside — a **file**, a socket, an **API** response. The outside world has no idea what a Python `str` is.",
+                "activeNodes": [
+                  "src"
+                ],
+                "activeEdges": []
               },
               {
-                "from": "bytes",
-                "to": "str",
-                "kind": "dashed",
-                "label": ".decode('utf-8')",
-                "accent": "sky"
+                "title": "It comes in as bytes",
+                "description": "Reading gives you **`bytes`** — raw octets, not text. `b'caf\\xc3\\xa9'` is just numbers until you tell Python how to interpret them.",
+                "activeNodes": [
+                  "src",
+                  "bytes"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "src",
+                    "to": "bytes",
+                    "label": "read"
+                  }
+                ]
               },
               {
-                "from": "str",
-                "to": "logic",
-                "kind": "solid"
+                "title": "Decode at the boundary",
+                "description": "Call **`.decode('utf-8')`** right here to turn bytes into a real `str`. This is *the* boundary — decode once, as early as possible, and never guess the encoding.",
+                "activeNodes": [
+                  "bytes",
+                  "str"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "bytes",
+                    "to": "str",
+                    "label": ".decode('utf-8')"
+                  }
+                ]
+              },
+              {
+                "title": "Work in str",
+                "description": "Everything inside your program runs on **`str`** — Unicode text where `len` and slicing mean characters, not bytes. Only re-`encode` when you write back out.",
+                "activeNodes": [
+                  "str",
+                  "logic"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "str",
+                    "to": "logic"
+                  }
+                ]
               }
             ]
           }
@@ -2805,8 +2922,9 @@ export default {
         "heading": "Mental model of the lookup",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "How the shell resolves a path",
+            "why": "The filesystem only speaks **absolute** — the shell does all the prep so the kernel never sees a `~`, a `.`, or a relative path.",
             "nodes": [
               {
                 "id": "in",
@@ -2849,37 +2967,78 @@ export default {
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "in",
-                "to": "tilde",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "You type a path",
+                "description": "It starts as raw text — here `../app.log`. The shell treats this as a recipe, not a location, and rewrites it before anyone touches disk.",
+                "activeNodes": [
+                  "in"
+                ],
+                "activeEdges": []
               },
               {
-                "from": "in",
-                "to": "cwd",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Tilde expansion",
+                "description": "Any leading `~` is swapped for `$HOME` first. So `~/notes` becomes `/home/you/notes` — a plain `~` never reaches the filesystem.",
+                "activeNodes": [
+                  "in",
+                  "tilde"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "in",
+                    "to": "tilde",
+                    "label": "~ ?"
+                  }
+                ]
               },
               {
-                "from": "tilde",
-                "to": "norm",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "Prepend the CWD",
+                "description": "If the path is **relative** (no leading `/`), the shell glues your current working directory onto the front. `../app.log` from `/srv/web` becomes `/srv/web/../app.log`.",
+                "activeNodes": [
+                  "in",
+                  "cwd"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "in",
+                    "to": "cwd",
+                    "label": "relative?"
+                  }
+                ]
               },
               {
-                "from": "cwd",
-                "to": "norm",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "Normalize",
+                "description": "Now the `.` and `..` segments get collapsed. `/srv/web/../app.log` flattens to `/srv/app.log` — one clean, unambiguous absolute path.",
+                "activeNodes": [
+                  "tilde",
+                  "cwd",
+                  "norm"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "tilde",
+                    "to": "norm"
+                  },
+                  {
+                    "from": "cwd",
+                    "to": "norm"
+                  }
+                ]
               },
               {
-                "from": "norm",
-                "to": "fs",
-                "kind": "solid",
-                "accent": "fire",
-                "label": "absolute path"
+                "title": "Hand it to the filesystem",
+                "description": "Only the finished absolute path crosses into the kernel, which walks it to an **inode**. The filesystem does zero guessing — all the work already happened in the shell.",
+                "activeNodes": [
+                  "norm",
+                  "fs"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "norm",
+                    "to": "fs",
+                    "label": "absolute path"
+                  }
+                ]
               }
             ]
           },
@@ -3016,7 +3175,7 @@ export default {
                 "label": "grep ERROR",
                 "subtitle": "filters lines",
                 "x": 0.58,
-                "y": 0.5,
+                "y": 0.85,
                 "accent": "sky"
               },
               {
@@ -3024,7 +3183,7 @@ export default {
                 "label": "wc -l",
                 "subtitle": "counts",
                 "x": 0.82,
-                "y": 0.5,
+                "y": 0.85,
                 "accent": "amber"
               }
             ],
@@ -3137,7 +3296,7 @@ export default {
                 "label": "Working tree",
                 "subtitle": "files you edit",
                 "x": 0.1,
-                "y": 0.5,
+                "y": 0.1,
                 "accent": "water"
               },
               {
@@ -3153,7 +3312,7 @@ export default {
                 "label": "Repository (.git)",
                 "subtitle": "commit graph",
                 "x": 0.9,
-                "y": 0.5,
+                "y": 0.9,
                 "accent": "fire"
               }
             ],
@@ -3345,32 +3504,32 @@ export default {
                 "id": "wd",
                 "label": "working dir",
                 "subtitle": "files you edit",
-                "x": 0.08,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.25,
                 "accent": "water"
               },
               {
                 "id": "idx",
                 "label": "index",
                 "subtitle": "staging area",
-                "x": 0.28,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.25,
                 "accent": "amber"
               },
               {
                 "id": "loc",
                 "label": "local .git",
                 "subtitle": "main+origin",
-                "x": 0.52,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.75,
                 "accent": "sky"
               },
               {
                 "id": "rem",
                 "label": "origin",
                 "subtitle": "GitHub repo",
-                "x": 0.88,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.75,
                 "accent": "fire"
               }
             ],
@@ -3862,8 +4021,9 @@ export default {
         "heading": "Where imports come from",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Import resolution order",
+            "why": "`import` returns the **first** match it finds on `sys.path` — which is exactly why a local `random.py` can silently shadow the stdlib and break your program.",
             "nodes": [
               {
                 "id": "app",
@@ -3906,27 +4066,74 @@ export default {
                 "accent": "water"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "app",
-                "to": "resolver",
-                "kind": "dashed",
-                "label": "import X"
+                "title": "Your code asks for a name",
+                "description": "When `main.py` runs `import X`, Python hands the bare name `X` to the import machinery. Nothing is located yet — it's just a request.",
+                "activeNodes": [
+                  "app",
+                  "resolver"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "app",
+                    "to": "resolver",
+                    "label": "import X"
+                  }
+                ]
               },
               {
-                "from": "resolver",
-                "to": "std",
-                "kind": "solid"
+                "title": "Walk sys.path in order",
+                "description": "The resolver checks `sys.modules` cache first, then walks **`sys.path`** entry by entry. The order matters: the search stops at the **first** directory that has a match.",
+                "activeNodes": [
+                  "resolver"
+                ],
+                "activeEdges": []
               },
               {
-                "from": "resolver",
-                "to": "pip",
-                "kind": "solid"
+                "title": "Built-in & stdlib",
+                "description": "Frozen built-ins and the **standard library** are checked along the path — `json`, `os`, `pathlib`. These ship with Python, so no install is ever needed.",
+                "activeNodes": [
+                  "resolver",
+                  "std"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "resolver",
+                    "to": "std",
+                    "label": "built-in?"
+                  }
+                ]
               },
               {
-                "from": "resolver",
-                "to": "local",
-                "kind": "solid"
+                "title": "Third-party (site-packages)",
+                "description": "Next come the libraries `pip install` dropped into **site-packages** — `requests`, `numpy`. This is why an unactivated virtualenv makes imports suddenly vanish.",
+                "activeNodes": [
+                  "resolver",
+                  "pip"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "resolver",
+                    "to": "pip",
+                    "label": "site-packages?"
+                  }
+                ]
+              },
+              {
+                "title": "Your own modules",
+                "description": "Finally the script's own directory and local packages — `./pkg/*.py`. Because the CWD often sorts early, a file named `random.py` here can **shadow** the stdlib and break everything.",
+                "activeNodes": [
+                  "resolver",
+                  "local"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "resolver",
+                    "to": "local",
+                    "label": "local file?"
+                  }
+                ]
               }
             ]
           }
@@ -4414,7 +4621,7 @@ export default {
                 "label": "sort | uniq -c",
                 "subtitle": "aggregate",
                 "x": 0.8,
-                "y": 0.5,
+                "y": 0.85,
                 "accent": "earth"
               }
             ],
@@ -5439,48 +5646,48 @@ export default {
                 "id": "client",
                 "label": "Your laptop",
                 "subtitle": "stub resolver",
-                "x": 0.05,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.1,
                 "accent": "water"
               },
               {
                 "id": "resolver",
                 "label": "Recursive resolver",
                 "subtitle": "1.1.1.1 / ISP",
-                "x": 0.28,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.1,
                 "accent": "earth"
               },
               {
                 "id": "root",
                 "label": "Root (.)",
                 "subtitle": "13 letter servers",
-                "x": 0.55,
-                "y": 0.15,
+                "x": 0.3,
+                "y": 0.37,
                 "accent": "amber"
               },
               {
                 "id": "tld",
                 "label": "TLD (.com)",
                 "subtitle": "Verisign",
-                "x": 0.55,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.37,
                 "accent": "amber"
               },
               {
                 "id": "auth",
                 "label": "Authoritative",
                 "subtitle": "ns.example.com",
-                "x": 0.55,
-                "y": 0.85,
+                "x": 0.3,
+                "y": 0.64,
                 "accent": "fire"
               },
               {
                 "id": "answer",
                 "label": "A record",
                 "subtitle": "93.184.216.34",
-                "x": 0.9,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.64,
                 "accent": "sky"
               }
             ],
@@ -7294,32 +7501,32 @@ export default {
                 "label": "raise",
                 "subtitle": "DEEP",
                 "accent": "fire",
-                "x": 0.1,
-                "y": 0.5
+                "x": 0.3,
+                "y": 0.2
               },
               {
                 "id": "mid",
                 "label": "mid layer",
                 "subtitle": "PASSES",
                 "accent": "amber",
-                "x": 0.4,
-                "y": 0.5
+                "x": 0.7,
+                "y": 0.2
               },
               {
                 "id": "handler",
                 "label": "try / except",
                 "subtitle": "DECIDES",
                 "accent": "sky",
-                "x": 0.7,
-                "y": 0.5
+                "x": 0.3,
+                "y": 0.8
               },
               {
                 "id": "out",
                 "label": "log / retry",
                 "subtitle": "USER VISIBLE",
                 "accent": "water",
-                "x": 0.94,
-                "y": 0.5
+                "x": 0.7,
+                "y": 0.8
               }
             ],
             "edges": [
@@ -7594,32 +7801,32 @@ export default {
                 "label": "v1.0",
                 "subtitle": "KNOWN GOOD",
                 "accent": "sky",
-                "x": 0.08,
-                "y": 0.5
+                "x": 0.30,
+                "y": 0.30
               },
               {
                 "id": "mid1",
                 "label": "midpoint",
                 "subtitle": "TEST · MARK",
                 "accent": "amber",
-                "x": 0.36,
-                "y": 0.5
+                "x": 0.70,
+                "y": 0.30
               },
               {
                 "id": "mid2",
                 "label": "midpoint",
                 "subtitle": "NARROWED",
                 "accent": "amber",
-                "x": 0.62,
-                "y": 0.5
+                "x": 0.30,
+                "y": 0.75
               },
               {
                 "id": "bad",
                 "label": "HEAD",
                 "subtitle": "BROKEN",
                 "accent": "fire",
-                "x": 0.92,
-                "y": 0.5
+                "x": 0.70,
+                "y": 0.75
               }
             ],
             "edges": [
@@ -7836,10 +8043,10 @@ export default {
             "subtitle": "ONE FUNCTION, TWO STEPS",
             "height": 220,
             "nodes": [
-              { "id": "key",    "label": "\"ada\"",      "subtitle": "KEY",          "accent": "water", "x": 0.10, "y": 0.5 },
-              { "id": "hash",   "label": "hash() % n",   "subtitle": "BUCKET INDEX", "accent": "fire",  "x": 0.38, "y": 0.5 },
-              { "id": "bucket", "label": "buckets[3]",   "subtitle": "SLOT",         "accent": "amber", "x": 0.66, "y": 0.5 },
-              { "id": "value",  "label": "id=42",        "subtitle": "MATCH",        "accent": "sky",   "x": 0.92, "y": 0.5 }
+              { "id": "key",    "label": "\"ada\"",      "subtitle": "KEY",          "accent": "water", "x": 0.30, "y": 0.30 },
+              { "id": "hash",   "label": "hash() % n",   "subtitle": "BUCKET INDEX", "accent": "fire",  "x": 0.70, "y": 0.30 },
+              { "id": "bucket", "label": "buckets[3]",   "subtitle": "SLOT",         "accent": "amber", "x": 0.30, "y": 0.75 },
+              { "id": "value",  "label": "id=42",        "subtitle": "MATCH",        "accent": "sky",   "x": 0.70, "y": 0.75 }
             ],
             "edges": [
               { "from": "key",    "to": "hash",   "kind": "solid", "label": "hash" },
@@ -8043,6 +8250,12 @@ export default {
             "type": "quote",
             "text": "Recursion is just a loop that uses the call stack as its memory.",
             "cite": "mental model to keep"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You now have three pieces: a **tree of nodes**, the **BFS/DFS traversals** that visit them, and the **base-case + reduction** shape of a recursive function. Design a function that, given the root of a deeply-nested JSON config, returns the *depth* of the most deeply-buried key — explain which traversal you'd reach for and why, and name the one trade-off that would make you abandon recursion for an explicit stack.",
+            "modelAnswer": "I'd model each object/array as a node whose children are its values, then write a recursive **DFS** because depth is naturally a property of how far down a single path you've walked — at each node I return `1 + max(depth(child) for child in children)`, with the **base case** being a scalar (or empty container) that returns 0. DFS over BFS here because I care about path length, not level order, and recursion mirrors the nesting one-to-one so the code reads like the problem. The **trade-off I'd watch**: Python caps the call stack near 1000 frames, so a pathologically deep config (or hostile input) blows up with `RecursionError`. The moment depth could exceed that — or I can't trust the input — I'd convert to an explicit stack of `(node, depth)` tuples and loop, trading the clean recursive shape for bounded, heap-backed memory I control.",
+            "hint": "Depth is about one path down, not breadth across a level — that picks your traversal. Then ask: what's the hard ceiling on the call stack, and when does it bite?"
           }
         ]
       }
@@ -8080,15 +8293,17 @@ export default {
             "subtitle": "LAST IN, FIRST OUT",
             "height": 240,
             "nodes": [
-              { "id": "in",    "label": "push(C)",      "subtitle": "INPUT",       "accent": "water", "x": 0.10, "y": 0.30 },
+              { "id": "in",    "label": "push(C)",      "subtitle": "INPUT",       "accent": "water", "x": 0.10, "y": 0.05 },
               { "id": "top",   "label": "[C]",          "subtitle": "TOP",         "accent": "fire",  "x": 0.40, "y": 0.30 },
               { "id": "mid",   "label": "[B]",          "subtitle": "BELOW",       "accent": "amber", "x": 0.40, "y": 0.55 },
               { "id": "bot",   "label": "[A]",          "subtitle": "BOTTOM",      "accent": "earth", "x": 0.40, "y": 0.80 },
-              { "id": "out",   "label": "pop() → C",    "subtitle": "OUTPUT",      "accent": "sky",   "x": 0.78, "y": 0.30 }
+              { "id": "out",   "label": "pop() → C",    "subtitle": "OUTPUT",      "accent": "sky",   "x": 0.78, "y": 0.05 }
             ],
             "edges": [
               { "from": "in",  "to": "top", "kind": "solid",  "label": "push" },
-              { "from": "top", "to": "out", "kind": "dashed", "label": "pop" }
+              { "from": "top", "to": "out", "kind": "dashed", "label": "pop" },
+              { "from": "top", "to": "mid", "kind": "dashed" },
+              { "from": "mid", "to": "bot", "kind": "dashed" }
             ]
           },
           {

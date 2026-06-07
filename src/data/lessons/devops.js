@@ -13,9 +13,10 @@ export default {
             "text": "That's a CI/CD pipeline. The point isn't speed — it's **forcing every change through the same gauntlet** so the version on prod was never touched by human hands."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "The standard pipeline",
             "height": 220,
+            "why": "Every change runs the same gauntlet — so the version on prod was never touched by human hands.",
             "nodes": [
               {
                 "id": "push",
@@ -23,7 +24,7 @@ export default {
                 "subtitle": "git → main",
                 "accent": "water",
                 "x": 0.05,
-                "y": 0.5
+                "y": 0.15
               },
               {
                 "id": "lint",
@@ -31,7 +32,7 @@ export default {
                 "subtitle": "ruff",
                 "accent": "amber",
                 "x": 0.26,
-                "y": 0.5
+                "y": 0.15
               },
               {
                 "id": "test",
@@ -55,33 +56,39 @@ export default {
                 "subtitle": "k8s · fly",
                 "accent": "fire",
                 "x": 0.92,
-                "y": 0.5
+                "y": 0.85
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "push",
-                "to": "lint",
-                "kind": "dashed",
-                "label": "trigger"
+                "title": "Push to main",
+                "description": "You `git push` a change. That push is the **trigger** — the only way code enters the pipeline. No one deploys from a laptop.",
+                "activeNodes": ["push"],
+                "activeEdges": []
               },
               {
-                "from": "lint",
-                "to": "test",
-                "kind": "dashed",
-                "label": "if clean"
+                "title": "Lint runs first",
+                "description": "The push fires the first gate: **lint** (`ruff`). It's the fastest check, so a style slip fails in seconds instead of after a full build.",
+                "activeNodes": ["push", "lint"],
+                "activeEdges": [{ "from": "push", "to": "lint", "label": "trigger" }]
               },
               {
-                "from": "test",
-                "to": "build",
-                "kind": "dashed",
-                "label": "if green"
+                "title": "Tests, if clean",
+                "description": "Only when lint is green do **unit + integration tests** run. Each station refuses to pass the part downstream until its own gate passes.",
+                "activeNodes": ["lint", "test"],
+                "activeEdges": [{ "from": "lint", "to": "test", "label": "if clean" }]
               },
               {
-                "from": "build",
-                "to": "deploy",
-                "kind": "dashed",
-                "label": "if main"
+                "title": "Build the image, if green",
+                "description": "Green tests unlock the **build** — your code is baked into an immutable Docker image. One artifact, promoted as-is from here on.",
+                "activeNodes": ["test", "build"],
+                "activeEdges": [{ "from": "test", "to": "build", "label": "if green" }]
+              },
+              {
+                "title": "Deploy, if on main",
+                "description": "Last gate: the **deploy** runs only on `main`, never on a PR branch. The built image ships to `k8s` or `fly` — untouched since the build step.",
+                "activeNodes": ["build", "deploy"],
+                "activeEdges": [{ "from": "build", "to": "deploy", "label": "if main" }]
               }
             ]
           }
@@ -120,6 +127,45 @@ export default {
       {
         "heading": "A real GitHub Actions workflow",
         "body": [
+          {
+            "type": "build-along",
+            "title": "Build the CI pipeline, piece by piece",
+            "goal": "A workflow that lints, tests, then ships only when green. Click through, then build it for real in VS Code.",
+            "lang": "yaml",
+            "file": ".github/workflows/ci.yml",
+            "steps": [
+              {
+                "title": "Name it + pick the trigger",
+                "say": "To run on every push to main you need a trigger. The on: block is what wakes the pipeline up.",
+                "add": "name: CI\non:\n  push:\n    branches: [main]"
+              },
+              {
+                "title": "Spin up a runner + grab the code",
+                "say": "A job runs on a fresh Ubuntu runner — it starts empty, so the first step checks out your repo.",
+                "add": "\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4"
+              },
+              {
+                "title": "Set up the language + cache deps",
+                "say": "Install Python and cache pip so re-runs skip the download.",
+                "add": "      - uses: actions/setup-python@v5\n        with:\n          python-version: '3.11'\n          cache: 'pip'\n      - run: pip install -r requirements.txt"
+              },
+              {
+                "title": "Lint first — the fastest failure",
+                "say": "Catch style and obvious mistakes before the slower tests, so red feedback comes in seconds.",
+                "add": "      - run: ruff check ."
+              },
+              {
+                "title": "Run the tests — the real gate",
+                "say": "This is the gate. With maxfail set to 1 it bails on the first red test so you are not waiting on a doomed run.",
+                "add": "      - run: pytest --maxfail=1"
+              },
+              {
+                "title": "Deploy only when green",
+                "say": "Ship only from main, and only if every step above passed. That is the whole point — prod was never touched by hand.",
+                "add": "      - if: github.ref == 'refs/heads/main'\n        run: ./deploy.sh"
+              }
+            ]
+          },
           {
             "type": "p",
             "text": "One file, two jobs, fan-out gated by branch. PRs run the cheap half; pushes to main earn the build-and-push:"
@@ -297,6 +343,229 @@ export default {
           {
             "type": "p",
             "text": "**Key insight.** A pipeline isn't about automation — it's about **making the path of least resistance also the safe path**. If the easy way is `kubectl apply` from your laptop, your pipeline isn't real. Make pushing through main strictly faster than going around it, and the culture follows."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've now seen the CI→Delivery→Deployment gates, a real GitHub Actions workflow, and two release strategies (**blue-green** and **canary**). Design the end-to-end path a single commit takes from `git push` to live traffic — say which strategy you'd default to for a payments service and the one trade-off you'd watch most closely.",
+            "modelAnswer": "A commit hits a branch and CI runs the gauntlet on the **exact artifact** that will ship: lint → tests → build one immutable image tagged by SHA (never `latest`). That's the **CI** half. **Delivery** means that green artifact is now *deployable* — promoted, not rebuilt, across staging and prod. **Deployment** is the act of putting it in front of users, and that's where the strategy choice lives. For a payments service I'd default to **canary**: route 1–5% of real traffic to the new version, watch error rate and latency for a few minutes, and ramp only if the SLOs hold — because a bad payments deploy that hits 100% of users instantly is unrecoverable. Blue-green is simpler and gives an *atomic* flip with an instant rollback, but it sends all traffic at once, so a subtle bug is fully exposed the moment you switch. The trade-off I'd watch hardest is the **database migration**: both strategies assume old and new code can run against the *same* schema simultaneously, so every migration has to be backward-compatible (expand, then contract) or the canary/flip silently corrupts data while looking healthy.",
+            "hint": "Trace the artifact: is it rebuilt per environment or promoted? Then ask what each strategy does to *the blast radius of a bad version*, and what shared resource both strategies quietly depend on."
+          }
+        ]
+      }
+    ]
+  },
+  "yaml-basics": {
+    "sections": [
+      {
+        "heading": "Why you keep seeing YAML",
+        "body": [
+          {
+            "type": "p",
+            "text": "Open a `docker-compose.yml`, a Kubernetes manifest, a GitHub Actions workflow, an Ansible playbook — **they're all YAML.** Four different tools, one file format. Learn to read YAML once and you can read all of them."
+          },
+          {
+            "type": "p",
+            "text": "YAML is **config-as-data**: it doesn't *do* anything, it just describes a shape — settings, a list of services, a pipeline. The tool reads that shape and acts on it. The whole language is three things: **scalars** (single values), **lists**, and **maps** (key/value). Indentation shows what's nested inside what. That's it."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Docker Compose** — describe services, ports, volumes",
+              "**Kubernetes** — describe the desired state of your cluster",
+              "**GitHub Actions** — describe a CI/CD pipeline",
+              "**Ansible** — describe server configuration tasks"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "The three shapes",
+        "body": [
+          {
+            "type": "p",
+            "text": "Everything in YAML is built from three pieces. **Scalars** are single values (a string, number, bool). A **sequence** is a list — each item on its own line under a `-`. A **mapping** is `key: value` pairs. Maps and lists nest inside each other to any depth."
+          },
+          {
+            "type": "code",
+            "lang": "yaml",
+            "text": "name: web-app          # scalar — a plain string value\nreplicas: 3            # scalar — inferred as an integer\nenabled: true         # scalar — inferred as a boolean\n\nports:                # value is a list (sequence)\n  - 8080              # list item — the dash means \"element of\"\n  - 8443              # second element\n\ndatabase:             # value is a nested map\n  host: db.internal   # nested key — indented under `database:`\n  port: 5432          # sibling of `host`, same indent = same level\n  ssl: true           # all three keys belong to `database`"
+          },
+          {
+            "type": "p",
+            "text": "Read top to bottom: `database` isn't a value, it's a **container** — the three indented lines below it are *its* contents. The dash (`-`) is the only thing that marks a list element; without it, you have a map."
+          }
+        ]
+      },
+      {
+        "heading": "Indentation IS the syntax",
+        "body": [
+          {
+            "type": "p",
+            "text": "In most languages indentation is style. In YAML it's **structure** — the only thing that says what's nested inside what. Two rules, no exceptions: **spaces only (never tabs)**, and **be consistent** (2 spaces per level is the universal convention)."
+          },
+          {
+            "type": "code",
+            "lang": "yaml",
+            "text": "service:              # top level — column 0\n  image: nginx        # 2 spaces in → a child of `service`\n  env:                # 2 spaces in → sibling of `image`\n    LOG_LEVEL: info   # 4 spaces in → a child of `env`, not `service`\n    DEBUG: false      # same 4 spaces = same level as LOG_LEVEL"
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "DO",
+            "watchLabel": "THE #1 YAML BUG",
+            "good": [
+              "Use **2 spaces** per nesting level, everywhere",
+              "Let your editor show whitespace so you can SEE the structure",
+              "Set your editor to insert spaces when you press Tab"
+            ],
+            "watch": [
+              "**A literal Tab character** for indentation — YAML rejects it with a hard parse error, no fallback",
+              "**Mixed indent widths** (2 here, 4 there) — silently re-parents a key under the wrong block",
+              "**A stray trailing/leading space** that shifts a line half a level — the file 'looks' fine but parses wrong"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Types and the traps",
+        "body": [
+          {
+            "type": "p",
+            "text": "YAML **guesses the type** of every unquoted scalar — string, int, float, bool, or null. That convenience is also where most real bugs live, because some words you meant as text get read as something else."
+          },
+          {
+            "type": "predict",
+            "prompt": "A config file contains `enabled: no`. The author meant the *string* \"no\". What does a standard YAML parser actually produce for the value of `enabled`?",
+            "options": [
+              "The string \"no\"",
+              "The boolean false",
+              "A parse error — `no` is a reserved word",
+              "null, because `no` isn't a recognized type"
+            ],
+            "answer": 1,
+            "explain": "**It becomes the boolean `false`.** This is the infamous \"Norway problem\": YAML 1.1 treats `no`, `No`, `NO`, `off`, `yes`, `on` (plus `true`/`false` themselves) as booleans. So `country: NO` (Norway's ISO code) silently becomes `country: false`, and `enabled: no` becomes `enabled: false`. The fix is always the same — **quote it**: `country: \"NO\"` or `enabled: \"no\"` forces a string. When a value *must* be text, quote it and the guessing stops."
+          },
+          {
+            "type": "code",
+            "lang": "yaml",
+            "text": "country:  NO          # ⚠ boolean false — the \"Norway problem\"\nfeature:  off         # ⚠ boolean false — off/on/yes/no are all bools\nversion:  1.10        # ⚠ float 1.1 — 1.10 == 1.1, so the text \"0\" is gone\nid:       010         # ⚠ leading zero is risky (octal in YAML 1.1), not \"010\"\nempty:                # ⚠ null, not an empty string"
+          },
+          {
+            "type": "p",
+            "text": "Same keys, **quoted** — the guessing stops and every value stays the exact text you typed:"
+          },
+          {
+            "type": "code",
+            "lang": "yaml",
+            "text": "country:  \"NO\"        # ✓ a real string, not Norway-the-boolean\nversion:  \"1.10\"      # ✓ stays the text \"1.10\" — image tags, semver\nid:       \"010\"       # ✓ keeps the leading zero\nempty:    \"\"          # ✓ an explicit empty string, not null"
+          },
+          {
+            "type": "p",
+            "text": "Take `version: 1.10` — YAML reads it as the number 1.10, which *equals* 1.1, so the trailing zero vanishes the instant it parses. An image tag or semver that has to stay `\"1.10\"` must be quoted. **The rule that saves you:** when a scalar must stay text — version strings, country codes, IDs with leading zeros, anything yes/no-ish — **wrap it in quotes.** Quoting turns the type-guessing off, and that one habit kills the whole category of bugs."
+          }
+        ]
+      },
+      {
+        "heading": "Multiline strings",
+        "body": [
+          {
+            "type": "p",
+            "text": "Scripts, certificates, and long messages need to span lines. YAML gives you two block styles: `|` keeps your newlines exactly (**literal**), and `>` folds newlines into spaces to make one flowing paragraph (**folded**). One catch: **inside** a `|` or `>` block, a `#` is literal text — not a comment. Only the indicator line (the one carrying the `|` or `>`) can hold a comment."
+          },
+          {
+            "type": "code",
+            "lang": "yaml",
+            "text": "startup: |              # literal — newlines are PRESERVED as written\n  echo \"booting\"\n  npm install\n  npm start\n\nsummary: >              # folded — newlines become SPACES\n  this long sentence is\n  wrapped for readability\n  but reads as one line"
+          },
+          {
+            "type": "p",
+            "text": "Both `|` and `>` keep one trailing newline by default. Add a `-` (**chomping indicator**) — `|-` or `>-` — to strip that final newline, which matters when a tool compares the value byte-for-byte (tokens, hashes)."
+          },
+          {
+            "type": "table",
+            "headers": ["Indicator", "Newlines inside", "Trailing newline"],
+            "rows": [
+              ["`|`", "kept as-is", "one kept"],
+              ["`>`", "folded to spaces", "one kept"],
+              ["`|-`", "kept as-is", "stripped"],
+              ["`>-`", "folded to spaces", "stripped"]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Anchors & aliases (don't repeat yourself)",
+        "body": [
+          {
+            "type": "p",
+            "text": "When the same block appears in three places, copy-paste rots — you fix one and forget the others. YAML's answer: **`&name` defines** a reusable value, **`*name` reuses** it, and **`<<: *name` merges** a map's keys into the current map (so you can override a few)."
+          },
+          {
+            "type": "code",
+            "lang": "yaml",
+            "text": "defaults: &svc_defaults   # &svc_defaults = name (anchor) this block\n  restart: unless-stopped # shared setting #1\n  logging:                # shared setting #2 (a nested map)\n    driver: json-file\n\nservices:\n  web:\n    <<: *svc_defaults     # merge in every key from the anchor\n    image: nginx          # then add/override just this service's bits\n  worker:\n    <<: *svc_defaults     # same defaults reused — one source of truth\n    image: worker:latest  # override only what differs"
+          },
+          {
+            "type": "p",
+            "text": "Where you'll actually use it: **Compose service defaults** (restart policy, logging) shared across services, and **CI job templates** where five jobs share the same `runs-on` and setup steps. Change the anchor once, every alias updates."
+          }
+        ]
+      },
+      {
+        "heading": "Build it: a real Compose file",
+        "body": [
+          {
+            "type": "p",
+            "text": "Time to assemble a valid `docker-compose.yml` from scratch — one piece per step. Watch how the three shapes (maps, lists, scalars) and indentation come together into a file a real tool will accept."
+          },
+          {
+            "type": "build-along",
+            "title": "Assemble a valid docker-compose.yml",
+            "goal": "A two-service stack — a web app and its database. Click through, then build it for real in VS Code.",
+            "lang": "yaml",
+            "file": "docker-compose.yml",
+            "steps": [
+              {
+                "title": "Top-level: the services map",
+                "say": "A Compose file is one big map. The services key holds every container, each as its own nested map. Everything we add lives under here.",
+                "add": "services:"
+              },
+              {
+                "title": "Add the web service",
+                "say": "web is a key under services, indented two spaces. Its value is another map describing that one container. The image key picks what to run.",
+                "add": "  web:\n    image: nginx:1.27       # pin the version, never use latest in prod"
+              },
+              {
+                "title": "Map ports with a list",
+                "say": "ports is a sequence — each dash is one entry. Quote port mappings as a habit: it keeps the value an exact string and dodges type surprises like 08:00.",
+                "add": "    ports:\n      - \"8080:80\"           # quote it as a habit — keeps the mapping an exact string"
+              },
+              {
+                "title": "Make web wait for the database",
+                "say": "depends_on is a list of other service names. It controls start order so web does not boot before db exists.",
+                "add": "    depends_on:\n      - db                  # must match a service key — db is added next"
+              },
+              {
+                "title": "Add the db service",
+                "say": "db is a sibling of web, so it sits at the same two-space indent. Same shape: a key whose value is a map.",
+                "add": "  db:\n    image: postgres:16      # sibling of web — same indent level"
+              },
+              {
+                "title": "Inject config with environment",
+                "say": "environment is a nested map of variables. Quote the password so YAML keeps it as an exact string instead of guessing a type.",
+                "add": "    environment:\n      POSTGRES_PASSWORD: \"changeme\"   # quote secrets — keep them strings"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Tie it together",
+        "body": [
+          {
+            "type": "explain-back",
+            "prompt": "A teammate's Kubernetes Deployment won't apply — `kubectl` returns a vague \"error converting YAML\" message with no useful line. From *this* lesson, name the **three most likely YAML-level causes** and, for each, how you'd catch it **before** pushing.",
+            "modelAnswer": "First, **a tab character in the indentation.** YAML forbids tabs and rejects the whole file, but the error rarely points at the tab. Catch it before pushing by configuring the editor to insert spaces for Tab and to render whitespace, plus running a linter (`yamllint`) which flags tabs explicitly. Second, **inconsistent indentation** — a key indented 2 spaces in one block and 4 in another, which silently re-parents a field under the wrong block or breaks the structure entirely. Catch it by sticking to a strict 2-space convention and running `yamllint`, whose indentation rule fails on the mismatch. Third, **a type-coercion surprise from an unquoted scalar** — a value like `version: 1.10` collapsing to the float `1.1`, or a name like `no`/`NO`/`off` flipping to a boolean (the Norway problem), so the manifest is valid YAML but the wrong shape for Kubernetes. Catch it by quoting any value that must stay text (versions, codes, yes/no-ish words) and by validating against the schema with `kubectl apply --dry-run=client` (or `kubeval`), which surfaces a field that came out the wrong type. The through-line: indentation is structure, and unquoted scalars are guesses — lint locally and dry-run before every push.",
+            "hint": "Three buckets from this lesson: how YAML reads whitespace, how consistent that whitespace must be, and what happens to a value you didn't quote. For each, name a local check (editor setting, `yamllint`, or a `--dry-run`) that catches it before the push."
           }
         ]
       }
@@ -713,8 +982,9 @@ export default {
             "text": "This is how real teams ship safely: every artifact is **addressable by SHA**, every deploy is **reversible in seconds**, and the gate between *built* and *live* is automated. When prod breaks at 3am, you don't read logs — you run `./rollback.sh` and investigate from a healthy state."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Deploy and rollback flow",
+            "why": "Every artifact is addressable by SHA and every deploy is reversible in seconds — so a 3am break means `./rollback.sh`, not reading logs.",
             "nodes": [
               {
                 "id": "git",
@@ -744,8 +1014,8 @@ export default {
                 "id": "deploy",
                 "label": "deploy + smoke",
                 "subtitle": "gate",
-                "x": 0.78,
-                "y": 0.3,
+                "x": 0.5,
+                "y": 0.56,
                 "accent": "amber"
               },
               {
@@ -757,30 +1027,36 @@ export default {
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "git",
-                "to": "ci",
-                "kind": "dashed",
-                "label": "trigger"
+                "title": "Push a commit",
+                "description": "A `git push` lands a new **commit SHA**. That SHA becomes the immutable name for everything downstream — never `latest`.",
+                "activeNodes": ["git"],
+                "activeEdges": []
               },
               {
-                "from": "ci",
-                "to": "reg",
-                "kind": "dashed",
-                "label": "push"
+                "title": "CI builds, tags by SHA",
+                "description": "The push triggers **CI**, which builds the image and tags it with the exact commit SHA. The tag *is* the version — addressable forever.",
+                "activeNodes": ["git", "ci"],
+                "activeEdges": [{ "from": "git", "to": "ci", "label": "trigger" }]
               },
               {
-                "from": "reg",
-                "to": "deploy",
-                "kind": "dashed",
-                "label": "pull"
+                "title": "Push to the registry",
+                "description": "CI pushes `image:SHA` to the **registry**. Keeping the last two tags here is what gives rollback a target to pull.",
+                "activeNodes": ["ci", "reg"],
+                "activeEdges": [{ "from": "ci", "to": "reg", "label": "push" }]
               },
               {
-                "from": "deploy",
-                "to": "prod",
-                "kind": "dashed",
-                "label": "promote"
+                "title": "Deploy behind a smoke gate",
+                "description": "The deploy script **pulls** the tag and starts it alongside the old one, then runs a smoke test. A broken commit is rejected here — prod stays untouched.",
+                "activeNodes": ["reg", "deploy"],
+                "activeEdges": [{ "from": "reg", "to": "deploy", "label": "pull" }]
+              },
+              {
+                "title": "Promote to prod",
+                "description": "Only a passing gate **promotes** traffic. Prod keeps a record of *current + previous* SHAs, so `./rollback.sh` is a metadata flip — no rebuild.",
+                "activeNodes": ["deploy", "prod"],
+                "activeEdges": [{ "from": "deploy", "to": "prod", "label": "promote" }]
               }
             ]
           }
@@ -903,9 +1179,10 @@ export default {
             "text": "This is the production deploy story for almost every web service running in a real company. **Deployments** declare desired state; **Services** give a stable virtual IP; **Ingress** maps a hostname to that Service; **probes** tell the control plane when a pod is alive versus ready to serve. Once you wire all four, you can roll new image versions live while a load generator hammers the URL — and the error count stays at zero."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Request path through the cluster",
             "height": 240,
+            "why": "Readiness probes are the whole trick — the Service routes only to pods that pass them, so a rolling update never drops a request.",
             "nodes": [
               {
                 "id": "client",
@@ -948,30 +1225,30 @@ export default {
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "client",
-                "to": "ingress",
-                "kind": "dashed",
-                "label": "http"
+                "title": "A request arrives",
+                "description": "A load generator (`curl` or `hey`) sends **HTTP** at your app's hostname. This is every real request your service will ever see.",
+                "activeNodes": ["client"],
+                "activeEdges": [{ "from": "client", "to": "ingress", "label": "http" }]
               },
               {
-                "from": "ingress",
-                "to": "svc",
-                "kind": "solid",
-                "label": "routes"
+                "title": "Ingress maps host to Service",
+                "description": "The **Ingress** matches the hostname and **routes** the request inward. Without an ingress controller running, this object silently does nothing.",
+                "activeNodes": ["ingress", "svc"],
+                "activeEdges": [{ "from": "ingress", "to": "svc", "label": "routes" }]
               },
               {
-                "from": "svc",
-                "to": "pod1",
-                "kind": "dashed",
-                "label": "ready only"
+                "title": "Service picks a ready pod",
+                "description": "The **Service** (a stable ClusterIP) load-balances across pods that match its label selector — but only ones that pass their readiness probe.",
+                "activeNodes": ["svc", "pod1"],
+                "activeEdges": [{ "from": "svc", "to": "pod1", "label": "ready only" }]
               },
               {
-                "from": "svc",
-                "to": "pod2",
-                "kind": "dashed",
-                "label": "not ready"
+                "title": "The new pod is skipped",
+                "description": "Pod v2 is still **starting** — its `/ready` returns 503. The Service leaves it out of rotation, so traffic never hits a cold pod mid-rollout.",
+                "activeNodes": ["svc", "pod1", "pod2"],
+                "activeEdges": [{ "from": "svc", "to": "pod2", "label": "not ready" }]
               }
             ]
           }
@@ -1994,30 +2271,31 @@ export default {
             "text": "Notice the **shape**: `find` produces paths, `xargs` turns those paths into args for `grep`, `grep` produces `path:count` lines, `sort` orders them, `head` truncates. **No temp files. No loops. No script.** Every stage is killable, replaceable, debuggable in isolation."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Stdin → filter → stdout, repeated",
+            "why": "No temp files, no loops, no script — every stage is killable, replaceable, and debuggable in isolation.",
             "nodes": [
               {
                 "id": "find",
                 "label": "find",
                 "subtitle": "paths",
-                "x": 0.08,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.15,
                 "accent": "water"
               },
               {
                 "id": "xargs1",
                 "label": "xargs grep -l",
                 "subtitle": "match",
-                "x": 0.3,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.15,
                 "accent": "sky"
               },
               {
                 "id": "sort",
                 "label": "sort -u",
                 "subtitle": "dedupe",
-                "x": 0.5,
+                "x": 0.3,
                 "y": 0.5,
                 "accent": "amber"
               },
@@ -2033,35 +2311,41 @@ export default {
                 "id": "head",
                 "label": "head -n 10",
                 "subtitle": "top 10",
-                "x": 0.92,
-                "y": 0.5,
+                "x": 0.5,
+                "y": 0.85,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "find",
-                "to": "xargs1",
-                "kind": "dashed",
-                "label": "paths"
+                "title": "Find the files",
+                "description": "`find . -name \"*.log\"` walks the directory tree and emits a stream of **paths** on stdout. This is the source — every later stage just transforms its input.",
+                "activeNodes": ["find"],
+                "activeEdges": []
               },
               {
-                "from": "xargs1",
-                "to": "sort",
-                "kind": "dashed",
-                "label": "paths"
+                "title": "Match the ones with ERROR",
+                "description": "`xargs grep -l ERROR` turns those paths into args for `grep`, keeping only files that **contain** ERROR (`-l` prints names, not lines).",
+                "activeNodes": ["find", "xargs1"],
+                "activeEdges": [{ "from": "find", "to": "xargs1", "label": "paths" }]
               },
               {
-                "from": "sort",
-                "to": "xargs2",
-                "kind": "dashed",
-                "label": "paths"
+                "title": "Dedupe the paths",
+                "description": "`sort -u` drops any duplicate paths in one pass, so the next stage never counts the same file twice.",
+                "activeNodes": ["xargs1", "sort"],
+                "activeEdges": [{ "from": "xargs1", "to": "sort", "label": "paths" }]
               },
               {
-                "from": "xargs2",
-                "to": "head",
-                "kind": "dashed",
-                "label": "path:count"
+                "title": "Count ERRORs per file",
+                "description": "`xargs grep -c ERROR` counts matching lines in each file, emitting `path:count` pairs — the shape changes from paths to data.",
+                "activeNodes": ["sort", "xargs2"],
+                "activeEdges": [{ "from": "sort", "to": "xargs2", "label": "paths" }]
+              },
+              {
+                "title": "Keep the top 10",
+                "description": "After a numeric `sort`, `head -n 10` truncates to the ten noisiest logs. The pipe `|` did all the gluing — no temp file ever touched disk.",
+                "activeNodes": ["xargs2", "head"],
+                "activeEdges": [{ "from": "xargs2", "to": "head", "label": "path:count" }]
               }
             ]
           }
@@ -2352,8 +2636,9 @@ export default {
             "text": "Every container you'll ever run follows this loop. Build locally, push to a registry, pull on the target machine, run as a container. That's the whole story."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Image -> Registry -> Container",
+            "why": "Image is the noun, container is the verb, registry is the post office — keep the three straight and most of Docker stops being confusing.",
             "nodes": [
               {
                 "id": "dev",
@@ -2396,34 +2681,36 @@ export default {
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "dev",
-                "to": "img",
-                "label": "docker build",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Start with a recipe",
+                "description": "A **Dockerfile** is the recipe — a text list of build steps. Nothing runs yet; it just describes how to assemble the filesystem.",
+                "activeNodes": ["dev"],
+                "activeEdges": []
               },
               {
-                "from": "img",
-                "to": "reg",
-                "label": "docker push",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "Build the image",
+                "description": "`docker build` turns the recipe into an **image** — a frozen, read-only snapshot. Think of it as a class definition: built once, reused many times.",
+                "activeNodes": ["dev", "img"],
+                "activeEdges": [{ "from": "dev", "to": "img", "label": "docker build" }]
               },
               {
-                "from": "reg",
-                "to": "node",
-                "label": "docker pull",
-                "kind": "dashed",
-                "accent": "earth"
+                "title": "Push to a registry",
+                "description": "`docker push` uploads the image to a **registry** (ECR, GHCR). Registries are dumb storage — they hold images so other machines can pull them, like npm for images.",
+                "activeNodes": ["img", "reg"],
+                "activeEdges": [{ "from": "img", "to": "reg", "label": "docker push" }]
               },
               {
-                "from": "node",
-                "to": "ctr",
-                "label": "docker run",
-                "kind": "solid",
-                "accent": "fire"
+                "title": "Pull onto the target host",
+                "description": "On prod, a laptop, or CI, `docker pull` downloads the image into the local cache. Only layers not already present cross the network — fast after the first time.",
+                "activeNodes": ["reg", "node"],
+                "activeEdges": [{ "from": "reg", "to": "node", "label": "docker pull" }]
+              },
+              {
+                "title": "Run a container",
+                "description": "`docker run` instantiates the image into a live **container** — a running process. One image, many containers: same class, ten objects.",
+                "activeNodes": ["node", "ctr"],
+                "activeEdges": [{ "from": "node", "to": "ctr", "label": "docker run" }]
               }
             ]
           },
@@ -2807,24 +3094,24 @@ export default {
                 "id": "dev",
                 "label": "Developer",
                 "subtitle": "git push",
-                "x": 0.05,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.12,
                 "accent": "water"
               },
               {
                 "id": "ci",
                 "label": "CI",
                 "subtitle": "build + test",
-                "x": 0.27,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.12,
                 "accent": "sky"
               },
               {
                 "id": "art",
                 "label": "Artifact",
                 "subtitle": "tagged image",
-                "x": 0.48,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.62,
                 "accent": "amber"
               },
               {
@@ -2832,23 +3119,23 @@ export default {
                 "label": "Staging",
                 "subtitle": "auto-deploy",
                 "x": 0.7,
-                "y": 0.5,
+                "y": 0.62,
                 "accent": "earth"
               },
               {
                 "id": "gate",
                 "label": "Manual gate",
                 "subtitle": "Delivery stops here",
-                "x": 0.85,
-                "y": 0.25,
+                "x": 0.5,
+                "y": 0.37,
                 "accent": "fire"
               },
               {
                 "id": "prod",
                 "label": "Production",
                 "subtitle": "Deployment auto-ships",
-                "x": 0.92,
-                "y": 0.75,
+                "x": 0.5,
+                "y": 0.87,
                 "accent": "fire"
               }
             ],
@@ -3438,6 +3725,12 @@ export default {
           {
             "type": "p",
             "text": "The mental model is small but load-bearing: **namespaces are a lie about what exists, cgroups are a budget on what you take**. Every container runtime, every Kubernetes pod, every `docker run` flag is some combination of those two ideas. Once you see it, you cannot unsee it."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen **namespaces** (what a process can see), **cgroups** (what a process can take), and the fact that containers share **one host kernel**. Explain how those three combine to make a container, then make the judgment call: is a container a safe boundary to run *untrusted* code on? Defend your answer with the specific failure you're most worried about.",
+            "modelAnswer": "A container is just an ordinary host process wearing two costumes: **namespaces** give it a private view — its own PID tree, mount table, and network stack, so it *believes* it's alone on the machine — while a **cgroup** caps the resources it can actually consume, so it can't starve its neighbors of CPU or memory. Compose those and you get the illusion of a private VM at the cost of a normal process: microsecond startup, no second kernel. But that last fact is the catch — all of this is enforced by the **single shared host kernel**. So for untrusted code I'd say a plain container is **not** a safe boundary. Isolation (the illusion) is not the same as security (a real wall). The failure I'd worry about most is a **kernel exploit or container breakout**: one bug in a syscall escapes *every* namespace at once, and if I forgot the **user** namespace, root-in-the-container is root-on-the-host. The trade-off to weigh is isolation strength vs. overhead: if the workload is genuinely untrusted, you pay for a real kernel boundary — gVisor, Firecracker microVMs, or Kata — accepting slower start and some performance loss to stop a single kernel CVE from owning the whole box.",
+            "hint": "One of the three is an *illusion* and one is a *budget* — which one is the actual security boundary, and which one do they all secretly share?"
           }
         ]
       }
@@ -3535,6 +3828,12 @@ export default {
           {
             "type": "p",
             "text": "Container networking is just three Linux building blocks — veth pairs, bridges, and iptables — composed in standard ways. K8s overlays add VXLAN encapsulation and an embedded DNS, but the mental model is unchanged. When something doesn't work, drop a `tcpdump` on the bridge and watch the packets; the abstraction is paper-thin."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Trace a packet from a container on host A to a container on host B in a Kubernetes cluster, naming each piece you've learned — **veth pair**, **bridge**, **iptables/port publish**, **embedded DNS**, and the **VXLAN overlay**. Then make a call: where would you enforce that the two containers are *allowed* to talk at all, and what's the trade-off of enforcing it there?",
+            "modelAnswer": "The sending container has a **veth pair**: one end inside its network namespace, the other plugged into a **bridge** on host A. It resolves the destination by name through the cluster's **embedded DNS**, which hands back a pod (or Service) IP. The packet leaves the bridge and, because the destination lives on host B, the CNI wraps it in a **VXLAN overlay** — encapsulating the original frame inside a UDP packet addressed to host B's real NIC. Host B de-encapsulates it, **iptables** rules (the same machinery `-p` uses to publish a port) DNAT it to the right pod, and it pops out of the veth into the destination container. On the *whether they're allowed* question: by default every pod can reach every other pod, which is fine in dev and dangerous in prod, so I'd enforce it with a **NetworkPolicy** — an east-west firewall expressed as YAML and applied by the CNI right at the veth/bridge layer, closest to the workload. The trade-off is that NetworkPolicy is **only as real as the CNI behind it**: a plugin that ignores it (Flannel's default) leaves you with rules that look enforced but aren't, so the security choice is really a CNI choice (Calico/Cilium), and you pay for it in operational complexity.",
+            "hint": "Same-host traffic never leaves the bridge; cross-host traffic is the *only* reason the VXLAN overlay exists. For the policy question, ask which layer sits closest to the pod — and whether the thing enforcing it actually honors the rule."
           }
         ]
       }
@@ -3624,23 +3923,23 @@ export default {
                 "id": "client",
                 "label": "Client",
                 "subtitle": "curl",
-                "x": 0.05,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.12,
                 "accent": "water"
               },
               {
                 "id": "elb",
                 "label": "Cloud LB",
                 "subtitle": "ELB / GLB",
-                "x": 0.28,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.12,
                 "accent": "amber"
               },
               {
                 "id": "ingress",
                 "label": "Ingress controller",
                 "subtitle": "nginx pod",
-                "x": 0.52,
+                "x": 0.3,
                 "y": 0.5,
                 "accent": "sky"
               },
@@ -3648,7 +3947,7 @@ export default {
                 "id": "svc",
                 "label": "ClusterIP VIP",
                 "subtitle": "kube-proxy",
-                "x": 0.75,
+                "x": 0.7,
                 "y": 0.5,
                 "accent": "earth"
               },
@@ -3656,16 +3955,16 @@ export default {
                 "id": "p1",
                 "label": "Pod A",
                 "subtitle": "10.0.1.4",
-                "x": 0.95,
-                "y": 0.25,
+                "x": 0.3,
+                "y": 0.85,
                 "accent": "fire"
               },
               {
                 "id": "p2",
                 "label": "Pod B",
                 "subtitle": "10.0.2.7",
-                "x": 0.95,
-                "y": 0.75,
+                "x": 0.7,
+                "y": 0.85,
                 "accent": "fire"
               }
             ],
@@ -4578,6 +4877,12 @@ export default {
             "type": "quote",
             "text": "Logs tell you what happened. Metrics tell you that something is wrong. Traces tell you where. You need all three or you're guessing.",
             "cite": "the three-pillar rule"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "A user reports the checkout page is slow. Walk through how the **three pillars** (logs, metrics, traces), the split between **dashboards and alarms**, and **OpenTelemetry** instrumentation work together to take you from 'something feels off' to a fixed root cause. Then name the trade-off you'd watch to keep this observable system from becoming a liability.",
+            "modelAnswer": "The chain only works because each pillar answers a different question. An **SLO-based alarm** fires first — checkout latency breached its budget — telling me *that* something is wrong without me staring at a screen. I open a **dashboard** built on **metrics** to see scope and trend: is it all users or one region, spiking now or creeping for an hour? Metrics localize but can't explain, so I pull a **trace** of a slow checkout request and watch it fan out across services until one span — say, the payments DB call — dominates the latency: that's *where*. Finally I read the **structured logs** for that exact service and trace ID to get *what* actually happened (a slow query, a retry storm). None of this is portable unless the producers emit **OpenTelemetry** — one vendor-neutral pipeline for all three signals — so I can correlate by trace ID and swap backends without re-instrumenting. The trade-off I'd watch is **cost vs. signal**: verbose `DEBUG` logs in prod and high-**cardinality** metric labels (`user_id` as a label) quietly turn into a four-figure bill and slow queries, while over-alerting breeds fatigue until the one real page gets ignored. So you tune for *fewer, higher-quality signals* — page on user pain, not CPU — even though that means accepting you won't have a metric pre-built for every question.",
+            "hint": "Order them by the question each answers: *that* it's broken → *where* → *what*. Then ask what makes all three correlate-able, and what the same firehose costs you if you leave every knob wide open."
           }
         ]
       }
@@ -4602,10 +4907,10 @@ export default {
             "subtitle": "CONTROL TO CONVENIENCE SLIDER",
             "height": 220,
             "nodes": [
-              { "id": "iaas", "label": "IaaS", "subtitle": "RENT VM",      "accent": "fire",  "x": 0.15, "y": 0.5 },
-              { "id": "paas", "label": "PaaS", "subtitle": "RENT RUNTIME", "accent": "amber", "x": 0.4,  "y": 0.5 },
-              { "id": "faas", "label": "FaaS", "subtitle": "RENT FUNC",    "accent": "sky",   "x": 0.65, "y": 0.5 },
-              { "id": "saas", "label": "SaaS", "subtitle": "RENT APP",     "accent": "water", "x": 0.9,  "y": 0.5 }
+              { "id": "iaas", "label": "IaaS", "subtitle": "RENT VM",      "accent": "fire",  "x": 0.30, "y": 0.30 },
+              { "id": "paas", "label": "PaaS", "subtitle": "RENT RUNTIME", "accent": "amber", "x": 0.70, "y": 0.30 },
+              { "id": "faas", "label": "FaaS", "subtitle": "RENT FUNC",    "accent": "sky",   "x": 0.30, "y": 0.75 },
+              { "id": "saas", "label": "SaaS", "subtitle": "RENT APP",     "accent": "water", "x": 0.70, "y": 0.75 }
             ],
             "edges": [
               { "from": "iaas", "to": "paas", "kind": "dashed", "label": "less ops" },
@@ -4850,10 +5155,10 @@ export default {
             "subtitle": "IDENTITY · POLICY · ROLE",
             "height": 220,
             "nodes": [
-              { "id": "user", "label": "Identity",   "subtitle": "USER+GRP",   "accent": "amber", "x": 0.15, "y": 0.5 },
-              { "id": "role", "label": "Role",       "subtitle": "TEMP CRED",  "accent": "amber", "x": 0.45, "y": 0.5 },
-              { "id": "policy", "label": "Policy",   "subtitle": "ALLOW/DENY", "accent": "amber", "x": 0.72, "y": 0.5 },
-              { "id": "resource", "label": "Resource","subtitle": "S3+EC2",    "accent": "earth", "x": 0.95, "y": 0.5 }
+              { "id": "user", "label": "Identity",   "subtitle": "USER+GRP",   "accent": "amber", "x": 0.30, "y": 0.30 },
+              { "id": "role", "label": "Role",       "subtitle": "TEMP CRED",  "accent": "amber", "x": 0.70, "y": 0.30 },
+              { "id": "policy", "label": "Policy",   "subtitle": "ALLOW/DENY", "accent": "amber", "x": 0.30, "y": 0.75 },
+              { "id": "resource", "label": "Resource","subtitle": "S3+EC2",    "accent": "earth", "x": 0.70, "y": 0.75 }
             ],
             "edges": [
               { "from": "user", "to": "role", "kind": "dashed", "label": "assume" },
@@ -5037,8 +5342,8 @@ export default {
             "nodes": [
               { "id": "od", "label": "On-demand",    "subtitle": "PAY-AS-YOU-GO", "accent": "earth", "x": 0.15, "y": 0.5 },
               { "id": "sp", "label": "Spot",         "subtitle": "-70% RISKY",    "accent": "earth", "x": 0.4,  "y": 0.5 },
-              { "id": "ri", "label": "Reserved",     "subtitle": "1-3 YR",        "accent": "earth", "x": 0.65, "y": 0.5 },
-              { "id": "sv", "label": "Savings plan", "subtitle": "FLEXIBLE",      "accent": "earth", "x": 0.9,  "y": 0.5 }
+              { "id": "ri", "label": "Reserved",     "subtitle": "1-3 YR",        "accent": "earth", "x": 0.15, "y": 0.85 },
+              { "id": "sv", "label": "Savings plan", "subtitle": "FLEXIBLE",      "accent": "earth", "x": 0.4,  "y": 0.85 }
             ],
             "edges": []
           },
@@ -5122,10 +5427,10 @@ export default {
             "subtitle": "DIFFERENT STAGES SAME PIPELINE",
             "height": 220,
             "nodes": [
-              { "id": "code",    "label": "Code",    "subtitle": "DEV WRITES",     "accent": "water", "x": 0.1,  "y": 0.5 },
-              { "id": "ship",    "label": "Ship",    "subtitle": "DEVOPS CULTURE", "accent": "sky",   "x": 0.35, "y": 0.5 },
-              { "id": "platform","label": "Platform","subtitle": "PAVED ROAD",     "accent": "earth", "x": 0.6,  "y": 0.5 },
-              { "id": "run",     "label": "Run",     "subtitle": "SRE OWNS SLO",   "accent": "fire",  "x": 0.85, "y": 0.5 }
+              { "id": "code",    "label": "Code",    "subtitle": "DEV WRITES",     "accent": "water", "x": 0.3,  "y": 0.3 },
+              { "id": "ship",    "label": "Ship",    "subtitle": "DEVOPS CULTURE", "accent": "sky",   "x": 0.7,  "y": 0.3 },
+              { "id": "platform","label": "Platform","subtitle": "PAVED ROAD",     "accent": "earth", "x": 0.3,  "y": 0.7 },
+              { "id": "run",     "label": "Run",     "subtitle": "SRE OWNS SLO",   "accent": "fire",  "x": 0.7,  "y": 0.7 }
             ],
             "edges": [
               { "from": "code",     "to": "ship",     "kind": "dashed", "label": "PR → CI" },

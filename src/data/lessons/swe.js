@@ -163,7 +163,7 @@ export default {
                 "label": "n = 0",
                 "subtitle": "everyone starts here",
                 "x": 0.05,
-                "y": 0.9,
+                "y": 0.97,
                 "accent": "amber"
               }
             ],
@@ -465,7 +465,7 @@ export default {
                 "label": "users",
                 "subtitle": "id, country",
                 "x": 0.15,
-                "y": 0.5,
+                "y": 0.2,
                 "accent": "sky"
               },
               {
@@ -481,7 +481,7 @@ export default {
                 "label": "orders",
                 "subtitle": "user_id, total",
                 "x": 0.85,
-                "y": 0.5,
+                "y": 0.8,
                 "accent": "fire"
               },
               {
@@ -489,7 +489,7 @@ export default {
                 "label": "result",
                 "subtitle": "one row per match",
                 "x": 0.5,
-                "y": 0.9,
+                "y": 1.1,
                 "accent": "earth"
               }
             ],
@@ -552,6 +552,12 @@ export default {
             "type": "quote",
             "text": "The database is smarter than you about how to run the query — but only if you let it see what you actually want.",
             "cite": "every DBA, eventually"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen the **clause pipeline** (`WHERE` before `GROUP BY`, `HAVING` after), how a **JOIN multiplies rows** per match, and that **indexes silently decide speed**. Walk through writing a query for *\"the 10 countries with the most paying signups since January, average order value each.\"* Explain how the three ideas fit together — which clause does each job, where the JOIN's row-multiplication would corrupt your `COUNT`, and which column you'd want indexed. Then name the one trade-off you'd watch.",
+            "modelAnswer": "Shape: `FROM users JOIN orders ON orders.user_id = users.id` to pull only users who paid (an inner join drops the rest). `WHERE created_at >= '2026-01-01'` filters *rows* first — it must run before grouping, and it can't reference an aggregate. `GROUP BY country` buckets per country; `COUNT(*)` and `AVG(orders.total)` summarize each bucket. The JOIN trap: a user with 3 orders becomes 3 rows, so `COUNT(*)` counts order-rows, not people — use `COUNT(DISTINCT users.id)` if you mean signups. `HAVING COUNT(DISTINCT users.id) >= 10` filters the *buckets* (an aggregate, so it can't live in WHERE). Then `ORDER BY signups DESC LIMIT 10`. Index: `orders.user_id` (the join key) and `users.created_at` (the range filter) — without them the planner scans every row. The trade-off I'd watch: those indexes speed reads but slow every write and cost storage, so I'd only add them if this query is hot, and confirm the planner actually uses them with `EXPLAIN ANALYZE` rather than guessing.",
+            "hint": "Map each requirement to exactly one clause, then ask: at what point in the pipeline does a user's multiple orders become multiple rows?"
           }
         ]
       }
@@ -571,74 +577,89 @@ export default {
             "text": "Rate limiters are the **traffic cops** of distributed systems — they protect downstream services from thundering herds, enforce billing tiers, and stop one noisy tenant from starving the rest. The trick is doing it **atomically across N app servers** without a race condition leaking 10x the allowed traffic."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Request lifecycle through the limiter",
+            "why": "One atomic Redis call decides every request — that single round trip is what keeps the limit honest across N app servers.",
             "nodes": [
               {
                 "id": "client",
                 "label": "Client",
                 "subtitle": "API caller",
-                "x": 0.08,
-                "y": 0.5,
+                "x": 0.5,
+                "y": 0.1,
                 "accent": "water"
               },
               {
                 "id": "mw",
                 "label": "Middleware",
                 "subtitle": "FastAPI / ASGI",
-                "x": 0.35,
-                "y": 0.5,
+                "x": 0.5,
+                "y": 0.35,
                 "accent": "sky"
               },
               {
                 "id": "redis",
                 "label": "Redis + Lua",
                 "subtitle": "atomic bucket",
-                "x": 0.65,
-                "y": 0.5,
+                "x": 0.5,
+                "y": 0.6,
                 "accent": "earth"
               },
               {
                 "id": "app",
                 "label": "Handler",
                 "subtitle": "your business logic",
-                "x": 0.92,
-                "y": 0.3,
+                "x": 0.25,
+                "y": 0.85,
                 "accent": "amber"
               },
               {
                 "id": "deny",
                 "label": "429 / queue",
                 "subtitle": "Retry-After",
-                "x": 0.92,
-                "y": 0.75,
+                "x": 0.75,
+                "y": 0.85,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "client",
-                "to": "mw",
-                "label": "request",
-                "kind": "dashed"
+                "title": "A request arrives",
+                "description": "A **client** fires an API call. Before any business logic runs, the request has to pass the gate.",
+                "activeNodes": ["client"],
+                "activeEdges": []
               },
               {
-                "from": "mw",
-                "to": "redis",
-                "label": "EVAL take(1)",
-                "kind": "dashed"
+                "title": "Middleware intercepts",
+                "description": "Your ASGI **middleware** catches every request first and extracts a bucket key — per-user, per-API-key, or per-IP.",
+                "activeNodes": ["client", "mw"],
+                "activeEdges": [
+                  { "from": "client", "to": "mw", "label": "request" }
+                ]
               },
               {
-                "from": "redis",
-                "to": "app",
-                "label": "allowed",
-                "kind": "dashed"
+                "title": "Ask the bucket",
+                "description": "The middleware runs one atomic `EVAL take(1)` against **Redis**. The Lua script refills, decrements, and writes the bucket in a single round trip — no race across pods.",
+                "activeNodes": ["mw", "redis"],
+                "activeEdges": [
+                  { "from": "mw", "to": "redis", "label": "EVAL take(1)" }
+                ]
               },
               {
-                "from": "redis",
-                "to": "deny",
-                "label": "empty bucket",
-                "kind": "dashed"
+                "title": "Tokens left → proceed",
+                "description": "If the bucket had a token, the request is **allowed** through to your handler. Add an `X-RateLimit-Remaining` header on the way.",
+                "activeNodes": ["redis", "app"],
+                "activeEdges": [
+                  { "from": "redis", "to": "app", "label": "allowed" }
+                ]
+              },
+              {
+                "title": "Bucket empty → throttle",
+                "description": "If the bucket is empty, the caller gets a **`429`** (or is parked in a fair queue) with a `Retry-After` header telling it exactly when to come back.",
+                "activeNodes": ["redis", "deny"],
+                "activeEdges": [
+                  { "from": "redis", "to": "deny", "label": "empty bucket" }
+                ]
               }
             ]
           }
@@ -911,8 +932,9 @@ export default {
             "text": "The payoff is **mechanical sympathy** for the shell. A good CLI exits `0` on success and non-zero on failure so it composes with `&&`, `||`, and `set -e`. It reads from a known store path so cron jobs and editors agree. And it survives **partial writes** — if the process dies mid-save, your tasks are still there next morning."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "todo CLI data path",
+            "why": "One straight path from keystroke to disk — and the atomic write at the end is what survives a `kill -9` mid-save.",
             "nodes": [
               {
                 "id": "user",
@@ -934,43 +956,57 @@ export default {
                 "id": "core",
                 "label": "Store API",
                 "subtitle": "add/done/list",
-                "x": 0.58,
-                "y": 0.5,
+                "x": 0.32,
+                "y": 0.85,
                 "accent": "amber"
               },
               {
                 "id": "disk",
                 "label": "todos.json",
                 "subtitle": "atomic write",
-                "x": 0.86,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.85,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "user",
-                "to": "cli",
-                "kind": "dashed",
-                "label": "argv"
+                "title": "You type a command",
+                "description": "It starts in the **shell**: `todo add \"ship lab\"`. Everything after the program name lands in `argv`.",
+                "activeNodes": ["user"],
+                "activeEdges": []
               },
               {
-                "from": "cli",
-                "to": "core",
-                "kind": "solid",
-                "label": "dispatch"
+                "title": "argparse parses it",
+                "description": "**`argparse`** matches `argv` to a subcommand (`add`, `done`, `list`, `rm`) and validates the args — bad usage exits `2` for free here.",
+                "activeNodes": ["user", "cli"],
+                "activeEdges": [
+                  { "from": "user", "to": "cli", "label": "argv" }
+                ]
               },
               {
-                "from": "core",
-                "to": "disk",
-                "kind": "dashed",
-                "label": "write"
+                "title": "Dispatch to the store",
+                "description": "The parsed verb dispatches into the **Store API** — the small `add` / `done` / `list` core that holds all the logic, separate from the CLI plumbing.",
+                "activeNodes": ["cli", "core"],
+                "activeEdges": [
+                  { "from": "cli", "to": "core", "label": "dispatch" }
+                ]
               },
               {
-                "from": "disk",
-                "to": "core",
-                "kind": "dashed",
-                "label": "load"
+                "title": "Load the current state",
+                "description": "The store first **reads** `todos.json` off disk, bootstrapping an empty file on the very first run.",
+                "activeNodes": ["disk", "core"],
+                "activeEdges": [
+                  { "from": "disk", "to": "core", "label": "load" }
+                ]
+              },
+              {
+                "title": "Write it back atomically",
+                "description": "After mutating tasks in memory, the store writes to a temp file, `fsync`s, then `os.replace`s — an **atomic write** so a crash never leaves half-written JSON.",
+                "activeNodes": ["core", "disk"],
+                "activeEdges": [
+                  { "from": "core", "to": "disk", "label": "write" }
+                ]
               }
             ]
           }
@@ -1432,14 +1468,15 @@ export default {
             "text": "Ignore the standup theater. Ask one question: **how long from a code change to a real user touching it?**"
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Code change → user feedback",
+            "why": "The whole game is loop length: the faster a change reaches a real user and the signal comes back, the more agile you actually are.",
             "nodes": [
               {
                 "id": "dev",
                 "label": "Developer",
                 "subtitle": "writes code",
-                "x": 0.08,
+                "x": 0.3,
                 "y": 0.5,
                 "accent": "water"
               },
@@ -1447,7 +1484,7 @@ export default {
                 "id": "ci",
                 "label": "CI / Tests",
                 "subtitle": "minutes",
-                "x": 0.3,
+                "x": 0.7,
                 "y": 0.5,
                 "accent": "sky"
               },
@@ -1455,59 +1492,73 @@ export default {
                 "id": "stage",
                 "label": "Staging",
                 "subtitle": "auto-deploy",
-                "x": 0.52,
-                "y": 0.5,
+                "x": 0.3,
+                "y": 0.72,
                 "accent": "amber"
               },
               {
                 "id": "flag",
                 "label": "Feature flag",
                 "subtitle": "1% rollout",
-                "x": 0.74,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.72,
                 "accent": "earth"
               },
               {
                 "id": "user",
                 "label": "Real user",
                 "subtitle": "signal back",
-                "x": 0.93,
-                "y": 0.5,
+                "x": 0.5,
+                "y": 0.93,
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "dev",
-                "to": "ci",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Developer writes code",
+                "description": "It starts with a small change — one **developer**, one commit. The clock on the feedback loop begins ticking the moment they push.",
+                "activeNodes": ["dev"],
+                "activeEdges": []
               },
               {
-                "from": "ci",
-                "to": "stage",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "CI runs the tests",
+                "description": "**CI** builds and runs the test suite in *minutes*. A green check here is the first, cheapest signal that the change is safe.",
+                "activeNodes": ["dev", "ci"],
+                "activeEdges": [
+                  { "from": "dev", "to": "ci" }
+                ]
               },
               {
-                "from": "stage",
-                "to": "flag",
-                "kind": "dashed",
-                "accent": "amber"
+                "title": "Auto-deploy to staging",
+                "description": "Passing CI **auto-deploys** to staging. No human in the loop means no waiting for a deploy ticket — the loop stays short.",
+                "activeNodes": ["ci", "stage"],
+                "activeEdges": [
+                  { "from": "ci", "to": "stage" }
+                ]
               },
               {
-                "from": "flag",
-                "to": "user",
-                "kind": "dashed",
-                "accent": "earth"
+                "title": "Reveal behind a flag",
+                "description": "A **feature flag** exposes the change to just *1%* of users. Decoupling deploy from release is the single biggest agile lever — you ship code without betting the whole user base.",
+                "activeNodes": ["stage", "flag"],
+                "activeEdges": [
+                  { "from": "stage", "to": "flag" }
+                ]
               },
               {
-                "from": "user",
-                "to": "dev",
-                "kind": "arc",
-                "accent": "fire",
-                "label": "feedback",
-                "curve": -0.4
+                "title": "A real user touches it",
+                "description": "A **real user** hits the new path and produces the only signal that truly counts — real behavior, not a guess.",
+                "activeNodes": ["flag", "user"],
+                "activeEdges": [
+                  { "from": "flag", "to": "user" }
+                ]
+              },
+              {
+                "title": "Feedback closes the loop",
+                "description": "That signal flows straight **back to the developer**, who adjusts the next change. Measured in *hours* you're agile; in *weeks* you're doing waterfall in sprint costumes.",
+                "activeNodes": ["user", "dev"],
+                "activeEdges": [
+                  { "from": "user", "to": "dev", "label": "feedback" }
+                ]
               }
             ]
           },
@@ -2498,8 +2549,9 @@ export default {
             "text": "That's your stack. The cart is your **process-local cache**. The main floor is **Redis**. The archive is your **database**. The courier is a slow upstream API. Every layer trades freshness for latency, and every layer has its own way of lying to you."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Cache-aside / lazy load",
+            "why": "The cache only fills *after* a miss — that lazy refill is why a cold cache and a forgotten invalidation both quietly fall back to the database.",
             "height": 200,
             "nodes": [
               { "id": "client", "label": "Client",   "subtitle": "request",                "accent": "water", "x": 0.10, "y": 0.50 },
@@ -2507,10 +2559,37 @@ export default {
               { "id": "cache",  "label": "Cache",    "subtitle": "redis · in-memory",      "accent": "earth", "x": 0.80, "y": 0.22 },
               { "id": "db",     "label": "Database", "subtitle": "postgres · truth",       "accent": "fire",  "x": 0.80, "y": 0.78 }
             ],
-            "edges": [
-              { "from": "client", "to": "app",  "kind": "solid" },
-              { "from": "app",    "to": "cache","kind": "dashed", "accent": "earth", "label": "1. check", "curve": 0.35 },
-              { "from": "app",    "to": "db",   "kind": "dashed", "accent": "fire",  "label": "2. miss",  "curve": 0.35 }
+            "steps": [
+              {
+                "title": "Client asks for data",
+                "description": "A **client** request comes in needing some value — say a user record. The app, not the cache, owns the decision of where to get it.",
+                "activeNodes": ["client"],
+                "activeEdges": []
+              },
+              {
+                "title": "App takes the request",
+                "description": "The **app** receives the request and runs the cache-aside logic: check the fast layer first, fall back to the slow one only if needed.",
+                "activeNodes": ["client", "app"],
+                "activeEdges": [
+                  { "from": "client", "to": "app" }
+                ]
+              },
+              {
+                "title": "Check the cache",
+                "description": "First stop is the **cache** (Redis or in-memory). A *hit* returns in well under a millisecond and the request is done.",
+                "activeNodes": ["app", "cache"],
+                "activeEdges": [
+                  { "from": "app", "to": "cache", "label": "1. check" }
+                ]
+              },
+              {
+                "title": "On a miss, hit the DB",
+                "description": "A *miss* pays full **database** latency. The app then writes the result back into the cache so the *next* read is fast — that's the lazy load.",
+                "activeNodes": ["app", "db"],
+                "activeEdges": [
+                  { "from": "app", "to": "db", "label": "2. miss" }
+                ]
+              }
             ]
           },
           {
@@ -2636,6 +2715,12 @@ export default {
           {
             "type": "p",
             "text": "A cache is a *consistency contract*, not a speedup. The interesting question isn't *what should I cache* — it's *how stale am I allowed to be, and who notices?* Answer that and the layer chooses itself."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen the **cache-aside read path** (check fast layer, fall back to DB, lazy-fill), the **invalidation strategies** (TTL, write-through, write-around, write-behind), and the **three layers ranked by latency** (in-process LRU → Redis → CDN). Design the caching for a user-profile read that's hammered on every page but updated rarely. Explain how the read path, an invalidation choice, and the layer ranking fit together, then name the one staleness trade-off you're knowingly accepting and how you'd keep it bounded.",
+            "modelAnswer": "Reads are hot and writes are rare, so I stack layers cheapest-and-fastest first: an **in-process LRU** (~60s TTL, 50 ns) absorbs most repeats per instance, then **Redis** (~5 min TTL, sub-ms) shared across the fleet, then **Postgres** as the source of truth. The read path is cache-aside: check LRU → check Redis → on a miss fetch from the DB and lazily backfill both upper layers so the next read is fast. For writes I use **write-around + explicit invalidation**: write to the DB, then `DEL` the Redis key so the next read refreshes it (write-around fits because writes are rare, so there's no point paying write-through's double hop on every read-heavy key). The trade-off I'm knowingly accepting: the *other* instances' in-process LRUs still hold the old profile for up to their 60s TTL — I can't cheaply broadcast an invalidation to every process. I bound it by keeping that L1 TTL short (60s, not 10 min) so the worst-case staleness is small and predictable, and I document the window rather than pretend reads are instantly consistent. If a field ever needed read-your-writes (e.g. the user just changed their own email), I'd bypass L1 for that one path or use write-through there. I'd also guard the shared Redis key against a thundering herd on expiry with stale-while-revalidate or singleflight.",
+            "hint": "Put the fastest, most local layer first and ask: when a write happens, which layers can you invalidate cheaply, and which one is stuck stale until its TTL?"
           }
         ]
       }
@@ -2916,7 +3001,7 @@ export default {
               { "id": "gw",     "label": "API Gateway","subtitle": "AUTH + ROUTE",  "x": 0.32, "y": 0.5, "accent": "amber" },
               { "id": "users",  "label": "/users",    "subtitle": "RESOURCE",      "x": 0.58, "y": 0.25, "accent": "fire" },
               { "id": "orders", "label": "/orders",   "subtitle": "RESOURCE",      "x": 0.58, "y": 0.75, "accent": "fire" },
-              { "id": "db",     "label": "Postgres",  "subtitle": "STORE",         "x": 0.88, "y": 0.5, "accent": "earth" }
+              { "id": "db",     "label": "Postgres",  "subtitle": "STORE",         "x": 0.5, "y": 1.0, "accent": "earth" }
             ],
             "edges": [
               { "from": "client", "to": "gw",     "kind": "dashed", "accent": "water", "label": "HTTPS" },
@@ -2976,6 +3061,12 @@ export default {
             "axes": ["Wire format", "Browser-native?", "Streaming", "Tooling maturity"],
             "left":  { "label": "REST",  "accent": "sky",  "values": ["JSON over HTTP/1.1", "Yes", "SSE / long-poll", "Universal — `curl`, every SDK"] },
             "right": { "label": "gRPC",  "accent": "fire", "values": ["Protobuf over HTTP/2", "No (needs grpc-web proxy)", "Bidirectional native", "Server-side only"] }
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen **resources-as-nouns** (`/users/42/orders`, not `/getUserOrders`), **plural-collection / singular-item** conventions, and the line **where REST stops being the right tool** (gRPC, GraphQL, WebSockets). Design the public surface for a food-delivery app's *orders* feature — list, read, place, cancel, and live driver-location tracking. Explain how the resource-modeling rules give you the first four endpoints, then justify which one piece you'd pull *out* of REST and what you'd reach for instead. Name the trade-off that decision costs you.",
+            "modelAnswer": "Model orders as a resource collection: `GET /orders` (list, with `?status=` and pagination), `GET /orders/{id}` (read one), `POST /orders` (place — returns 201 + a `Location` header to the new item), and cancel as either `DELETE /orders/{id}` or, since cancellation is a state transition with side effects, `POST /orders/{id}/cancel`. Plural for the collection, singular item under it, nesting kept shallow (`/users/{id}/orders` at most two levels). Those four are clean CRUD, cacheable, and any HTTP client can hit them — REST's sweet spot. Live driver location is the piece I'd pull out: polling `GET /orders/{id}/location` every second is wasteful and laggy, so I'd push it over **WebSockets** (or SSE) for a real-time duplex stream. The trade-off: I've now got two protocols and two infrastructures to operate, authenticate, and monitor instead of one uniform REST surface — worth it only because the latency and request-volume win on live tracking is large, and I'd keep everything else on plain REST rather than rewrite the whole API in gRPC.",
+            "hint": "Four of the five operations are textbook CRUD nouns; one is a continuous low-latency stream. Which rule from the lesson tells you the stream doesn't belong in REST?"
           }
         ]
       }
@@ -3041,19 +3132,47 @@ export default {
         "heading": "The deprecation playbook",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Deprecation lifecycle",
             "subtitle": "ANNOUNCE → DUAL-RUN → ENFORCE",
+            "why": "Announce, dual-run, enforce — skip any of the three and integrations break overnight while trust burns for years.",
             "nodes": [
               { "id": "ann", "label": "Announce", "subtitle": "DAY 0",     "x": 0.12, "y": 0.5, "accent": "water" },
               { "id": "dual","label": "Dual-run", "subtitle": "MONTHS 1-6","x": 0.42, "y": 0.5, "accent": "amber" },
-              { "id": "sun", "label": "Sunset hdr","subtitle": "MONTH 6",  "x": 0.7,  "y": 0.5, "accent": "amber" },
-              { "id": "off", "label": "Enforce",  "subtitle": "MONTH 12",  "x": 0.92, "y": 0.5, "accent": "fire" }
+              { "id": "sun", "label": "Sunset hdr","subtitle": "MONTH 6",  "x": 0.12,  "y": 0.85, "accent": "amber" },
+              { "id": "off", "label": "Enforce",  "subtitle": "MONTH 12",  "x": 0.42, "y": 0.85, "accent": "fire" }
             ],
-            "edges": [
-              { "from": "ann",  "to": "dual", "kind": "dashed", "accent": "water", "label": "blog + email" },
-              { "from": "dual", "to": "sun",  "kind": "dashed", "accent": "amber", "label": "warn" },
-              { "from": "sun",  "to": "off",  "kind": "dashed", "accent": "amber", "label": "410 Gone" }
+            "steps": [
+              {
+                "title": "Announce the change",
+                "description": "On **day 0** you tell everyone v1 is going away — a blog post and an email to integrators. The clock only starts once people actually know.",
+                "activeNodes": ["ann"],
+                "activeEdges": []
+              },
+              {
+                "title": "Dual-run both versions",
+                "description": "For **months 1-6** v1 and v2 run side by side. Clients migrate at their own pace; nothing breaks while both answer requests.",
+                "activeNodes": ["ann", "dual"],
+                "activeEdges": [
+                  { "from": "ann", "to": "dual", "label": "blog + email" }
+                ]
+              },
+              {
+                "title": "Warn with a Sunset header",
+                "description": "By **month 6** every v1 response carries a `Sunset` header (RFC 8594) and a `Deprecation: true` marker — a machine-readable warning pointing at v2.",
+                "activeNodes": ["dual", "sun"],
+                "activeEdges": [
+                  { "from": "dual", "to": "sun", "label": "warn" }
+                ]
+              },
+              {
+                "title": "Enforce the cutoff",
+                "description": "At **month 12** v1 returns **`410 Gone`** with a link to the migration guide — never a silent `404`. The contract ends loudly, on the date you promised.",
+                "activeNodes": ["sun", "off"],
+                "activeEdges": [
+                  { "from": "sun", "to": "off", "label": "410 Gone" }
+                ]
+              }
             ]
           },
           {
@@ -3110,7 +3229,7 @@ export default {
             "nodes": [
               { "id": "req", "label": "Request",   "subtitle": "INCOMING", "x": 0.08, "y": 0.5, "accent": "water" },
               { "id": "gw",  "label": "Limiter",   "subtitle": "MIDDLEWARE","x": 0.34, "y": 0.5, "accent": "amber" },
-              { "id": "red", "label": "Redis",     "subtitle": "COUNTERS",  "x": 0.6, "y": 0.5, "accent": "sky" },
+              { "id": "red", "label": "Redis",     "subtitle": "COUNTERS",  "x": 0.5, "y": 0.95, "accent": "sky" },
               { "id": "svc", "label": "Service",   "subtitle": "BACKEND",   "x": 0.88, "y": 0.25, "accent": "fire" },
               { "id": "tmr", "label": "429",       "subtitle": "RETRY-AFTER","x": 0.88, "y": 0.75, "accent": "fire" }
             ],
@@ -3176,6 +3295,12 @@ export default {
             "type": "quote",
             "text": "A 429 without Retry-After is just rude. Tell the client when to come back and they will.",
             "cite": "the limiter's golden rule"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You've seen the **three algorithms** (token / leaky / sliding window), how to **choose the limiting key** (API key vs user vs raw IP), and the **429 + Retry-After contract**. Design the rate limiter for a multi-tenant SaaS whose customers each run mobile apps that *burst* at launch. Explain how the three choices combine — which algorithm fits bursty traffic, which key keeps tenants from punishing each other, and what the deny response must carry so clients back off cleanly. Then name the trade-off your key choice creates.",
+            "modelAnswer": "Algorithm: **token bucket**, because real mobile launches are bursty — a bucket lets a client spend its tokens in an instant spike, then refills at the average rate, which feels fair instead of choking legitimate fan-out. Key: limit per **tenant ID** (or `tenant + endpoint` compound for expensive routes), *not* raw IP — IP buckets an entire office or NAT into one counter and punishes innocent corporate users, and tenant-keying stops one noisy customer from eating another's quota in a shared system. The deny path returns **429 Too Many Requests** (never 503) with a **Retry-After** header *and* the same value in the JSON body, plus `RateLimit-Remaining` headers so a well-behaved SDK backs off with jitter instead of hammering. The trade-off: per-tenant counters mean shared state every instance must read/write, so I push them into **Redis** (atomic `INCR`) — that's a network hop and a new dependency on the hot path, and if Redis is down I have to decide fail-open (let traffic through, risk overload) vs fail-closed (block everyone). I'd fail open with a tight local fallback, because a limiter that takes the whole API down is worse than a brief lapse in limiting.",
+            "hint": "Match each requirement to one decision: bursty → which algorithm; multi-tenant fairness → which key; 'clients back off cleanly' → which response fields?"
           }
         ]
       }
@@ -3204,10 +3329,10 @@ export default {
             "title": "Idempotency-Key flow",
             "subtitle": "AT-LEAST-ONCE DELIVERY",
             "nodes": [
-              { "id": "cli", "label": "Client",  "subtitle": "GENERATES UUID", "x": 0.1,  "y": 0.5, "accent": "water" },
-              { "id": "api", "label": "API",     "subtitle": "CHECKS KEY",     "x": 0.38, "y": 0.5, "accent": "fire" },
-              { "id": "kv",  "label": "Redis",   "subtitle": "KEY → RESPONSE", "x": 0.66, "y": 0.5, "accent": "sky" },
-              { "id": "db",  "label": "Postgres","subtitle": "WRITES ONCE",    "x": 0.92, "y": 0.5, "accent": "earth" }
+              { "id": "cli", "label": "Client",  "subtitle": "GENERATES UUID", "x": 0.3,  "y": 0.3, "accent": "water" },
+              { "id": "api", "label": "API",     "subtitle": "CHECKS KEY",     "x": 0.7, "y": 0.3, "accent": "fire" },
+              { "id": "kv",  "label": "Redis",   "subtitle": "KEY → RESPONSE", "x": 0.3, "y": 0.7, "accent": "sky" },
+              { "id": "db",  "label": "Postgres","subtitle": "WRITES ONCE",    "x": 0.7, "y": 0.7, "accent": "earth" }
             ],
             "edges": [
               { "from": "cli", "to": "api", "kind": "dashed", "accent": "water", "label": "POST + key" },

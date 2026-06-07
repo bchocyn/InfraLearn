@@ -245,6 +245,12 @@ export default {
             "type": "quote",
             "text": "There is no global \"now\". The sooner you internalize that, the fewer 3am pages you will catch from \"impossible\" race conditions.",
             "cite": "every distributed-systems engineer, eventually"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis: you're ordering events across a fleet that has **monotonic vs wall clocks**, **NTP step/leap-smear drift**, and **Lamport vs vector/HLC** logical clocks. Design how you'd timestamp and order events so that (a) timeouts never misfire and (b) you can tell *causally ordered* from *truly concurrent* — then name the one trade-off you'd watch as the cluster grows.",
+            "modelAnswer": "Split the job by what each clock is *for*. Use the **monotonic** clock for every duration/timeout/budget so an NTP step (or leap-second smear) can't make a timer fire twice or never — wall clock is only for human-facing display. For *ordering*, never trust raw wall-clock comparisons across nodes; attach a **logical clock**. A **Lamport** clock gives a single total order but loses the distinction between causal and concurrent. **Vector clocks** recover that distinction — if neither vector dominates, the writes are genuinely concurrent and you must surface a conflict (or merge). **HLC** is the pragmatic middle: it stays close to wall time (so timestamps are readable and roughly sortable) while still encoding happens-before. The trade-off to watch: **vector clocks grow O(nodes)** — in a 10k-node cluster the metadata dwarfs the payload, so you cap participants, prune dead entries, or switch to HLC and accept that it tells you order but not full concurrency.",
+            "hint": "Three jobs, three clocks: monotonic = durations, wall = display, logical = ordering. What does a vector tell you that Lamport can't — and what does it cost at scale?"
           }
         ]
       }
@@ -518,6 +524,12 @@ export default {
           {
             "type": "p",
             "text": "**Key insight:** consistency is per-field, not per-database. The same service can serve a linearizable balance and an eventually-consistent like count from the same Postgres — what changes is *which replica you read from and when you fence the write*. Treat it as a routing decision and the architecture writes itself."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis: you've seen the **strong → causal → eventual** spectrum, what each level **costs** (latency, availability under partition), and **read-your-writes** as the cheap upgrade. Design the consistency for a single product that has an **account balance**, a **like count**, and a **'your post is live' confirmation** — assign a level to each, justify it, and name the trade-off you accept on the one you weaken the most.",
+            "modelAnswer": "Pick the *weakest* level that still keeps each field correct, because every step toward strong costs latency and availability during a partition. **Balance → linearizable (strong):** it's a constraint where two readers disagreeing is real money lost, so you read from the primary (or a fenced quorum) and pay the cross-region round-trip. **Like count → eventual:** reads vastly outnumber writes, staleness of a few seconds is invisible, and conflicts have a sane merge (it's a commutative counter / CRDT), so you serve it from the nearest replica and scale reads globally. **'Post is live' confirmation → read-your-writes (causal, session-scoped):** the user must see *their own* write immediately or it feels broken, but they don't need everyone else's writes — so you pin their session to the primary or carry a write token, which is far cheaper than making the whole feed linearizable. The trade-off I accept on the like count: under a partition it can briefly show different totals to different users and can drift before convergence — fine for a vanity metric, unacceptable for the balance. The architecture falls out of routing each field to the right replica at the right freshness.",
+            "hint": "Don't pick one level for the whole DB. Per field: is disagreement *money* (strong), *vanity* (eventual), or *'did MY action stick'* (read-your-writes)? Then name what the eventual field can show wrong."
           }
         ]
       }
@@ -546,8 +558,9 @@ export default {
             "text": "A **coordinator** asks every participant *\"can you commit?\"* — if all say yes, it tells them to commit. One *no* (or timeout) and everyone rolls back. Simple in theory, brutal in practice."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "2PC: prepare then commit",
+            "why": "The decision is only safe once it's durably logged — that's the single line every participant trusts when the coordinator goes quiet.",
             "nodes": [
               {
                 "id": "c",
@@ -561,24 +574,24 @@ export default {
                 "id": "p1",
                 "label": "Participant A",
                 "subtitle": "orders db",
-                "x": 0.15,
-                "y": 0.6,
+                "x": 0.3,
+                "y": 0.45,
                 "accent": "fire"
               },
               {
                 "id": "p2",
                 "label": "Participant B",
                 "subtitle": "payments db",
-                "x": 0.5,
-                "y": 0.6,
+                "x": 0.7,
+                "y": 0.45,
                 "accent": "fire"
               },
               {
                 "id": "p3",
                 "label": "Participant C",
                 "subtitle": "inventory db",
-                "x": 0.85,
-                "y": 0.6,
+                "x": 0.5,
+                "y": 0.7,
                 "accent": "fire"
               },
               {
@@ -590,41 +603,34 @@ export default {
                 "accent": "earth"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "c",
-                "to": "p1",
-                "label": "prepare?",
-                "kind": "dashed",
-                "accent": "amber"
+                "title": "Coordinator opens the vote",
+                "description": "One **coordinator** drives the whole protocol. It will ask every participant to commit, then tally the answers — nobody acts alone.",
+                "activeNodes": ["c"],
+                "activeEdges": []
               },
               {
-                "from": "c",
-                "to": "p2",
-                "label": "prepare?",
-                "kind": "dashed",
-                "accent": "amber"
+                "title": "Phase 1 — prepare?",
+                "description": "The coordinator broadcasts `prepare?` to all three participants at once. Each must lock its rows and answer whether it *can* commit.",
+                "activeNodes": ["c", "p1", "p2", "p3"],
+                "activeEdges": [
+                  { "from": "c", "to": "p1", "label": "prepare?" },
+                  { "from": "c", "to": "p2", "label": "prepare?" },
+                  { "from": "c", "to": "p3", "label": "prepare?" }
+                ]
               },
               {
-                "from": "c",
-                "to": "p3",
-                "label": "prepare?",
-                "kind": "dashed",
-                "accent": "amber"
+                "title": "Collect the votes",
+                "description": "Participants vote back. **All yes** means commit; a single *no* or timeout forces a global rollback. This is also the danger zone — locks are held until the coordinator decides.",
+                "activeNodes": ["p1", "c"],
+                "activeEdges": [{ "from": "p1", "to": "c", "label": "vote" }]
               },
               {
-                "from": "p1",
-                "to": "c",
-                "label": "vote",
-                "kind": "dashed",
-                "accent": "water"
-              },
-              {
-                "from": "c",
-                "to": "log",
-                "label": "commit",
-                "kind": "solid",
-                "accent": "fire"
+                "title": "Phase 2 — durably commit",
+                "description": "Before telling anyone, the coordinator writes the decision to its **commit log**. If it crashes now, recovery reads this line — that durable record is what stops participants blocking forever.",
+                "activeNodes": ["c", "log"],
+                "activeEdges": [{ "from": "c", "to": "log", "label": "commit" }]
               }
             ]
           },
@@ -729,6 +735,12 @@ export default {
             "type": "quote",
             "text": "Distributed transactions don't give you atomicity — they give you a vocabulary for the failure modes you'll ship with.",
             "cite": "operational reality"
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis: design a 'place order' flow that debits a wallet, reserves inventory, and emails a receipt across three services. You have **2PC**, **sagas with compensations**, and **idempotency keys + the outbox pattern** in your toolbox. Decide which to use (and where), explain how they combine, and name the trade-off that drives the choice.",
+            "modelAnswer": "Don't reach for one mechanism for the whole flow — combine them by failure mode. **Sagas, not 2PC, for the cross-service workflow:** 2PC holds locks and *blocks every participant indefinitely if the coordinator dies mid-protocol*, which kills availability at scale, so the order is a saga of local transactions (debit → reserve → email) each with a compensation (refund → release → no-op). **Sequence irreversible steps last:** the email can't be un-sent, so it runs only after the debit and reservation have both committed — compensations only need to undo the reversible steps. **Idempotency keys on every step** so a retry storm doesn't double-charge or double-reserve; the key is the order ID, and each service no-ops on a key it has already applied. **The outbox pattern** makes the 'committed locally *and* event published' pair atomic: each service writes its state change and the next event in the *same* DB transaction, then a poller (or CDC) ships the event — so you never lose a step or publish one you didn't commit. The trade-off: you give up the clean all-or-nothing *isolation* of 2PC and accept temporary partial states (money debited, inventory not yet reserved) plus the work of writing correct compensations — in exchange for liveness: no service blocks on a dead coordinator, and the system makes forward progress under failure.",
+            "hint": "2PC = atomic but blocks on a dead coordinator. Saga = liveness but you write the undo. Idempotency keys + outbox are the glue that makes the saga's retries safe and its events not-lost. What are you trading for forward progress?"
           }
         ]
       }
@@ -867,30 +879,31 @@ export default {
         "heading": "The pipeline",
         "body": [
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Typical FAANG loop",
+            "why": "Each stage filters for a different signal — pass four, stumble on the fifth, and you're out. That's the design.",
             "nodes": [
               {
                 "id": "rec",
                 "label": "Recruiter Screen",
                 "subtitle": "30 MIN",
-                "x": 0.08,
-                "y": 0.5,
+                "x": 0.2,
+                "y": 0.2,
                 "accent": "water"
               },
               {
                 "id": "tech",
                 "label": "Tech Screen",
                 "subtitle": "1 CODING",
-                "x": 0.3,
-                "y": 0.5,
+                "x": 0.7,
+                "y": 0.2,
                 "accent": "sky"
               },
               {
                 "id": "onsite",
                 "label": "Onsite Loop",
                 "subtitle": "4-6 ROUNDS",
-                "x": 0.55,
+                "x": 0.2,
                 "y": 0.5,
                 "accent": "amber"
               },
@@ -898,7 +911,7 @@ export default {
                 "id": "debrief",
                 "label": "Debrief",
                 "subtitle": "VOTE",
-                "x": 0.78,
+                "x": 0.7,
                 "y": 0.5,
                 "accent": "fire"
               },
@@ -906,35 +919,41 @@ export default {
                 "id": "offer",
                 "label": "Offer / Reject",
                 "subtitle": "MATCH",
-                "x": 0.95,
-                "y": 0.5,
+                "x": 0.45,
+                "y": 0.8,
                 "accent": "earth"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "rec",
-                "to": "tech",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Recruiter screen",
+                "description": "It starts with logistics, not code. The recruiter confirms scope, **target level**, and comp range so you're aimed at the right bar before anyone judges your skills.",
+                "activeNodes": ["rec"],
+                "activeEdges": []
               },
               {
-                "from": "tech",
-                "to": "onsite",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "Tech screen",
+                "description": "One easy-to-medium coding problem that filters out the ~70% who can't actually code. Clear it and you've earned the onsite.",
+                "activeNodes": ["rec", "tech"],
+                "activeEdges": [{ "from": "rec", "to": "tech", "label": "pass" }]
               },
               {
-                "from": "onsite",
-                "to": "debrief",
-                "kind": "solid",
-                "accent": "amber"
+                "title": "Onsite loop",
+                "description": "The real test: **4-6 rounds** of coding, system design, and behavioral. This is where signal actually gets generated — each interviewer probes a different axis.",
+                "activeNodes": ["tech", "onsite"],
+                "activeEdges": [{ "from": "tech", "to": "onsite", "label": "invite" }]
               },
               {
-                "from": "debrief",
-                "to": "offer",
-                "kind": "dashed",
-                "accent": "fire"
+                "title": "Debrief",
+                "description": "Your 5-6 interviewers — who never compared notes in real time — collide their scores here. It's a **consensus vote**, not an average; one loud detractor can sink you.",
+                "activeNodes": ["onsite", "debrief"],
+                "activeEdges": [{ "from": "onsite", "to": "debrief", "label": "scores" }]
+              },
+              {
+                "title": "Offer or reject",
+                "description": "The vote resolves into a decision and a level match. Treat every round as independent — a bad one early doesn't doom you if the rest are strong.",
+                "activeNodes": ["debrief", "offer"],
+                "activeEdges": [{ "from": "debrief", "to": "offer", "label": "decide" }]
               }
             ]
           },
@@ -1116,7 +1135,7 @@ export default {
                 "label": "Edge cache",
                 "subtitle": "warm hits",
                 "x": 0.55,
-                "y": 0.85,
+                "y": 0.8,
                 "accent": "earth"
               }
             ],
@@ -1729,7 +1748,7 @@ export default {
                 "label": "Gateway",
                 "subtitle": "TLS termination",
                 "x": 0.28,
-                "y": 0.5,
+                "y": 0.35,
                 "accent": "sky"
               },
               {
@@ -1917,8 +1936,9 @@ export default {
             "text": "This is the foundation underneath **etcd**, **Consul**, **CockroachDB**, and the metadata layer of nearly every modern orchestrator. Raft trades raw throughput for *linearizability*: clients see one consistent view, and a network partition can stall writes but never corrupt them. Understanding it cures most magical thinking about distributed systems."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "3-node Raft cluster with leader-routed writes",
+            "why": "A write is only acknowledged once a **majority** has it — that's why one node can die without losing data or splitting the truth.",
             "nodes": [
               {
                 "id": "client",
@@ -1961,34 +1981,27 @@ export default {
                 "accent": "fire"
               }
             ],
-            "edges": [
+            "steps": [
               {
-                "from": "client",
-                "to": "leader",
-                "label": "PUT k=v",
-                "kind": "dashed",
-                "accent": "water"
+                "title": "Client sends the write",
+                "description": "Every write goes to one place — the **leader**. A client that hits a follower gets a redirect hint and retries here, so there's never more than one writer.",
+                "activeNodes": ["client", "leader"],
+                "activeEdges": [{ "from": "client", "to": "leader", "label": "PUT k=v" }]
               },
               {
-                "from": "leader",
-                "to": "f1",
-                "label": "AppendEntries",
-                "kind": "dashed",
-                "accent": "sky"
+                "title": "Replicate to followers",
+                "description": "The leader appends the entry to its log and ships it to both followers via `AppendEntries`. It waits for a **majority** to confirm before counting the write as committed.",
+                "activeNodes": ["leader", "f1", "f2"],
+                "activeEdges": [
+                  { "from": "leader", "to": "f1", "label": "AppendEntries" },
+                  { "from": "leader", "to": "f2", "label": "AppendEntries" }
+                ]
               },
               {
-                "from": "leader",
-                "to": "f2",
-                "label": "AppendEntries",
-                "kind": "dashed",
-                "accent": "sky"
-              },
-              {
-                "from": "leader",
-                "to": "disk",
-                "label": "fsync",
-                "kind": "solid",
-                "accent": "fire"
+                "title": "Persist durably",
+                "description": "The entry is `fsync`'d to the **write-ahead log** so it survives a crash. Only now is the write safe to acknowledge — durability plus majority is what makes Raft linearizable.",
+                "activeNodes": ["leader", "disk"],
+                "activeEdges": [{ "from": "leader", "to": "disk", "label": "fsync" }]
               }
             ]
           }
@@ -2565,20 +2578,41 @@ export default {
             "text": "**Cursor pagination** is the FAANG-grade fix. The client carries an opaque token that encodes *where we left off*, and the server resumes from that exact position via an index seek — O(log n), not O(n)."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Cursor flow",
             "subtitle": "OPAQUE TOKEN ROUND-TRIP",
             "height": 200,
+            "why": "No `OFFSET`, no row-counting — the token *is* the position, so every page costs the same regardless of depth.",
             "nodes": [
               { "id": "client", "label": "client", "subtitle": "PAGE 1 REQUEST", "accent": "water", "x": 0.1,  "y": 0.5 },
               { "id": "api",    "label": "api",    "subtitle": "DECODE · SEEK",  "accent": "amber", "x": 0.42, "y": 0.5 },
               { "id": "db",     "label": "db",     "subtitle": "INDEX SCAN",     "accent": "earth", "x": 0.78, "y": 0.5 }
             ],
-            "edges": [
-              { "from": "client", "to": "api", "kind": "dashed", "label": "cursor in" },
-              { "from": "api",    "to": "db",  "kind": "dashed", "label": "seek" },
-              { "from": "db",     "to": "api", "kind": "dashed" },
-              { "from": "api",    "to": "client", "kind": "dashed" }
+            "steps": [
+              {
+                "title": "Client sends the cursor",
+                "description": "The client asks for the next page and hands back the **opaque cursor** it got last time — an encoded `(created_at, id)` position, not a page number.",
+                "activeNodes": ["client", "api"],
+                "activeEdges": [{ "from": "client", "to": "api", "label": "cursor in" }]
+              },
+              {
+                "title": "API decodes and seeks",
+                "description": "The api base64-decodes the token, checks its version, then issues an **index seek** — `WHERE (created_at, id) < (...)` — instead of walking rows it would throw away.",
+                "activeNodes": ["api", "db"],
+                "activeEdges": [{ "from": "api", "to": "db", "label": "seek" }]
+              },
+              {
+                "title": "DB scans from that point",
+                "description": "The composite index jumps straight to the position and reads the next 20 rows. This is **O(log n)** — page 1 and page 50,000 cost the same.",
+                "activeNodes": ["db", "api"],
+                "activeEdges": [{ "from": "db", "to": "api", "label": "rows" }]
+              },
+              {
+                "title": "Return page + next cursor",
+                "description": "The api encodes the last row as a fresh cursor and ships the page back. The client stores that token to resume from exactly here next time.",
+                "activeNodes": ["api", "client"],
+                "activeEdges": [{ "from": "api", "to": "client", "label": "next cursor" }]
+              }
             ]
           }
         ]
@@ -2757,21 +2791,42 @@ export default {
             "text": "That's **eventual consistency** biting you. The write went to the primary; the read hit a replica that hadn't caught up yet. Replication lag is usually milliseconds — but milliseconds is enough when the client races back instantly."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Read-after-write race",
             "subtitle": "REPLICA LAGS PRIMARY",
             "height": 230,
+            "why": "The write and the read take **different paths** — that split is the whole bug, and read-your-writes routing is the fix.",
             "nodes": [
               { "id": "user",   "label": "client",  "subtitle": "WRITE THEN READ", "accent": "water", "x": 0.08, "y": 0.5 },
               { "id": "api",    "label": "api",     "subtitle": "ROUTING LAYER",   "accent": "amber", "x": 0.38, "y": 0.5 },
               { "id": "primary","label": "primary", "subtitle": "ACCEPTS WRITES",  "accent": "earth", "x": 0.72, "y": 0.22 },
               { "id": "replica","label": "replica", "subtitle": "LAGS BY MS",      "accent": "sky",   "x": 0.72, "y": 0.78 }
             ],
-            "edges": [
-              { "from": "user",    "to": "api",     "kind": "dashed", "label": "write" },
-              { "from": "api",     "to": "primary", "kind": "solid",  "label": "save" },
-              { "from": "user",    "to": "api",     "kind": "dashed", "label": "read" },
-              { "from": "api",     "to": "replica", "kind": "dashed", "label": "stale" }
+            "steps": [
+              {
+                "title": "Client writes",
+                "description": "The user clicks save. The request hits the **routing layer** on its way to storage — and the UI flashes a success toast almost instantly.",
+                "activeNodes": ["user", "api"],
+                "activeEdges": [{ "from": "user", "to": "api", "label": "write" }]
+              },
+              {
+                "title": "Write lands on the primary",
+                "description": "Only the **primary** accepts writes, so the api routes the save there. The new value is now committed — but it lives on the primary alone for a few milliseconds.",
+                "activeNodes": ["api", "primary"],
+                "activeEdges": [{ "from": "api", "to": "primary", "label": "save" }]
+              },
+              {
+                "title": "Client reads back immediately",
+                "description": "The user navigates back and the page re-fetches. This read races the replication — it arrives before the change has propagated everywhere.",
+                "activeNodes": ["user", "api"],
+                "activeEdges": [{ "from": "user", "to": "api", "label": "read" }]
+              },
+              {
+                "title": "Read hits a stale replica",
+                "description": "The router load-balances this read onto a **replica that still lags by milliseconds**. It returns the old value — the user's change appears to have vanished.",
+                "activeNodes": ["api", "replica"],
+                "activeEdges": [{ "from": "api", "to": "replica", "label": "stale" }]
+              }
             ]
           }
         ]
@@ -2857,20 +2912,42 @@ export default {
             "text": "Your handler is the line of defense. If processing the same event twice would double-charge a card, send two emails, or mint two refunds, the bug is in **your code**, not the sender's."
           },
           {
-            "type": "diagram",
+            "type": "walkthrough",
             "title": "Retry flow with idempotency",
             "subtitle": "EVENT ID → DEDUPE STORE",
             "height": 220,
+            "why": "Verify, then dedupe, then apply — in that order. The dedupe step is what turns at-least-once delivery into exactly-once effects.",
             "nodes": [
               { "id": "src",    "label": "stripe",   "subtitle": "EMITS EVENT",     "accent": "fire",  "x": 0.08, "y": 0.5 },
               { "id": "edge",   "label": "handler",  "subtitle": "VERIFIES HMAC",   "accent": "amber", "x": 0.4,  "y": 0.5 },
               { "id": "dedupe", "label": "dedupe",   "subtitle": "SEEN EVT_ID?",    "accent": "sky",   "x": 0.7,  "y": 0.25 },
               { "id": "db",     "label": "ledger",   "subtitle": "ATOMIC APPLY",    "accent": "earth", "x": 0.7,  "y": 0.75 }
             ],
-            "edges": [
-              { "from": "src",    "to": "edge",   "kind": "dashed", "label": "POST" },
-              { "from": "edge",   "to": "dedupe", "kind": "dashed", "label": "check" },
-              { "from": "dedupe", "to": "db",     "kind": "solid",  "label": "if new" }
+            "steps": [
+              {
+                "title": "Sender emits the event",
+                "description": "The provider fires a webhook. Because delivery is **at-least-once**, this exact event may arrive twice or thrice — a retry storm is normal, not an error.",
+                "activeNodes": ["src"],
+                "activeEdges": []
+              },
+              {
+                "title": "Handler verifies the POST",
+                "description": "Your **handler** checks the HMAC signature against the shared secret with a 5-minute window. Forged or replayed requests die here, before they touch any state.",
+                "activeNodes": ["src", "edge"],
+                "activeEdges": [{ "from": "src", "to": "edge", "label": "POST" }]
+              },
+              {
+                "title": "Dedupe on event ID",
+                "description": "The handler asks the **dedupe store**: have I seen this `evt_id`? If yes, it no-ops and returns `200` so the sender stops retrying.",
+                "activeNodes": ["edge", "dedupe"],
+                "activeEdges": [{ "from": "edge", "to": "dedupe", "label": "check" }]
+              },
+              {
+                "title": "Apply once, atomically",
+                "description": "Only a **new** event reaches the ledger, where the insert and the dedupe record commit together. The business logic runs exactly once per event ID.",
+                "activeNodes": ["dedupe", "db"],
+                "activeEdges": [{ "from": "dedupe", "to": "db", "label": "if new" }]
+              }
             ]
           }
         ]
@@ -3105,6 +3182,12 @@ export default {
             "prompt": "Wrap a flaky downstream call with full-jitter exponential backoff. Stop retrying after 5 attempts or 30 seconds total wall-clock, whichever comes first.",
             "starter": "import random, time\n\ndef call_with_budget(fn, max_attempts=5, total_budget=30.0, base=0.1, cap=10.0):\n    deadline = time.monotonic() + total_budget  # monotonic — immune to NTP step\n    for attempt in range(max_attempts):\n        try:\n            return fn()\n        except TransientError:\n            if attempt == max_attempts - 1 or time.monotonic() >= deadline:\n                raise  # budget exhausted\n            delay = random.uniform(0, min(cap, base * 2 ** attempt))\n            # Clamp delay so we don't sleep past the deadline\n            delay = min(delay, deadline - time.monotonic())\n            if delay <= 0:\n                raise\n            time.sleep(delay)\n",
             "hint": "Use `time.monotonic()` not `time.time()` — NTP slew on wall clock can make your deadline jump. Clamp the final sleep so you never overshoot the budget."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis: a payment service calls a flaky charge API. Compose **idempotency keys**, **jittered exponential backoff with a budget**, and a **circuit breaker** into one safe call path. Walk through the order they fire when a request comes in, explain *why that order* is the only correct one, and name the trade-off the circuit breaker forces you to accept.",
+            "modelAnswer": "The order is **breaker check → idempotency key → retry-with-backoff**, and it can't be reshuffled. **Breaker first:** if the downstream is already known-dead the open breaker short-circuits instantly — no point attaching keys or burning a retry budget on a call that will only time out and add load to a struggling service. **Idempotency key before the first attempt:** generate it once (e.g. the order ID) and send it on *every* attempt, so when a retry duplicates a request that actually succeeded server-side, the downstream no-ops instead of double-charging — without this, retries make the problem worse, so it has to wrap the retry loop, not live inside it. **Retry with full-jitter exponential backoff under a bounded budget (max attempts AND max wall-clock, measured on the monotonic clock):** jitter so a thundering herd doesn't all retry in lockstep, exponential so you back off as the downstream struggles, budget so you fail fast instead of hanging the caller. Each failed attempt feeds the breaker's failure count; once it trips, subsequent calls skip straight to the fallback. The trade-off the breaker forces: **it deliberately fails *some* requests that might have succeeded** — while open it rejects everything, including the call that would have gone through — trading a few false rejections for protecting the downstream from a retry storm and giving it room to recover. Idempotency makes retries safe, backoff makes them kind, the breaker makes them optional.",
+            "hint": "Order: check the breaker, attach the key, *then* retry. Why can't the key come after the retries start, and what does an open breaker cost you in exchange for protecting the downstream?"
           }
         ]
       }
@@ -3142,12 +3225,12 @@ export default {
             "title": "LRU with 5 slots — hit, miss, evict",
             "caption": "Walk one request stream through a 5-slot LRU cache and watch the tail move.",
             "nodes": [
-              { "id": "head", "label": "HEAD",  "subtitle": "MOST RECENT", "accent": "fire",  "x": 0.10, "y": 0.5 },
-              { "id": "s1",   "label": "slot1", "subtitle": "A",           "accent": "amber", "x": 0.28, "y": 0.5 },
-              { "id": "s2",   "label": "slot2", "subtitle": "B",           "accent": "amber", "x": 0.42, "y": 0.5 },
-              { "id": "s3",   "label": "slot3", "subtitle": "C",           "accent": "amber", "x": 0.56, "y": 0.5 },
-              { "id": "s4",   "label": "slot4", "subtitle": "D",           "accent": "amber", "x": 0.70, "y": 0.5 },
-              { "id": "tail", "label": "TAIL",  "subtitle": "OLDEST",      "accent": "earth", "x": 0.88, "y": 0.5 }
+              { "id": "head", "label": "HEAD",  "subtitle": "NEWEST", "accent": "fire",  "x": 0.09, "y": 0.5 },
+              { "id": "s1",   "label": "slot1", "subtitle": "A",      "accent": "amber", "x": 0.25, "y": 0.5 },
+              { "id": "s2",   "label": "slot2", "subtitle": "B",      "accent": "amber", "x": 0.41, "y": 0.5 },
+              { "id": "s3",   "label": "slot3", "subtitle": "C",      "accent": "amber", "x": 0.57, "y": 0.5 },
+              { "id": "s4",   "label": "slot4", "subtitle": "D",      "accent": "amber", "x": 0.73, "y": 0.5 },
+              { "id": "tail", "label": "TAIL",  "subtitle": "OLDEST", "accent": "earth", "x": 0.89, "y": 0.5 }
             ],
             "steps": [
               {
@@ -3412,6 +3495,47 @@ export default {
                   }
                 ],
                 "reference": "**Read path:** CDN edge cache (60s TTL on 302) → in-process LRU on app server (10K hot codes) → Redis cluster (25 GB, hash-sharded on code, replicas in two AZs) → DynamoDB (PK = code, 5 RCU autoscale). **Cache strategy:** read-through with **XFetch** to kill stampedes; negative cache for 404 (30s TTL) to deflect enumeration attacks. **Write path:** synchronous insert to DynamoDB, then **async** populate Redis (best-effort) and fire `link.created` event to Kafka. **Failure modes:** if Redis dies, app falls back to DynamoDB directly — slower but still functional. If DynamoDB dies, serve from in-process LRU and degrade gracefully. **Sharding:** code is already a high-cardinality, uniformly distributed key — perfect natural shard. No special partitioning needed."
+              },
+              {
+                "kind": "build",
+                "title": "Phase 6: Ship it for real",
+                "prompt": "The whiteboard is done. Now **build the smallest version that actually redirects** — one POST to shorten, one GET to redirect, persisted to a real store. Don't build all 5 phases; build the spine and get it live.",
+                "blocks": [
+                  {
+                    "type": "predict",
+                    "prompt": "You're scaffolding your own repo for the v1 build. What's the **right scope** for the first commit that runs locally?",
+                    "options": [
+                      "All five phases — CDN, Redis, DynamoDB, Kafka analytics, the lot — before anything runs",
+                      "Just the spine: `POST /shorten` (counter→base62, write to one store) + `GET /:code` (lookup, 302). Run it locally first, add caching later",
+                      "Only the front-end form — the backend can come after the demo",
+                      "A full Terraform module before a single line of app code"
+                    ],
+                    "answer": 1,
+                    "explain": "Ship the **walking skeleton** first: the two endpoints that define the product, backed by one durable store. A request can travel end-to-end on commit one. Caching (Redis), the CDN, and the Kafka analytics pipeline are layers you add *after* the spine redirects correctly — each is a measurable upgrade, not a prerequisite. Building all five phases before anything runs is how weekend projects die at 60% done. One focus, one running thing, then iterate."
+                  },
+                  {
+                    "type": "fill-blank",
+                    "prompt": "Fill in the staged plan to get your own v1 live. Each line is one short sitting.",
+                    "code": "# 1. Scaffold your own repo: a minimal ___1___ app (FastAPI / Express / Flask — pick one you know)\n# 2. Implement the core: counter -> base62 encode -> POST /shorten; GET /:code does a lookup + 302\n# 3. Persist: start with ___2___ (SQLite / a single Postgres row for the counter) — swap to DynamoDB later\n# 4. Run it locally: curl POST a long URL, then curl the short code, confirm the 302 Location header\n# 5. Deploy: push to a free tier host (___3___ / Render / Railway) so a real browser can hit it",
+                    "blanks": [
+                      { "id": 1, "correct": "backend" },
+                      { "id": 2, "correct": "SQLite" },
+                      { "id": 3, "correct": "Fly.io" }
+                    ],
+                    "options": ["backend", "SQLite", "Fly.io", "Kubernetes", "Kafka", "CloudFront"],
+                    "explain": "**Backend framework** you already know beats the trendy one — friction kills momentum. **SQLite** (or one Postgres row) is enough to prove the counter + lookup loop; you swap the store behind the same interface once it works. **A free-tier host** (Fly.io, Render, Railway) gets a real URL in front of a real browser in minutes — deploying early surfaces the boring-but-real problems (env vars, ports, cold starts) while the codebase is still tiny."
+                  },
+                  {
+                    "type": "fix-it",
+                    "prompt": "Your `GET /:code` works locally but every click 301s and your click counter never moves in production. One line is the cause.",
+                    "code": "@app.get(\"/{code}\")\ndef redirect(code: str):\n    long_url = store.get(code)\n    if long_url is None:\n        raise HTTPException(status_code=404)\n    return RedirectResponse(long_url, status_code=301)\n",
+                    "bug": "return RedirectResponse(long_url, status_code=301)",
+                    "fix": "return RedirectResponse(long_url, status_code=302)  # 302 stays uncached so every click reaches you and gets counted",
+                    "lang": "python",
+                    "explain": "You caught this on the whiteboard in Phase 3 — now it bites in real code. A **301** is cached by the browser, so after the first click that user never hits your server again and your analytics flatline. Ship **302** for the redirect so every click reaches you. Seeing the exact bug you predicted show up in your own running app is the point of building it."
+                  }
+                ],
+                "reference": "**Ship-it checklist (v1, one weekend):** (1) Scaffold your own repo — a minimal backend app in a framework you know (FastAPI, Express, or Flask). (2) Implement the spine: `POST /shorten` (counter → base62 → store) and `GET /:code` (lookup → **302**). (3) Persist to SQLite or a single Postgres counter row behind a thin `store` interface so the swap to DynamoDB later is a one-file change. (4) Run locally: `curl -X POST .../shorten -d '{\"long_url\":\"https://example.com\"}'`, then `curl -i .../<code>` and confirm `HTTP/1.1 302` + the `Location` header. (5) Deploy to a free-tier host (Fly.io / Render / Railway). **Then, and only then, layer up:** add a Redis read-through cache (Phase 5), put a CDN in front, and fire async click events. Each layer is a separate, demoable commit — never block 'it runs' on 'it scales'. **Do NOT** chase vanity custom domains or a dashboard for v1; those were your stated non-goals."
               }
             ],
             "reflection": "What surprised you about choosing between hash, random, and counter-based ID generation?"
@@ -3573,6 +3697,47 @@ export default {
                   }
                 ],
                 "reference": "**Failure modes & mitigations:** (1) **Redis primary fails** → sentinel/cluster promotes replica in ~10s; during the gap, the limiter circuit-breaks and falls back to edge-local approximation. Alert on `rate_limiter_redis_error_rate > 0.5`. (2) **Edge partition** → that edge's local counters keep working; client traffic rebalances to healthy edges; budget overshoot is bounded to the partition's share. (3) **Clock skew between edges** → use Redis `TIME` command as authoritative; don't trust edge clocks for refill math. (4) **Noisy neighbor** → hot-key detector promotes high-volume keys to a dedicated VIP shard. (5) **Lua script bug deploys** → roll back via SCRIPT FLUSH; never modify scripts in place under load. (6) **Counter precision loss at high rates** → use float64 for token counts, not int."
+              },
+              {
+                "kind": "build",
+                "title": "Phase 6: Ship it for real",
+                "prompt": "Stop whiteboarding the 50-edge cluster. **Build the one thing that matters**: an atomic token-bucket check against a real Redis, wrapped as middleware. One key, one bucket, returns allow/deny. Get it rejecting a real `curl` loop with a 429.",
+                "blocks": [
+                  {
+                    "type": "predict",
+                    "prompt": "You're scaffolding your own repo for the v1 limiter. What's the **smallest build** that actually proves the design?",
+                    "options": [
+                      "Stand up 50 edge nodes with gossip sync before testing anything",
+                      "One process: a tiny middleware that runs the atomic token-bucket Lua against a local Redis, returns 429 + Retry-After on deny. Prove it rejects a fast curl loop, then scale out",
+                      "A full Kubernetes cluster with a Redis operator and Helm charts first",
+                      "The dashboard that shows remaining budget — the enforcement can wait"
+                    ],
+                    "answer": 1,
+                    "explain": "The **enforcement primitive** is the product: an atomic check that returns allow/deny for one key against one Redis. Wrap it as middleware, point a hammering `curl` loop at it, and watch the 429s start exactly at the budget. Everything else — 50 edges, edge-local fast path, hot-key promotion, circuit breaker — is a *scaling layer* you add after the single-node version provably rejects traffic. Standing up the whole cluster before the bucket logic works is effort spent where the risk isn't."
+                  },
+                  {
+                    "type": "fill-blank",
+                    "prompt": "Fill in the staged plan to get your own limiter running. Each line is one short sitting.",
+                    "code": "# 1. Scaffold your own repo: a minimal ___1___ app + a local Redis (docker run redis)\n# 2. Implement the core: the atomic token-bucket ___2___ script from Phase 3, called once per request\n# 3. Wrap it as middleware: on deny, return 429 with a ___3___ header so clients know when to retry\n# 4. Run it locally: fire a fast curl loop, confirm allows stop and 429s begin exactly at the budget\n# 5. Scale later: add the edge-local fast path + circuit breaker once single-node enforcement is solid",
+                    "blanks": [
+                      { "id": 1, "correct": "gateway" },
+                      { "id": 2, "correct": "Lua" },
+                      { "id": 3, "correct": "Retry-After" }
+                    ],
+                    "options": ["gateway", "Lua", "Retry-After", "gossip", "Kubernetes", "X-Powered-By"],
+                    "explain": "**A minimal gateway/API app** plus a Docker Redis is the whole rig — no cluster needed to prove correctness. The **Lua** script keeps the read-modify-write atomic (the race you fixed in Phase 3) even under your hammer loop. The **Retry-After** header is what makes a 429 useful instead of hostile — well-behaved clients back off instead of retrying instantly. Only once the single node rejects cleanly do you add the edge-local tier and the fail-open circuit breaker."
+                  },
+                  {
+                    "type": "fix-it",
+                    "prompt": "Your middleware works, but under a real concurrent load test it occasionally lets through ~2x the budget. The check is doing this in app code. Fix it.",
+                    "code": "def check(api_key):\n    tokens = float(redis.hget(key(api_key), \"tokens\") or CAPACITY)\n    if tokens >= 1:\n        redis.hset(key(api_key), \"tokens\", tokens - 1)\n        return True\n    return False\n",
+                    "bug": "tokens = float(redis.hget(key(api_key), \"tokens\") or CAPACITY)",
+                    "fix": "allowed = redis.eval(TOKEN_BUCKET_LUA, 1, key(api_key), CAPACITY, REFILL, now_ms())  # atomic read-modify-write",
+                    "lang": "python",
+                    "explain": "You predicted this exact failure in Phase 3 — now a concurrent load test reproduces it. The GET-then-SET is two round trips with a gap; two requests both read `tokens=1`, both decrement, both get allowed. Under 100 concurrent clients that's the '2x the limit' bug. Running the whole bucket as a **single Lua `eval`** makes it atomic — Redis runs the script under one lock, so the read-modify-write is race-free. Building it for real is what surfaces the race a whiteboard hides."
+                  }
+                ],
+                "reference": "**Ship-it checklist (v1, one weekend):** (1) Scaffold your own repo — a minimal gateway/API app in a framework you know, plus a local Redis (`docker run -p 6379:6379 redis`). (2) Implement the core: the **atomic token-bucket Lua script** from Phase 3 (`capacity=100`, `refill≈16.7/sec`), called once per request via `EVAL`. (3) Wrap it as middleware: on allow, pass through; on deny, return **429** + `Retry-After` + `X-RateLimit-Remaining`. (4) Run locally: fire a fast `curl` loop (or a 100-worker load test) at one key and confirm allows stop and 429s begin right at the budget — then add concurrency and confirm there's **no 2x overshoot** (proves the Lua atomicity). (5) **Scale later, in order:** add the edge-local fast path for the long tail, then the fail-open circuit breaker (`return True` when Redis errors > 50%), then hot-key promotion. **Do NOT** build the 50-edge cluster, gossip, or dynamic budgets for v1 — those were stated non-goals. One running, correct single node beats a half-built cluster every time."
               }
             ],
             "reflection": "When is approximate rate limiting safer than exactly-correct rate limiting?"

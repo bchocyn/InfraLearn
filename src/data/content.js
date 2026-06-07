@@ -92,6 +92,7 @@ export const PATHS = {
     lessons: [
       // ── Container Foundations ──────────────────────────────────────────────
       { id: 'ci-cd',                title: 'CI/CD Pipelines',                    min: 7,  kind: 'concept', section: 'CONTAINER FOUNDATIONS', tierLevel: 'junior' },
+      { id: 'yaml-basics',          title: "YAML — the config language you can't avoid", min: 6, kind: 'concept', section: 'CONTAINER FOUNDATIONS', tierLevel: 'junior' },
       { id: 'compose-stack',        title: 'Multi-Service Docker Compose Stack', min: 25, kind: 'lab', lab: true, section: 'CONTAINER FOUNDATIONS', duration: '2H', tierLevel: 'junior',
         milestones: [
           { id: 'compose-file', title: 'Write the docker-compose.yml' },
