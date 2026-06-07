@@ -3176,7 +3176,7 @@ export default {
                     "hint": "Client-generated IDs and dedupe."
                   }
                 ],
-                "reference": "**Functional:** 1-to-1 and group chat (up to 200), text + image attachments, message history (forever, paginated), typing indicators, read receipts (v2). **Non-functional:** 50K concurrent connections; ~5 messages/sec per active user → ~4K msg/sec; group fanout up to 200x → up to ~50K event/sec; p95 message-send-to-display < 500ms; history-load p95 < 200ms. **Guarantees:** at-least-once delivery + client-side dedupe by `client_message_id`; **strict per-conversation ordering** (not global); messages durable on server before ack. **Non-goals (v1):** end-to-end encryption, voice/video, message editing after 5 minutes, federation."
+                "reference": "**Functional:** 1-to-1 and group chat (up to 200), text + image attachments, message history (forever, paginated), typing indicators, read receipts (v2). **Non-functional:** 50K concurrent connections; ~5 messages/min per active user → ~4K msg/sec; group fanout up to 200x → up to ~50K event/sec; p95 message-send-to-display < 500ms; history-load p95 < 200ms. **Guarantees:** at-least-once delivery + client-side dedupe by `client_message_id`; **strict per-conversation ordering** (not global); messages durable on server before ack. **Non-goals (v1):** end-to-end encryption, voice/video, message editing after 5 minutes, federation."
               },
               {
                 "kind": "api",

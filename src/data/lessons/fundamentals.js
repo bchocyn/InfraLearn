@@ -1401,7 +1401,7 @@ export default {
           {
             "type": "code",
             "lang": "python",
-            "text": "name = \"ada\"\ngreet = \"hi, \" + name  # concat — both sides must be str\nshout = name.upper()  # returns new str, name unchanged\nlabel = f\"{name!r} x{qty}\"  # f-string, !r calls repr()\nfirst = name[0]  # 'a' — indexing returns a 1-char str\nbad = name[0] = \"A\"  # TypeError — str is immutable"
+            "text": "name = \"ada\"\ngreet = \"hi, \" + name  # concat — both sides must be str\nshout = name.upper()  # returns new str, name unchanged\nlabel = f\"{name!r} x{qty}\"  # f-string, !r calls repr()\nfirst = name[0]  # 'a' — indexing returns a 1-char str\nname[0] = \"A\"  # TypeError — str is immutable, can't assign to an index"
           },
           {
             "type": "p",
@@ -1410,7 +1410,7 @@ export default {
           {
             "type": "code",
             "lang": "python",
-            "text": "empty = \"\"  # falsy — empty str is False in bool ctx\nzero = 0  # falsy — and so is 0, 0.0, None, []\nflag = bool(empty or \"fallback\")  # True — `or` returns first truthy value\nis_adult = qty >= 18 and name   # short-circuits — returns name, not True"
+            "text": "empty = \"\"  # falsy — empty str is False in bool ctx\nzero = 0  # falsy — and so is 0, 0.0, None, []\nflag = bool(empty or \"fallback\")  # True — `or` returns first truthy value\npicked = qty and name   # qty is truthy, so 'and' returns name (the 2nd operand)"
           },
           {
             "type": "p",
@@ -1590,7 +1590,7 @@ export default {
               ],
               [
                 "s[::2]",
-                "\"ifaen\"",
+                "\"ifaer\"",
                 "Every other char"
               ],
               [

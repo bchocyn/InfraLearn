@@ -1080,7 +1080,7 @@ export default {
           {
             "type": "code",
             "lang": "python",
-            "text": "def add(title: str) -> int:\n    tasks = load()\n    today = date.today().isoformat()\n    for t in tasks:\n        if t[\"title\"] == title and t[\"created\"] == today and not t[\"done\"]:\n            return t[\"id\"]  # idempotent: return existing\n    new_id = max((t[\"id\"] for t in tasks), default=0) + 1 # monotonic, never reused\n    tasks.append({\"id\": new_id, \"title\": title,\n                  \"done\": False, \"created\": today})\n    save(tasks)\n    return new_id\n\ndef done(task_id: int) -> None:\n    tasks = load()\n    for t in tasks:\n        if t[\"id\"] == task_id:\n            t[\"done\"] = True  # mutate in place\n            save(tasks); return\n    print(f\"no task {task_id}\", file=sys.stderr)\n    sys.exit(1)  # exit 1 = user error"
+            "text": "def add(title: str) -> int:\n    tasks = load()\n    today = date.today().isoformat()\n    for t in tasks:\n        if t[\"title\"] == title and t[\"created\"] == today and not t[\"done\"]:\n            return t[\"id\"]  # idempotent: return existing\n    new_id = max((t[\"id\"] for t in tasks), default=0) + 1 # unique among live tasks (deleting the top id frees it)\n    tasks.append({\"id\": new_id, \"title\": title,\n                  \"done\": False, \"created\": today})\n    save(tasks)\n    return new_id\n\ndef done(task_id: int) -> None:\n    tasks = load()\n    for t in tasks:\n        if t[\"id\"] == task_id:\n            t[\"done\"] = True  # mutate in place\n            save(tasks); return\n    print(f\"no task {task_id}\", file=sys.stderr)\n    sys.exit(1)  # exit 1 = user error"
           }
         ]
       },

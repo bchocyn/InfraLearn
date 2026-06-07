@@ -3452,8 +3452,8 @@ export default {
                       "~1 in 200,000 — handle with one DB unique constraint + one retry",
                       "Effectively zero — 7 chars is enough that you'll never see one in production"
                     ],
-                    "answer": 2,
-                    "explain": "18B / 3.5T ≈ **1 in 195,000**. So out of 10M new writes/day, you expect ~50 collisions/day. That's why a **UNIQUE constraint on the `code` column** plus a **bounded retry (max 3)** is the standard pattern — not a Bloom filter, not a coordination service. The retry adds <1ms in p99. If you'd picked 6 chars (62^6 ≈ 56B combos), collision rate jumps to ~1 in 3 — unworkable."
+                    "answer": 1,
+                    "explain": "18B / 3.5T ≈ **1 in 195** (~1 in 200). So out of 10M new writes/day you expect **~51,000 collisions/day** — common, but each is caught instantly. That's why a **UNIQUE constraint on the `code` column** plus a **bounded retry (max 3)** is the standard pattern — not a Bloom filter, not a coordination service. The retry adds <1ms in p99. If you'd picked 6 chars (62^6 ≈ 56B combos), the collision rate jumps to ~1 in 3 — unworkable."
                   },
                   {
                     "type": "explain-back",
@@ -3462,7 +3462,7 @@ export default {
                     "hint": "Think about privacy and length, not raw speed."
                   }
                 ],
-                "reference": "**Choice: counter-based + base62 encoding.** A central counter service (or pre-allocated 1M-block ranges per app server) hands out 64-bit integers. Encode to base62 → 7 chars covers up to 62^7 ≈ 3.5T. **Why not hash:** deterministic = privacy leak + same-URL-collision; also fixed length. **Why not pure random:** 1-in-200K collision at scale → needs retries anyway. **Schema (DynamoDB / Cassandra):** PK = `code` (string, 7 chars), attrs = `long_url`, `created_at`, `expires_at`, `owner_id`. Optional GSI on `owner_id` for the \"my links\" dashboard. Counter persisted in a single Postgres row with row-level lock, or use **Twitter Snowflake** if you want decentralized counter allocation without a coordination tax."
+                "reference": "**Choice: counter-based + base62 encoding.** A central counter service (or pre-allocated 1M-block ranges per app server) hands out 64-bit integers. Encode to base62 → 7 chars covers up to 62^7 ≈ 3.5T. **Why not hash:** deterministic = privacy leak + same-URL-collision; also fixed length. **Why not pure random:** 1-in-200 collision at scale → needs retries anyway. **Schema (DynamoDB / Cassandra):** PK = `code` (string, 7 chars), attrs = `long_url`, `created_at`, `expires_at`, `owner_id`. Optional GSI on `owner_id` for the \"my links\" dashboard. Counter persisted in a single Postgres row with row-level lock, or use **Twitter Snowflake** if you want decentralized counter allocation without a coordination tax."
               },
               {
                 "kind": "scaling",
