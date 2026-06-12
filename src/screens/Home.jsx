@@ -463,14 +463,25 @@ function ReviewsDueTeaser() {
       <div className="caption" style={{ marginTop: 4 }}>
         5 min · spaced-repetition keeps it stuck
       </div>
-      <button
-        type="button"
-        className="btn btn-primary btn-block"
-        style={{ marginTop: 10 }}
-        onClick={(e) => { e.stopPropagation(); nav('/reviews'); }}
-      >
-        ▶ Start review
-      </button>
+      <div className="row" style={{ gap: 8, marginTop: 10 }}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ flex: 1 }}
+          onClick={(e) => { e.stopPropagation(); nav('/reviews'); }}
+        >
+          ▶ Start review
+        </button>
+        {/* Same cards, battle costume — markReviewed under both. */}
+        <button
+          type="button"
+          className="btn"
+          onClick={(e) => { e.stopPropagation(); nav('/watchfire'); }}
+          title="The same reviews as a watchfire patrol"
+        >
+          🔥 Patrol
+        </button>
+      </div>
     </div>
   );
 }

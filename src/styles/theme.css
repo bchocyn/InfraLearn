@@ -5422,6 +5422,66 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .codex-frag-label { margin-bottom: 4px; font-size: 9px; }
 .codex-frag-locked .codex-frag-label { color: var(--text-quaternary, var(--text-tertiary)); }
 
+/* ───── Watchfire Defense (reviews-as-battles) ──────────────────────────
+ * The stage is theater over the honest Reviews loop. fx classes flash for
+ * ~450ms after a grade: strike = beast lunges + wraith dissolves, stagger =
+ * wraith flinches, hit = the fire dims and shakes. wf-static (the user
+ * setting) and the media query freeze everything. */
+.wf-stage {
+  position: relative;
+  height: 120px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(#14121E 0%, #221E33 70%, #2E2A40 100%);
+}
+.wf-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wf-flame { transform-origin: 6px 14px; animation: camp-flicker 600ms steps(3) infinite; }
+.wf-glow { animation: camp-glow-pulse 2.4s ease-in-out infinite; }
+.wf-wraith { animation: wf-drift 3.2s ease-in-out infinite; }
+@keyframes wf-drift {
+  0%, 100% { transform: translate(300px, 40px); }
+  50%      { transform: translate(294px, 36px); }
+}
+.wf-beast {
+  position: absolute;
+  left: 18%;
+  bottom: 10px;
+  transition: transform 180ms ease;
+}
+.wf-fx-strike .wf-beast { transform: translateX(46px); }
+.wf-fx-strike .wf-wraith { animation: wf-dissolve 420ms ease forwards; }
+@keyframes wf-dissolve {
+  from { opacity: 1; transform: translate(300px, 40px); }
+  to   { opacity: 0; transform: translate(308px, 22px); }
+}
+.wf-fx-stagger .wf-wraith { animation: wf-flinch 420ms ease; }
+@keyframes wf-flinch {
+  0%, 100% { transform: translate(300px, 40px); }
+  40%      { transform: translate(312px, 42px); }
+}
+.wf-fx-hit .wf-flame { animation: none; transform: scaleY(0.6); }
+.wf-fx-hit.wf-stage { animation: wf-shake 320ms ease; }
+@keyframes wf-shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-4px); }
+  75%      { transform: translateX(4px); }
+}
+.wf-hearts {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--el-fire);
+}
+.wf-static .wf-flame,
+.wf-static .wf-glow,
+.wf-static .wf-wraith,
+.wf-static.wf-stage { animation: none; }
+.wf-static .wf-beast { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .wf-flame, .wf-glow, .wf-wraith, .wf-stage { animation: none; }
+  .wf-beast { transition: none; }
+}
+
 /* ───── Journey (province chapter road) ─────────────────────────────────
  * Chapter cards: done = full beat text, paid = live encounter, next =
  * gate/toll, beyond = dimmed teaser. Province switcher is an icon-pill row

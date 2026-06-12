@@ -51,6 +51,9 @@ const Codex            = lazy(() => import('./screens/Codex.jsx'));
 // Journey — the province chapter road. Story + encounters; the quiz bank it
 // uses stays its own chunk (dynamic import inside the screen).
 const Journey          = lazy(() => import('./screens/Journey.jsx'));
+// Watchfire Defense — reviews in battle costume (markReviewed underneath,
+// scheduler honest). Its own chunk like every mini-game.
+const Watchfire        = lazy(() => import('./screens/Watchfire.jsx'));
 
 // Suspense fallback — deliberately NOT a spinner. A serif "Loading…" in the
 // app's own font fades in after a short delay so we don't strobe on fast
@@ -242,6 +245,7 @@ function App() {
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/codex" element={<Codex />} />
             <Route path="/journey" element={<Journey />} />
+            <Route path="/watchfire" element={<Watchfire />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

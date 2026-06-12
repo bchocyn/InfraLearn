@@ -83,8 +83,8 @@ export default function CampHero() {
     const out = [];
     if (dueCount > 0) {
       out.push({
-        text: `The watchfires gutter, Keeper — ${dueCount} patrol${dueCount === 1 ? '' : 's'} wait${dueCount === 1 ? 's' : ''}.`,
-        to: '/reviews',
+        text: `The watchfires gutter, Keeper — ${dueCount} wraith${dueCount === 1 ? '' : 's'} on the patrol route.`,
+        to: '/watchfire',
       });
     }
     if (nextLesson) {
