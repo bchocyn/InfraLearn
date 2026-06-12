@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, beastForm, getReviewsDue } from '../store/useStore.js';
-import { BEASTS, LEVELS, LEVEL_LABEL, ELEMENTS } from '../data/beasts.js';
+import { useStore, getReviewsDue } from '../store/useStore.js';
+import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, pathProgress } from '../data/content.js';
 
 // Career-path display order — derived from PATH_KEYS so content.js stays the
@@ -12,7 +12,10 @@ import { PATHS, PATH_KEYS, pathProgress } from '../data/content.js';
 const PATH_ORDER = PATH_KEYS;
 // Streak milestones that trigger the celebratory inline toast.
 const STREAK_MILESTONES = new Set([3, 7, 14, 30, 100]);
-import BeastSprite from '../components/BeastSprite.jsx';
+// CampHero replaced the static beast strip — Keeper + companion at the
+// watchfire, with mood states and story barks that deep-link to the gating
+// action (journey design §11).
+import CampHero from '../components/CampHero.jsx';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 import NudgeCard from '../components/NudgeCard.jsx';
@@ -34,19 +37,15 @@ export default function Home() {
   // Home; now only the fields this component actually reads do.
   const completed = useStore((st) => st.completed);
   const activePath = useStore((st) => st.activePath);
-  const companion = useStore((st) => st.companion);
-  const beastTier = useStore((st) => st.beastTier);
   const displayName = useStore((st) => st.displayName);
   const hideCompanion = useStore((st) => st.settings?.hideCompanion);
   const refillWeekendPassesIfNewMonth = useStore((st) => st.refillWeekendPassesIfNewMonth);
   const setActivePath = useStore((st) => st.setActivePath);
 
   const prog = pathProgress(activePath, completed);
-  const beast = BEASTS[companion] || BEASTS.dragon;
   const path = PATHS[activePath] || PATHS.devops;
   const nextLesson = path.lessons.find((l) => !completed[l.id]) || path.lessons[path.lessons.length - 1];
   const isComplete = prog.pct >= 1;
-  const beastFormName = beastForm({ companion, beastTier });
 
   // Refill weekend passes once per mount if the calendar month rolled over.
   // Cheap, idempotent — the store action no-ops when already current.
@@ -79,6 +78,7 @@ export default function Home() {
           <h1 className="h1" style={{ marginBottom: 0 }}>InfraLearn<span className="dot">.</span></h1>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <EmberChip />
           <ComboChip />
           <StreakBadge />
         </div>
@@ -96,31 +96,7 @@ export default function Home() {
           Renders nothing when nothing helpful applies. */}
       <NudgeCard />
 
-      {!hideCompanion && (
-        // Was <div onClick>; switched to a real <button> so keyboard/screen-
-        // reader users get the same affordance and the tap target meets 44px.
-        <button
-          type="button"
-          className="card row"
-          onClick={() => nav('/beast')}
-          aria-label={`Open Byte Beast: ${beastFormName}`}
-          style={{
-            background: 'linear-gradient(90deg, rgba(245,184,66,.08), transparent)',
-            width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit',
-            cursor: 'pointer', minHeight: 44,
-          }}
-        >
-          <BeastSprite species={companion} tier={beastTier} size={48} />
-          <div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600 }}>{beastFormName}</div>
-            <div className="mono" style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '.1em' }}>
-              TIER {beastTier} · {ELEMENTS[beast.element].icon} {beast.name.toUpperCase()}
-            </div>
-          </div>
-          <span className="spacer" />
-          <span style={{ color: 'var(--accent-amber)' }}>→</span>
-        </button>
-      )}
+      {!hideCompanion && <CampHero />}
 
       {/* Cliffhanger — the FIRST thing a returning user sees when an earlier
           lesson stashed an open question (Zeigarnik effect: open loops drive
@@ -200,7 +176,8 @@ export default function Home() {
         )}
       </div>
 
-      <DailyPractice />
+      {/* The id anchors CampHero's "camp drills" bark scroll target. */}
+      <div id="daily-practice"><DailyPractice /></div>
 
       <ReviewsDueTeaser />
 
@@ -270,6 +247,25 @@ function CliffhangerCard() {
         </button>
       </div>
     </div>
+  );
+}
+
+// ── Ember chip ───────────────────────────────────────────────────────────
+// The journey economy's visibility anchor (design doc §10) — embers ⟡ are
+// earned ONLY by learning actions and spent on journey content. Always
+// rendered (a visible 0 is the curiosity hook that pulls a new Keeper into
+// the loop); the count ticks live off the store.
+function EmberChip() {
+  const embers = useStore((st) => st.embers) || 0;
+  return (
+    <span
+      className="ember-header-chip"
+      role="status"
+      aria-label={`Embers: ${embers}`}
+      title="Embers — earned by learning, spent on the journey"
+    >
+      ⟡ {embers}
+    </span>
   );
 }
 

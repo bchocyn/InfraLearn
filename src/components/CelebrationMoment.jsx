@@ -86,11 +86,14 @@ export default function CelebrationMoment() {
     : isBadge
       ? 'Badge unlocked!'
       : `+${local.amount} XP`;
+  // Embers ride whatever celebration the earning action emitted (see
+  // addEmbers in the store) — shown as a suffix, never their own moment.
+  const emberSuffix = local.embers > 0 ? ` · +${local.embers} ⟡` : '';
   const subline = isLevel
-    ? `+${local.amount} XP · You leveled up.`
+    ? `+${local.amount} XP · You leveled up.${emberSuffix}`
     : isBadge
       ? local.badgeId
-      : 'Nice — that counts.';
+      : `Nice — that counts.${emberSuffix}`;
 
   return (
     <div

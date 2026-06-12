@@ -314,6 +314,16 @@ const initial = {
   // ascensionsSeen guarantees once-per-path even across re-imports.
   pendingAscension: null,
   ascensionsSeen: {},        // { [pathKey]: true }
+  // ── Ember economy (journey layer §10) ───────────────────────────────────
+  // Embers ⟡ are the journey's soft currency, earned ONLY by learning
+  // actions: lesson +3 · lab +5 · review graded +1 (cap 10/day) · daily
+  // practice done +2 · streak day +1. Spent on journey stage entry, retries
+  // and cosmetics in later phases. Mini-games never mint embers, and no
+  // ember balance can skip a hard gate (path %, seals, tiers, streaks).
+  embers: 0,
+  // Per-day earn-cap counter for review embers. Same date-keyed slot pattern
+  // as dailyPractice — a stale date means fresh counters.
+  emberDaily: { date: null, reviews: 0 },
   onboarded: false,
   // First-run app tour ("how to use the app"). false until completed or skipped;
   // resetTour() flips it back so Settings → "How it works" can replay it.
@@ -554,6 +564,8 @@ export const useStore = create(
         get().scheduleReview(lessonId, 3);
         // Lightweight ack — XP system intentionally weighs RECALL heavier.
         get().addXp(5, 'lesson:complete');
+        // Knowledge fragment recovered — the journey economy's main earn.
+        get().addEmbers(3);
         get().computeNewBadges();
       },
 
@@ -613,6 +625,40 @@ export const useStore = create(
         set({ practiceCombo: 0 });
       },
       clearCelebration: () => set({ celebrate: null }),
+
+      // ── Ember economy (journey layer) ────────────────────────────────
+      // addEmbers: bump the balance and annotate the LIVE celebration (one
+      // emitted in this same action batch) so the toast reads "+5 XP · +3 ⟡".
+      // Embers never create their own celebration — they ride bigger moments.
+      // The freshness window keeps a silent earn (e.g. a graded miss, which
+      // awards no XP) from retro-labeling a stale toast from a prior action.
+      addEmbers: (amount) => {
+        const n = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
+        if (n <= 0) return;
+        set((s) => {
+          const fresh = s.celebrate && (Date.now() - (s.celebrate.at || 0)) < 1000;
+          return {
+            embers: Math.min(1_000_000, (s.embers || 0) + n),
+            celebrate: fresh
+              ? { ...s.celebrate, embers: (s.celebrate.embers || 0) + n }
+              : s.celebrate,
+          };
+        });
+      },
+      // spendEmbers: deduct when the balance covers the cost; returns whether
+      // it did. Callers (journey stage entry, retries, crafting) check hard
+      // gates separately — embers pace, gates force the learning.
+      spendEmbers: (amount) => {
+        const n = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
+        if (n <= 0) return false;
+        let ok = false;
+        set((s) => {
+          if ((s.embers || 0) < n) return s;
+          ok = true;
+          return { embers: s.embers - n };
+        });
+        return ok;
+      },
 
       // ── Cliffhanger (Zeigarnik open-loop) ────────────────────────────────
       // setCliffhanger stamps the slot with today as savedAt. Called from
@@ -783,6 +829,8 @@ export const useStore = create(
           latched = true;
           return { dailyPractice: { ...cur, done: true } };
         });
+        // Drill embers ride the same once-a-day latch as the perfect bonus.
+        if (latched) get().addEmbers(2);
         return latched;
       },
 
@@ -917,6 +965,19 @@ export const useStore = create(
         set((s) => ({ dailyStats: bumpStat(s.dailyStats, today, 'reviews', 1) }));
         if (g === 2)      get().addXp(3, 'review:hard');
         else if (g >= 3)  get().addXp(6, 'review:good');
+        // Patrol embers: +1 per graded review — misses included, a patrol
+        // walked is a patrol walked — capped at 10/day so spam-grading can't
+        // mint currency (same anti-farm stance as daily practice).
+        let emberEarned = false;
+        set((s) => {
+          const cur = (s.emberDaily && s.emberDaily.date === today)
+            ? s.emberDaily
+            : { date: today, reviews: 0 };
+          if (cur.reviews >= 10) return { emberDaily: cur };
+          emberEarned = true;
+          return { emberDaily: { ...cur, reviews: cur.reviews + 1 } };
+        });
+        if (emberEarned) get().addEmbers(1);
         // Reviewer:10 badge — 10 reviews graded in one calendar day.
         const todayReviews = get().dailyStats?.[today]?.reviews || 0;
         if (todayReviews >= 10 && !(get().badges || {})['reviewer:10']) {
@@ -1015,6 +1076,8 @@ export const useStore = create(
         if (after.last === today && before.last !== today) {
           set((s) => ({ activityDays: [...new Set([...(s.activityDays || []), today])].slice(-400) }));
           get().addXp(2, 'streak:day');
+          // A night held on the Long Watch — one ember per streak-bearing day.
+          get().addEmbers(1);
           const bonus = STREAK_MILESTONE_BONUS[after.streak];
           if (bonus) {
             get().addXp(bonus, `streak:milestone:${after.streak}`);
@@ -1139,6 +1202,9 @@ export const useStore = create(
         });
         get().completeLesson(labId);
         get().addXp(100, `lab:${labId}`);
+        // Lab bonus on top of the lesson-credit embers (3 + 5 = 8 total),
+        // mirroring how lab XP stacks on the lesson ack (+5 + 100).
+        get().addEmbers(5);
         get().recordActivity();
       },
 
@@ -1289,6 +1355,18 @@ export const useStore = create(
             // so a restore can't replay every ascension.
             pendingAscension: null,
             ascensionsSeen: scrubBoolMap(raw.ascensionsSeen, new Set(PATH_KEYS)),
+            // Ember balance — clamped like xp so a tampered backup can't mint
+            // a fortune. The daily review-cap slot only survives with a well-
+            // formed date and an in-range count (mirrors dailyPractice).
+            embers: scrubInt(raw.embers, 0, 1_000_000, 0),
+            emberDaily: (() => {
+              const d = raw.emberDaily;
+              const empty = { date: null, reviews: 0 };
+              if (!d || typeof d !== 'object') return empty;
+              const date = (typeof d.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) ? d.date : null;
+              if (!date) return empty;
+              return { date, reviews: scrubInt(d.reviews, 0, 10, 0) };
+            })(),
             settings: {
               reducedMotion: raw.settings?.reducedMotion === true,
               hideCompanion: raw.settings?.hideCompanion === true,
@@ -1511,6 +1589,14 @@ export const useStore = create(
                 onboarded: s.onboarded || clean.onboarded,
                 tourSeen: s.tourSeen || clean.tourSeen,
                 ascensionsSeen: { ...(s.ascensionsSeen || {}), ...clean.ascensionsSeen },
+                // Embers: max of both (same stance as xp/streak — merging two
+                // devices must never halve a balance). The daily cap slot only
+                // takes the import's counter when it's TODAY's and local isn't,
+                // so a stale backup can't reopen an already-spent daily cap.
+                embers: Math.max(s.embers || 0, clean.embers),
+                emberDaily: (s.emberDaily?.date === today)
+                  ? s.emberDaily
+                  : (clean.emberDaily?.date === today ? clean.emberDaily : (s.emberDaily || { date: null, reviews: 0 })),
                 pendingCliffhanger: s.pendingCliffhanger?.lessonId ? s.pendingCliffhanger : clean.pendingCliffhanger,
                 // NOT merged on purpose (local wins): displayName, avatar,
                 // settings, level, activePath, companion, pendingEvolution,
@@ -1576,7 +1662,11 @@ export const useStore = create(
       //      Existing gold-seal holders do NOT retroactively get the cinematic
       //      queued (we mark their golds as seen so the new system starts
       //      forward-looking, mirroring the v7 no-backfill stance).
-      version: 13,
+      // v14: ember economy (journey forcing loop). Forward-looking like v7's
+      //      XP stance — no backfill from past lessons; the balance starts at
+      //      0 and accrues from the next learning action. emberDaily is the
+      //      per-day review-earn cap counter (10/day).
+      version: 14,
       // Drop the transient celebrate signal from the persisted payload —
       // it's a one-shot UI flag (migrate also clears it defensively for
       // blobs written before this existed).
@@ -1763,6 +1853,22 @@ export const useStore = create(
         }
         if (prevVersion < 13 || persisted.pendingAscension === undefined) {
           persisted.pendingAscension = null;
+        }
+        // v14 — ember economy. Defensive shape-checks stand alone (same as
+        // every block above) so a hand-edited localStorage still heals.
+        if (
+          prevVersion < 14
+          || !Number.isInteger(persisted.embers)
+          || persisted.embers < 0
+        ) {
+          persisted.embers = 0;
+        }
+        if (
+          prevVersion < 14
+          || !persisted.emberDaily
+          || typeof persisted.emberDaily !== 'object'
+        ) {
+          persisted.emberDaily = { date: null, reviews: 0 };
         }
         // Always clear the ephemeral celebrate flag on rehydrate — it's a
         // transient UI signal, persisting it would replay celebrations on
