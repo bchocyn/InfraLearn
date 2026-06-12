@@ -1498,6 +1498,26 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   50%      { opacity: 0.32; transform: scale(1.15); }
 }
 
+/* "You are here" bubble bobs gently above the current stage node. */
+.roadmap-bang-bob {
+  transform-box: fill-box;
+  animation: roadmap-bang-bob 1.4s ease-in-out infinite;
+}
+@keyframes roadmap-bang-bob {
+  0%, 100% { transform: translateY(0);    }
+  50%      { transform: translateY(-3px); }
+}
+
+/* Grace wisps rise from a lit site of grace and fade as they climb. */
+.roadmap-grace-wisp {
+  animation: roadmap-grace-wisp 2.7s ease-in-out infinite;
+}
+@keyframes roadmap-grace-wisp {
+  0%        { opacity: 0;    transform: translateY(2px);  }
+  35%, 65%  { opacity: 0.55;                              }
+  100%      { opacity: 0;    transform: translateY(-4px); }
+}
+
 /* Honor reduced-motion: keep the scene fully populated but stop animating. */
 @media (prefers-reduced-motion: reduce) {
   .roadmap-star-twinkle,
@@ -1507,9 +1527,13 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   .roadmap-current-pulse,
   .roadmap-walker-bob,
   .roadmap-mote,
-  .roadmap-lantern-glow {
+  .roadmap-lantern-glow,
+  .roadmap-bang-bob,
+  .roadmap-grace-wisp {
     animation: none !important;
   }
+  /* Wisps stay faintly visible at rest. */
+  .roadmap-grace-wisp { opacity: 0.35; }
   /* Make fireflies and motes visible at rest so they still register as
    * scene detail rather than disappearing entirely. */
   .roadmap-firefly { opacity: 0.55; }

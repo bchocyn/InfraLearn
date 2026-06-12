@@ -6,13 +6,13 @@ import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
 import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
 import BeastSprite from '../components/BeastSprite.jsx';
 
-// ─── The Adventure Map (v4) ───────────────────────────────────────────────────
-// Mario-style serpentine SVG trail. The Byte Beast walks between nodes as you
-// progress. Cleared nodes glow amber, locked nodes dim, a medal sits at the
-// path end. Labs appear as side-quests off the main trail; SD insights are
-// inline diamonds. The scene behind the trail varies per career path — each
-// path gets its own twilight palette (skyTop/skyMid/skyBot, mountains, hills,
-// trees, moon, stars).
+// ─── The Adventure Map (v5) ───────────────────────────────────────────────────
+// Serpentine SVG trail, now styled as a stage-road through province ruins
+// (Cookie-Run world-map structure) under Elden Ring light: every node wears a
+// chapter-stage number (2-4), section checkpoints are sites of grace that
+// ignite as the learner reaches them, a golden guidance ray drifts from the
+// current node toward the next, and the province's Lapse waits behind a fog
+// gate at the trail's end — rendered with its actual Null Beast sprite.
 //
 // All node clicks navigate to /lesson/:id, except locked labs (no-op).
 
@@ -288,6 +288,9 @@ export default function Roadmap() {
   // nodes/walker/medal layer must repaint. Actions are stable refs in zustand.
   const activePath = useStore((st) => st.activePath);
   const storeCompleted = useStore((st) => st.completed);
+  // Journey star tally for the active province — reference changes only on
+  // journey writes (chapter completions), so this stays render-cheap.
+  const journeyMap = useStore((st) => st.journey);
   const level = useStore((st) => st.level);
   const hideCompanion = useStore((st) => st.settings?.hideCompanion);
   const companion = useStore((st) => st.companion);
@@ -323,6 +326,29 @@ export default function Roadmap() {
   // Compute the node layout + canvas height.
   const nodes = useMemo(() => buildNodes(lessons), [lessons]);
   const H = TOP + lessons.length * STEP_Y + 80;
+
+  // Section metadata for stage numbering + grace checkpoints. Stage labels
+  // follow the world-map convention: section 2, 4th stage → "2-4".
+  const sectionMeta = useMemo(() => {
+    const secs = groupedSections(path);
+    const meta = [];
+    let acc = 0;
+    secs.forEach((sec, sIdx) => {
+      meta.push({ name: sec.name, startIdx: acc, count: sec.rows.length, sIdx });
+      acc += sec.rows.length;
+    });
+    return meta;
+  }, [pathKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const stageLabels = useMemo(() => {
+    const labels = [];
+    sectionMeta.forEach((sec) => {
+      for (let k = 0; k < sec.count; k++) labels[sec.startIdx + k] = `${sec.sIdx + 1}-${k + 1}`;
+    });
+    return labels;
+  }, [sectionMeta]);
+
+  // Journey stars for this province (0–15), shown CRK-style next to progress.
+  const provStars = journeyMap?.[pathKey]?.stars || 0;
 
   // Per-lab unlock map — computed ONCE per (path, completed) change.
   // labUnlockStatus() rebuilds groupedSections(path) internally, so calling
@@ -375,6 +401,21 @@ export default function Roadmap() {
         <span className="spacer" />
         <span
           className="pill"
+          onClick={() => nav('/journey')}
+          title="Journey stars for this province"
+          style={{
+            background: 'rgba(245,184,66,.12)',
+            color: 'var(--accent-amber)',
+            fontSize: 10,
+            padding: '4px 10px',
+            cursor: 'pointer',
+            marginRight: 6,
+          }}
+        >
+          ✦ {provStars}/15
+        </span>
+        <span
+          className="pill"
           style={{
             background: allDone ? 'rgba(143,168,118,.18)' : 'var(--accent-amber-bg)',
             color: allDone ? 'var(--status-success)' : 'var(--accent-amber)',
@@ -400,6 +441,16 @@ export default function Roadmap() {
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
         >
           <RoadmapStaticScene pathKey={pathKey} nodes={nodes} H={H} />
+
+          {/* Guidance of grace — a drifting golden mote-trail from the
+              current node toward the next, pointing the way onward. */}
+          {!allDone && nodes[currentIdx] && nodes[currentIdx + 1] ? (
+            <GuidanceRay from={nodes[currentIdx]} to={nodes[currentIdx + 1]} reduced={reduced} />
+          ) : null}
+
+          {/* Sites of grace — section checkpoints that ignite once the
+              learner reaches the section. Progress-dependent → dynamic. */}
+          <GraceSites sectionMeta={sectionMeta} nodes={nodes} lessons={lessons} completed={completed} reduced={reduced} />
 
           {/* Nodes */}
           {nodes.map((n, i) => {
@@ -441,6 +492,41 @@ export default function Roadmap() {
                 ) : (
                   <ConceptNode n={n} done={done} isCurrent={isCurrent} />
                 )}
+
+                {/* Stage number — world-map "2-4" plate above the node. */}
+                {stageLabels[i] ? (
+                  <text
+                    x={n.x}
+                    y={n.y - (kind === 'lab' ? 19 : 17)}
+                    fontFamily="JetBrains Mono, ui-monospace, monospace"
+                    fontSize="6.5"
+                    letterSpacing="0.08em"
+                    textAnchor="middle"
+                    fill={done ? '#F5B842' : '#9A938A'}
+                    opacity={done ? 0.9 : 0.6}
+                    style={{ paintOrder: 'stroke', stroke: '#0B0A08', strokeWidth: 2 }}
+                  >
+                    {stageLabels[i]}
+                  </text>
+                ) : null}
+
+                {/* "You are here" bubble on the current stage. */}
+                {isCurrent ? (
+                  <g className={reduced ? undefined : 'roadmap-bang-bob'} pointerEvents="none">
+                    <circle cx={n.x} cy={n.y - 30} r="6.5" fill="#F4EFE3" stroke="#0B0A08" strokeWidth="1.5" />
+                    <text
+                      x={n.x}
+                      y={n.y - 26.8}
+                      fontFamily="JetBrains Mono, ui-monospace, monospace"
+                      fontSize="9.5"
+                      fontWeight="700"
+                      textAnchor="middle"
+                      fill="#C03A2E"
+                    >
+                      !
+                    </text>
+                  </g>
+                ) : null}
 
                 {/* Label below node */}
                 <text
@@ -802,6 +888,10 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
           <circle cx={W * 0.85} cy={H * 0.12} r="10" fill={scene.moon} opacity="0.95" />
           <circle cx={W * 0.85} cy={H * 0.12} r="18" fill={scene.moon} opacity="0.15" />
 
+          {/* Light shafts — pale rays falling across the ruins from above. */}
+          <polygon points={`${W * 0.52},0 ${W * 0.66},0 ${W * 0.38},${H * 0.2}`} fill={scene.moon} opacity="0.05" />
+          <polygon points={`${W * 0.74},0 ${W * 0.86},0 ${W * 0.56},${H * 0.24}`} fill={scene.moon} opacity="0.035" />
+
           {/* Distant zig-zag mountains */}
           <polygon points={mountainsFar} fill={scene.mountainsFar} />
           {/* Snow caps on far peaks */}
@@ -929,8 +1019,10 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
             ) : null
           )}
 
-          {/* Section labels (optional polish) + checkpoint lantern marker for
-              every section AFTER the first — sits opposite the trail node. */}
+          {/* Section labels + ruined waymarker arches at section boundaries.
+              The grace light that nests inside each ruin is progress-aware,
+              so it renders in the DYNAMIC layer (GraceSites) at these same
+              coordinates — the ruin is the shrine, the grace is its flame. */}
           {sections.map((sec, sIdx) => {
             const idx = sectionStartIdx.get(sec.name) || 0;
             const n = nodes[idx];
@@ -939,41 +1031,13 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
             const labelX = n.onLeft ? n.mainX + 24 : n.mainX - 24;
             const anchor = n.onLeft ? 'start' : 'end';
             const labelY = n.mainY - 22;
-            // Lantern offset to the FAR side of the canvas, opposite the node.
-            const lanternX = n.onLeft ? W - 28 : 28;
-            const lanternY = n.mainY;
+            // Ruin offset to the FAR side of the canvas, opposite the node.
+            const ruinX = n.onLeft ? W - 28 : 28;
+            const ruinY = n.mainY;
             return (
               <g key={`sec-${sec.name}`}>
                 {sIdx > 0 ? (
-                  <g opacity="0.85" pointerEvents="none">
-                    {/* Stick */}
-                    <rect
-                      x={lanternX - 0.5}
-                      y={lanternY - 14}
-                      width="1"
-                      height="14"
-                      fill="#4D4639"
-                    />
-                    {/* Lantern body */}
-                    <rect
-                      x={lanternX - 3}
-                      y={lanternY - 20}
-                      width="6"
-                      height="6"
-                      rx="1"
-                      fill={scene.snowCap}
-                      opacity="0.85"
-                    />
-                    {/* Glow */}
-                    <circle
-                      cx={lanternX}
-                      cy={lanternY - 17}
-                      r="5"
-                      fill="#F5B842"
-                      opacity="0.18"
-                      className="roadmap-lantern-glow"
-                    />
-                  </g>
+                  <Ruins x={ruinX} y={ruinY} stone={scene.snowCap} dark={scene.mountainsNear} />
                 ) : null}
                 <text
                   x={labelX}
@@ -1285,10 +1349,18 @@ function NullFog({ frontierY, H, allDone, reduced, pathKey }) {
   );
 }
 
-// The province's haunting presence, deep in the fog near the trail's far end:
-// two softly-glowing element-colored eyes (slow SMIL blink, reduced-motion
-// gated) over a faint mono label. Once the path is fully reclaimed the eyes
-// vanish and a gold "has fled" line takes their place.
+// Null Beast sprite URL for a Lapse id ('hollow-ink' → null_hollow_ink.png),
+// resolved against Vite's base path the same way BeastSprite does.
+const lapseSprite = (lapseId) =>
+  `${import.meta.env.BASE_URL}beasts/null_${String(lapseId).replace(/-/g, '_')}.png`
+    .replace(/\/{2,}/g, '/')
+    .replace(':/', '://');
+
+// The fog gate at the trail's far end — two ruined pillars with a pale veil
+// stretched between them, and the province's Lapse looming behind it as its
+// actual Null Beast sprite (dim, breathing in the mist, element-glow eyes
+// behind). Once the path is fully reclaimed the veil is gone, the pillars
+// stand broken, and a gold "has fled" line takes the monster's place.
 function LapsePresence({ lapse, H, allDone, reduced }) {
   if (!lapse || !Number.isFinite(H)) return null;
   const cx = W / 2;
@@ -1299,40 +1371,156 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
     letterSpacing: '0.14em',
     textAnchor: 'middle',
   };
+  const gateBase = H - 70; // pillar feet — between the last node's label and the medal
   if (allDone) {
     return (
-      <text x={cx} y={labelY} {...labelFont} fill="#F5B842" opacity="0.5" pointerEvents="none">
-        {lapse.name.toUpperCase()} HAS FLED — FOR NOW
-      </text>
+      <g pointerEvents="none" aria-hidden="true">
+        {/* Shattered gate — pillar stubs and fallen stones. */}
+        <rect x={cx - 32} y={gateBase - 12} width="5" height="12" fill="#8A93A3" opacity="0.5" />
+        <rect x={cx + 27} y={gateBase - 8} width="5" height="8" fill="#8A93A3" opacity="0.5" />
+        <rect x={cx - 14} y={gateBase - 3} width="7" height="3" fill="#8A93A3" opacity="0.4" />
+        <rect x={cx + 8} y={gateBase - 3} width="5" height="3" fill="#8A93A3" opacity="0.35" />
+        <text x={cx} y={labelY} {...labelFont} fill="#F5B842" opacity="0.5">
+          {lapse.name.toUpperCase()} HAS FLED — FOR NOW
+        </text>
+      </g>
     );
   }
-  const eyeY = H - 78;
   const color = ELEMENT_COLOR[lapse.element] || ELEMENT_COLOR.mystic;
-  const blink = !reduced ? (
-    <animate
-      attributeName="ry"
-      values="2.4;2.4;0.25;2.4"
-      keyTimes="0;0.88;0.94;1"
-      dur="7s"
-      repeatCount="indefinite"
-    />
-  ) : null;
+  const spriteSize = 52;
+  // Bottom of the sprite rests just above the pillar feet; its head peeks
+  // over the veil top — the beast is taller than the gate that holds it.
+  const spriteY = gateBase - spriteSize - 2;
   return (
     <g pointerEvents="none" aria-hidden="true">
-      {/* Soft glow halos */}
-      <ellipse cx={cx - 7} cy={eyeY} rx="4.5" ry="3.4" fill={color} opacity="0.14" />
-      <ellipse cx={cx + 7} cy={eyeY} rx="4.5" ry="3.4" fill={color} opacity="0.14" />
-      {/* The eyes — low-opacity element color, slow synchronized blink */}
-      <ellipse cx={cx - 7} cy={eyeY} rx="2.1" ry="2.4" fill={color} opacity="0.55">
-        {blink}
-      </ellipse>
-      <ellipse cx={cx + 7} cy={eyeY} rx="2.1" ry="2.4" fill={color} opacity="0.55">
-        {blink}
-      </ellipse>
+      {/* Element-glow aura behind the beast. */}
+      <ellipse cx={cx} cy={spriteY + spriteSize / 2} rx="30" ry="22" fill={color} opacity="0.12" />
+      {/* The Lapse itself — its Null Beast sprite, dim in the fog. */}
+      <image
+        href={lapseSprite(lapse.id)}
+        x={cx - spriteSize / 2}
+        y={spriteY}
+        width={spriteSize}
+        height={spriteSize}
+        opacity="0.55"
+        style={{ imageRendering: 'pixelated' }}
+      >
+        {!reduced ? (
+          <animate attributeName="opacity" values="0.4;0.6;0.4" dur="5s" repeatCount="indefinite" />
+        ) : null}
+      </image>
+      {/* Fog gate — ruined pillars + the pale veil between them. */}
+      <rect x={cx - 32} y={gateBase - 44} width="5" height="44" fill="#8A93A3" opacity="0.55" />
+      <rect x={cx - 34} y={gateBase - 48} width="9" height="4" fill="#8A93A3" opacity="0.45" />
+      <rect x={cx + 27} y={gateBase - 38} width="5" height="38" fill="#8A93A3" opacity="0.55" />
+      <rect x={cx + 25} y={gateBase - 42} width="9" height="4" fill="#8A93A3" opacity="0.45" />
+      <rect x={cx - 27} y={gateBase - 42} width="54" height="42" fill="#C7D3E0" opacity="0.22">
+        {!reduced ? (
+          <animate attributeName="opacity" values="0.16;0.28;0.16" dur="7s" repeatCount="indefinite" />
+        ) : null}
+      </rect>
       <text x={cx} y={labelY} {...labelFont} fill="#F4EFE3" opacity="0.35">
-        {lapse.name.toUpperCase()} WAITS AT THE END
+        {lapse.name.toUpperCase()} WAITS BEYOND THE FOG
       </text>
     </g>
+  );
+}
+
+// ─── Ruined waymarker (static) ──────────────────────────────────────────────
+// A small pillar-pair with a broken lintel and rubble at a section boundary —
+// the shrine the section's grace light (dynamic layer) nests inside.
+function Ruins({ x, y, stone, dark }) {
+  return (
+    <g opacity="0.8" pointerEvents="none">
+      {/* Pillars */}
+      <rect x={x - 10} y={y - 22} width="4" height="22" fill={stone} opacity="0.5" />
+      <rect x={x + 6} y={y - 17} width="4" height="17" fill={stone} opacity="0.5" />
+      {/* Broken lintel — resting tilted on the taller pillar */}
+      <polygon points={`${x - 12},${y - 22} ${x + 2},${y - 26} ${x + 2},${y - 23} ${x - 12},${y - 19}`} fill={stone} opacity="0.4" />
+      {/* Rubble */}
+      <rect x={x - 2} y={y - 2} width="4" height="2" fill={dark} opacity="0.9" />
+      <rect x={x + 4} y={y - 1} width="3" height="1" fill={dark} opacity="0.7" />
+    </g>
+  );
+}
+
+// ─── Sites of grace (dynamic) ───────────────────────────────────────────────
+// One grace light per section boundary, nested in that section's ruin. Lit
+// gold with rising wisps once any lesson in the section is complete; until
+// then a faint, colorless spark — grace not yet found.
+function GraceSites({ sectionMeta, nodes, lessons, completed, reduced }) {
+  return (
+    <g pointerEvents="none" aria-hidden="true">
+      {sectionMeta.map((sec) => {
+        if (sec.sIdx === 0) return null;
+        const n = nodes[sec.startIdx];
+        if (!n) return null;
+        const gx = n.onLeft ? W - 28 : 28;
+        const gy = n.mainY - 8;
+        const lit = lessons
+          .slice(sec.startIdx, sec.startIdx + sec.count)
+          .some((l) => completed[l.id]);
+        if (!lit) {
+          return (
+            <g key={`grace-${sec.name}`}>
+              <circle cx={gx} cy={gy} r="4.5" fill="#8FA3B8" opacity="0.1" />
+              <circle cx={gx} cy={gy} r="1.6" fill="#AFC2D6" opacity="0.4" />
+            </g>
+          );
+        }
+        return (
+          <g key={`grace-${sec.name}`}>
+            <circle
+              className={reduced ? undefined : 'roadmap-lantern-glow'}
+              cx={gx}
+              cy={gy}
+              r="9"
+              fill="#F5B842"
+              opacity="0.2"
+            />
+            <circle cx={gx} cy={gy} r="2.2" fill="#FFE8B0" opacity="0.95" />
+            {/* Rising wisps */}
+            {[-3.5, 0.5, 3].map((dx, i) => (
+              <path
+                key={i}
+                className={reduced ? undefined : 'roadmap-grace-wisp'}
+                d={`M ${gx + dx} ${gy - 2} q ${dx > 0 ? 2 : -2} -4 0 -8`}
+                stroke="#F5B842"
+                strokeWidth="0.8"
+                fill="none"
+                opacity="0.5"
+                style={reduced ? undefined : { animationDelay: `${i * 0.9}s` }}
+              />
+            ))}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+// ─── Guidance of grace (dynamic) ────────────────────────────────────────────
+// A drifting trail of golden motes from the current stage toward the next —
+// the road itself points the way onward.
+function GuidanceRay({ from, to, reduced }) {
+  return (
+    <line
+      x1={from.x}
+      y1={from.y}
+      x2={to.x}
+      y2={to.y}
+      stroke="#F5B842"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeDasharray="1 7"
+      opacity="0.35"
+      pointerEvents="none"
+      aria-hidden="true"
+    >
+      {!reduced ? (
+        <animate attributeName="stroke-dashoffset" from="0" to="-16" dur="1.8s" repeatCount="indefinite" />
+      ) : null}
+    </line>
   );
 }
 
