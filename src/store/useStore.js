@@ -4,11 +4,13 @@ import { resolveTier, BEASTS, SPECIES_KEYS, LEVELS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as labProgressFromContent } from '../data/content.js';
 import { PROVINCES, LAPSE_KEYS, JOURNEY_CHAPTERS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
+import { TAMER_KEYS } from '../data/tamers.js';
 
 // Allow-lists derived from static data — used to scrub user-supplied backups
 // so a malicious or hand-edited file can't inject unexpected state.
 const VALID_LESSON_IDS = new Set(Object.values(PATHS).flatMap((p) => p.lessons.map((l) => l.id)));
 const VALID_BACKGROUND_IDS = new Set(BACKGROUNDS.map((b) => b.id));
+const VALID_TAMER_IDS = new Set(TAMER_KEYS);
 // Lab ID → set of valid milestone IDs. Used to scrub `labMilestones` on
 // import so a tampered backup can't add unknown lab IDs or milestone IDs.
 const VALID_LAB_MILESTONES = (() => {
@@ -350,7 +352,7 @@ const SECTION_LESSONS = (() => {
 
 const initial = {
   displayName: 'Learner',
-  avatar: { hair: 0, hairColor: '#6B4226', top: 0, topColor: '#7B9FB5', bottom: 0, shoes: 0, hat: 0, held: 0 },
+  avatar: { hair: 0, hairColor: '#6B4226', top: 0, topColor: '#7B9FB5', bottom: 0, shoes: 0, hat: 0, held: 0, tamer: null },
   level: 'novice',           // novice | junior | senior | distinguished
   activePath: 'devops',
   companion: 'dragon',       // chosen species
@@ -1622,6 +1624,7 @@ export const useStore = create(
               shoes:  scrubInt(raw.avatar?.shoes,  0, 99, 0),
               hat:    scrubInt(raw.avatar?.hat,    0, 99, 0),
               held:   scrubInt(raw.avatar?.held,   0, 99, 0),
+              tamer:  (typeof raw.avatar?.tamer === 'string' && VALID_TAMER_IDS.has(raw.avatar.tamer)) ? raw.avatar.tamer : null,
             },
             // Streak fields — bound to sane ranges so a tampered backup can't
             // hand the user a 10_000-day streak or negative freeze counts.
