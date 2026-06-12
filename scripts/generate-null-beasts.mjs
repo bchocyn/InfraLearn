@@ -16,49 +16,66 @@ if (!KEY) {
   process.exit(1);
 }
 
+// Horror direction borrows grand-dark chaos-god design language: each Lapse
+// is the player's own failure made flesh — shifting deceiver, cheerful rot,
+// restless unfinished form, hollow wrath-trophy, beautiful oblivion. Strong
+// silhouette + 2-3 horror signifiers each, so the dread still reads at 96px.
 const STYLE =
-  'retro pixel art game sprite, crisp hard edges, no anti-aliasing, dark fantasy boss monster, ' +
-  'centered on transparent background, limited palette, moody dramatic lighting';
+  'retro pixel art game sprite, crisp hard edges, no anti-aliasing, grimdark fantasy raid boss, ' +
+  'menacing and unsettling, centered on transparent background, limited palette, ' +
+  'high contrast dramatic rim lighting from below';
 
 const LAPSES = {
   hollow_ink: {
     name: 'Hollow Ink, the Unteacher',
     prompt:
-      `${STYLE}. A tall robed scholar wraith whose robe is made of stacked text glyphs, ` +
-      'an open book where its face should be with pages fanning outward and ink dripping upward, ' +
+      `${STYLE}. A towering gaunt scholar wraith, robe woven from shifting stacked text glyphs ` +
+      'with dozens of small slitted eyes opening between the letters, an open book where its face should be ' +
+      'with pages fanned like a screaming mandala and ink running upward like black flame, ' +
+      'two pairs of long many-jointed fingers raised mid-lecture, ' +
       'deep indigo robe #1E1A2E, pale parchment glyphs #F4EFE3, corrupted magenta ink #C060A0, ' +
-      'faint mystic purple glow around the book face',
+      'sickly purple witchfire glow around the book face',
   },
   bitrot: {
     name: 'Bitrot, Devourer of Pages',
     prompt:
-      `${STYLE}. A massive low-slung stone toad fused with a rusted filing cabinet, ` +
-      'body covered in recessed tile slots holding crumpled pages, huge open jaw with paper feeding into it, ' +
-      'oxidized iron brown #4A3520, rust orange #8B4513, grey-green mold patches #556B2F, ' +
-      'dark amber veins across the tiles',
+      `${STYLE}. A grotesquely bloated stone toad fused with a rusted filing cabinet, ` +
+      'hide split by weeping ruptures spilling shredded wet pages, a wide cheerful grandfatherly grin ' +
+      'that does not match its rotting body, pale paper-maggots burrowing through the tile slots, ' +
+      'a faint halo of flies, one drawer hanging open like a gut wound, ' +
+      'oxidized iron brown #4A3520, rust orange #8B4513, grey-green mold blooms #556B2F, ' +
+      'dark amber pus veins glowing faintly across the tiles',
   },
   drift: {
     name: 'Drift, the Unfinisher',
     prompt:
-      `${STYLE}. A creature made entirely of dozens of overlapping iridescent wings of different sizes ` +
-      'with no body, a single large eye near the center gazing off to the side, ' +
-      'soft cloud white #E8E4F0 base with sky blue #87CEEB, lavender #9B7FD4 and pale gold #F5D87A sheens',
+      `${STYLE}. A lopsided swarm-creature with deliberately broken symmetry, made of tattered ` +
+      'iridescent wings of wildly different sizes jutting at wrong angles, left side dissolving into ' +
+      'scattered floating feather fragments and glitch static, several mismatched lidless eyes of different ' +
+      'sizes embedded among the feathers each staring in a different direction, ' +
+      'one large central eye half-lidded and looking away with boredom, ' +
+      'soft cloud white #E8E4F0 with sky blue #87CEEB, lavender #9B7FD4 and pale gold #F5D87A sheens ' +
+      'curdling to dead grey where the form unravels',
   },
   cindercrown: {
     name: 'Cindercrown, the Gilded Hollow',
     prompt:
-      `${STYLE}. An ornate empty suit of golden plate armor with an open visor revealing pure black void inside, ` +
-      'a burning crown of golden flame above the helm, trophy medallions and laurels welded to the shoulders, ' +
-      'oversized greatsword in its gauntlets, burnished gold #B8860B, charcoal void #2C2C2C, deep crimson fire #8B0000, ' +
-      'faint cold amber glow from the hollow interior',
+      `${STYLE}. A hulking empty suit of brass and gold plate armor like a war-god idol, ` +
+      'open visor revealing a black void with one dying ember deep inside, a guttering crown of fire ' +
+      'burning black at the tips, small trophy skulls and torn campaign banners chained to the pauldrons, ' +
+      'an oversized cracked greatsword planted point-down like an altar, mantle of medals layered like scales, ' +
+      'burnished gold #B8860B, charcoal void #2C2C2C, deep crimson fire #8B0000, ' +
+      'cold amber glow leaking from every armor seam',
   },
   lethe: {
     name: 'Lethe, the Hushtide',
     prompt:
-      `${STYLE}. A vast soft jellyfish-like tide spirit with no hard edges, ` +
-      'long translucent trailing tendrils, a warm inviting bioluminescent glow at its center, ' +
-      'serene and beautiful rather than menacing, deep teal body #1A3A4A, ' +
-      'blue-white glow #A0D8EF, soft seafoam trailing edges #98D1C0',
+      `${STYLE}. A vast drowned tide spirit shaped like a colossal translucent jellyfish, ` +
+      'serene and beautiful from a distance but wrong up close: faintly visible sleeping human faces ' +
+      'drifting inside the bell, long trailing tendrils that end in gently open grasping hands, ' +
+      'a single warm inviting bioluminescent lure glowing at its heart like an anglerfish, ' +
+      'deep teal body #1A3A4A, blue-white inner glow #A0D8EF, soft seafoam trailing edges #98D1C0, ' +
+      'the dark silhouette of something far larger looming behind the glow',
   },
 };
 
