@@ -1384,7 +1384,7 @@ export default {
           { "type": "p", "text": "Build a small web app that depends on Postgres (data) and Redis (cache), all running together via Docker Compose. **One command brings the whole stack up.** This is what every backend developer touches in their first week at a job — wiring services together, getting them to find each other, and tearing them down cleanly when you're done." },
           {
             "type": "diagram",
-            "title": "The stack",
+            "title": "What you'll build",
             "height": 200,
             "nodes": [
               { "id": "client", "label": "Client",   "subtitle": "browser",          "accent": "water", "x": 0.10, "y": 0.5 },

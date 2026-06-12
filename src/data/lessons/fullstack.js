@@ -3146,6 +3146,25 @@ export default {
         "heading": "Design a real-time chat backend",
         "body": [
           {
+            "type": "diagram",
+            "title": "What you'll build",
+            "caption": "A message comes in over a WebSocket, gets persisted, and fans out through Redis to every group member — your job is the whole round trip in under 500ms.",
+            "height": 210,
+            "nodes": [
+              { "id": "client", "label": "Client",       "subtitle": "web · mobile",        "accent": "water", "x": 0.10, "y": 0.32 },
+              { "id": "gw",     "label": "WS Gateway",    "subtitle": "50k sockets",         "accent": "sky",   "x": 0.42, "y": 0.32 },
+              { "id": "svc",    "label": "Chat Service",  "subtitle": "send · fan-out",      "accent": "fire",  "x": 0.74, "y": 0.32 },
+              { "id": "redis",  "label": "Redis",         "subtitle": "pub/sub · presence",  "accent": "mystic","x": 0.55, "y": 0.82 },
+              { "id": "store",  "label": "Message Store", "subtitle": "cassandra · history", "accent": "earth", "x": 0.88, "y": 0.82 }
+            ],
+            "edges": [
+              { "from": "client", "to": "gw",    "kind": "solid", "label": "send" },
+              { "from": "gw",     "to": "svc",   "kind": "solid", "label": "route" },
+              { "from": "svc",    "to": "store", "kind": "solid", "label": "persist" },
+              { "from": "svc",    "to": "redis", "kind": "solid", "label": "fan-out" }
+            ]
+          },
+          {
             "type": "system-design-lab",
             "id": "lab-realtime-chat",
             "title": "Design a real-time chat backend",

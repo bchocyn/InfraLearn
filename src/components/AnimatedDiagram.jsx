@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import MermaidFlow from './MermaidFlow.jsx';
+import { useStore } from '../store/useStore.js';
 
 // AnimatedDiagram — concept-illustration SVG for lesson bodies.
 //
@@ -173,6 +174,14 @@ export default function AnimatedDiagram({
 // row inside the variants path. Doesn't read its own width; receives one from
 // the parent figure (so multi-row variants share one ResizeObserver).
 function DiagramSvg({ nodes, edges, measuredWidth, height, title }) {
+  // Gate the marching-ants dash animation on reduced motion. The CSS media
+  // query only covers the OS preference — the in-app "Reduced motion" setting
+  // (same store flag MermaidFlow reads) must also stop it, so when either is
+  // set we simply don't attach the animated class. Dashes stay static.
+  const reducedSetting = useStore((s) => s.settings.reducedMotion);
+  const reduced = reducedSetting
+    || (typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const stacked = measuredWidth != null && measuredWidth < STACK_THRESHOLD;
   // Adaptive node sizing: when many nodes have to share the viewBox horizontally
   // we shrink them so the boxes don't trample each other. Stacked layout always
@@ -265,7 +274,7 @@ function DiagramSvg({ nodes, edges, measuredWidth, height, title }) {
               strokeWidth={1.6}
               strokeLinecap="round"
               strokeDasharray={isDashed ? '6 5' : undefined}
-              className={isDashed ? 'anim-edge-flow' : undefined}
+              className={isDashed && !reduced ? 'anim-edge-flow' : undefined}
               markerEnd={`url(#anim-arrow-${acc}-${uid})`}
               opacity={isDashed ? 0.95 : 0.75}
             />

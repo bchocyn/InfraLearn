@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // TerminalBlock — a focused in-browser shell sandbox for learning Unix
 // fundamentals without leaving the lesson.
@@ -253,7 +253,14 @@ function cmd_grep(args, state) {
   const { positional } = splitFlags(args);
   if (positional.length < 2) return { err: 'grep: usage: grep PATTERN FILE' };
   const [pattern, ...files] = positional;
-  const re = new RegExp(pattern);
+  // Raw user input may not be a valid regex (`grep (`); surface a shell-style
+  // error instead of letting the SyntaxError escape the keydown handler.
+  let re;
+  try {
+    re = new RegExp(pattern);
+  } catch {
+    return { err: 'grep: invalid pattern' };
+  }
   const lines = [];
   for (const f of files) {
     const node = getNode(state.fs, resolvePath(state.cwd, f));
@@ -266,11 +273,19 @@ function cmd_grep(args, state) {
   return { out: lines.join('\n') };
 }
 function cmd_head(args, state) {
+  // Same shift-only logic as cmd_tail: when -n is present, the count is the
+  // first positional and gets shifted off, leaving the filename in place.
+  // (The old findIndex/splice combo consumed the FILENAME as the count, so
+  // `head -n 5 file.txt` always errored.)
   const { flags, positional } = splitFlags(args);
-  const nArg = positional.findIndex((p) => /^-?\d+$/.test(p));
   let n = 10;
-  if (flags.has('n') && positional.length > 0) { n = parseInt(positional.shift(), 10); }
-  if (nArg >= 0) { n = parseInt(positional.splice(nArg, 1)[0], 10); }
+  if (flags.has('n')) {
+    const tok = positional.shift();
+    n = parseInt(tok, 10);
+    if (tok === undefined || Number.isNaN(n)) {
+      return { err: `head: invalid number of lines: '${tok === undefined ? '' : tok}'` };
+    }
+  }
   if (!positional.length) return { err: 'head: missing file operand' };
   const node = getNode(state.fs, resolvePath(state.cwd, positional[0]));
   if (node === undefined) return { err: `head: ${positional[0]}: No such file or directory` };
@@ -280,7 +295,13 @@ function cmd_head(args, state) {
 function cmd_tail(args, state) {
   const { flags, positional } = splitFlags(args);
   let n = 10;
-  if (flags.has('n') && positional.length > 0) { n = parseInt(positional.shift(), 10); }
+  if (flags.has('n')) {
+    const tok = positional.shift();
+    n = parseInt(tok, 10);
+    if (tok === undefined || Number.isNaN(n)) {
+      return { err: `tail: invalid number of lines: '${tok === undefined ? '' : tok}'` };
+    }
+  }
   if (!positional.length) return { err: 'tail: missing file operand' };
   const node = getNode(state.fs, resolvePath(state.cwd, positional[0]));
   if (node === undefined) return { err: `tail: ${positional[0]}: No such file or directory` };
@@ -306,13 +327,29 @@ function cmd_wc(args, state) {
   cols.push(positional[0]);
   return { out: cols.join(' ') };
 }
+// When the destination of cp/mv resolves to an existing DIRECTORY, the real
+// commands target dir/basename(src) — they never replace the directory node
+// itself. Returns the rewritten absolute destination path.
+function resolveDestination(state, srcPath, dst) {
+  let dstPath = resolvePath(state.cwd, dst);
+  if (isDir(getNode(state.fs, dstPath))) {
+    dstPath = resolvePath(dstPath, splitPath(srcPath).pop() || '');
+  }
+  return dstPath;
+}
 function cmd_cp(args, state) {
   if (args.length < 2) return { err: 'cp: usage: cp SRC DST' };
   const [src, dst] = args;
-  const node = getNode(state.fs, resolvePath(state.cwd, src));
+  const srcPath = resolvePath(state.cwd, src);
+  const node = getNode(state.fs, srcPath);
   if (node === undefined) return { err: `cp: ${src}: No such file or directory` };
   if (isDir(node)) return { err: `cp: ${src}: Is a directory (cp -r not supported)` };
-  if (!setNode(state.fs, resolvePath(state.cwd, dst), node)) {
+  const dstPath = resolveDestination(state, srcPath, dst);
+  if (dstPath === srcPath) return { err: `cp: '${src}' and '${dst}' are the same file` };
+  if (isDir(getNode(state.fs, dstPath))) {
+    return { err: `cp: cannot overwrite directory '${dst}' with non-directory` };
+  }
+  if (!setNode(state.fs, dstPath, node)) {
     return { err: `cp: cannot create '${dst}'` };
   }
   return { fs: { ...state.fs } };
@@ -323,7 +360,15 @@ function cmd_mv(args, state) {
   const srcPath = resolvePath(state.cwd, src);
   const node = getNode(state.fs, srcPath);
   if (node === undefined) return { err: `mv: ${src}: No such file or directory` };
-  if (!setNode(state.fs, resolvePath(state.cwd, dst), node)) {
+  const dstPath = resolveDestination(state, srcPath, dst);
+  if (dstPath === srcPath) return { err: `mv: '${src}' and '${dst}' are the same file` };
+  if (isDir(node) && (dstPath + '/').startsWith(srcPath + '/')) {
+    return { err: `mv: cannot move '${src}' to a subdirectory of itself` };
+  }
+  if (isDir(getNode(state.fs, dstPath))) {
+    return { err: `mv: cannot overwrite directory '${dst}'` };
+  }
+  if (!setNode(state.fs, dstPath, node)) {
     return { err: `mv: cannot move '${src}' to '${dst}'` };
   }
   deleteNode(state.fs, srcPath);

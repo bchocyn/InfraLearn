@@ -1984,23 +1984,6 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   opacity: 0.5;
 }
 
-/* ───── ArchDiagram (Proposal 8) ───── */
-.arch-diagram { margin: 16px 0; }
-.arch-diagram-title {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .12em;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-.arch-diagram svg {
-  width: 100%; height: auto; display: block;
-  background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px;
-  padding: 8px;
-}
-.arch-diagram svg[data-orientation="stacked"] { /* extra stacked-mode tweaks if needed */ }
-
 /* ───── Avatar creator ───── */
 
 /* Small avatar drawn in the corner of the beast stage. Tucked top-right so it
@@ -2937,7 +2920,8 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .projects-sub { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; margin: 0 0 8px; max-width: 42ch; }
 .projects-progress { font-size: 11px; letter-spacing: .08em; color: var(--accent-amber); text-transform: uppercase; }
 .projects-section { margin-top: 18px; }
-.projects-kicker { margin-bottom: 10px; }
+.projects-kicker { margin-bottom: 4px; }
+.projects-section-blurb { font-size: 12px; color: var(--text-tertiary); margin: 0 0 10px; line-height: 1.4; }
 .projects-grid { display: flex; flex-direction: column; gap: 10px; }
 .project-card {
   display: block; width: 100%; text-align: left; cursor: pointer;
@@ -6589,5 +6573,305 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 }
 @media (prefers-reduced-motion: reduce) {
   .viz-block-hint { animation: none; }
+}
+
+/* ───── Path Ascension cinematic ─────
+ * Full-screen "province reclaimed" celebration (components/PathAscension.jsx),
+ * played once per path at the gold seal. Cookie Run: Kingdom awakening-trailer
+ * energy: dramatic, bouncy, golden, earned. Every visual is a CSS keyframe —
+ * the component only flips phase classes/mounts; there are no JS animation
+ * loops. Conventions:
+ *   .ascend-enter      = one-shot ENTRANCE animation (fill-mode: both). The
+ *                        skip gesture adds .ascend-skip to the overlay, which
+ *                        fast-forwards every entrance to its final frame via
+ *                        0s duration; ambient loops (rays/embers/spark) are
+ *                        deliberately NOT .ascend-enter and keep playing.
+ *   .ascend-reduced    = the static-card branch (JS-gated reduced motion).
+ *   The trailing media query is the CSS belt for the OS-level preference. */
+
+.ascend-overlay {
+  position: fixed; inset: 0; z-index: 200; /* above EvolutionNotice's 100 */
+  display: flex;
+  overflow-y: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.ascend-skippable { cursor: pointer; } /* phases 0-2: tap anywhere to skip */
+.ascend-column {
+  position: relative;
+  margin: auto; /* centers when it fits, stays scrollable when it doesn't */
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px;
+  padding: 28px 0 32px;
+  width: 100%;
+}
+
+/* ── Phase 0 · Eclipse ──
+ * Edges darken first (radial vignette), then the full blackout settles.
+ * Both layers start transparent so the app underneath never hard-cuts.
+ * position: fixed so they cover the viewport even if the column scrolls. */
+.ascend-vignette {
+  position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 44%, rgba(8,7,5,0) 22%, rgba(8,7,5,.94) 78%);
+  opacity: 0;
+  animation: ascend-fade-in .65s ease-out both;
+}
+.ascend-blackout {
+  position: fixed; inset: 0; pointer-events: none;
+  background: rgba(8,7,5,.97);
+  opacity: 0;
+  animation: ascend-fade-in 1.05s ease .15s both;
+}
+@keyframes ascend-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* The single amber spark that ignites center stage, then breathes. */
+.ascend-spark {
+  position: absolute; left: calc(50% - 5px); top: calc(50% - 5px);
+  width: 10px; height: 10px; border-radius: 50%;
+  background: radial-gradient(circle, #FFF2D0 0%, #F5B842 55%, rgba(245,184,66,0) 78%);
+  box-shadow: 0 0 16px 5px rgba(245,184,66,.5);
+  opacity: 0;
+  animation:
+    ascend-spark-ignite .8s ease-out .3s both,
+    ascend-spark-breathe 2.4s ease-in-out 1.4s infinite;
+}
+@keyframes ascend-spark-ignite {
+  0%   { opacity: 0; transform: scale(.1); }
+  55%  { opacity: 1; transform: scale(1.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes ascend-spark-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.35); }
+}
+
+/* ── Phase 1 · Sigil ── */
+.ascend-stage {
+  position: relative;
+  width: min(78vw, 300px);
+  height: min(78vw, 300px);
+  flex: none;
+}
+.ascend-sigil { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* Godrays: fade-in wrapper (one-shot) around an endlessly rotating group. */
+.ascend-rays-in { animation: ascend-fade-in .9s ease .2s both; }
+.ascend-rays {
+  transform-origin: 160px 160px; /* same px-origin pattern as .adv-emblem-axes */
+  animation: ascend-rays-rotate 44s linear infinite;
+}
+@keyframes ascend-rays-rotate { to { transform: rotate(360deg); } }
+
+/* Emblem ring: faint track + stroke-dasharray draw-on from the top gem. */
+.ascend-ring-under { fill: none; stroke: rgba(245,184,66,.13); stroke-width: 2.5; }
+.ascend-ring {
+  fill: none; stroke: var(--accent-amber); stroke-width: 2.5; stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 160px 160px;
+  filter: drop-shadow(0 0 5px rgba(245,184,66,.55));
+  animation: ascend-ring-draw 1.45s cubic-bezier(.55,.06,.28,.99) both;
+}
+@keyframes ascend-ring-draw { to { stroke-dashoffset: 0; } }
+.ascend-ring-inner {
+  fill: none; stroke: rgba(245,184,66,.45); stroke-width: 1;
+  stroke-dasharray: 3 5;
+  animation: ascend-fade-in .55s ease .95s both;
+}
+.ascend-gem {
+  transform-box: fill-box; transform-origin: center;
+  animation: ascend-gem-pop .5s cubic-bezier(.34,1.56,.64,1) both;
+  /* per-gem stagger comes from an inline animation-delay */
+}
+@keyframes ascend-gem-pop {
+  from { opacity: 0; transform: scale(0); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.ascend-sigil-icon {
+  font-size: 46px;
+  fill: var(--accent-amber);
+  transform-box: fill-box; transform-origin: center;
+  animation: ascend-icon-in .6s cubic-bezier(.34,1.56,.64,1) .3s both;
+}
+@keyframes ascend-icon-in {
+  from { opacity: 0; transform: scale(.3); }
+  to   { opacity: 1; transform: scale(1); }
+}
+/* The beast covers center from Phase 2 on — retire the icon. Declared after
+ * .ascend-sigil-icon so this animation shorthand wins at equal specificity. */
+.ascend-icon-out { animation: ascend-fade-out .4s ease both; }
+@keyframes ascend-fade-out { to { opacity: 0; } }
+
+/* ── Phase 2 · Awakening ──
+ * Silhouette (brightness(0)) rises at 0.8 scale, bursts to full color with a
+ * white blink, overshoots 1.15 → ~1.0 with a springy settle, then holds an
+ * elemental aura (--ascend-aura is set inline from the beast's element). */
+.ascend-beast-wrap {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.ascend-beast {
+  position: relative;
+  animation: ascend-beast-rise 2.3s ease both;
+  will-change: transform, filter, opacity;
+}
+.ascend-beast .beast-img { display: block; }
+@keyframes ascend-beast-rise {
+  0%   { opacity: 0; transform: translateY(34px) scale(.8);  filter: brightness(0); }
+  26%  { opacity: 1; transform: translateY(6px)  scale(.82); filter: brightness(0); }
+  50%  { opacity: 1; transform: translateY(0)    scale(.86); filter: brightness(0); }
+  57%  { opacity: 1; transform: scale(1.15);
+         filter: brightness(2.5) saturate(.4) drop-shadow(0 0 30px rgba(255,232,176,.95)); }
+  72%  { opacity: 1; transform: scale(.965); filter: brightness(1.06); }
+  86%  { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1);
+         filter: brightness(1) drop-shadow(0 0 16px var(--ascend-aura, rgba(245,184,66,.5))); }
+}
+/* Full-viewport white blink, timed to the 57% color-burst frame above. */
+.ascend-flash {
+  position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, #FFF6E2 0%, rgba(255,236,190,.9) 40%, rgba(245,184,66,.45) 100%);
+  opacity: 0;
+  animation: ascend-flash-blink .55s ease-out 1.16s both;
+}
+@keyframes ascend-flash-blink {
+  0%   { opacity: 0; }
+  22%  { opacity: .9; }
+  100% { opacity: 0; }
+}
+/* Ember fountain — same visual language as the onboarding .adv-ember (gold/
+ * cream dots, fade-rise-drift), but on arcs from the beast's feet. The arc
+ * endpoints come from inline --ascend-dx / --ascend-dy custom props. */
+.ascend-embers { position: absolute; inset: 0; pointer-events: none; }
+.ascend-ember {
+  position: absolute; left: 50%; bottom: 26%;
+  border-radius: 50%;
+  background: #F5B842;
+  box-shadow: 0 0 6px 1px rgba(245,184,66,.65);
+  opacity: 0;
+  animation-name: ascend-ember-arc;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  /* per-ember duration/delay come from inline styles */
+}
+.ascend-ember-hot { background: #FFE8B0; box-shadow: 0 0 6px 1px rgba(255,232,176,.7); }
+@keyframes ascend-ember-arc {
+  0%   { opacity: 0;   transform: translate(-50%, 0) scale(.55); }
+  12%  { opacity: .95; }
+  60%  { opacity: .75; }
+  100% { opacity: 0;   transform: translate(calc(-50% + var(--ascend-dx, 0px)), var(--ascend-dy, -160px)) scale(1.2); }
+}
+
+/* ── Phase 3 · Title ── */
+.ascend-title-area {
+  min-height: 250px; /* reserved from Phase 0 so the column never jumps */
+  width: 100%; max-width: 440px;
+  padding: 0 24px;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+}
+.ascend-seal {
+  width: 62px; height: 62px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; color: #2A1F08;
+  background: radial-gradient(circle at 34% 30%, #FFE8B0 0%, var(--gold) 52%, #C99634 100%);
+  border: 2px solid #FFE8B0;
+  box-shadow: 0 0 0 3px rgba(245,184,66,.3), 0 8px 26px rgba(245,184,66,.35),
+              inset 0 -6px 10px rgba(110,72,8,.4);
+  margin-bottom: 14px;
+  animation: ascend-seal-stamp .55s cubic-bezier(.34,1.56,.64,1) .5s both;
+}
+@keyframes ascend-seal-stamp {
+  0%   { opacity: 0; transform: scale(1.6); }
+  62%  { opacity: 1; transform: scale(.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.ascend-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(27px, 7.6vw, 42px);
+  font-weight: 700; line-height: 1.06;
+  letter-spacing: .045em; text-transform: uppercase;
+  color: #F8EFD8;
+  text-shadow: 0 0 24px rgba(245,184,66,.4), 0 2px 0 rgba(0,0,0,.6);
+  animation: ascend-title-drop .65s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes ascend-title-drop {
+  from { opacity: 0; transform: translateY(-30px) scale(1.05); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ascend-reclaimed {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .4em; text-indent: .4em; /* re-center the tracked text */
+  color: var(--accent-amber);
+  animation: ascend-track-in .7s ease .3s both;
+}
+@keyframes ascend-track-in {
+  from { opacity: 0; letter-spacing: .7em; }
+  to   { opacity: 1; letter-spacing: .4em; }
+}
+.ascend-caption {
+  margin: 14px 0 0;
+  font-size: 13px; line-height: 1.5;
+  color: var(--text-secondary);
+  animation: ascend-rise-in .55s ease .75s both;
+}
+@keyframes ascend-rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ascend-continue {
+  margin-top: 18px;
+  padding: 12px 30px;
+  font-size: 14px;
+  box-shadow: 0 6px 22px rgba(245,184,66,.35);
+  animation: ascend-rise-in .5s ease 1.05s both;
+}
+/* The quiet hook: the province's Lapse stirs. Mono, low-key, last to fade in. */
+.ascend-foreshadow {
+  margin: 20px 0 0;
+  font-size: 11px; letter-spacing: .14em;
+  color: var(--text-tertiary);
+  animation: ascend-foreshadow-in 1.4s ease 1.6s both;
+}
+@keyframes ascend-foreshadow-in {
+  from { opacity: 0; }
+  to   { opacity: .6; }
+}
+
+/* ── Skip: fast-forward every one-shot entrance to its final frame.
+ * Ambient loops + the Phase-3 title choreography keep playing — skipping
+ * lands you at the START of the title phase, not a frozen end card. */
+.ascend-overlay.ascend-skip .ascend-enter {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
+
+/* ── Reduced motion (JS-gated branch): static card, no choreography. */
+.ascend-overlay.ascend-reduced {
+  background: rgba(8,7,5,.95);
+  cursor: default;
+}
+.ascend-overlay.ascend-reduced * { animation: none !important; transition: none !important; }
+.ascend-card {
+  margin: auto;
+  width: calc(100% - 40px); max-width: 380px;
+  padding: 26px 22px 24px;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(245,184,66,.14), rgba(20,16,10,.6)), var(--bg-elevated);
+  border: 1.5px solid var(--accent-amber);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.55);
+}
+.ascend-card .beast-img, .ascend-card .beast-sprite-skeleton { margin-bottom: 12px; }
+
+/* CSS belt for the OS preference, alongside the JS gate: if the animated
+ * branch ever renders under prefers-reduced-motion, freeze it readable. */
+@media (prefers-reduced-motion: reduce) {
+  .ascend-overlay, .ascend-overlay * { animation: none !important; transition: none !important; }
+  .ascend-overlay { background: rgba(8,7,5,.95); }
+  .ascend-vignette, .ascend-blackout, .ascend-flash, .ascend-spark, .ascend-ember { display: none; }
+  .ascend-ring { stroke-dashoffset: 0; }
 }
 

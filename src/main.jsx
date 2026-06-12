@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import React, { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 // Self-hosted fonts (bundled into the build — no third-party requests).
@@ -19,7 +19,6 @@ import Roadmap from './screens/Roadmap.jsx';
 // renders). Pull them out of a side-import so the Settings *component* can
 // still lazy-load while the theme tables stay eager.
 import { ACCENT_PRESETS, BG_THEMES } from './screens/settingsThemes.js';
-import Onboarding from './screens/Onboarding.jsx';
 import EvolutionNotice from './components/EvolutionNotice.jsx';
 import CoachTour from './components/CoachTour.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
@@ -32,11 +31,19 @@ import { useStore } from './store/useStore.js';
 // lesson-content path files) and Sandbox (drags in the CodeMirror lang
 // plugins via its editors).
 const Lesson           = lazy(() => import('./screens/Lesson.jsx'));
+// Onboarding renders exactly once per install — returning users (the common
+// case) shouldn't pay for its scene SVGs in the eager bundle.
+const Onboarding       = lazy(() => import('./screens/Onboarding.jsx'));
 const Library          = lazy(() => import('./screens/Library.jsx'));
 const Projects         = lazy(() => import('./screens/Projects.jsx'));
 const ByteBeast        = lazy(() => import('./screens/ByteBeast.jsx'));
 const Settings         = lazy(() => import('./screens/Settings.jsx'));
 const Reviews          = lazy(() => import('./screens/Reviews.jsx'));
+// Path Ascension cinematic — fires at most once per path (gold seal), so its
+// SVG/keyframe payload has no business in the eager bundle. It renders null
+// until the store queues a pendingAscension; it gets its OWN Suspense with a
+// null fallback so the chunk fetch never flashes the route-level "Loading…".
+const PathAscension    = lazy(() => import('./components/PathAscension.jsx'));
 const ReviewWeakSpots  = lazy(() => import('./screens/ReviewWeakSpots.jsx'));
 
 // Suspense fallback — deliberately NOT a spinner. A serif "Loading…" in the
@@ -107,7 +114,14 @@ function useGlobalShortcuts(onToggleHelp) {
         clearChord();
         if (dest) {
           e.preventDefault();
-          e.stopImmediatePropagation(); // suppress Lesson's sibling h/l window listener
+          // This listener is registered on window with {capture: true}, so it
+          // runs BEFORE any bubble-phase keydown listener (Lesson's sibling
+          // h/l pager, Home's shortcuts, …) regardless of subscription order.
+          // stopPropagation() here cancels the bubble phase outright;
+          // stopImmediatePropagation() additionally suppresses any other
+          // capture-phase window listeners (harmless belt-and-suspenders).
+          e.stopPropagation();
+          e.stopImmediatePropagation();
           nav(dest);
         }
         return;
@@ -125,9 +139,13 @@ function useGlobalShortcuts(onToggleHelp) {
       }
     };
 
-    window.addEventListener('keydown', onKey);
+    // Capture phase: chord resolution must win over the bubble-phase key
+    // handlers other screens attach to window. With plain bubble listeners
+    // the outcome depended on registration ORDER, which inverted whenever
+    // this effect re-subscribed after an App re-render.
+    window.addEventListener('keydown', onKey, { capture: true });
     return () => {
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, { capture: true });
       if (chordRef.current.timer) clearTimeout(chordRef.current.timer);
     };
   }, [nav, onToggleHelp]);
@@ -144,7 +162,13 @@ function App() {
   // wired in useGlobalShortcuts; the overlay component itself listens for
   // Escape internally.
   const [helpOpen, setHelpOpen] = useState(false);
-  useGlobalShortcuts(() => setHelpOpen((v) => !v));
+  // Stable callback identity: an inline arrow here changed on every App
+  // render, re-running useGlobalShortcuts' effect (deps include onToggleHelp)
+  // and re-subscribing its window listener — shuffling listener order
+  // relative to sibling key handlers. useCallback([], …) pins it for the
+  // app's lifetime (the setter form needs no captured state).
+  const onToggleHelp = useCallback(() => setHelpOpen((v) => !v), []);
+  useGlobalShortcuts(onToggleHelp);
 
   // Reading-mode themes (sepia/paper/nord/etc) bake their own accent into
   // the palette, so the user-picked accent shouldn't override it. We let
@@ -188,7 +212,9 @@ function App() {
 
   if (!onboarded) return (
     <div className={shellClass}>
-      <Onboarding />
+      <Suspense fallback={<RouteFallback />}>
+        <Onboarding />
+      </Suspense>
       <EvolutionNotice />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
@@ -213,6 +239,10 @@ function App() {
         </Suspense>
       </main>
       <EvolutionNotice />
+      {/* Onboarded branch only — a gold seal can't be earned pre-onboarding. */}
+      <Suspense fallback={null}>
+        <PathAscension />
+      </Suspense>
       <CoachTour />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
@@ -228,8 +258,18 @@ function App() {
 // non-blocking "Update available — Reload" toast below. controllerchange
 // fires once SKIP_WAITING promotes the new SW; we reload exactly once.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  // Throttle for the visibility-driven update check registered after a
+  // successful register() below. Module-level so every visibilitychange
+  // event shares one clock: at most one registration.update() per hour.
+  let lastUpdateCheck = 0;
+  const UPDATE_CHECK_MIN_INTERVAL_MS = 60 * 60 * 1000;
+
   window.addEventListener('load', () => {
-    const swUrl = new URL('sw.js', import.meta.env.BASE_URL).href;
+    // BASE_URL is '/InfraLearn/' — a root-RELATIVE path, not an absolute
+    // URL, so it is not a valid `new URL()` base (that threw a TypeError
+    // here and killed registration entirely). Plain concatenation yields
+    // the correct scope-rooted SW URL.
+    const swUrl = import.meta.env.BASE_URL + 'sw.js';
 
     // Show a single non-blocking toast prompting the user to reload. The
     // toast is a plain DOM node (no React state, no re-render churn) so it
@@ -241,17 +281,38 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       toast.className = 'sw-update-toast';
       toast.setAttribute('role', 'status');
       toast.setAttribute('aria-live', 'polite');
+      // Styled INLINE (no stylesheet dependency): the toast must render
+      // readably even when the CSS failed to load — which is exactly the
+      // broken state an update prompt may need to rescue the user from.
+      // Theme variables with hard-coded fallbacks keep it on-palette when
+      // the stylesheet IS alive.
+      toast.style.cssText =
+        'position:fixed;left:50%;transform:translateX(-50%);' +
+        'bottom:calc(16px + env(safe-area-inset-bottom));z-index:9999;' +
+        'display:flex;gap:12px;align-items:center;padding:10px 14px;' +
+        'border-radius:10px;background:var(--bg-elevated, #13110E);' +
+        'color:var(--text-primary, #F4EFE3);' +
+        'border:1px solid var(--border-default, #3A352C);' +
+        'box-shadow:0 4px 24px rgba(0,0,0,.4);font:inherit;';
       toast.innerHTML =
         '<span class="sw-update-toast-text">Update available</span>' +
         '<button type="button" class="sw-update-toast-btn">Reload</button>' +
         '<button type="button" class="sw-update-toast-dismiss" aria-label="Dismiss">×</button>';
       const reloadBtn = toast.querySelector('.sw-update-toast-btn');
       const dismissBtn = toast.querySelector('.sw-update-toast-dismiss');
+      reloadBtn.style.cssText =
+        'font:inherit;font-weight:600;padding:6px 12px;border-radius:8px;' +
+        'border:none;cursor:pointer;' +
+        'background:var(--accent-amber, #F5B842);color:#13110E;';
+      dismissBtn.style.cssText =
+        'font:inherit;font-size:18px;line-height:1;padding:4px 6px;' +
+        'border:none;border-radius:8px;cursor:pointer;' +
+        'background:transparent;color:inherit;';
       reloadBtn.addEventListener('click', () => {
         // Ask the waiting SW to take over. controllerchange (registered
         // once below) then reloads the page.
         try { waitingWorker.postMessage({ type: 'SKIP_WAITING' }); }
-        catch (_) { window.location.reload(); }
+        catch { window.location.reload(); }
       });
       dismissBtn.addEventListener('click', () => {
         toast.remove();
@@ -269,6 +330,19 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     });
 
     navigator.serviceWorker.register(swUrl).then((registration) => {
+      // register() itself just performed an update check — start the
+      // throttle clock now.
+      lastUpdateCheck = Date.now();
+      // Installed PWAs can stay open (or suspended) for weeks without a
+      // full page load, so nothing would ever look for a new SW. Re-check
+      // whenever the app returns to the foreground, at most once per hour.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        if (Date.now() - lastUpdateCheck < UPDATE_CHECK_MIN_INTERVAL_MS) return;
+        lastUpdateCheck = Date.now();
+        registration.update().catch(() => { /* offline check — ignore */ });
+      });
+
       // If a worker is already waiting at registration time (user dismissed
       // an earlier toast then revisited), re-surface the prompt.
       if (registration.waiting && navigator.serviceWorker.controller) {

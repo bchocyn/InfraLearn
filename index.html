@@ -10,30 +10,48 @@
   <meta name="description" content="InfraLearn" />
   <link rel="manifest" href="manifest.webmanifest" />
   <!-- Multi-size icon links. The browser picks the closest match for tab
-       favicons; the OS picks the closest match for installed home-screen
-       icons (apple-touch-icon-*, icon-*). SVG is accepted by all modern
-       targets; a small subset of older iOS may ignore SVG apple-touch-icon
-       and fall back to the manifest icons. -->
+       favicons (SVG is fine there); the OS picks the home-screen icon.
+       iOS Safari does NOT accept SVG for apple-touch-icon — it requires
+       PNG and composites transparency onto black — so the touch icon is a
+       180px PNG with the app background baked in. PNGs are generated from
+       the SVG sources via `node scripts/generate-icons.mjs`. -->
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="icon" type="image/svg+xml" sizes="16x16" href="favicon-16.svg" />
   <link rel="icon" type="image/svg+xml" sizes="32x32" href="favicon-32.svg" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.svg" />
-  <link rel="apple-touch-icon" sizes="152x152" href="icon-152.svg" />
-  <link rel="apple-touch-icon" sizes="167x167" href="icon-167.svg" />
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="InfraLearn" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <!-- Content Security Policy: lock to same-origin except for the Pyodide CDN
-       that PracticeBlock loads on first Run. Pyodide needs three things:
+       that PracticeBlock loads on first Run. Pyodide needs four things:
          1. script-src: load pyodide.js from cdn.jsdelivr.net.
          2. connect-src: fetch the .wasm interpreter + python_stdlib.zip + packages
             from the same CDN at runtime.
          3. wasm-unsafe-eval: compile the WebAssembly module the interpreter ships in.
+         4. worker-src 'self' blob:: Pyodide runs inside a Blob-URL web worker
+            (whose importScripts pulls pyodide.js from the CDN already allowed
+            under script-src).
        Styles still allow 'unsafe-inline' because React inline style props use it.
+
+       Optional cloud sync (Firebase Auth + Firestore — dormant until
+       src/cloud/cloudConfig.js is filled in; see docs/SETUP-CLOUD.md) adds:
+         - script-src https://apis.google.com: the Google sign-in popup flow
+           loads Google's API shim (gapi/iframes) from there.
+         - connect-src https://identitytoolkit.googleapis.com: Firebase Auth
+           REST backend (sign-in token exchange, account lookup).
+         - connect-src https://securetoken.googleapis.com: ID-token refresh —
+           keeps the session alive without re-prompting.
+         - connect-src https://firestore.googleapis.com: Firestore reads/writes
+           (the progress snapshot document) over HTTPS/WebChannel.
+         - connect-src https://www.googleapis.com: auxiliary Google identity
+           endpoints used during the OAuth popup handshake.
+         - frame-src (new directive — was unset, so it fell back to
+           default-src 'self'): the popup flow embeds a hidden iframe from the
+           project's *.firebaseapp.com authDomain plus accounts.google.com for
+           the Google account chooser.
        Everything else stays same-origin. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; frame-src https://*.firebaseapp.com https://accounts.google.com" />
   <title>InfraLearn</title>
 </head>
 <body>

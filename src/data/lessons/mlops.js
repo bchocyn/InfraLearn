@@ -4712,7 +4712,7 @@ export default {
               { "id": "cons","label": "Consumer",  "accent": "fire" }
             ],
             "events": [
-              { "from": "db",   "to": "db",    "label": "UPDATE users SET tier=…", "note": "commit + binlog write" },
+              { "self": "db",   "label": "UPDATE users SET tier=…", "note": "commit + binlog write" },
               { "from": "db",   "to": "cdc",   "label": "binlog tail",             "note": "logical replication slot" },
               { "from": "cdc",  "to": "kafka", "label": "Produce(key=user_id)",    "note": "ordered per key" },
               { "from": "kafka","to": "cons",  "label": "Poll batch" },
@@ -5288,11 +5288,10 @@ export default {
             "title": "A/B rollout — one request, two models, one truth",
             "caption": "Shadow forks the request — the user only ever sees the control response.",
             "actors": [
-              { "id": "user",    "label": "User",            "accent": "water" },
-              { "id": "router",  "label": "Router",          "accent": "amber" },
-              { "id": "ctrl",    "label": "Control model",   "accent": "sky" },
-              { "id": "treat",   "label": "Treatment model", "accent": "fire" },
-              { "id": "metrics", "label": "Metrics store",   "accent": "earth" }
+              { "id": "user",    "label": "User",      "accent": "water" },
+              { "id": "router",  "label": "Router",    "accent": "amber" },
+              { "id": "ctrl",    "label": "Control",   "accent": "sky" },
+              { "id": "treat",   "label": "Treatment", "accent": "fire" }
             ],
             "events": [
               { "from": "user",   "to": "router",  "label": "request(user_id)",      "note": "hash(user_id) decides bucket" },
@@ -5301,7 +5300,7 @@ export default {
               { "from": "ctrl",   "to": "router",  "label": "ŷ_control" },
               { "from": "treat",  "to": "router",  "label": "ŷ_treatment",          "note": "in shadow: logged only", "dashed": true },
               { "from": "router", "to": "user",    "label": "response (ŷ chosen)",   "note": "shadow = always control" },
-              { "from": "router", "to": "metrics", "label": "log(both ŷ, variant)", "note": "join with conversion later", "dashed": true }
+              { "self": "router", "label": "log(both ŷ, variant)",  "note": "join with conversion later", "dashed": true }
             ]
           }
         ]

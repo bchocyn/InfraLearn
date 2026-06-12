@@ -2,8 +2,11 @@ import { useMemo } from 'react';
 import { useStore } from '../store/useStore.js';
 
 // "This week" recap card — a lightweight Wrapped-style summary of the last 7
-// days (XP, days active, lessons, streak). Derived from xpHistory + the
-// activityDays log; renders nothing until there's something to show.
+// days (XP, days active, lessons, streak). Derived from the store's rolling
+// per-day dailyStats counters + the activityDays log; renders nothing until
+// there's something to show. (The old version summed xpHistory, but that log
+// is capped at 20 entries — an active day generates 20+ gains, so weekly
+// totals undercounted badly for exactly the users a recap should flatter.)
 
 const iso = (d) => {
   const y = d.getFullYear();
@@ -13,7 +16,7 @@ const iso = (d) => {
 };
 
 export default function WeekRecap() {
-  const xpHistory = useStore((s) => s.xpHistory);
+  const dailyStats = useStore((s) => s.dailyStats);
   const activityDays = useStore((s) => s.activityDays);
   const streak = useStore((s) => s.streak);
 
@@ -23,14 +26,19 @@ export default function WeekRecap() {
     const cutoffKey = iso(cutoff);
     const inWeek = (k) => typeof k === 'string' && k >= cutoffKey; // ISO days sort lexically
 
-    const hist = (xpHistory || []).filter((e) => e && inWeek(e.at));
-    const xp = hist.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const lessons = hist.filter((e) => typeof e.reason === 'string'
-      && (e.reason.startsWith('lesson:') || e.reason.startsWith('lab:'))).length;
+    let xp = 0;
+    let lessons = 0;
     const days = new Set((activityDays || []).filter(inWeek));
-    hist.forEach((e) => days.add(e.at));
+    for (const [day, entry] of Object.entries(dailyStats || {})) {
+      if (!inWeek(day) || !entry) continue;
+      xp += entry.xp || 0;          // post-multiplier XP, every gain counted
+      lessons += entry.lessons || 0;
+      if ((entry.xp || 0) > 0 || (entry.lessons || 0) > 0 || (entry.reviews || 0) > 0) {
+        days.add(day);
+      }
+    }
     return { xp, lessons, days: days.size };
-  }, [xpHistory, activityDays]);
+  }, [dailyStats, activityDays]);
 
   if (stats.xp === 0 && stats.days === 0) return null;
 

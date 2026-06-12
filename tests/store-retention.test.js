@@ -163,20 +163,92 @@ describe('recordActivity', () => {
     expect(s.weekendPasses).toBe(0);
   });
 
-  it('consumes pendingFreeze before weekend passes', () => {
+  it('pendingFreeze covers exactly ONE missed weekday', () => {
+    // TODAY = Wed; last = Mon → missed Tue (one weekday).
     useStore.setState({
       streak: 5,
-      lastActivityDate: addDays(TODAY, -3),  // weekday gap, no weekend
+      lastActivityDate: addDays(TODAY, -2),
       pendingFreeze: true,
       streakFreezes: 0,
       weekendPasses: 2,
+      weekendPassMonth: isoMonth(FIXED_TODAY),
       streakHighWater: 5,
     });
     useStore.getState().recordActivity();
     const s = useStore.getState();
     expect(s.streak).toBe(6);
     expect(s.pendingFreeze).toBe(false);
-    expect(s.weekendPasses).toBe(2); // unchanged
+    expect(s.weekendPasses).toBe(2); // weekday miss — passes untouched
+  });
+
+  it('pendingFreeze cannot cover a multi-day weekday gap (no unbounded forgiveness)', () => {
+    // TODAY = Wed; last = Sun → missed Mon + Tue (two weekdays). A single
+    // freeze covers one day, so the streak resets and the failed freeze
+    // is cleared instead of lingering for some future unrelated gap.
+    useStore.setState({
+      streak: 5,
+      lastActivityDate: addDays(TODAY, -3),
+      pendingFreeze: true,
+      streakFreezes: 0,
+      weekendPasses: 0,
+      weekendPassMonth: isoMonth(FIXED_TODAY),
+      streakHighWater: 5,
+    });
+    useStore.getState().recordActivity();
+    const s = useStore.getState();
+    expect(s.streak).toBe(1);
+    expect(s.pendingFreeze).toBe(false);
+    expect(s.streakHighWater).toBe(5);
+  });
+
+  it('Fri→Mon gap consumes two weekend passes and preserves the streak', () => {
+    const MON = new Date(2026, 5, 1, 12, 0, 0); // Mon 2026-06-01
+    vi.setSystemTime(MON);
+    const monIso = isoDay(MON);
+    useStore.setState({
+      streak: 9,
+      lastActivityDate: addDays(monIso, -3), // Friday — missed Sat + Sun
+      weekendPasses: 2,
+      weekendPassMonth: isoMonth(MON),
+      streakHighWater: 9,
+    });
+    useStore.getState().recordActivity();
+    const s = useStore.getState();
+    expect(s.streak).toBe(10);
+    expect(s.weekendPasses).toBe(0);
+    expect(s.lastActivityDate).toBe(monIso);
+  });
+
+  it('combines a weekend pass + pendingFreeze across a mixed Thu→Sun gap', () => {
+    const SUN = new Date(2026, 5, 7, 12, 0, 0); // Sun 2026-06-07
+    vi.setSystemTime(SUN);
+    const sunIso = isoDay(SUN);
+    useStore.setState({
+      streak: 4,
+      lastActivityDate: addDays(sunIso, -3), // Thursday — missed Fri (weekday) + Sat (weekend)
+      pendingFreeze: true,
+      streakFreezes: 0,
+      weekendPasses: 1,
+      weekendPassMonth: isoMonth(SUN),
+      streakHighWater: 4,
+    });
+    useStore.getState().recordActivity();
+    const s = useStore.getState();
+    expect(s.streak).toBe(5);
+    expect(s.weekendPasses).toBe(0);   // pass covered Saturday
+    expect(s.pendingFreeze).toBe(false); // freeze covered Friday
+  });
+
+  it('heals a FUTURE lastActivityDate instead of freezing the streak machinery', () => {
+    useStore.setState({
+      streak: 4,
+      lastActivityDate: addDays(TODAY, 5), // skewed clock / tampered import
+      streakHighWater: 4,
+    });
+    useStore.getState().recordActivity();
+    const s = useStore.getState();
+    expect(s.streak).toBe(4);              // kept, not reset
+    expect(s.lastActivityDate).toBe(TODAY); // re-anchored — recording resumes
   });
 });
 
@@ -330,5 +402,202 @@ describe('addXp (Engagement Tier B, present at test-authoring time)', () => {
     useStore.getState().addXp(-50, 'noop');
     useStore.getState().addXp(NaN, 'noop');
     expect(useStore.getState().xp).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Celebration priority — level > badge > xp within a synchronous batch
+// ─────────────────────────────────────────────────────────────────────────────
+describe('celebration priority', () => {
+  it('a plain XP toast does not clobber a fresh badge celebration', () => {
+    useStore.getState().grantBadge('streak:3');
+    useStore.getState().addXp(5, 'lesson:complete');
+    expect(useStore.getState().celebrate?.kind).toBe('badge');
+  });
+
+  it('a level-up replaces a fresh badge celebration', () => {
+    useStore.getState().grantBadge('streak:3');
+    useStore.getState().addXp(100, 'test:bump'); // crosses level 2
+    expect(useStore.getState().celebrate?.kind).toBe('level');
+  });
+
+  it('a badge does not clobber a fresh level-up', () => {
+    useStore.getState().addXp(100, 'test:bump');
+    useStore.getState().grantBadge('streak:3');
+    expect(useStore.getState().celebrate?.kind).toBe('level');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// completeLesson — re-completion must not re-grade the FSRS card or re-award
+// ─────────────────────────────────────────────────────────────────────────────
+describe('completeLesson idempotency', () => {
+  it('first completion schedules a review; re-completion leaves it untouched', () => {
+    useStore.getState().completeLesson(LESSON_A);
+    const first = useStore.getState().reviewQueue[LESSON_A];
+    expect(first.stability).toBeCloseTo(2.5, 5);
+    const xpAfterFirst = useStore.getState().xp;
+
+    useStore.getState().completeLesson(LESSON_A);
+    const second = useStore.getState().reviewQueue[LESSON_A];
+    expect(second.stability).toBeCloseTo(2.5, 5); // NOT 6.25
+    expect(second.reps).toBe(1);
+    expect(useStore.getState().xp).toBe(xpAfterFirst); // no double award
+  });
+
+  it('counts the lesson in dailyStats once', () => {
+    useStore.getState().completeLesson(LESSON_A);
+    useStore.getState().completeLesson(LESSON_A);
+    const stats = useStore.getState().dailyStats[TODAY];
+    expect(stats.lessons).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily-practice persistence — XP farming closed
+// ─────────────────────────────────────────────────────────────────────────────
+describe('recordDailyAnswer / markDailyPracticeDone', () => {
+  it('returns true only the first time an index is answered today', () => {
+    expect(useStore.getState().recordDailyAnswer(0, 'right')).toBe(true);
+    expect(useStore.getState().recordDailyAnswer(0, 'right')).toBe(false);
+    expect(useStore.getState().recordDailyAnswer(0, 'wrong')).toBe(false);
+    expect(useStore.getState().recordDailyAnswer(1, 'wrong')).toBe(true);
+    const dp = useStore.getState().dailyPractice;
+    expect(dp.date).toBe(TODAY);
+    expect(dp.answered).toEqual({ 0: 'right', 1: 'wrong' });
+  });
+
+  it('latches done exactly once per day', () => {
+    expect(useStore.getState().markDailyPracticeDone()).toBe(true);
+    expect(useStore.getState().markDailyPracticeDone()).toBe(false);
+    expect(useStore.getState().dailyPractice.done).toBe(true);
+  });
+
+  it('rejects out-of-range indices', () => {
+    expect(useStore.getState().recordDailyAnswer(-1, 'right')).toBe(false);
+    expect(useStore.getState().recordDailyAnswer(10, 'right')).toBe(false);
+    expect(useStore.getState().recordDailyAnswer('0', 'right')).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// reviewer:10 badge — counted via dailyStats (misses included)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('reviewer:10 badge', () => {
+  it('unlocks after 10 graded reviews in a day, even all misses', () => {
+    for (let i = 0; i < 10; i++) {
+      useStore.getState().markReviewed(LESSON_A, 1); // misses award no XP
+    }
+    expect(useStore.getState().dailyStats[TODAY].reviews).toBe(10);
+    expect(useStore.getState().badges['reviewer:10']).toBeDefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Path Ascension — gold seal queues the cinematic exactly once per path
+// ─────────────────────────────────────────────────────────────────────────────
+describe('path ascension', () => {
+  it('queues pendingAscension once when a path first reaches gold', () => {
+    const all = {};
+    for (const l of PATHS.fundamentals.lessons) all[l.id] = true;
+    useStore.setState({ completed: all });
+    useStore.getState().computeNewBadges();
+    const s1 = useStore.getState();
+    expect(s1.badges['path:fundamentals:gold']).toBeDefined();
+    expect(s1.pendingAscension).toBe('fundamentals');
+    expect(s1.ascensionsSeen.fundamentals).toBe(true);
+
+    useStore.getState().clearPendingAscension();
+    useStore.getState().computeNewBadges(); // recompute must not re-queue
+    expect(useStore.getState().pendingAscension).toBe(null);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// importData — merge folds progress in; replace derives xpLevel; scrubbers
+// ─────────────────────────────────────────────────────────────────────────────
+describe('importData', () => {
+  it('merge keeps local badges/xp/streak/name and unions completed', () => {
+    useStore.setState({
+      completed: { [LESSON_A]: true },
+      badges: { 'streak:3': { unlockedAt: '2026-05-01' } },
+      xp: 500,
+      xpLevel: 4,
+      streak: 6,
+      streakHighWater: 6,
+      lastActivityDate: TODAY,
+      displayName: 'LocalName',
+    });
+    const backup = JSON.stringify({
+      app: 'infralearn',
+      version: 1,
+      data: {
+        completed: { [LESSON_B]: true },
+        badges: { 'recall:first': { unlockedAt: '2026-04-01' } },
+        xp: 100,
+        xpLevel: 2,
+        streak: 2,
+        displayName: 'BackupName',
+      },
+    });
+    const res = useStore.getState().importData(backup, 'merge');
+    expect(res.ok).toBe(true);
+    const s = useStore.getState();
+    expect(s.completed[LESSON_A]).toBe(true);
+    expect(s.completed[LESSON_B]).toBe(true);
+    expect(s.xp).toBe(500);                       // max, not replaced
+    expect(s.streak).toBe(6);                     // max, not replaced
+    expect(s.badges['streak:3']).toBeDefined();   // local badge survives
+    expect(s.badges['recall:first']).toBeDefined(); // imported badge added
+    expect(s.displayName).toBe('LocalName');      // identity stays local
+  });
+
+  it('replace derives xpLevel from xp instead of trusting the file', () => {
+    const backup = JSON.stringify({ data: { xp: 250, xpLevel: 9 } });
+    const res = useStore.getState().importData(backup, 'replace');
+    expect(res.ok).toBe(true);
+    const s = useStore.getState();
+    expect(s.xp).toBe(250);
+    expect(s.xpLevel).toBe(3); // thresholds: 0,100,250 → level 3
+  });
+
+  it('preserves __daily_practice__ quiz misses through an import', () => {
+    const backup = JSON.stringify({
+      data: {
+        quizMisses: {
+          '__daily_practice__': { 'What does CIDR notation describe?': { picked: null } },
+          'not-a-real-lesson': { 'Bogus?': { picked: 1 } },
+        },
+      },
+    });
+    const res = useStore.getState().importData(backup, 'replace');
+    expect(res.ok).toBe(true);
+    const misses = useStore.getState().quizMisses;
+    expect(misses['__daily_practice__']).toBeDefined();
+    expect(misses['not-a-real-lesson']).toBeUndefined();
+  });
+
+  it('never imports a queued ascension cinematic, but keeps seen-flags', () => {
+    const backup = JSON.stringify({
+      data: { pendingAscension: 'devops', ascensionsSeen: { devops: true, 'not-a-path': true } },
+    });
+    const res = useStore.getState().importData(backup, 'replace');
+    expect(res.ok).toBe(true);
+    expect(useStore.getState().pendingAscension).toBe(null);
+    expect(useStore.getState().ascensionsSeen.devops).toBe(true);
+    expect(useStore.getState().ascensionsSeen['not-a-path']).toBeUndefined();
+  });
+
+  it('merge grants newly-satisfied badges from the unioned completed map', () => {
+    // Import a backup whose completed set, unioned with local, finishes a
+    // path tier — the badge must appear right after import, not on the next
+    // organic completion.
+    const fundamentals = PATHS.fundamentals.lessons.map((l) => l.id);
+    const third = Math.ceil(fundamentals.length * 0.34);
+    const data = { completed: {} };
+    for (const id of fundamentals.slice(0, third)) data.completed[id] = true;
+    const res = useStore.getState().importData(JSON.stringify({ data }), 'merge');
+    expect(res.ok).toBe(true);
+    expect(useStore.getState().badges['path:fundamentals:bronze']).toBeDefined();
   });
 });

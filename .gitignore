@@ -3,3 +3,5 @@ dist
 .DS_Store
 *.local
 .tmp_*
+# assistant/IDE session tooling — not part of the app
+.claude/

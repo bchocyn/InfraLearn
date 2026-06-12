@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../i18n/index.js';
 
 // ErrorBoundary — catches any render-time error in its children and shows a
 // readable fallback instead of the white/black screen of death. The fallback
@@ -33,7 +34,7 @@ export default class ErrorBoundary extends React.Component {
     try {
       // Persist key from useStore.js's persist config name.
       localStorage.removeItem('infralearn-store');
-    } catch (_) { /* ignore */ }
+    } catch { /* ignore */ }
     // Hard reload so the next mount starts from initial state.
     if (typeof window !== 'undefined') window.location.reload();
   };
@@ -67,15 +68,13 @@ export default class ErrorBoundary extends React.Component {
             textTransform: 'uppercase',
           }}
         >
-          Something broke while rendering
+          {t('error.kicker')}
         </div>
         <h1 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, margin: '8px 0 4px' }}>
-          InfraLearn hit an error.
+          {t('error.title')}
         </h1>
         <p style={{ fontSize: 13, color: '#C7BFA9', margin: '0 0 14px' }}>
-          The screen would normally render here. Below is the error so you can fix it (or share
-          it). If the app looks broken on every reload, the persisted state may be at fault —
-          clearing it forces a fresh start.
+          {t('error.body')}
         </p>
         <pre
           style={{
@@ -95,7 +94,7 @@ export default class ErrorBoundary extends React.Component {
         </pre>
         {(stack || compStack) && (
           <details style={{ fontSize: 11, color: '#8E8773', marginBottom: 14 }}>
-            <summary style={{ cursor: 'pointer' }}>Show stack</summary>
+            <summary style={{ cursor: 'pointer' }}>{t('error.showStack')}</summary>
             <pre
               style={{
                 marginTop: 8,
@@ -123,7 +122,7 @@ export default class ErrorBoundary extends React.Component {
               cursor: 'pointer',
             }}
           >
-            Try again
+            {t('error.tryAgain')}
           </button>
           <button
             type="button"
@@ -138,7 +137,7 @@ export default class ErrorBoundary extends React.Component {
               cursor: 'pointer',
             }}
           >
-            Clear stored state + reload
+            {t('error.clearAndReload')}
           </button>
         </div>
       </div>

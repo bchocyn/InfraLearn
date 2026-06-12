@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore.js';
-import { BEASTS, SPECIES_KEYS, ELEMENTS, LEVELS, LEVEL_LABEL } from '../data/beasts.js';
+import { BEASTS, SPECIES_KEYS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS } from '../data/content.js';
+import { FIVE_LAPSES } from '../data/lore.js';
 import BeastSprite from '../components/BeastSprite.jsx';
+// The species grid + detail card are shared with the ByteBeast screen's
+// companion switcher (same window, one source of truth).
+import BeastPicker, { Starfield } from '../components/BeastPicker.jsx';
 
 const TAGLINES = [
   'Zero to distinguished engineer.',
@@ -17,13 +21,11 @@ export default function Onboarding() {
   const [name, setName] = useState('');
   const [pick, setPick] = useState('dragon');
   const [pathPick, setPathPick] = useState('devops');
-  const [levelPick, setLevelPick] = useState('novice');
   const [hatching, setHatching] = useState(false);
 
   const setNameStore = useStore((s) => s.setName);
   const chooseCompanion = useStore((s) => s.chooseCompanion);
   const setActivePath = useStore((s) => s.setActivePath);
-  const setLevel = useStore((s) => s.setLevel);
   const finish = useStore((s) => s.finishOnboarding);
   const setSetting = useStore((s) => s.setSetting);
   const deviceMode = useStore((s) => s.settings.deviceMode);
@@ -56,18 +58,16 @@ export default function Onboarding() {
     />
   );
 
-  // --- Step 2: path + level ---
+  // --- Step 2: path ---
   return (
-    <PathLevelStep
+    <PathStep
       pathPick={pathPick} setPathPick={setPathPick}
-      levelPick={levelPick} setLevelPick={setLevelPick}
       onBack={() => setStep(1)}
       hatching={hatching}
       onHatch={() => {
         if (hatching) return;
         chooseCompanion(pick);
         setActivePath(pathPick);
-        setLevel(levelPick);
         setHatching(true);
         setTimeout(() => finish(), 950);
       }}
@@ -135,49 +135,6 @@ function DeviceStep({ onChoose }) {
   );
 }
 
-function DevicePhonePreview() {
-  // Tiny SVG mock of a phone with a centered column of dots and a bottom tab bar.
-  return (
-    <svg className="ob-device-icon" viewBox="0 0 80 110" aria-hidden>
-      <rect x="14" y="6"  width="52" height="98" rx="8" fill="none" stroke="currentColor" strokeWidth="2" />
-      <rect x="14" y="6"  width="52" height="10" fill="currentColor" opacity=".15" />
-      <rect x="14" y="92" width="52" height="12" fill="currentColor" opacity=".2"  />
-      <circle cx="22" cy="98" r="2" fill="currentColor" />
-      <circle cx="32" cy="98" r="2" fill="currentColor" />
-      <circle cx="42" cy="98" r="2" fill="currentColor" />
-      <circle cx="52" cy="98" r="2" fill="currentColor" />
-      <circle cx="62" cy="98" r="2" fill="currentColor" />
-      <rect x="20" y="22" width="40" height="6" rx="2" fill="currentColor" opacity=".35" />
-      <rect x="20" y="34" width="40" height="14" rx="3" fill="currentColor" opacity=".25" />
-      <rect x="20" y="54" width="40" height="14" rx="3" fill="currentColor" opacity=".25" />
-      <rect x="20" y="74" width="40" height="12" rx="3" fill="currentColor" opacity=".25" />
-    </svg>
-  );
-}
-
-function DeviceLaptopPreview() {
-  // Tiny SVG mock of a laptop with a left side rail and a content grid.
-  return (
-    <svg className="ob-device-icon" viewBox="0 0 110 80" aria-hidden>
-      <rect x="6" y="6" width="98" height="60" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
-      <rect x="2" y="66" width="106" height="6" rx="2" fill="currentColor" opacity=".25" />
-      {/* side rail */}
-      <rect x="10" y="10" width="22" height="52" fill="currentColor" opacity=".18" />
-      <rect x="14" y="16" width="14" height="3" fill="currentColor" opacity=".4" />
-      <rect x="14" y="24" width="14" height="3" fill="currentColor" opacity=".35" />
-      <rect x="14" y="32" width="14" height="3" fill="currentColor" opacity=".35" />
-      <rect x="14" y="40" width="14" height="3" fill="currentColor" opacity=".35" />
-      {/* content grid */}
-      <rect x="36" y="14" width="22" height="14" rx="2" fill="currentColor" opacity=".3" />
-      <rect x="62" y="14" width="22" height="14" rx="2" fill="currentColor" opacity=".3" />
-      <rect x="88" y="14" width="14" height="14" rx="2" fill="currentColor" opacity=".3" />
-      <rect x="36" y="32" width="22" height="14" rx="2" fill="currentColor" opacity=".3" />
-      <rect x="62" y="32" width="40" height="14" rx="2" fill="currentColor" opacity=".3" />
-      <rect x="36" y="50" width="66" height="10" rx="2" fill="currentColor" opacity=".25" />
-    </svg>
-  );
-}
-
 /* ───────── Shared chrome ───────── */
 function ProgressDots({ stepIdx, total }) {
   return (
@@ -193,32 +150,58 @@ function ProgressDots({ stepIdx, total }) {
   );
 }
 
-function Starfield({ density = 38 }) {
-  // Static deterministic starfield so it doesn't reshuffle on each render
-  const stars = useMemo(() => Array.from({ length: density }, (_, i) => ({
-    x: (i * 73) % 100,
-    y: (i * 41 + (i % 5) * 7) % 100,
-    s: (i % 3) + 1,
-    d: (i % 7) * 0.3,
-  })), [density]);
-  return (
-    <div className="ob-starfield" aria-hidden>
-      {stars.map((p, i) => (
-        <span key={i} className="ob-star" style={{
-          left: `${p.x}%`, top: `${p.y}%`, width: p.s, height: p.s, animationDelay: `${p.d}s`,
-        }} />
-      ))}
-    </div>
-  );
-}
+// Starfield now lives in components/BeastPicker.jsx (shared with the
+// ByteBeast companion switcher) and is imported above.
 
 /*
  * AdventureScene — a fantasy landscape painted entirely in SVG.
  * Inspired by adventure-game key art: silhouette mountains, dark fortress
- * peak, snowy ridges, aurora, a flying dragon, a campfire, a magic crystal,
- * scattered pine trees, and twinkling stars. Sits behind the welcome step
- * content. All motion is CSS-driven and respects prefers-reduced-motion.
+ * peak, snowy ridges, a living aurora, a flying dragon, a campfire with a
+ * waiting companion, scattered pine trees, and twinkling stars. Sits behind
+ * the welcome step content. Motion comes in two layers: the original CSS
+ * classes (adv-star, adv-ember, adv-dragon — theme.css owns their
+ * reduced-motion handling) and a SMIL layer (aurora, horizon sigils,
+ * shooting star, emblem awakening, campfire) that is gated below — the
+ * <animate*> elements are simply not rendered when motion is reduced, and
+ * the static composition stays complete without them.
  */
+
+// Element → tint, matching the ElementalEmblem gem palette exactly.
+const ELEMENT_TINT = {
+  mystic: '#F5B842',
+  fire:   '#E07856',
+  earth:  '#8FA876',
+  sky:    '#B888C0',
+  water:  '#7B9FB5',
+};
+
+// "The Five stir" — one faint sigil-glint per Lapse (see FIVE_LAPSES in
+// lore.js), tucked into the sky gaps just above the far ridge line and
+// painted behind the mountain layers. Foreshadowing, not focus. Slot 0 is
+// the center of the horizon: Hollow Ink, the finale, gets it.
+const SIGIL_SLOTS = [[200, 421], [30, 393], [295, 413], [105, 414], [372, 386]];
+const HORIZON_SIGILS = Object.values(FIVE_LAPSES).map((l, i) => {
+  const [x, y] = SIGIL_SLOTS[i % SIGIL_SLOTS.length];
+  return { id: l.id, tint: ELEMENT_TINT[l.element] || '#F5B842', x, y };
+});
+
+// Aurora ribbon keyframes. SMIL interpolates `d` only between paths with an
+// identical command structure, so every variant is exactly M Q T L Q T Z.
+const AURORA_A = [
+  'M-30 84Q75 40 195 66T430 50L430 80Q310 108 190 88T-30 118Z',
+  'M-30 70Q75 52 195 56T430 64L430 94Q310 96 190 100T-30 104Z',
+  'M-30 92Q75 34 195 72T430 42L430 72Q310 114 190 80T-30 124Z',
+];
+const AURORA_B = [
+  'M-30 132Q90 100 210 118T430 104L430 126Q320 146 200 134T-30 158Z',
+  'M-30 144Q90 112 210 104T430 118L430 142Q320 134 200 146T-30 148Z',
+  'M-30 124Q90 94 210 128T430 96L430 120Q320 152 200 126T-30 168Z',
+];
+
+// Stars promoted to the "bright" tier — they get a 4-point cross-glint.
+// Hand-picked indices into the stars array for spatial spread.
+const BRIGHT_STAR_IDX = [3, 6, 12, 21, 24, 34];
+
 function AdventureScene() {
   // On desktop, fill the wide window by slicing — and slide the emblem down
   // to roughly viewBox-vertical-center so it survives the crop.
@@ -227,6 +210,15 @@ function AdventureScene() {
   const isDesktop = deviceMode === 'desktop';
   const preserveAspect = isDesktop ? 'xMidYMid slice' : 'xMidYMin meet';
   const emblemCy = isDesktop ? 480 : 250;
+
+  // SMIL animations aren't covered by the CSS reduced-motion media query, so
+  // (same pattern as MermaidFlow's data packets) we skip rendering every
+  // <animate*> element when either the in-app setting or the OS asks for
+  // reduced motion.
+  const reducedSetting = useStore((s) => s.settings.reducedMotion);
+  const animate = !(reducedSetting
+    || (typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
 
   const stars = useMemo(
     () => Array.from({ length: 40 }, (_, i) => ({
@@ -282,6 +274,10 @@ function AdventureScene() {
           <stop offset="60%"  stopColor="#5ED8B8" stopOpacity=".4"  />
           <stop offset="100%" stopColor="#5ED8B8" stopOpacity="0"   />
         </radialGradient>
+        <linearGradient id="adv-shoot" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0"  />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity=".9" />
+        </linearGradient>
         <radialGradient id="adv-vignette" cx="50%" cy="55%" r="75%">
           <stop offset="60%"  stopColor="#000000" stopOpacity="0"   />
           <stop offset="100%" stopColor="#000000" stopOpacity=".7"  />
@@ -295,22 +291,89 @@ function AdventureScene() {
       {/* Sky */}
       <rect width="400" height="1000" fill="url(#adv-sky)" />
 
+      {/* Living aurora — two translucent ribbons undulating across the upper sky */}
+      {[
+        [AURORA_A, 'a', '.6', '18s', '0s',  '.45;.7;.45',  '11s', '0s' ],
+        [AURORA_B, 'b', '.5', '15s', '-6s', '.32;.55;.32', '13s', '-4s'],
+      ].map(([fr, g, o, dDur, dBeg, oVal, oDur, oBeg]) => (
+        <path key={g} d={fr[0]} fill={`url(#adv-aurora-${g})`} opacity={o}>
+          {animate && (
+            <animate attributeName="d" dur={dDur} begin={dBeg} repeatCount="indefinite"
+              values={`${fr[0]};${fr[1]};${fr[2]};${fr[0]}`}
+              calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1;.4 0 .6 1" />
+          )}
+          {animate && (
+            <animate attributeName="opacity" values={oVal} dur={oDur} begin={oBeg} repeatCount="indefinite" />
+          )}
+        </path>
+      ))}
+
       {/* Stars */}
       {stars.map((s, i) => (
         <rect key={i} x={s.x} y={s.y} width={s.s} height={s.s} fill="#F4EFE3"
           className="adv-star" style={{ animationDelay: `${s.d}s` }} />
       ))}
 
+      {/* Bright-tier stars — a 4-point cross-glint over a few field stars */}
+      {BRIGHT_STAR_IDX.map((bi, k) => {
+        const s = stars[bi];
+        const gx = s.x + s.s / 2;
+        const gy = s.y + s.s / 2;
+        return (
+          <g key={`bstar-${bi}`} opacity=".75">
+            <rect x={gx - 3.4} y={gy - 0.4} width="6.8" height="0.8" rx="0.4" fill="#FFFFFF" />
+            <rect x={gx - 0.4} y={gy - 3.4} width="0.8" height="6.8" rx="0.4" fill="#FFFFFF" />
+            {animate && (
+              <animate attributeName="opacity" values=".2;.9;.2" dur={`${3.4 + k * 0.6}s`}
+                begin={`${-k * 1.3}s`} repeatCount="indefinite" />
+            )}
+          </g>
+        );
+      })}
+
       {/* Moon */}
       <circle cx="318" cy="118" r="22" fill="#F4EFE3" opacity=".92" />
       <circle cx="326" cy="112" r="18" fill="#1F1A45" opacity=".55" />
+      {/* Craters on the lit crescent */}
+      {[[310, 126, 3.2, '.5'], [316, 132, 2, '.4'], [305, 115, 2.4, '.45']].map(([mx, my, mr, mo]) => (
+        <circle key={mx} cx={mx} cy={my} r={mr} fill="#CFC8B0" opacity={mo} />
+      ))}
+
+      {/* Shooting star — streaks the upper sky every ~9s, invisible between runs.
+          (Rendered only when animating: a frozen streak would read as a scratch.) */}
+      {animate && (
+        <g opacity="0">
+          <rect x="-30" y="-1" width="30" height="2" rx="1" fill="url(#adv-shoot)" />
+          <circle cx="0" cy="0" r="1.8" fill="#FFFFFF" />
+          <animateMotion path="M-40 36L470 118" dur="9s" repeatCount="indefinite"
+            rotate="auto" calcMode="linear" keyPoints="0;1;1" keyTimes="0;.13;1" />
+          <animate attributeName="opacity" values="0;.9;.9;0;0" keyTimes="0;.02;.09;.13;1"
+            dur="9s" repeatCount="indefinite" />
+        </g>
+      )}
 
       {/* Dark menacing peaks (center back, behind the emblem) */}
       <polygon points="120,470 200,170 280,470" fill="#0A0820" />
       <polygon points="160,470 200,240 240,470" fill="#15102E" />
 
+      {/* The Five stir — faint elemental sigil-glints along the far horizon,
+          one per Lapse. Painted behind the emblem and the ridge layers so the
+          mountains keep their silhouette; you only catch them on second look. */}
+      {HORIZON_SIGILS.map((sg, i) => (
+        <g key={sg.id} opacity=".15">
+          <circle cx={sg.x} cy={sg.y} r="5.5" fill={sg.tint} opacity=".3" />
+          <polygon
+            points={`${sg.x},${sg.y - 4.5} ${sg.x + 2.6},${sg.y} ${sg.x},${sg.y + 4.5} ${sg.x - 2.6},${sg.y}`}
+            fill={sg.tint} />
+          {animate && (
+            <animate attributeName="opacity" values=".07;.18;.07" dur={`${6 + i * 0.75}s`}
+              begin={`${-i * 1.9}s`} repeatCount="indefinite" />
+          )}
+        </g>
+      ))}
+
       {/* ───── Elemental Emblem (Cookie Run-inspired crest) ───── */}
-      <ElementalEmblem cx={200} cy={emblemCy} r={62} />
+      <ElementalEmblem cx={200} cy={emblemCy} r={62} animate={animate} />
 
       {/* Distant snowy mountain ridge */}
       <polygon points="0,470 50,360 100,430 150,370 200,430 250,360 300,430 360,380 400,430 400,540 0,540" fill="#2E3A5E" />
@@ -389,6 +452,62 @@ function AdventureScene() {
       {/* Drifting mist along the very bottom */}
       <rect x="0" y="860" width="400" height="140" fill="url(#adv-mist)" />
 
+      {/* ───── Campfire at the foot of the glowing path, plus the
+             companion-to-be curled up in its light. Painted over the mist so
+             the fire burns through it. ───── */}
+      <g>
+        {/* warm light pool */}
+        <ellipse cx="252" cy="886" rx="42" ry="24" fill="url(#adv-fire)" opacity=".75">
+          {animate && (
+            <animate attributeName="opacity" values=".6;.85;.66;.8;.6" dur="2.6s" repeatCount="indefinite" />
+          )}
+        </ellipse>
+        {/* crossed logs */}
+        {[[14, '#2A1A10'], [-12, '#1C110A']].map(([rot, lf]) => (
+          <rect key={lf} x="238" y="886" width="28" height="4.5" rx="2.2"
+            fill={lf} transform={`rotate(${rot} 252 888)`} />
+        ))}
+        {/* flames — three layered tongues, bases pinned at the group origin
+            so the SMIL scale flicker grows them upward only */}
+        <g transform="translate(252 887)">
+          {[
+            ['M0 0C-7.5-3-6.5-13 0-21C6.5-13 7.5-3 0 0Z', '#E07856', '.9',  '1 1;1.08 .92;.95 1.07;1 1', '.85s', '0s'  ],
+            ['M0 0C-5-2.5-4.5-9 0-14.5C4.5-9 5-2.5 0 0Z', '#F5A85E', '.95', '1 1;.93 1.09;1.07 .94;1 1', '.7s',  '-.25s'],
+            ['M0 0C-2.6-1.5-2.4-5 0-8C2.4-5 2.6-1.5 0 0Z', '#FFE8B0', '1',  '1 1;.9 1.12;1.08 .9;1 1',   '.55s', '-.1s' ],
+          ].map(([fd, ff, fo, fv, fdur, fb]) => (
+            <path key={ff} d={fd} fill={ff} opacity={fo}>
+              {animate && (
+                <animateTransform attributeName="transform" type="scale"
+                  values={fv} dur={fdur} begin={fb} repeatCount="indefinite" />
+              )}
+            </path>
+          ))}
+        </g>
+        {/* spark motes riding the heat (ember palette) */}
+        {animate && [[-5, '1.8s', '-.4s'], [4, '2.2s', '-1.2s'], [9, '2.6s', '-1.9s']].map(([dx, sdur, sbeg], i) => (
+          <circle key={dx} cx={252 + dx} cy="876" r="1.1"
+            fill={i % 2 === 0 ? '#FFE8B0' : '#F5B842'} opacity="0">
+            <animate attributeName="cy" values="878;838" dur={sdur}
+              begin={sbeg} repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.15;.55;1"
+              dur={sdur} begin={sbeg} repeatCount="indefinite" />
+          </circle>
+        ))}
+        {/* the companion waiting to be chosen — a curled-up silhouette with a
+            sliver of firelight along its back */}
+        <g opacity=".92">
+          <ellipse cx="291" cy="886" rx="13" ry="8" fill="#0A0820">
+            {animate && (
+              <animate attributeName="ry" values="8;8.6;8" dur="3.4s" repeatCount="indefinite" />
+            )}
+          </ellipse>
+          <circle cx="281" cy="881" r="5.5" fill="#0A0820" />
+          <path d="M278 876.5 276 871.5 282 874.5Z" fill="#0A0820" />
+          <path d="M302 888Q310 884 306 877" stroke="#0A0820" strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M280 892Q289 896 299 891" stroke="#F5A85E" strokeWidth="1" fill="none" opacity=".4" strokeLinecap="round" />
+        </g>
+      </g>
+
       {/* Elden Ring-style embers drifting up from the bottom */}
       <g className="adv-embers">
         {Array.from({ length: 20 }, (_, i) => {
@@ -422,9 +541,12 @@ function AdventureScene() {
 /*
  * ElementalEmblem — a Cookie Run-style circular crest with crossed axes,
  * a chain rim, and five gems colored to match the app's element palette
- * (fire / water / earth / sky / mystic). Glows softly and slowly rotates.
+ * (fire / water / earth / sky / mystic). The awakening pass (SMIL, rendered
+ * only when `animate` is true): the chain ring alone turns at a stately
+ * 40s/rev, the outer halo breathes, and a thin gleam sweeps the shield face
+ * every ~12s, clipped to the shield circle.
  */
-function ElementalEmblem({ cx, cy, r }) {
+function ElementalEmblem({ cx, cy, r, animate }) {
   // 5 gems arranged like a pentagon (top, then clockwise).
   const gems = [
     { color: '#F5B842', glow: '#FFE8B0', angle: -90 },  // mystic — top
@@ -441,13 +563,23 @@ function ElementalEmblem({ cx, cy, r }) {
     return { x: cx + Math.cos(a) * (r + 4), y: cy + Math.sin(a) * (r + 4), rot: (a * 180) / Math.PI };
   });
 
+  // Gleam-sweep travel distance — far enough that the bar fully clears the
+  // shield clip at both ends of its run.
+  const sweep = r * 2 + 30;
+
   // Crossed axes — two diagonal weapon shapes behind the crest.
   // Axe = stylized: shaft as a thin rect + a leaf-shaped head at one end.
   return (
     <g className="adv-emblem">
-      {/* Outer mystic halo */}
-      <circle cx={cx} cy={cy} r={r + 30} fill="#F5B84218" />
-      <circle cx={cx} cy={cy} r={r + 16} fill="#F5B84228" />
+      {/* Outer mystic halo — breathes when motion is allowed */}
+      <g>
+        {[[30, '18'], [16, '28']].map(([dr, ha]) => (
+          <circle key={dr} cx={cx} cy={cy} r={r + dr} fill={`#F5B842${ha}`} />
+        ))}
+        {animate && (
+          <animate attributeName="opacity" values=".6;1;.6" dur="5s" repeatCount="indefinite" />
+        )}
+      </g>
 
       {/* Crossed axes (behind shield) */}
       <g className="adv-emblem-axes">
@@ -463,12 +595,19 @@ function ElementalEmblem({ cx, cy, r }) {
       <circle cx={cx} cy={cy} r={r - 8} fill="none" stroke="#5E4E8A" strokeWidth="1"
         strokeDasharray="3 4" opacity=".6" />
 
-      {/* Chain links around the rim */}
-      {chainLinks.map((l, i) => (
-        <ellipse key={i} cx={l.x} cy={l.y} rx="2.8" ry="1.6"
-          transform={`rotate(${l.rot} ${l.x} ${l.y})`}
-          fill="#8A8A9E" stroke="#3E3858" strokeWidth=".6" />
-      ))}
+      {/* Chain links around the rim — the only part that rotates, slow and
+          stately, so the crest feels awake without getting busy */}
+      <g>
+        {animate && (
+          <animateTransform attributeName="transform" type="rotate"
+            from={`0 ${cx} ${cy}`} to={`360 ${cx} ${cy}`} dur="40s" repeatCount="indefinite" />
+        )}
+        {chainLinks.map((l, i) => (
+          <ellipse key={i} cx={l.x} cy={l.y} rx="2.8" ry="1.6"
+            transform={`rotate(${l.rot} ${l.x} ${l.y})`}
+            fill="#8A8A9E" stroke="#3E3858" strokeWidth=".6" />
+        ))}
+      </g>
 
       {/* Five elemental gems */}
       {gems.map((g, i) => {
@@ -494,6 +633,26 @@ function ElementalEmblem({ cx, cy, r }) {
           points={`${cx},${cy-9} ${cx+2.5},${cy-2.5} ${cx+9},${cy-2} ${cx+4},${cy+2.5} ${cx+5.5},${cy+9} ${cx},${cy+5} ${cx-5.5},${cy+9} ${cx-4},${cy+2.5} ${cx-9},${cy-2} ${cx-2.5},${cy-2.5}`}
           fill="#F5B842" />
       </g>
+
+      {/* Gleam sweep — a thin angled bar of light crossing the shield face
+          every ~12s, clipped to the shield circle. The translate animates
+          additively on top of the base rotate, so the bar travels along its
+          own tilted axis. Skipped entirely when motion is reduced. */}
+      {animate && (
+        <g clipPath="url(#adv-shield-face)" opacity="0">
+          <rect x={cx - 7} y={cy - r - 14} width="14" height={(r + 14) * 2} fill="#FFFFFF"
+            transform={`rotate(28 ${cx} ${cy})`}>
+            <animateTransform attributeName="transform" type="translate" additive="sum"
+              values={`${-sweep} 0;${sweep} 0;${sweep} 0`}
+              keyTimes="0;.09;1" dur="12s" repeatCount="indefinite" />
+          </rect>
+          <animate attributeName="opacity" values="0;.32;.32;0;0" keyTimes="0;.02;.07;.09;1"
+            dur="12s" repeatCount="indefinite" />
+        </g>
+      )}
+      <clipPath id="adv-shield-face">
+        <circle cx={cx} cy={cy} r={r - 4} />
+      </clipPath>
     </g>
   );
 }
@@ -611,7 +770,6 @@ function WelcomeStep({ name, setName, onNext, stepIdx, totalSteps }) {
 
 /* ───────── Step 1: Pick beast ───────── */
 function BeastStep({ pick, setPick, onBack, onNext, stepIdx, totalSteps }) {
-  const beast = BEASTS[pick];
   return (
     <div className="ob-stage ob-fade">
       <Starfield density={24} />
@@ -620,38 +778,7 @@ function BeastStep({ pick, setPick, onBack, onNext, stepIdx, totalSteps }) {
         <h1 className="h2" style={{ marginBottom: 4 }}>Choose your Byte Beast<span style={{ color: 'var(--accent-amber)' }}>.</span></h1>
         <p className="caption" style={{ marginBottom: 14 }}>It evolves through four forms as you climb.</p>
 
-        <div className="ob-beast-grid">
-          {SPECIES_KEYS.map((k) => {
-            const active = pick === k;
-            return (
-              <button key={k} onClick={() => setPick(k)} className={`ob-beast-cell${active ? ' active' : ''}`}>
-                <BeastSprite species={k} tier={1} size={48} />
-                <span className="mono" style={{ fontSize: 8, marginTop: 2, letterSpacing: '.06em',
-                  color: active ? 'var(--accent-amber)' : 'var(--text-tertiary)' }}>
-                  {BEASTS[k].name.toUpperCase()}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="card ob-beast-card" key={pick}>
-          <div className="row">
-            <div className="ob-float">
-              <BeastSprite species={pick} tier={3} size={84} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 700 }}>{beast.name}</div>
-              <span className={`pill ${ELEMENTS[beast.element].cls}`}>{ELEMENTS[beast.element].icon} {ELEMENTS[beast.element].label.toUpperCase()}</span>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '8px 0 0', fontStyle: 'italic', fontFamily: 'var(--font-serif)' }}>{beast.archetype}</p>
-            </div>
-          </div>
-          <div className="mono ob-evo-line" style={{ marginTop: 10 }}>
-            {beast.forms.map((f, i) => (
-              <span key={i} style={{ animationDelay: `${i * 0.12}s` }}>{f}{i < beast.forms.length - 1 ? '  ›  ' : ''}</span>
-            ))}
-          </div>
-        </div>
+        <BeastPicker pick={pick} setPick={setPick} />
 
         <div className="row" style={{ gap: 8, marginTop: 12 }}>
           <button className="btn btn-block" onClick={onBack}>← Back</button>
@@ -663,7 +790,7 @@ function BeastStep({ pick, setPick, onBack, onNext, stepIdx, totalSteps }) {
 }
 
 /* ───────── Step 2: Path + level ───────── */
-function PathLevelStep({ pathPick, setPathPick, levelPick, setLevelPick, onBack, onHatch, hatching, pickedBeast, stepIdx, totalSteps }) {
+function PathStep({ pathPick, setPathPick, onBack, onHatch, hatching, pickedBeast, stepIdx, totalSteps }) {
   const path = PATHS[pathPick];
   return (
     <div className="ob-stage ob-fade">
@@ -671,7 +798,7 @@ function PathLevelStep({ pathPick, setPathPick, levelPick, setLevelPick, onBack,
       <div className="screen" style={{ paddingTop: 28, position: 'relative', zIndex: 1 }}>
         <ProgressDots stepIdx={stepIdx} total={totalSteps} />
         <h1 className="h2" style={{ marginBottom: 4 }}>Choose your starting path<span style={{ color: 'var(--accent-amber)' }}>.</span></h1>
-        <p className="caption" style={{ marginBottom: 14 }}>You can switch paths and tier later. We use these to tune your daily practice.</p>
+        <p className="caption" style={{ marginBottom: 14 }}>You can switch paths anytime — this just tunes your daily practice. You'll earn your rank as you go.</p>
 
         <div className="kicker" style={{ marginBottom: 8 }}>Career path</div>
         <div className="ob-path-grid">
@@ -685,19 +812,6 @@ function PathLevelStep({ pathPick, setPathPick, levelPick, setLevelPick, onBack,
                   <span className="ob-path-name">{p.name}</span>
                   <span className="ob-path-count">{p.lessons.length} LESSONS</span>
                 </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="kicker" style={{ margin: '14px 0 8px' }}>Where are you starting from?</div>
-        <div className="row" style={{ gap: 6 }}>
-          {LEVELS.map((lvl) => {
-            const active = lvl === levelPick;
-            return (
-              <button key={lvl} onClick={() => setLevelPick(lvl)}
-                className={`ob-tier-cell${active ? ' active' : ''}`}>
-                {LEVEL_LABEL[lvl]}
               </button>
             );
           })}
@@ -730,9 +844,6 @@ function PathLevelStep({ pathPick, setPathPick, levelPick, setLevelPick, onBack,
               <div className="mono" style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '.1em' }}>STARTING LOADOUT</div>
               <div style={{ fontFamily: 'var(--font-serif)', fontSize: 14, fontWeight: 600, marginTop: 4 }}>
                 {BEASTS[pickedBeast].name} · {path.icon} {path.name}
-              </div>
-              <div className="mono" style={{ fontSize: 10, color: 'var(--accent-amber)', marginTop: 2, letterSpacing: '.06em' }}>
-                TIER · {LEVEL_LABEL[levelPick].toUpperCase()}
               </div>
             </div>
           </div>

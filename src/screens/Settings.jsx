@@ -1,11 +1,14 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
+// Cloud sync facade — contains ZERO firebase code. The firebase SDK lives in
+// a lazy chunk behind getCloud()'s dynamic import and is only fetched after
+// the user interacts with the card (or auto-resumed via the enabled flag).
+import { isCloudConfigured, getCloud, syncNow, LAST_SYNC_KEY, ENABLED_KEY } from '../cloud/sync.js';
 import ProgressPanel from '../components/ProgressPanel.jsx';
 import WeekRecap from '../components/WeekRecap.jsx';
 import { PATHS, PATH_KEYS } from '../data/content.js';
 import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
-import { LOCALES, getLocale, setLocale, useT } from '../i18n/index.js';
 // Theme tables live in their own tiny module so main.jsx can read them
 // SYNCHRONOUSLY without dragging in the whole Settings screen. We re-export
 // them here so any code that already imports from '../screens/Settings.jsx'
@@ -25,12 +28,14 @@ const TABS = [
 ];
 
 export default function Settings() {
-  const s = useStore();
+  // Narrow subscriptions — only the two fields the header actually renders.
+  const displayName = useStore((st) => st.displayName);
+  const level = useStore((st) => st.level);
   const [tab, setTab] = useState('profile');
   return (
     <div className="screen fade-in">
       <h1 className="h1">Settings<span className="dot">.</span></h1>
-      <p className="caption" style={{ marginBottom: 12 }}>{s.displayName} · {LEVEL_LABEL[s.level]}</p>
+      <p className="caption" style={{ marginBottom: 12 }}>{displayName} · {LEVEL_LABEL[level]}</p>
 
       <div className="row" style={{ gap: 6, marginBottom: 14 }}>
         {TABS.map((t) => {
@@ -52,8 +57,26 @@ export default function Settings() {
 }
 
 function ProfileTab() {
-  const s = useStore();
+  // Per-field selectors: three data fields + four actions (stable refs).
+  const displayName = useStore((st) => st.displayName);
+  const level = useStore((st) => st.level);
+  const activePath = useStore((st) => st.activePath);
+  const setName = useStore((st) => st.setName);
+  const resetTour = useStore((st) => st.resetTour);
+  const setLevel = useStore((st) => st.setLevel);
+  const setActivePath = useStore((st) => st.setActivePath);
   const nav = useNavigate();
+  // Draft buffer for the display name. Writing every keystroke through
+  // setName let the store's scrubber turn an empty field into 'Learner'
+  // mid-edit (select-all + delete instantly stamped it). Commit on blur /
+  // Enter instead.
+  const [nameDraft, setNameDraft] = useState(displayName);
+  const commitName = () => {
+    setName(nameDraft);
+    // Re-sync the draft to whatever the scrubber accepted ('' → 'Learner',
+    // control chars stripped, 64-char clamp).
+    setNameDraft(useStore.getState().displayName);
+  };
   return (
     <>
       <WeekRecap />
@@ -64,24 +87,29 @@ function ProfileTab() {
           A quick tour of Home — the daily challenge, reviews, your path, and your Byte Beast.
         </p>
         <button type="button" className="btn btn-block"
-          onClick={() => { s.resetTour(); nav('/'); }}>
+          onClick={() => { resetTour(); nav('/'); }}>
           ↺ Replay the app tour
         </button>
       </div>
 
       <div className="card">
         <div className="kicker" style={{ marginBottom: 8 }}>Display name</div>
-        <input value={s.displayName} onChange={(e) => s.setName(e.target.value)}
-          style={inputStyle} />
+        <input
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          onBlur={commitName}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+          style={inputStyle}
+        />
       </div>
 
       <div className="card">
         <div className="kicker" style={{ marginBottom: 8 }}>Self-assessed tier</div>
         <div className="row" style={{ gap: 6 }}>
           {LEVELS.map((lvl) => {
-            const active = lvl === s.level;
+            const active = lvl === level;
             return (
-              <button key={lvl} type="button" onClick={() => s.setLevel(lvl)}
+              <button key={lvl} type="button" onClick={() => setLevel(lvl)}
                 style={{ flex: 1, minWidth: 0, minHeight: 44, padding: '10px 2px', borderRadius: 8,
                   border: `1.5px solid ${active ? 'var(--accent-amber)' : 'var(--border-subtle)'}`,
                   background: active ? 'var(--accent-amber-bg)' : 'var(--bg-card)',
@@ -103,7 +131,7 @@ function ProfileTab() {
 
       <div className="card">
         <div className="kicker" style={{ marginBottom: 8 }}>Active path</div>
-        <select value={s.activePath} onChange={(e) => s.setActivePath(e.target.value)} style={inputStyle}>
+        <select value={activePath} onChange={(e) => setActivePath(e.target.value)} style={inputStyle}>
           {PATH_KEYS.map((k) => <option key={k} value={k}>{PATHS[k].icon} {PATHS[k].name}</option>)}
         </select>
       </div>
@@ -112,19 +140,20 @@ function ProfileTab() {
 }
 
 function DisplayTab() {
-  const s = useStore();
+  // `settings` is replaced wholesale by setSetting, so one reference-equal
+  // selector covers every preference read here; the action is a stable ref.
+  const settings = useStore((st) => st.settings);
+  const setSetting = useStore((st) => st.setSetting);
   return (
     <>
-      <LanguageCard />
-
       <div className="card">
         <div className="kicker" style={{ marginBottom: 10 }}>Accent color</div>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           {ACCENT_KEYS.map((k) => {
             const p = ACCENT_PRESETS[k];
-            const active = (s.settings.accent || 'amber') === k;
+            const active = (settings.accent || 'amber') === k;
             return (
-              <button key={k} onClick={() => s.setSetting('accent', k)}
+              <button key={k} onClick={() => setSetting('accent', k)}
                 style={{ flex: '1 1 calc(50% - 4px)', padding: '10px 12px', borderRadius: 10,
                   border: `1.5px solid ${active ? p.color : 'var(--border-subtle)'}`,
                   background: active ? `${p.color}1A` : 'var(--bg-card)',
@@ -147,14 +176,14 @@ function DisplayTab() {
         <div className="theme-grid">
           {BG_KEYS.map((k) => {
             const t = BG_THEMES[k];
-            const active = (s.settings.background || 'gruvbox') === k;
+            const active = (settings.background || 'gruvbox') === k;
             // Preview palette: prefer the theme's baked-in colors so the
             // mini card actually looks like the chosen theme.
             const previewAccent  = t.accent     || 'var(--accent-amber)';
             const previewText    = t.textPrimary    || '#F4EFE3';
             const previewSub     = t.textSecondary  || '#C7BFA9';
             return (
-              <button key={k} onClick={() => s.setSetting('background', k)}
+              <button key={k} onClick={() => setSetting('background', k)}
                 className={`theme-card${active ? ' theme-card-active' : ''}`}>
                 <div className="theme-preview" style={{ background: t.base, borderColor: t.border }}>
                   <span className="theme-preview-accent" style={{ background: previewAccent }} />
@@ -176,9 +205,9 @@ function DisplayTab() {
             { id: 'mobile',  label: '📱 iPhone / Mobile', hint: 'Phone column · bottom tabs' },
             { id: 'desktop', label: '💻 Laptop / PC',     hint: 'Side rail · fills window' },
           ].map((d) => {
-            const active = (s.settings.deviceMode || 'mobile') === d.id;
+            const active = (settings.deviceMode || 'mobile') === d.id;
             return (
-              <button key={d.id} onClick={() => s.setSetting('deviceMode', d.id)}
+              <button key={d.id} onClick={() => setSetting('deviceMode', d.id)}
                 style={{ flex: 1, padding: '10px 12px', borderRadius: 10,
                   border: `1.5px solid ${active ? 'var(--accent-amber)' : 'var(--border-subtle)'}`,
                   background: active ? 'var(--accent-amber-bg)' : 'var(--bg-card)',
@@ -197,45 +226,79 @@ function DisplayTab() {
 
       <div className="card">
         <div className="kicker" style={{ marginBottom: 10 }}>Preferences</div>
-        <Toggle label="Reduced motion" v={s.settings.reducedMotion} onChange={(v) => s.setSetting('reducedMotion', v)} />
-        <Toggle label="Hide companion on home" v={s.settings.hideCompanion} onChange={(v) => s.setSetting('hideCompanion', v)} />
+        <Toggle label="Reduced motion" v={settings.reducedMotion} onChange={(v) => setSetting('reducedMotion', v)} />
+        <Toggle label="Hide companion on home" v={settings.hideCompanion} onChange={(v) => setSetting('hideCompanion', v)} />
       </div>
     </>
   );
 }
 
 function ReviewTab() {
-  const s = useStore();
+  // One data field (completed drives the progress overview) + three actions.
+  const completed = useStore((st) => st.completed);
+  const exportData = useStore((st) => st.exportData);
+  const importData = useStore((st) => st.importData);
+  const resetAll = useStore((st) => st.resetAll);
   const fileRef = useRef();
-  const [importMsg, setImportMsg] = useState('');
+  // { ok: boolean, text: string } | null — ok drives the status color so a
+  // failure no longer renders in success-green.
+  const [importMsg, setImportMsg] = useState(null);
 
   const doExport = () => {
-    const blob = new Blob([s.exportData()], { type: 'application/json' });
+    const blob = new Blob([exportData()], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'infralearn-backup.json'; a.click();
-    URL.revokeObjectURL(url);
+    a.href = url;
+    a.download = 'infralearn-backup.json';
+    // Clicking a detached anchor + revoking synchronously historically aborts
+    // the download in Firefox/Safari — attach, click, remove, revoke async.
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const MAX_IMPORT_BYTES = 1_000_000; // 1 MB — backup files should be a few KB at most.
   const onFile = (e) => {
-    const f = e.target.files?.[0];
+    // Capture the input element NOW — React pools synthetic events, so
+    // e.target is not reliable inside the async FileReader callbacks.
+    const input = e.target;
+    const f = input.files?.[0];
     if (!f) return;
     if (f.size > MAX_IMPORT_BYTES) {
-      setImportMsg(`Import failed: file too large (${Math.round(f.size / 1024)} KB; limit 1000 KB).`);
-      e.target.value = '';
+      setImportMsg({ ok: false, text: `Import failed: file too large (${Math.round(f.size / 1024)} KB; limit 1000 KB).` });
+      input.value = '';
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      const mode = window.confirm('OK = Merge with current progress.\nCancel = Replace everything.') ? 'merge' : 'replace';
-      const res = s.importData(String(reader.result), mode);
-      setImportMsg(res.ok ? `Imported (${mode}).` : `Import failed: ${res.error}`);
+      // Always reset so re-picking the same file fires onChange again.
+      input.value = '';
+      // Two-step confirm: Cancel/Escape can never fall through into the
+      // destructive replace. First dialog offers the safe merge; the second
+      // explicitly arms replace; cancelling both aborts with nothing changed.
+      let mode;
+      if (window.confirm('Merge the backup into your current progress?\n\nOK = Merge (recommended — keeps everything you\'ve earned)\nCancel = more options…')) {
+        mode = 'merge';
+      } else if (window.confirm('REPLACE all current progress with the backup?\n\nOK = Replace everything\nCancel = abort the import (nothing changes)')) {
+        mode = 'replace';
+      } else {
+        setImportMsg(null);
+        return; // aborted — nothing imported
+      }
+      const res = importData(String(reader.result), mode);
+      setImportMsg(res.ok
+        ? { ok: true, text: `Imported (${mode}).` }
+        : { ok: false, text: `Import failed: ${res.error}` });
+    };
+    reader.onerror = () => {
+      input.value = '';
+      setImportMsg({ ok: false, text: 'Import failed: the file could not be read.' });
     };
     reader.readAsText(f);
   };
 
-  const totalDone = Object.keys(s.completed).length;
+  const totalDone = Object.keys(completed).length;
   const overallLessons = PATH_KEYS.reduce((acc, k) => acc + PATHS[k].lessons.length, 0);
 
   return (
@@ -253,7 +316,7 @@ function ReviewTab() {
         </div>
         {PATH_KEYS.map((k) => {
           const p = PATHS[k];
-          const done = p.lessons.filter((l) => s.completed[l.id]).length;
+          const done = p.lessons.filter((l) => completed[l.id]).length;
           const pct = p.lessons.length > 0 ? done / p.lessons.length : 0;
           return (
             <div key={k} style={{ marginBottom: 8 }}>
@@ -275,14 +338,207 @@ function ReviewTab() {
           <button className="btn btn-block" onClick={() => fileRef.current?.click()}>↑ Import</button>
           <input ref={fileRef} type="file" accept="application/json" onChange={onFile} style={{ display: 'none' }} />
         </div>
-        {importMsg && <div className="caption" style={{ marginTop: 8, color: 'var(--status-success)' }}>{importMsg}</div>}
+        {importMsg && (
+          <div
+            className="caption"
+            style={{ marginTop: 8, color: importMsg.ok ? 'var(--status-success)' : 'var(--status-error)' }}
+          >
+            {importMsg.text}
+          </div>
+        )}
       </div>
 
+      <CloudSyncCard />
+
       <button className="btn btn-block" style={{ color: 'var(--status-error)', borderColor: 'transparent' }}
-        onClick={() => { if (window.confirm('Reset all progress? This cannot be undone.')) s.resetAll(); }}>
+        onClick={() => { if (window.confirm('Reset all progress? This cannot be undone.')) resetAll(); }}>
         Reset all progress
       </button>
     </>
+  );
+}
+
+// ── Cloud sync card (REVIEW tab, next to Backup) ─────────────────────────
+// Three states:
+//   1. Not configured (CLOUD_CONFIG null) — muted info card, zero buttons,
+//      zero firebase bytes ever requested.
+//   2. Configured + signed out — a single "Sign in with Google" button. The
+//      firebase chunk loads only when it's clicked, UNLESS a previous session
+//      signed in (ENABLED_KEY flag), in which case we auto-subscribe on mount
+//      so a returning user lands signed in without re-clicking.
+//   3. Signed in — email + "Sync now" + "Sign out", with the last-sync
+//      timestamp persisted by sync.js in localStorage.
+// localStorage access goes through try/catch helpers — some privacy modes
+// throw on access, and the flags are conveniences, not state of record.
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch { /* cosmetic */ } }
+function lsDel(k) { try { localStorage.removeItem(k); } catch { /* cosmetic */ } }
+function errMsg(e) { return e?.message || String(e); }
+function fmtSyncTime(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function CloudSyncCard() {
+  const configured = isCloudConfigured();
+  // null = signed out / unknown; object = { uid, email, displayName }.
+  const [user, setUser] = useState(null);
+  // True while the auto-resume subscription waits for its first auth
+  // callback, so the button shows "Checking session…" instead of flashing
+  // the signed-out state at a signed-in returning user.
+  const [checking, setChecking] = useState(false);
+  const [busy, setBusy] = useState(false);        // sign-in / sign-out in flight
+  const [syncing, setSyncing] = useState(false);  // syncNow in flight
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);     // last syncNow result
+  const [lastSync, setLastSync] = useState(() => lsGet(LAST_SYNC_KEY));
+  const unsubRef = useRef(null);
+
+  // Subscribe to auth state exactly once (idempotent across calls).
+  const ensureSubscribed = async () => {
+    const cloud = await getCloud();
+    if (!unsubRef.current) {
+      unsubRef.current = cloud.subscribeAuth((u) => {
+        setUser(u);
+        setChecking(false);
+      });
+    }
+    return cloud;
+  };
+
+  useEffect(() => {
+    // Auto-load firebase on mount ONLY when a previous session opted in (the
+    // enabled flag set on first sign-in). Without it, the lazy chunk stays
+    // unfetched until the user clicks "Sign in with Google".
+    if (configured && lsGet(ENABLED_KEY) === '1') {
+      setChecking(true);
+      ensureSubscribed().catch((e) => {
+        setChecking(false);
+        setError(errMsg(e));
+      });
+    }
+    return () => {
+      if (unsubRef.current) { unsubRef.current(); unsubRef.current = null; }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const doSignIn = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const cloud = await ensureSubscribed();
+      await cloud.signInWithGoogle();
+      // Remember the opt-in so the next visit resumes the session on mount.
+      lsSet(ENABLED_KEY, '1');
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doSignOut = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const cloud = await getCloud();
+      await cloud.signOutCloud();
+      // Clear the opt-in: the next visit renders signed-out WITHOUT loading
+      // any firebase code.
+      lsDel(ENABLED_KEY);
+      setResult(null);
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doSync = async () => {
+    setError(null);
+    setSyncing(true);
+    setResult(null);
+    try {
+      const res = await syncNow(useStore);
+      setResult(res);
+      setLastSync(res.at);
+    } catch (e) {
+      setError(errMsg(e));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (!configured) {
+    return (
+      <div className="card" style={{ opacity: 0.65 }}>
+        <div className="kicker" style={{ marginBottom: 8 }}>Cloud sync</div>
+        <p className="caption" style={{ margin: 0, fontSize: 12 }}>
+          Not configured. This build is fully local — your progress lives in this browser
+          (use Backup above to move it between devices). See{' '}
+          <span className="mono">docs/SETUP-CLOUD.md</span> to enable cloud sync.
+        </p>
+      </div>
+    );
+  }
+
+  const lastSyncLabel = fmtSyncTime(lastSync);
+
+  return (
+    <div className="card">
+      <div className="kicker" style={{ marginBottom: 8 }}>Cloud sync</div>
+      {user ? (
+        <>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <span style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user.email || user.displayName || 'Signed in'}
+            </span>
+            <span className="spacer" />
+            <span className="mono" style={{ fontSize: 9, color: 'var(--status-success)', letterSpacing: '.06em' }}>
+              ● SIGNED IN
+            </span>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-block" onClick={doSync} disabled={syncing || busy}>
+              {syncing ? 'Syncing…' : '⇅ Sync now'}
+            </button>
+            <button className="btn btn-block" onClick={doSignOut} disabled={syncing || busy}>
+              Sign out
+            </button>
+          </div>
+          {result && !error && (
+            <div className="caption" style={{ marginTop: 8, color: 'var(--status-success)' }}>
+              {result.pulled
+                ? 'Merged remote progress · pushed latest'
+                : 'No remote snapshot yet · pushed latest'}
+            </div>
+          )}
+          {lastSyncLabel && !syncing && (
+            <div className="caption" style={{ marginTop: result ? 2 : 8, fontSize: 11, color: 'var(--text-tertiary)' }}>
+              Synced · {lastSyncLabel}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="caption" style={{ margin: '0 0 10px', fontSize: 12 }}>
+            Optional: sign in to keep a private cloud backup and sync progress across
+            devices. Everything keeps working offline and logged out.
+          </p>
+          <button className="btn btn-block" onClick={doSignIn} disabled={busy || checking}>
+            {checking ? 'Checking session…' : busy ? 'Opening Google sign-in…' : 'Sign in with Google'}
+          </button>
+        </>
+      )}
+      {error && (
+        <div className="caption" style={{ marginTop: 8, color: 'var(--status-error)' }}>
+          {error}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -326,51 +582,6 @@ const inputStyle = {
   borderRadius: 8, padding: '10px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: 13,
 };
 
-// LanguageCard — switches the UI locale (TabBar, lesson nav, settings labels,
-// error boundary, etc.). Lesson content stays English by design — the picker
-// hint makes that clear so users don't expect translated lesson bodies.
-function LanguageCard() {
-  const t = useT();
-  const current = getLocale();
-  return (
-    <div className="card">
-      <div className="kicker" style={{ marginBottom: 10 }}>{t('settings.language')}</div>
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        {LOCALES.map((loc) => {
-          const active = current === loc.code;
-          return (
-            <button
-              key={loc.code}
-              type="button"
-              onClick={() => setLocale(loc.code)}
-              style={{
-                flex: '1 1 calc(50% - 4px)',
-                padding: '10px 12px',
-                borderRadius: 10,
-                border: `1.5px solid ${active ? 'var(--accent-amber)' : 'var(--border-subtle)'}`,
-                background: active ? 'var(--accent-amber-bg)' : 'var(--bg-card)',
-                color: active ? 'var(--accent-amber)' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                letterSpacing: '.06em',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <span
-                className="mono"
-                style={{ display: 'block', fontSize: 9, opacity: 0.7, marginBottom: 2 }}
-              >
-                {loc.code.toUpperCase()}
-              </span>
-              {loc.label}
-            </button>
-          );
-        })}
-      </div>
-      <p className="caption" style={{ marginTop: 8, fontSize: 12 }}>
-        {t('settings.language.hint')}
-      </p>
-    </div>
-  );
-}
+// (The language picker that lived here was removed — the app ships
+// English-only. The i18n module stays so chrome strings remain keyed and a
+// locale can be reintroduced by registering a catalog in src/i18n/index.js.)

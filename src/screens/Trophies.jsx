@@ -22,14 +22,6 @@ import { PATHS, PATH_KEYS } from '../data/content.js';
 // Catalog is built dynamically so adding a new content section or path
 // auto-grows the trophy room without code changes here.
 
-function sectionLabelFromKey(key) {
-  // 'fundamentals-essentials' → 'Fundamentals · Essentials'
-  return key
-    .split('-')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' · ');
-}
-
 // Deterministic-by-id fake stat: "earned by N% of learners". Same id always
 // produces the same number. Range 8..78 — never 100 (would feel meaningless)
 // and never single-digit (would feel discouraging).
@@ -57,7 +49,14 @@ function buildCatalog() {
       id: `section:${key}`,
       group: 'section',
       icon: '📚',
-      name: sectionLabelFromKey(key),
+      // Display the ORIGINAL authored section string (matched to the badge
+      // key by normalization above). Rebuilding the label from the hyphenated
+      // key turned every word boundary into ' · ' — 'data-structures-basics'
+      // rendered as "Data · Structures · Basics". The authored string keeps
+      // multi-word names natural ("Data Structures Basics") and keeps the
+      // path · section separator only where the author put one
+      // ('FUNDAMENTALS · ESSENTIALS').
+      name,
       hint: `Complete every lesson in ${name}`,
       howEarned: `Awarded the moment you finish all lessons in the "${name}" section. Reading + retention compounds — a full section is real ground covered.`,
     });
@@ -204,7 +203,7 @@ function TrophyDetail({ badge, owned, onClose }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }
-    } catch (_) { /* clipboard denied — silently skip */ }
+    } catch { /* clipboard denied — silently skip */ }
   };
   return (
     <div

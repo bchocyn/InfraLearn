@@ -24,6 +24,17 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 // mid-session (or, worse, the index to jump). The session ends naturally
 // when we walk off the end of the snapshot.
 
+// Local-calendar day stamp, 'YYYY-MM-DD'. Mirrors the store's internal
+// isoDay() (local date parts — NOT toISOString, which is UTC and flips the
+// day at the wrong wall-clock hour). Used as a memo dep so the due snapshot
+// refreshes on the first render after local midnight.
+function isoDayString(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // Build a flat lookup from lesson ID → { lesson, pathName } so the title +
 // tagline render cheaply. Computed once per session.
 function buildLessonIndex() {
@@ -49,11 +60,17 @@ export default function Reviews() {
   const reviewQueue = useStore((s) => s.reviewQueue);
   const markReviewed = useStore((s) => s.markReviewed);
 
-  // Snapshot due IDs at mount so grading doesn't shuffle the deck mid-session.
+  // Snapshot due IDs at mount so grading doesn't shuffle the deck mid-session
+  // (reviewQueue is deliberately NOT a dep). `today` IS a dep: getReviewsDue
+  // compares against the local day internally, so a session left open past
+  // midnight kept serving yesterday's snapshot — the day stamp re-snapshots
+  // on the first render after the local day flips. No timers; a re-render
+  // must happen for the refresh, which is acceptable.
+  const today = isoDayString();
   const dueIds = useMemo(
     () => getReviewsDue({ reviewQueue: reviewQueue || {} }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [today],
   );
   const lessonIndex = useMemo(() => buildLessonIndex(), []);
 

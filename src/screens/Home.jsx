@@ -1,10 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, activePathProgress, beastForm, getReviewsDue } from '../store/useStore.js';
+import { useStore, beastForm, getReviewsDue } from '../store/useStore.js';
 import { BEASTS, LEVELS, LEVEL_LABEL, ELEMENTS } from '../data/beasts.js';
-import { PATHS, pathProgress, pickDailySession } from '../data/content.js';
+import { PATHS, PATH_KEYS, pathProgress } from '../data/content.js';
 
-const PATH_ORDER = ['fundamentals', 'devops', 'swe', 'mlops', 'mleng', 'faang'];
+// Career-path display order — derived from PATH_KEYS so content.js stays the
+// single source of truth and a newly added path can never silently vanish
+// from the career <select>. The old hand-maintained list omitted 'fullstack'
+// and 'cybersec', which also made "MASTERY ACHIEVED" fire while those two
+// paths sat at 0%.
+const PATH_ORDER = PATH_KEYS;
 // Streak milestones that trigger the celebratory inline toast.
 const STREAK_MILESTONES = new Set([3, 7, 14, 30, 100]);
 import BeastSprite from '../components/BeastSprite.jsx';
@@ -24,23 +29,35 @@ import DailyChallengeCard from '../components/DailyChallengeCard.jsx';
 
 export default function Home() {
   const nav = useNavigate();
-  const s = useStore();
-  const prog = activePathProgress(s);
-  const beast = BEASTS[s.companion] || BEASTS.dragon;
-  const path = PATHS[s.activePath] || PATHS.devops;
-  const nextLesson = path.lessons.find((l) => !s.completed[l.id]) || path.lessons[path.lessons.length - 1];
+  // Per-field selectors instead of the old whole-store `useStore()` — every
+  // store write (XP ticks, review grades, persist hydration…) re-rendered
+  // Home; now only the fields this component actually reads do.
+  const completed = useStore((st) => st.completed);
+  const activePath = useStore((st) => st.activePath);
+  const companion = useStore((st) => st.companion);
+  const beastTier = useStore((st) => st.beastTier);
+  const displayName = useStore((st) => st.displayName);
+  const hideCompanion = useStore((st) => st.settings?.hideCompanion);
+  const refillWeekendPassesIfNewMonth = useStore((st) => st.refillWeekendPassesIfNewMonth);
+  const setActivePath = useStore((st) => st.setActivePath);
+
+  const prog = pathProgress(activePath, completed);
+  const beast = BEASTS[companion] || BEASTS.dragon;
+  const path = PATHS[activePath] || PATHS.devops;
+  const nextLesson = path.lessons.find((l) => !completed[l.id]) || path.lessons[path.lessons.length - 1];
   const isComplete = prog.pct >= 1;
+  const beastFormName = beastForm({ companion, beastTier });
 
   // Refill weekend passes once per mount if the calendar month rolled over.
   // Cheap, idempotent — the store action no-ops when already current.
   useEffect(() => {
-    s.refillWeekendPassesIfNewMonth();
+    refillWeekendPassesIfNewMonth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const suggestedKey = PATH_ORDER.find((k) => {
-    if (k === s.activePath) return false;
-    const p = pathProgress(k, s.completed);
+    if (k === activePath) return false;
+    const p = pathProgress(k, completed);
     return p.pct < 1;
   });
   const allDone = !suggestedKey;
@@ -49,8 +66,8 @@ export default function Home() {
   const startNextPath = (e) => {
     e.stopPropagation();
     const key = suggestedKey || 'fundamentals';
-    s.setActivePath(key);
-    const target = PATHS[key].lessons.find((l) => !s.completed[l.id]) || PATHS[key].lessons[0];
+    setActivePath(key);
+    const target = PATHS[key].lessons.find((l) => !completed[l.id]) || PATHS[key].lessons[0];
     nav(`/lesson/${target.id}`);
   };
 
@@ -58,7 +75,7 @@ export default function Home() {
     <div className="screen fade-in">
       <div className="row" style={{ marginBottom: 4, gap: 10, alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="kicker">🚀 Welcome back, {s.displayName}</div>
+          <div className="kicker">🚀 Welcome back, {displayName}</div>
           <h1 className="h1" style={{ marginBottom: 0 }}>InfraLearn<span className="dot">.</span></h1>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -79,25 +96,25 @@ export default function Home() {
           Renders nothing when nothing helpful applies. */}
       <NudgeCard />
 
-      {!s.settings.hideCompanion && (
+      {!hideCompanion && (
         // Was <div onClick>; switched to a real <button> so keyboard/screen-
         // reader users get the same affordance and the tap target meets 44px.
         <button
           type="button"
           className="card row"
           onClick={() => nav('/beast')}
-          aria-label={`Open Byte Beast: ${beastForm(s)}`}
+          aria-label={`Open Byte Beast: ${beastFormName}`}
           style={{
             background: 'linear-gradient(90deg, rgba(245,184,66,.08), transparent)',
             width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit',
             cursor: 'pointer', minHeight: 44,
           }}
         >
-          <BeastSprite species={s.companion} tier={s.beastTier} size={48} />
+          <BeastSprite species={companion} tier={beastTier} size={48} />
           <div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600 }}>{beastForm(s)}</div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600 }}>{beastFormName}</div>
             <div className="mono" style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '.1em' }}>
-              TIER {s.beastTier} · {ELEMENTS[beast.element].icon} {beast.name.toUpperCase()}
+              TIER {beastTier} · {ELEMENTS[beast.element].icon} {beast.name.toUpperCase()}
             </div>
           </div>
           <span className="spacer" />
@@ -421,9 +438,15 @@ function StreakCelebration() {
 function ReviewsDueTeaser() {
   const nav = useNavigate();
   const reviewQueue = useStore((s) => s.reviewQueue);
+  // getReviewsDue compares dueAt against the LOCAL calendar day internally,
+  // so a session left open past midnight kept showing yesterday's count.
+  // `today` (local y-m-d, same pattern as the store's isoDay) in the deps
+  // recomputes the memo on the first render after the day flips. (A render
+  // still has to happen — deliberate; no timers.)
+  const today = localIsoDay();
   const count = useMemo(
     () => getReviewsDue({ reviewQueue: reviewQueue || {} }).length,
-    [reviewQueue],
+    [reviewQueue, today],
   );
   if (count === 0) return null;
   return (
@@ -494,7 +517,13 @@ function WeakSpotsTeaser() {
 }
 
 function QuickPickers() {
-  const s = useStore();
+  // Narrow selectors — the old whole-store subscription re-rendered the
+  // pickers on EVERY store write (XP, streak ticks, review grades…).
+  const level = useStore((st) => st.level);
+  const setLevel = useStore((st) => st.setLevel);
+  const activePath = useStore((st) => st.activePath);
+  const setActivePath = useStore((st) => st.setActivePath);
+  const completed = useStore((st) => st.completed);
   const selectStyle = {
     width: '100%',
     background: 'var(--bg-elevated)',
@@ -519,8 +548,8 @@ function QuickPickers() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="kicker" style={{ marginBottom: 6 }}>Skill level</div>
           <select
-            value={s.level}
-            onChange={(e) => s.setLevel(e.target.value)}
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
             style={selectStyle}
             aria-label="Skill level"
           >
@@ -532,15 +561,15 @@ function QuickPickers() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="kicker" style={{ marginBottom: 6 }}>Career path</div>
           <select
-            value={s.activePath}
-            onChange={(e) => s.setActivePath(e.target.value)}
+            value={activePath}
+            onChange={(e) => setActivePath(e.target.value)}
             style={selectStyle}
             aria-label="Career path"
           >
             {PATH_ORDER.map((k) => {
               const p = PATHS[k];
               if (!p) return null;
-              const pp = pathProgress(k, s.completed);
+              const pp = pathProgress(k, completed);
               return (
                 <option key={k} value={k}>{p.icon} {p.name} · {Math.round(pp.pct * 100)}%</option>
               );
@@ -566,10 +595,47 @@ function QuickPickers() {
 //            different-words answers.
 // Mode persists as settings.practiceMode via the existing setSetting action,
 // so the choice survives reloads.
+//
+// Session progress (verdicts + done flag) is persisted in the store's
+// dailyPractice slot — see useStore.js. The question list is deterministic
+// per local day (pickDailySession), so verdicts-by-index are all that's
+// needed to rehydrate after a remount.
+
+// Local-calendar day stamp, 'YYYY-MM-DD'. Mirrors the store's internal
+// isoDay() (not exported) so dailyPractice.date comparisons line up.
+function localIsoDay(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Module-level cache for the lazily-loaded question bank. The bank is ~half
+// of the old content.js and is used ONLY here, so it's split into its own
+// chunk (src/data/dailyQuestions.js) and fetched on first DailyPractice
+// mount. Once resolved, remounts reuse it synchronously — no skeleton flash.
+let dailyQuestionsMod = null;
+
 function DailyPractice() {
-  // Same 5 picks for the whole calendar day. Recomputed on remount, but the
-  // dayIndex-based seed keeps the result stable within a day.
-  const session = useMemo(() => pickDailySession(), []);
+  // Same 5 picks for the whole calendar day. The picks come from the lazy
+  // dailyQuestions chunk; `session` is null while that chunk loads (a small
+  // skeleton renders below). The dayIndex-based seed keeps the result stable
+  // within a day, so loading async can't change which questions appear.
+  const [session, setSession] = useState(() => (
+    dailyQuestionsMod ? dailyQuestionsMod.pickDailySession() : null
+  ));
+  useEffect(() => {
+    let cancelled = false;
+    const apply = (m) => {
+      dailyQuestionsMod = m;
+      // Keep the existing array identity if the initializer already seeded it
+      // (cached module) — avoids a pointless re-render of the chips row.
+      if (!cancelled) setSession((cur) => cur || m.pickDailySession());
+    };
+    if (dailyQuestionsMod) apply(dailyQuestionsMod);
+    else import('../data/dailyQuestions.js').then(apply);
+    return () => { cancelled = true; };
+  }, []);
   // Pull recordActivity off the store directly to keep finalization stable.
   const recordActivity = useStore((st) => st.recordActivity);
   // recordQuizMiss feeds Review Weak Spots — wired in for recall ✗ Missed.
@@ -585,44 +651,75 @@ function DailyPractice() {
   const setSetting = useStore((st) => st.setSetting);
   const setMode = (next) => setSetting?.('practiceMode', next);
 
-  // MCQ state: picks[i] = chosen option index (or undefined).
+  // Persisted session progress. The whole session used to live in component
+  // state, so navigating away and back reset to question 1 and re-awarded
+  // +8 / +12 / +20 XP without limit. The store now owns one slot per local
+  // calendar day; verdicts are written through recordDailyAnswer and XP is
+  // gated on its first-answer return value.
+  const dailyPractice = useStore((st) => st.dailyPractice);
+  const recordDailyAnswer = useStore((st) => st.recordDailyAnswer);
+  const markDailyPracticeDone = useStore((st) => st.markDailyPracticeDone);
+  const today = localIsoDay();
+  // Today's verdict map: { [questionIdx]: 'right' | 'wrong' }. Empty when the
+  // slot belongs to a previous day (fresh session).
+  const storeAnswered = (dailyPractice && dailyPractice.date === today && dailyPractice.answered) || {};
+  // Done card shows only when TODAY's slot is latched — yesterday's done flag
+  // must not suppress a fresh session.
+  const done = !!(dailyPractice && dailyPractice.date === today && dailyPractice.done);
+
+  // MCQ state: picks[i] = chosen option index (or undefined). Local-only —
+  // it drives the "which option did I click" highlight within this mount;
+  // the verdict itself lives in the store.
   const [picks, setPicks] = useState({});
-  // Recall state, all keyed by question index:
+  // Recall state, keyed by question index:
   //   typed[i]    — the user's typed answer (string)
   //   revealed[i] — true once they hit "Reveal answer"
-  //   graded[i]   — 'right' | 'wrong' once they self-grade
+  // (the self-grade verdict lives in the store's answered map)
   const [typed, setTyped] = useState({});
   const [revealed, setRevealed] = useState({});
-  const [graded, setGraded] = useState({});
 
-  const [idx, setIdx] = useState(0);
-  const [done, setDone] = useState(false);
+  // Resume at the first unanswered question of today's session; when every
+  // question is answered but Finish wasn't clicked, park on the last one so
+  // the Finish button stays reachable.
+  const [idx, setIdx] = useState(() => {
+    const dp = useStore.getState().dailyPractice;
+    const ans = (dp && dp.date === localIsoDay() && dp.answered) || {};
+    // Sessions are always 5 picks; fall back to 5 while the chunk loads so
+    // the resume index lands the same as it did with a sync question list.
+    const n = (session && session.length) || 5;
+    for (let i = 0; i < n; i++) if (ans[i] == null) return i;
+    return n - 1;
+  });
 
-  const total = session.length || 5;
-  const Q = session[idx];
+  const total = (session && session.length) || 5;
+  const Q = session ? session[idx] : null;
 
   // "answered" gates the feedback panel and Next button. In MCQ that means an
   // option was clicked; in recall it means the user self-graded — we
   // deliberately hold feedback back until self-grade so they get an honest
   // "did I really know that?" moment first.
   const picked = picks[idx];
-  const mcqAnswered = picked !== undefined && picked !== null;
-  const recallGrade = graded[idx];
+  // Store verdict for the current question — set when it was answered during
+  // this mount (write-through) OR on an earlier mount today (hydration).
+  const storeVerdict = storeAnswered[idx];
+  const mcqAnswered = (picked !== undefined && picked !== null) || storeVerdict !== undefined;
+  const recallGrade = storeVerdict;
   const answered = practiceMode === 'mcq' ? mcqAnswered : recallGrade !== undefined;
 
-  const correctCount = practiceMode === 'mcq'
-    ? Object.entries(picks).reduce((n, [i, choice]) => {
-        const item = session[Number(i)];
-        return n + (item && item.answer === choice ? 1 : 0);
-      }, 0)
-    : Object.values(graded).filter((g) => g === 'right').length;
+  // One verdict per question per day, mode-agnostic — answering in MCQ then
+  // flipping to recall can no longer double-count (or double-earn).
+  const correctCount = Object.values(storeAnswered).filter((g) => g === 'right').length;
 
   // --- MCQ handlers --------------------------------------------------------
   const submit = (i) => {
     if (mcqAnswered) return;
     setPicks((p) => ({ ...p, [idx]: i }));
-    // +8 XP per correct answer (testing-effect rule). Wrong answers earn 0.
-    if (Q && i === Q.answer) addXp?.(8, 'daily:correct');
+    const verdict = Q && i === Q.answer ? 'right' : 'wrong';
+    // recordDailyAnswer returns true only the FIRST time this question index
+    // is answered today — +8 XP (testing-effect rule) is gated on that edge
+    // so a remount can't farm it. Wrong answers earn 0 as before.
+    const first = recordDailyAnswer?.(idx, verdict) === true;
+    if (first && verdict === 'right') addXp?.(8, 'daily:correct');
   };
 
   // --- Recall handlers -----------------------------------------------------
@@ -632,8 +729,10 @@ function DailyPractice() {
     setRevealed((r) => ({ ...r, [idx]: true }));
   };
   const selfGrade = (verdict) => {
-    if (graded[idx]) return;
-    setGraded((g) => ({ ...g, [idx]: verdict }));
+    if (recallGrade) return;
+    // recordDailyAnswer returns true only the FIRST time this question index
+    // is answered today — XP and the recall:first badge gate on that edge.
+    const first = recordDailyAnswer?.(idx, verdict) === true;
     // Wrong answers feed Review Weak Spots, identical to MathQuiz behavior.
     // Synthetic lessonId because daily-practice questions aren't anchored to
     // a single lesson; WeakSpots keys off prompt text.
@@ -642,7 +741,7 @@ function DailyPractice() {
     }
     // Free-recall "Got it" earns +12 (recall > recognition per evidence) +
     // grants the recall:first collection badge on the very first one.
-    if (verdict === 'right') {
+    if (verdict === 'right' && first) {
       addXp?.(12, 'recall:got-it');
       if (!badges['recall:first']) grantBadge?.('recall:first');
     }
@@ -653,20 +752,28 @@ function DailyPractice() {
     if (idx < total - 1) {
       setIdx(idx + 1);
     } else {
-      setDone(true);
+      // Latch today's done flag in the store — the done card renders off it,
+      // and markDailyPracticeDone returns true exactly once per day so the
+      // perfect bonus below can't repeat across remounts.
+      const latched = markDailyPracticeDone?.() === true;
       // Daily Practice completion counts as a streak-bearing activity.
-      // Called here (not in the done branch render) so it fires exactly
-      // once per session and is safe against StrictMode double-render.
-      // Optional-chained so this is safe to ship before the action lands.
+      // recordActivity is same-day idempotent, so this stays safe even if
+      // the latch already happened on an earlier mount.
       recordActivity?.();
-      // Perfect-session bonus: +20 XP and the daily:perfect badge when
-      // all five were correct. correctCount already reflects this final
-      // question because submit()/selfGrade() ran on the prior render —
-      // the user clicked Finish AFTER answering, so picks/graded include
-      // this question's result by the time advance runs.
-      if (correctCount >= total && total > 0) {
-        addXp?.(20, 'daily:perfect');
-        if (!badges['daily:perfect']) grantBadge?.('daily:perfect');
+      // Perfect-session bonus: +20 XP and the daily:perfect badge when all
+      // verdicts are 'right'. Read the post-grade answered map straight from
+      // the store — the final verdict landed in recordDailyAnswer before
+      // Finish became clickable, so this sees all of today's verdicts.
+      if (latched) {
+        const dp = useStore.getState().dailyPractice;
+        const verdicts = (dp && dp.date === today && dp.answered) || {};
+        const allRight = total > 0
+          && Object.keys(verdicts).length >= total
+          && Object.values(verdicts).every((v) => v === 'right');
+        if (allRight) {
+          addXp?.(20, 'daily:perfect');
+          if (!badges['daily:perfect']) grantBadge?.('daily:perfect');
+        }
       }
     }
   };
@@ -677,10 +784,18 @@ function DailyPractice() {
   //   We deliberately don't bind keys for self-grade — the explicit click
   //   keeps people honest. Typing in the textarea is ignored here.
   useEffect(() => {
-    if (done) return undefined;
+    // No bindings while done OR while the question chunk is still loading —
+    // a hydrated mid-session verdict would otherwise let Enter advance `idx`
+    // against questions that aren't on screen yet.
+    if (done || !session) return undefined;
     const onKey = (e) => {
       const tag = e.target?.tagName;
-      const typing = tag === 'TEXTAREA' || tag === 'INPUT';
+      // Typing guard for BOTH modes: keystrokes that land while an input,
+      // textarea, or select has focus must never grade or advance — digits
+      // typed with the career <select> focused were submitting MCQ answers.
+      // BUTTON is ignored too: Enter on a focused button (mode pill, streak
+      // toggle) already activates it, so advancing as well double-fired.
+      if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT' || tag === 'BUTTON') return;
       if (practiceMode === 'mcq') {
         if (!answered) {
           if (e.key === '1' || e.key === '2' || e.key === '3') {
@@ -691,8 +806,7 @@ function DailyPractice() {
           advance();
         }
       } else {
-        if (typing) return;
-        if (!revealed[idx]) {
+        if (!revealed[idx] && storeVerdict === undefined) {
           if (e.key === 'Enter') reveal();
         } else if (answered && (e.key === 'ArrowRight' || e.key === 'Enter')) {
           advance();
@@ -702,12 +816,7 @@ function DailyPractice() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answered, idx, done, practiceMode, revealed]);
-
-  // No questions in the pool — nothing to render.
-  if (!Q && !done) {
-    return null;
-  }
+  }, [answered, idx, done, practiceMode, revealed, session]);
 
   if (done) {
     return (
@@ -729,21 +838,40 @@ function DailyPractice() {
     );
   }
 
-  // Per-question chip state, mode-aware. MCQ marks correct by index match;
-  // recall marks correct by self-grade verdict.
+  // Question chunk still loading (first DailyPractice mount this page-load).
+  // Small skeleton keeps the card's slot in the layout instead of popping in.
+  // Placed AFTER the done check so an already-finished day renders its done
+  // card instantly — that state needs no questions.
+  if (!session) {
+    return (
+      <div className="card" aria-busy="true">
+        <div className="row" style={{ marginBottom: 10 }}>
+          <span className="kicker">⚡ DAILY PRACTICE</span>
+          <span className="spacer" />
+          <span className="dp-session-counter"><span>…</span></span>
+        </div>
+        <div className="caption">Loading today&apos;s questions…</div>
+      </div>
+    );
+  }
+
+  // No questions in the pool — nothing to render.
+  if (!Q) {
+    return null;
+  }
+
+  // Per-question chip state — mode-agnostic, read straight off the persisted
+  // verdict map so chips survive remounts and mid-session mode switches.
   const chipState = (i) => {
-    if (practiceMode === 'mcq') {
-      const choice = picks[i];
-      const wasAnswered = choice !== undefined && choice !== null;
-      return { wasAnswered, isCorrect: wasAnswered && session[i].answer === choice };
-    }
-    const g = graded[i];
+    const g = storeAnswered[i];
     return { wasAnswered: g !== undefined, isCorrect: g === 'right' };
   };
 
   const correctText = Q.opts?.[Q.answer] ?? '';
   const userTyped = (typed[idx] || '').trim();
-  const isRevealed = !!revealed[idx];
+  // A hydrated verdict implies the reveal already happened on an earlier
+  // mount (you can't self-grade without revealing first).
+  const isRevealed = !!revealed[idx] || recallGrade !== undefined;
 
   return (
     <div className="card">
@@ -964,7 +1092,13 @@ function DailyPractice() {
       {answered && (
         <FeedbackPanel
           question={Q}
-          picked={practiceMode === 'mcq' ? picked : (recallGrade === 'right' ? Q.answer : -1)}
+          picked={practiceMode === 'mcq'
+            ? (picked !== undefined && picked !== null
+              ? picked
+              // Hydrated MCQ answer — the chosen option index isn't persisted,
+              // only the verdict, so synthesize like the recall branch does.
+              : (storeVerdict === 'right' ? Q.answer : -1))
+            : (recallGrade === 'right' ? Q.answer : -1)}
         />
       )}
 

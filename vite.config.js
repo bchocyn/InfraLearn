@@ -17,13 +17,24 @@ function precacheManifest() {
       const swPath = path.join(dist, 'sw.js');
       if (!fs.existsSync(swPath)) return;
       const list = [];
-      const collect = (sub, test) => {
+      const collect = (sub, test, skip) => {
         const dir = path.join(dist, sub);
         if (!fs.existsSync(dir)) return;
-        for (const f of fs.readdirSync(dir)) if (test.test(f)) list.push(`${sub}/${f}`);
+        for (const f of fs.readdirSync(dir)) {
+          if (test.test(f) && !(skip && skip.test(f))) list.push(`${sub}/${f}`);
+        }
       };
-      collect('assets', /\.(js|css|woff2?)$/); // chunks + bundled fonts
-      collect('beasts', /\.png$/);             // sprite art
+      // Non-latin font subsets are ~69% of the font payload for a lang="en"
+      // app — leave them OUT of the install-time precache. The @font-face
+      // unicode-range rules mean browsers never request them for English
+      // text; if one ever is, the SW's runtime caching picks it up.
+      // firebaseAdapter is the lazy cloud-sync chunk (~105 KB gzip) — dormant
+      // until the owner fills src/cloud/cloudConfig.js, and even then only
+      // needed after a sign-in click. Keep it OUT of the install-time
+      // precache; the SW's runtime caching picks it up on first real use.
+      const PRECACHE_SKIP = /-(cyrillic(?:-ext)?|greek(?:-ext)?|vietnamese)-|^firebaseAdapter-/;
+      collect('assets', /\.(js|css|woff2?)$/, PRECACHE_SKIP); // chunks + latin fonts
+      collect('beasts', /\.(png|json)$/);      // sprite art + manifest.json (BeastSprite fetches it at runtime)
       const json = JSON.stringify(list.sort());
       const sw = fs.readFileSync(swPath, 'utf8').replace(
         /\/\*__PRECACHE_MANIFEST_START__\*\/[\s\S]*?\/\*__PRECACHE_MANIFEST_END__\*\//,

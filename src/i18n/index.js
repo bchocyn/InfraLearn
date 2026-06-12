@@ -9,20 +9,23 @@
 // Public API:
 //   t(key, vars?)            → translated string, with {var} interpolation
 //   useT()                   → React hook returning t() bound to the current locale
-//   setLocale(code)          → switch UI locale ('en' | 'es' | ...)
-//   LOCALES                  → list of { code, label } for the picker
+//   setLocale(code)          → switch UI locale (currently 'en' only)
+//   LOCALES                  → list of { code, label } for a picker
+//
+// The app currently ships English-only (the Spanish catalog + Settings
+// picker were removed). The keyed-string layer stays so chrome strings
+// remain centralized — reintroducing a locale is: add a catalog file,
+// register it in CATALOGS + LOCALES, and restore a picker in Settings.
 //
 // The current locale is mirrored into <html lang="..."> on change, both for
 // screen readers and for any future date / number formatters.
 
 import { useSyncExternalStore } from 'react';
 import { en } from './locales/en.js';
-import { es } from './locales/es.js';
 
-const CATALOGS = { en, es };
+const CATALOGS = { en };
 export const LOCALES = [
   { code: 'en', label: 'English' },
-  { code: 'es', label: 'Español' },
 ];
 
 const STORAGE_KEY = 'infralearn-locale';
@@ -33,7 +36,7 @@ function detectInitial() {
   try {
     const saved = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY);
     if (saved && CATALOGS[saved]) return saved;
-  } catch (_) { /* ignore */ }
+  } catch { /* ignore */ }
   // 2. Browser preference (only if we have a matching catalog).
   if (typeof navigator !== 'undefined' && Array.isArray(navigator.languages)) {
     for (const lang of navigator.languages) {
@@ -69,7 +72,7 @@ export function setLocale(code) {
   applyHtmlLang(code);
   try {
     if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, code);
-  } catch (_) { /* ignore quota */ }
+  } catch { /* ignore quota */ }
   notify();
 }
 

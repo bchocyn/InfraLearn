@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS } from '../data/content.js';
@@ -32,17 +32,24 @@ function lessonMatchesLang(lesson, langId) {
 
 export default function Library() {
   const nav = useNavigate();
-  const s = useStore();
+  // `completed` is the only store field this screen reads — the old
+  // whole-store `useStore()` re-rendered (and re-filtered ~300 lessons) on
+  // every store write, including ones from other tabs' persist sync.
+  const completed = useStore((st) => st.completed);
   const [pathKey, setPathKey] = useState('all');
   const [langKey, setLangKey] = useState('all');
   const [kindKey, setKindKey] = useState('all');
   const [search, setSearch] = useState('');
   const [hideCompleted, setHideCompleted] = useState(false);
+  // Defer the search term: keystrokes update the input immediately while the
+  // ~300-lesson filter below lags one low-priority render behind. React can
+  // interrupt/skip stale filter passes, so typing stays responsive.
+  const deferredSearch = useDeferredValue(search);
 
-  const categories = useMemo(() => buildCategories(s.completed), [s.completed]);
+  const categories = useMemo(() => buildCategories(completed), [completed]);
 
   const visibleCategories = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     return categories
       .map((cat) => {
         let lessons = cat.lessons;
@@ -56,7 +63,7 @@ export default function Library() {
           lessons = lessons.filter((l) => (l.kind || 'concept') === kindKey);
         }
         if (hideCompleted) {
-          lessons = lessons.filter((l) => !s.completed[l.id]);
+          lessons = lessons.filter((l) => !completed[l.id]);
         }
         if (q) {
           lessons = lessons.filter((l) =>
@@ -64,7 +71,7 @@ export default function Library() {
           );
         }
         if (!lessons.length) return null;
-        const done = lessons.filter((l) => s.completed[l.id]).length;
+        const done = lessons.filter((l) => completed[l.id]).length;
         return {
           ...cat,
           lessons,
@@ -74,7 +81,7 @@ export default function Library() {
         };
       })
       .filter(Boolean);
-  }, [categories, pathKey, langKey, kindKey, hideCompleted, search, s.completed]);
+  }, [categories, pathKey, langKey, kindKey, hideCompleted, deferredSearch, completed]);
 
   const overallTotal = visibleCategories.reduce((n, c) => n + c.total, 0);
   const overallDone = visibleCategories.reduce((n, c) => n + c.done, 0);
@@ -210,7 +217,7 @@ export default function Library() {
           <CategoryCard
             key={cat.key}
             cat={cat}
-            completed={s.completed}
+            completed={completed}
             onOpen={(id) => nav(`/lesson/${id}`)}
           />
         ))

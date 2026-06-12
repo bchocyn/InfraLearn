@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore.js';
 
 const PAD_X = 10;
-const PAD_Y = 7;
 const MIN_BOX_W = 56;
 const MAX_BOX_W = 220;
 const ROW_GAP = 56;
@@ -12,7 +11,6 @@ const GROUP_PAD = 18;
 const ROW_TOLERANCE = 0.1;
 const LABEL_FONT = '600 10px "JetBrains Mono Variable", ui-monospace, monospace';
 const LABEL_PAD_X = 8;
-const LABEL_PAD_Y = 3;
 const LABEL_GAP_MARGIN = 10;
 const EDGE_LABEL_HEIGHT = 14;
 // Required vertical clearance between an inter-row edge label and the
@@ -103,7 +101,6 @@ function computeLayout(nodes, edges, groups, ctx, viewportW) {
     heights.set(n.id, NODE_H);
   }
   // Subtitles render INSIDE the card now, so rows need no extra below-node room.
-  const anySubtitle = nodes.some((n) => typeof n.subtitle === 'string' && n.subtitle.length > 0);
   const rows = rowsFromNodes(nodes);
   const idToRow = new Map();
   rows.forEach((row, ri) => row.items.forEach((e) => idToRow.set(e.n.id, ri)));
@@ -219,7 +216,10 @@ function computeLayout(nodes, edges, groups, ctx, viewportW) {
     const nextExtra = ri + 1 < rows.length ? interRowSpacing[ri + 1] : 0;
     y += NODE_H + ROW_GAP + nextExtra;
   });
-  const contentH = y - ROW_GAP + FRAME_PAD;
+  // Floor: with zero nodes (reachable via AnimatedDiagram's groups-only
+  // routing) `y` never advances past FRAME_PAD and the raw value goes
+  // negative — an invalid <svg height>. Never render shorter than the frame.
+  const contentH = Math.max(y - ROW_GAP + FRAME_PAD, FRAME_PAD * 2);
 
   // Fix 2: place every edge label so it never sits on a node (or another
   // label). Start from the orthogonalPath default and KEEP it whenever it's
@@ -406,6 +406,17 @@ export default function MermaidFlow({
 
   const safeEdges = Array.isArray(edges) ? edges : [];
   const safeAnnotations = Array.isArray(annotations) ? annotations : [];
+  const safeNodes = Array.isArray(nodes) ? nodes : [];
+  // Pre-resolve edge geometry once; the sketch-filtered paths layer and the
+  // unfiltered packets layer below both consume it. `i` is the original edge
+  // index so packet timing and label lookups stay stable.
+  const edgeGeo = [];
+  safeEdges.forEach((e, i) => {
+    const a = positions.get(e.from);
+    const b = positions.get(e.to);
+    if (!a || !b) return;
+    edgeGeo.push({ e, i, d: orthogonalPath(a, b).d });
+  });
 
   return (
     <figure className="mflow" ref={containerRef}>
@@ -445,79 +456,119 @@ export default function MermaidFlow({
             ))}
           </defs>
 
-          {groupBoxes.map((g) => (
+          {/* Sketch filter strategy: the feTurbulence noise is anchored to
+              user space, so the per-pixel displacement at a given coordinate
+              is the same whether the filter wraps one element or a whole
+              layer. Applying it once per SHAPE layer (group rects / edge
+              paths / node rects) instead of per element collapses one
+              intermediate compositing surface PER ELEMENT into at most three
+              per diagram — lessons embed many diagrams, so this is a large
+              paint-cost win. Text, icon chips, callout badges, packets and
+              edge labels stay OUTSIDE the filtered layers: they were never
+              sketch-filtered before (keeps them crisp), and the SMIL packet
+              dots would otherwise invalidate a filter surface every frame. */}
+          {groupBoxes.length > 0 && (
+            <g filter={`url(#${filterId})`}>
+              {groupBoxes.map((g) => (
+                <rect
+                  key={`gr-${g.id}`}
+                  x={g.x}
+                  y={g.y}
+                  width={g.w}
+                  height={g.h}
+                  rx={6}
+                  ry={6}
+                  className="mflow-group-rect"
+                />
+              ))}
+            </g>
+          )}
+          {groupBoxes.map((g) => (g.label ? (
             <g key={`g-${g.id}`} className="mflow-group">
               <rect
-                x={g.x}
-                y={g.y}
-                width={g.w}
-                height={g.h}
-                rx={6}
-                ry={6}
-                className="mflow-group-rect"
-                filter={`url(#${filterId})`}
+                x={g.x + 8}
+                y={g.y - 7}
+                width={Math.ceil(g.label.length * 6.8) + 12}
+                height={14}
+                rx={2}
+                className="mflow-group-tab"
               />
-              {g.label && (
-                <g>
-                  <rect
-                    x={g.x + 8}
-                    y={g.y - 7}
-                    width={Math.ceil(g.label.length * 6.8) + 12}
-                    height={14}
-                    rx={2}
-                    className="mflow-group-tab"
-                  />
-                  <text
-                    x={g.x + 14}
-                    y={g.y + 3}
-                    className="mflow-group-label"
-                  >
-                    {g.label}
-                  </text>
-                </g>
-              )}
+              <text
+                x={g.x + 14}
+                y={g.y + 3}
+                className="mflow-group-label"
+              >
+                {g.label}
+              </text>
             </g>
+          ) : null))}
+
+          {edgeGeo.length > 0 && (
+            <g filter={`url(#${filterId})`}>
+              {edgeGeo.map(({ e, i, d }) => {
+                const markerId = e.color === 'red' ? markerRedId
+                  : e.color === 'green' ? markerGreenId
+                  : e.color === 'amber' ? markerAmberId
+                  : markerNormalId;
+                return (
+                  <path
+                    key={`e-${i}`}
+                    d={d}
+                    fill="none"
+                    stroke={edgeColorVar(e.color)}
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray={e.dashed ? '5 4' : undefined}
+                    markerEnd={`url(#${markerId})`}
+                  />
+                );
+              })}
+            </g>
+          )}
+          {/* Data-flow packets: a dot rides each edge path. Rendered outside
+              the filtered layer (see filter strategy note above). */}
+          {!reduced && edgeGeo.map(({ e, i, d }) => (
+            <circle
+              key={`p-${i}`}
+              r={3.2}
+              className="mflow-packet"
+              fill={e.color ? edgeColorVar(e.color) : 'var(--accent-amber)'}
+            >
+              <animateMotion
+                dur={`${2.4 + (i % 4) * 0.4}s`}
+                begin={`${(i % 3) * 0.5}s`}
+                repeatCount="indefinite"
+                path={d}
+              />
+            </circle>
           ))}
 
-          {safeEdges.map((e, i) => {
-            const a = positions.get(e.from);
-            const b = positions.get(e.to);
-            if (!a || !b) return null;
-            const { d } = orthogonalPath(a, b);
-            const color = edgeColorVar(e.color);
-            const markerId = e.color === 'red' ? markerRedId
-              : e.color === 'green' ? markerGreenId
-              : e.color === 'amber' ? markerAmberId
-              : markerNormalId;
-            return (
-              <g key={`e-${i}`}>
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={1.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeDasharray={e.dashed ? '5 4' : undefined}
-                  markerEnd={`url(#${markerId})`}
-                  filter={`url(#${filterId})`}
-                />
-                {/* Data-flow packet: a dot rides the edge path. */}
-                {!reduced && (
-                  <circle r={3.2} className="mflow-packet" fill={e.color ? color : 'var(--accent-amber)'}>
-                    <animateMotion
-                      dur={`${2.4 + (i % 4) * 0.4}s`}
-                      begin={`${(i % 3) * 0.5}s`}
-                      repeatCount="indefinite"
-                      path={d}
-                    />
-                  </circle>
-                )}
-              </g>
-            );
-          })}
-
-          {(nodes || []).map((n) => {
+          {safeNodes.length > 0 && (
+            <g filter={`url(#${filterId})`}>
+              {safeNodes.map((n) => {
+                const p = positions.get(n.id);
+                if (!p) return null;
+                return (
+                  <rect
+                    key={n.id}
+                    x={p.x}
+                    y={p.y}
+                    width={p.w}
+                    height={p.h}
+                    rx={9}
+                    ry={9}
+                    className="mflow-node-rect"
+                  >
+                    {/* Tooltip for hovers over the card body (the text layer
+                        below carries its own copy for hovers over the text). */}
+                    <title>{n.label}{n.subtitle ? ` — ${n.subtitle}` : ''}</title>
+                  </rect>
+                );
+              })}
+            </g>
+          )}
+          {safeNodes.map((n) => {
             const p = positions.get(n.id);
             if (!p) return null;
             const glyph = n.icon && ICON_GLYPH[n.icon];
@@ -537,16 +588,6 @@ export default function MermaidFlow({
             return (
               <g key={n.id} className="mflow-node" data-accent={accent}>
                 <title>{n.label}{n.subtitle ? ` — ${n.subtitle}` : ''}</title>
-                <rect
-                  x={p.x}
-                  y={p.y}
-                  width={p.w}
-                  height={p.h}
-                  rx={9}
-                  ry={9}
-                  className="mflow-node-rect"
-                  filter={`url(#${filterId})`}
-                />
                 {/* Colored category chip on the left of the card. */}
                 <rect
                   x={p.x + PAD_X}
