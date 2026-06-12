@@ -50,6 +50,15 @@ export default function CelebrationMoment() {
 
   useEffect(() => {
     if (!celebrate) return undefined;
+    // Staleness gate: if the user navigated away before the auto-dismiss
+    // timer ran, clear() never fired and the store slot survived — without
+    // this check the NEXT screen that mounts a CelebrationMoment would
+    // replay the overlay minutes later. Remount-replay WITHIN ~5s stays
+    // intentional (Reviews relies on it for its done-state transition).
+    if (Date.now() - (celebrate.at || 0) > 5000) {
+      clear();
+      return undefined;
+    }
     setLocal(celebrate);
     setVisible(true);
     if (timerRef.current) clearTimeout(timerRef.current);

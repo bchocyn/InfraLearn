@@ -7,7 +7,7 @@ npm install
 npm run dev
 ```
 
-Vite serves at `http://localhost:5173/MLOps-Fundaments-learning-page/`. The
+Vite serves at `http://localhost:5173/InfraLearn/`. The
 `base` path in `vite.config.js` matches the GitHub Pages deploy target, so
 local URLs include the same prefix. Open the URL Vite prints — `HashRouter`
 keeps deep links working on Pages.
@@ -86,7 +86,6 @@ src/
       faang.js
       fullstack.js
       cybersec.js
-    sandboxChallenges.js    Sandbox tab challenge bank
     mathQuizzes.js          per-lesson math quiz banks
   components/
     AnimatedDiagram.jsx     5-accent SVG flow diagram (the canonical look)
@@ -96,7 +95,7 @@ src/
     CelebrationMoment.jsx   confetti / level-up / badge burst
     NudgeCard.jsx           forgiveness-framed prompt
     BeastSprite.jsx         companion art from public/beasts manifest
-    ... (TabBar, BadgeHex, MathQuiz, Sandbox helpers, ErrorBoundary)
+    ... (TabBar, BadgeHex, MathQuiz, ErrorBoundary)
   screens/
     Onboarding.jsx          name + companion pick (first run)
     Home.jsx                streak strip, daily practice, nudge
@@ -105,7 +104,7 @@ src/
     Roadmap.jsx             section-grouped path screen
     Reviews.jsx             FSRS-due cards, self-grade
     ReviewWeakSpots.jsx     quiz-miss replay
-    Sandbox.jsx             multi-language scratchpad + challenges
+    Projects.jsx            buildable labs + design challenges (guided→open ramp)
     ByteBeast.jsx           companion screen, evolution viewer
     Trophies.jsx            badges + paths progress
     Settings.jsx            prefs, themes, backup export/import
@@ -147,13 +146,17 @@ Three suites:
 ```bash
 npm run build      # → dist/
 npm run preview    # serve dist/ locally
-npm run deploy     # build + push dist/ to gh-pages branch
 ```
 
-The Pages site lives at `https://bchocyn.github.io/MLOps-Fundaments-learning-page/`
-(see `homepage` in `package.json` and `base` in `vite.config.js`). If the repo
-is renamed, update `base`, `homepage`, and the asset URLs in `public/404.html`
-and `index.html` together.
+Deploys run through GitHub Actions: every push to `main` triggers
+`.github/workflows/deploy.yml`, which installs dependencies, runs the test
+suite, builds, and publishes `dist/` to GitHub Pages. There is no manual
+deploy script — pushing a green `main` is the release.
+
+The Pages site lives at `https://bchocyn.github.io/InfraLearn/`. If the repo
+is ever renamed, update every hard-coded spot together: `base` in
+`vite.config.js`, `homepage` in `package.json`, the redirect URL in
+`public/404.html`, and `id`/`start_url` in `public/manifest.webmanifest`.
 
 ## PWA
 

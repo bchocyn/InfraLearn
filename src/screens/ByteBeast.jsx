@@ -1,8 +1,12 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, beastForm, activePathProgress } from '../store/useStore.js';
-import { BEASTS, ELEMENTS, EVO_RULES, SPECIES_KEYS } from '../data/beasts.js';
-import { BACKGROUNDS, PATHS, PATH_KEYS, pathProgress } from '../data/content.js';
+import { BEASTS, ELEMENTS, EVO_RULES } from '../data/beasts.js';
+import { BACKGROUNDS, PATH_KEYS, pathProgress } from '../data/content.js';
 import BeastSprite from '../components/BeastSprite.jsx';
+// Same species-pick window as onboarding's "Choose your Byte Beast" step —
+// shared grid + detail card + starfield backdrop.
+import BeastPicker, { Starfield } from '../components/BeastPicker.jsx';
 import BeastScene from '../components/BeastScene.jsx';
 import BadgeHex, { badgeTier } from '../components/BadgeHex.jsx';
 import AvatarSprite from '../components/AvatarSprite.jsx';
@@ -14,7 +18,17 @@ import CelebrationMoment from '../components/CelebrationMoment.jsx';
 const Trophies = lazy(() => import('./Trophies.jsx'));
 
 export default function ByteBeast() {
-  const s = useStore();
+  // Narrowed subscription: only the five fields this component renders.
+  // beastForm(s) reads companion + beastTier off the grouped object. The
+  // setAvatar action is a stable reference, selected separately.
+  const s = useStore(useShallow((st) => ({
+    pendingEvolution: st.pendingEvolution,
+    companion: st.companion,
+    beastTier: st.beastTier,
+    beastBackground: st.beastBackground,
+    avatar: st.avatar,
+  })));
+  const setAvatar = useStore((st) => st.setAvatar);
   const [tab, setTab] = useState('beast'); // beast | scenes | badges | avatar
   // Trophy room overlay state. Reached via the TROPHIES pill below the title
   // row. Lives here (not in main.jsx) because the routing layer is owned by
@@ -116,7 +130,7 @@ export default function ByteBeast() {
           {tab === 'beast' && <EvolutionViewer />}
           {tab === 'scenes' && <Scenes />}
           {tab === 'badges' && <Badges />}
-          {tab === 'avatar' && <AvatarCreator avatar={s.avatar} onChange={s.setAvatar} />}
+          {tab === 'avatar' && <AvatarCreator avatar={s.avatar} onChange={setAvatar} />}
         </div>
         <aside className="beast-page-aside">
           <AboutBeastCard />
@@ -160,18 +174,19 @@ function StageDecor() {
 }
 
 function AboutBeastCard() {
-  const s = useStore();
+  const companion = useStore((st) => st.companion);
+  const beastTier = useStore((st) => st.beastTier);
   const [switchOpen, setSwitchOpen] = useState(false);
-  const beast = BEASTS[s.companion] || BEASTS.dragon;
+  const beast = BEASTS[companion] || BEASTS.dragon;
   const element = ELEMENTS[beast.element];
-  const nextRule = EVO_RULES.find((r) => r.from === s.beastTier);
+  const nextRule = EVO_RULES.find((r) => r.from === beastTier);
   return (
     <div className="card beast-about-card">
-      {switchOpen && <CompanionSwitcher current={s.companion} onClose={() => setSwitchOpen(false)} />}
+      {switchOpen && <CompanionSwitcher current={companion} onClose={() => setSwitchOpen(false)} />}
       <div className="kicker" style={{ marginBottom: 8 }}>About this beast</div>
       <div className="beast-about-head">
         <span className={`pill ${element.cls}`}>{element.icon} {element.label.toUpperCase()}</span>
-        <span className="mono beast-about-tier">TIER {s.beastTier}/4</span>
+        <span className="mono beast-about-tier">TIER {beastTier}/4</span>
       </div>
       <p className="beast-about-archetype">{beast.archetype}</p>
 
@@ -179,8 +194,8 @@ function AboutBeastCard() {
       <ul className="beast-chain">
         {beast.forms.map((form, i) => {
           const t = i + 1;
-          const past = t < s.beastTier;
-          const now = t === s.beastTier;
+          const past = t < beastTier;
+          const now = t === beastTier;
           const tier4 = t === 4;
           const marker = past ? '✓' : now ? 'NOW' : tier4 ? '★' : '🔒';
           const cls = past ? 'past' : now ? 'now' : tier4 ? 'final' : 'locked';
@@ -226,109 +241,86 @@ function AboutBeastCard() {
   );
 }
 
-// Modal sheet listing all 10 species. Tap to switch — progress is preserved
-// per-species in the beastTiers matrix, so this is non-destructive.
+// Full-screen companion switcher — the SAME window as onboarding's "Choose
+// your Byte Beast" step (starfield stage, sprite grid, detail card), shared
+// via BeastPicker. Two-phase like onboarding: tap to preview, confirm to
+// switch. Progress is preserved per-species in the beastTiers matrix, so
+// switching is non-destructive; the detail sprite shows the tier that
+// species has actually EARNED on the active path.
 function CompanionSwitcher({ current, onClose }) {
   const chooseCompanion = useStore((s) => s.chooseCompanion);
   const beastTiers = useStore((s) => s.beastTiers || {});
   const activePath = useStore((s) => s.activePath);
-  const pick = (species) => {
-    if (species !== current) chooseCompanion(species);
+  const [pick, setPick] = useState(current);
+
+  // Escape closes; body scroll locks while the window is up.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  const earnedTier = (beastTiers[pick] && beastTiers[pick][activePath]) || 1;
+  const isCurrent = pick === current;
+  const confirm = () => {
+    if (!isCurrent) chooseCompanion(pick);
     onClose();
   };
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      onClick={onClose}
+      aria-label="Switch companion"
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,.55)',
-        zIndex: 80,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
+        zIndex: 90,           // above the TabBar (50), below EvolutionModal (100)
+        overflowY: 'auto',
+        background: 'var(--bg-base)',
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="card"
-        style={{
-          width: 'min(100%, 400px)',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          padding: 18,
-        }}
-      >
-        <div className="kicker" style={{ color: 'var(--accent-amber)' }}>SWITCH COMPANION</div>
-        <p className="caption" style={{ marginTop: 6, marginBottom: 12 }}>
-          Each species keeps its own evolution progress per path. Switching is non-destructive — you can switch back.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {SPECIES_KEYS.map((species) => {
-            const b = BEASTS[species];
-            const el = ELEMENTS[b.element];
-            const earnedTier = (beastTiers[species] && beastTiers[species][activePath]) || 1;
-            const isCurrent = species === current;
-            return (
-              <button
-                key={species}
-                type="button"
-                className="btn"
-                onClick={() => pick(species)}
-                style={{
-                  padding: 10,
-                  border: `1.5px solid ${isCurrent ? 'var(--accent-amber)' : 'var(--border-subtle)'}`,
-                  background: isCurrent ? 'var(--accent-amber-bg)' : 'var(--bg-card)',
-                  textAlign: 'left',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 14 }}>{el.icon}</span>
-                  <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, fontSize: 13 }}>
-                    {b.name}
-                  </span>
-                </div>
-                <div
-                  className="mono"
-                  style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '.08em' }}
-                >
-                  {b.archetype.slice(0, 28)}{b.archetype.length > 28 ? '…' : ''}
-                </div>
-                <div
-                  className="mono"
-                  style={{
-                    fontSize: 9,
-                    color: isCurrent ? 'var(--accent-amber)' : 'var(--text-quaternary)',
-                    letterSpacing: '.08em',
-                  }}
-                >
-                  {isCurrent ? 'NOW · ' : ''}TIER {earnedTier}/4 ON THIS PATH
-                </div>
-              </button>
-            );
-          })}
+      <div className="ob-stage ob-fade">
+        <Starfield density={24} />
+        <div className="screen" style={{ paddingTop: 28, position: 'relative', zIndex: 1, maxWidth: 480, margin: '0 auto' }}>
+          <h1 className="h2" style={{ marginBottom: 4 }}>Switch your Byte Beast<span style={{ color: 'var(--accent-amber)' }}>.</span></h1>
+          <p className="caption" style={{ marginBottom: 14 }}>
+            Each species keeps its own evolution progress per path — switching is non-destructive.
+          </p>
+
+          <BeastPicker
+            pick={pick}
+            setPick={setPick}
+            detailTier={earnedTier}
+            note={`${isCurrent ? 'CURRENT COMPANION · ' : ''}TIER ${earnedTier}/4 ON THIS PATH`}
+          />
+
+          <div className="row" style={{ gap: 8, marginTop: 12 }}>
+            <button className="btn btn-block" onClick={onClose}>← Cancel</button>
+            <button className="btn btn-primary btn-block" onClick={confirm}>
+              {isCurrent ? `Keep ${BEASTS[pick].name} →` : `Switch to ${BEASTS[pick].name} →`}
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          className="btn btn-block"
-          style={{ marginTop: 14 }}
-          onClick={onClose}
-        >
-          Cancel
-        </button>
       </div>
     </div>
   );
 }
 
 function EvolutionViewer() {
-  const s = useStore();
+  // Grouped narrow selector — activePathProgress(s) reads activePath +
+  // completed; the evolution line reads companion + beastTier.
+  const s = useStore(useShallow((st) => ({
+    companion: st.companion,
+    beastTier: st.beastTier,
+    activePath: st.activePath,
+    completed: st.completed,
+  })));
   const beast = BEASTS[s.companion] || BEASTS.dragon;
   const prog = activePathProgress(s);
   return (
@@ -370,15 +362,16 @@ function EvolutionViewer() {
 }
 
 function Scenes() {
-  const s = useStore();
+  const unlockedBackgrounds = useStore((st) => st.unlockedBackgrounds);
+  const beastBackground = useStore((st) => st.beastBackground);
   const setBackground = useStore((st) => st.setBackground);
   return (
     <div>
-      <div className="caption" style={{ marginBottom: 10 }}>{s.unlockedBackgrounds.length} of {BACKGROUNDS.length} unlocked.</div>
+      <div className="caption" style={{ marginBottom: 10 }}>{unlockedBackgrounds.length} of {BACKGROUNDS.length} unlocked.</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {BACKGROUNDS.map((b) => {
-          const unlocked = s.unlockedBackgrounds.includes(b.id);
-          const equipped = s.beastBackground === b.id;
+          const unlocked = unlockedBackgrounds.includes(b.id);
+          const equipped = beastBackground === b.id;
           return (
             <button
               key={b.id}
@@ -420,7 +413,7 @@ function Scenes() {
 }
 
 function Badges() {
-  const s = useStore();
+  const completed = useStore((st) => st.completed);
   return (
     <div className="card">
       <div className="kicker" style={{ marginBottom: 6 }}>Path badges</div>
@@ -429,7 +422,7 @@ function Badges() {
       </p>
       <div className="badge-grid">
         {PATH_KEYS.map((k) => {
-          const { pct } = pathProgress(k, s.completed);
+          const { pct } = pathProgress(k, completed);
           const tier = badgeTier(pct);
           return <BadgeHex key={k} pathKey={k} tier={tier} pct={pct} />;
         })}
@@ -439,10 +432,13 @@ function Badges() {
 }
 
 function EvolutionModal() {
-  const s = useStore();
+  const pendingEvolution = useStore((st) => st.pendingEvolution);
+  const beastTier = useStore((st) => st.beastTier);
+  // Primitive selector — re-renders only when the flag itself flips, not
+  // when the settings object is replaced by an unrelated setSetting call.
+  const reduced = useStore((st) => st.settings.reducedMotion);
   const clear = useStore((st) => st.clearPendingEvolution);
-  const beast = BEASTS[s.pendingEvolution] || BEASTS.dragon;
-  const reduced = s.settings.reducedMotion;
+  const beast = BEASTS[pendingEvolution] || BEASTS.dragon;
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(6,5,3,.85)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={clear}>
@@ -451,9 +447,9 @@ function EvolutionModal() {
         <div style={{ fontSize: 24, animation: reduced ? 'none' : 'fade 1.5s infinite alternate' }}>✦</div>
         <div className="kicker" style={{ color: 'var(--accent-amber)', margin: '8px 0 4px' }}>Evolution</div>
         <h2 className="h2" style={{ marginBottom: 12 }}>{beast.name} evolved!</h2>
-        <BeastSprite species={s.pendingEvolution} tier={s.beastTier} size={120} />
+        <BeastSprite species={pendingEvolution} tier={beastTier} size={120} />
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '12px 0 4px' }}>
-          Now <strong style={{ color: 'var(--accent-amber)' }}>{beast.forms[s.beastTier - 1]}</strong>
+          Now <strong style={{ color: 'var(--accent-amber)' }}>{beast.forms[beastTier - 1]}</strong>
         </p>
         <button className="btn btn-primary btn-block" style={{ marginTop: 12 }} onClick={clear}>Awesome →</button>
       </div>

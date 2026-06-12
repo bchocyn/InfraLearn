@@ -2,10 +2,10 @@
 //
 // Five horizontal bars (O(1), O(log n), O(n), O(n log n), O(n²)) grow as the
 // user drags an N slider on a log scale from 10 to 1,000,000. Bars are
-// normalized to the slowest curve in view (O(n²) for n>1); when O(n²) blows
-// past the canvas, we render a dotted run-off pattern + the actual value to
-// the right so the "n² is THAT bad" moment lands without rescaling everything
-// every frame.
+// normalized to the RUNNER-UP curve when the largest dominates (≥2×), so the
+// runaway row (O(n²) for n>1) clips at the canvas edge and earns a dotted
+// run-off pattern + the actual value to the right — the "n² is THAT bad"
+// moment lands without rescaling everything every frame.
 //
 // Pure React + SVG. No deps. CSS transition on bar widths keeps the drag
 // smooth (200ms ease-out, applied via inline style on each <rect>).
@@ -24,6 +24,10 @@ const BAR_MAX_W = VB_W - LABEL_W - VALUE_W; // max drawable bar width
 const BAR_H = 28;               // bar thickness
 const BAR_GAP = 12;             // vertical gap between bars
 const TOP_PAD = 12;             // top padding inside viewbox
+// Width of the dotted "runs off canvas" strip. It pokes into the right value
+// gutter (past BAR_MAX_W) but stays short of the value readout text, which is
+// end-anchored at VB_W - 6 (longest readout ≈ 7 mono chars ≈ 50px).
+const RUNOFF_W = 14;
 
 // Slider drives n on a log scale: slider value s in [1, 6] maps to n = 10^s.
 // Step of 0.01 makes the drag feel continuous without flooding state churn.
@@ -76,23 +80,6 @@ export default function BigOraceViz() {
   // series list ever changes.
   const maxVal = Math.max(...values, 1);
 
-  // Bars get normalized to BAR_MAX_W. If a series would render wider than the
-  // canvas (which only happens if we ever rescale to something smaller than
-  // maxVal — currently they all fit since maxVal IS the largest), we cap the
-  // width and flag it so the row renders a "runs off" indicator.
-  const rows = SERIES.map((sr, i) => {
-    const v = values[i];
-    const frac = v / maxVal;            // 0..1
-    const wRaw = frac * BAR_MAX_W;
-    const w = Math.min(wRaw, BAR_MAX_W);
-    // "overflow" means the bar visually fills the canvas AND there are other
-    // bars dwarfed by it — i.e. this is the runaway curve. We mark the
-    // largest series as overflowing whenever its normalized width hits the
-    // ceiling AND its value is meaningfully bigger than the runner-up. That
-    // triggers the dotted run-off pattern past the bar.
-    return { ...sr, v, w, frac };
-  });
-
   // Identify the "runaway" row: largest value, AND ≥2× the runner-up. When
   // true we render the dotted overflow pattern past the bar end to signal
   // "this keeps going off-canvas".
@@ -100,6 +87,22 @@ export default function BigOraceViz() {
   const top = sortedDesc[0];
   const runnerUp = sortedDesc[1] || 0;
   const hasRunaway = top > 0 && runnerUp > 0 && top / runnerUp >= 2;
+
+  // Bars normalize against the RUNNER-UP (second largest) value when there's
+  // a runaway: the runner-up spans the full track and the runaway row clips
+  // at BAR_MAX_W, earning the dotted run-off strip. Normalizing against the
+  // max made the largest row land at exactly BAR_MAX_W, so the strip width
+  // was always ≈0 and the indicator was unreachable. Without a runaway gap
+  // we fall back to max-normalization so everything still fits.
+  const denom = Math.max(hasRunaway ? runnerUp : maxVal, 1);
+  const rows = SERIES.map((sr, i) => {
+    const v = values[i];
+    const wRaw = (v / denom) * BAR_MAX_W;
+    const w = Math.min(wRaw, BAR_MAX_W);
+    // "overflow" = this bar wanted to render wider than the canvas — it's
+    // the runaway curve; the renderer adds the dotted run-off strip.
+    return { ...sr, v, w, overflow: wRaw > BAR_MAX_W };
+  });
 
   const legendItems = SERIES.map((sr) => ({ label: sr.label, color: sr.color }));
 
@@ -145,7 +148,7 @@ export default function BigOraceViz() {
                 dominantBaseline="middle"
                 fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
                 fontSize="12"
-                fill="var(--text-2, #555)"
+                fill="var(--text-tertiary, #8E8773)"
               >
                 {row.label}
               </text>
@@ -158,7 +161,7 @@ export default function BigOraceViz() {
                 width={BAR_MAX_W}
                 height={BAR_H}
                 rx="4"
-                fill="var(--surface-2, rgba(0,0,0,0.05))"
+                fill="var(--bg-card, rgba(255,255,255,0.06))"
               />
 
               {/* The actual bar. CSS transition on width keeps the drag
@@ -173,14 +176,15 @@ export default function BigOraceViz() {
                 style={{ transition: 'width 200ms ease-out' }}
               />
 
-              {/* Runaway indicator: dotted strip filling the rest of the
-                  track when this bar maxes out AND dominates. Visually says
-                  "this curve runs off the canvas — its real value is →". */}
-              {isRunaway && row.w >= BAR_MAX_W - 0.5 && (
+              {/* Runaway indicator: dotted strip continuing PAST the track
+                  into the right gutter when this bar clips at BAR_MAX_W AND
+                  dominates. Visually says "this curve runs off the canvas —
+                  its real value is →". Stays short of the value readout. */}
+              {isRunaway && row.overflow && (
                 <rect
-                  x={BAR_X + row.w}
+                  x={BAR_X + BAR_MAX_W}
                   y={y}
-                  width={Math.max(0, BAR_MAX_W - row.w)}
+                  width={RUNOFF_W}
                   height={BAR_H}
                   fill="url(#bigorace-runoff)"
                 />
@@ -195,7 +199,7 @@ export default function BigOraceViz() {
                 fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
                 fontSize="12"
                 fontWeight={isRunaway ? 700 : 500}
-                fill={isRunaway ? 'var(--el-fire)' : 'var(--text-1, #222)'}
+                fill={isRunaway ? 'var(--el-fire)' : 'var(--text-primary, #F4EFE3)'}
               >
                 {fmtVal(row.v)}
               </text>

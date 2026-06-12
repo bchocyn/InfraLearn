@@ -28,6 +28,28 @@ import { useStore } from '../store/useStore.js';
 const STORAGE_DISMISSED  = 'install-dismissed';   // YYYY-MM-DD of last dismiss
 const STORAGE_OPEN_LOG   = 'install-open-log';    // JSON: { date: 'YYYY-MM-DD', count: N }
 
+// ── Module-scope beforeinstallprompt stash ─────────────────────────────────
+// Chrome fires `beforeinstallprompt` ONCE per page load — often before any
+// React effect runs, and possibly while the user is on Onboarding or a deep
+// link where this component isn't mounted at all. Capturing it inside a
+// component effect therefore permanently misses it. Capture at module scope
+// instead; mounted components subscribe to the stash and read it on mount.
+let stashedPrompt = null;
+const stashListeners = new Set();
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // Stop Chrome's mini-infobar — we'll show our own card instead.
+    e.preventDefault();
+    stashedPrompt = e;
+    stashListeners.forEach((fn) => fn());
+  });
+}
+
+// Once-per-JS-load latch for the open counter. The component remounts on
+// every Home navigation (and StrictMode double-invokes effects in dev), so
+// counting per mount would trip the "3rd app-open today" gate in one sitting.
+let bumpedThisLoad = false;
+
 function todayKey() {
   const d = new Date();
   // YYYY-MM-DD in local time. Avoid toISOString — that's UTC and would
@@ -44,7 +66,7 @@ function readJSON(key, fallback) {
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
     return parsed ?? fallback;
-  } catch (_) {
+  } catch {
     return fallback;
   }
 }
@@ -52,13 +74,18 @@ function readJSON(key, fallback) {
 function writeJSON(key, value) {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (_) { /* quota / private mode — silent */ }
+  } catch { /* quota / private mode — silent */ }
 }
 
-// Increment "opens today" exactly once per JS load. Returns the running count.
+// Increment "opens today" exactly once per JS load (see bumpedThisLoad above).
+// Subsequent calls in the same load just report the current count.
 function bumpOpenCount() {
   const today = todayKey();
   const log = readJSON(STORAGE_OPEN_LOG, { date: today, count: 0 });
+  if (bumpedThisLoad) {
+    return (log && log.date === today) ? log.count : 0;
+  }
+  bumpedThisLoad = true;
   const next = (log && log.date === today) ? { date: today, count: log.count + 1 } : { date: today, count: 1 };
   writeJSON(STORAGE_OPEN_LOG, next);
   return next.count;
@@ -68,7 +95,7 @@ function isStandalone() {
   if (typeof window === 'undefined') return false;
   try {
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
-  } catch (_) {}
+  } catch {}
   // iOS Safari uses a non-standard navigator.standalone bool.
   // eslint-disable-next-line no-undef
   if (typeof navigator !== 'undefined' && navigator.standalone === true) return true;
@@ -111,7 +138,7 @@ export default function InstallPrompt() {
     try {
       const dismissedDay = window.localStorage.getItem(STORAGE_DISMISSED);
       if (dismissedDay === todayKey()) setDismissed(true);
-    } catch (_) { /* ignore — treat as not-dismissed */ }
+    } catch { /* ignore — treat as not-dismissed */ }
 
     // Already installed? Stay hidden forever (this session).
     if (isStandalone()) setInstalled(true);
@@ -119,24 +146,29 @@ export default function InstallPrompt() {
     // iOS fallback hint — no beforeinstallprompt available there.
     if (detectIOS() && !isStandalone()) setIosFallback(true);
 
-    const onBeforeInstall = (e) => {
-      // Stop Chrome's mini-infobar — we'll show our own card instead.
-      e.preventDefault();
-      deferredPromptRef.current = e;
-      setHasPrompt(true);
+    // Adopt whatever the module-scope listener already stashed (the event may
+    // have fired long before this mount), then subscribe for a later fire.
+    const adoptStash = () => {
+      if (stashedPrompt) {
+        deferredPromptRef.current = stashedPrompt;
+        setHasPrompt(true);
+      }
     };
+    adoptStash();
+    stashListeners.add(adoptStash);
+
     const onInstalled = () => {
       // Fired by Chrome once the user confirms install. Clear state so the
       // card vanishes mid-session.
+      stashedPrompt = null;
       deferredPromptRef.current = null;
       setHasPrompt(false);
       setInstalled(true);
     };
 
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
     window.addEventListener('appinstalled', onInstalled);
     return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      stashListeners.delete(adoptStash);
       window.removeEventListener('appinstalled', onInstalled);
     };
   }, []);
@@ -155,7 +187,7 @@ export default function InstallPrompt() {
   const dismissForToday = () => {
     try {
       window.localStorage.setItem(STORAGE_DISMISSED, todayKey());
-    } catch (_) {}
+    } catch {}
     setDismissed(true);
   };
 
@@ -166,14 +198,20 @@ export default function InstallPrompt() {
       await evt.prompt();
       // userChoice resolves with { outcome: 'accepted' | 'dismissed' }.
       const choice = await evt.userChoice;
+      // The event is single-use — drop it from the module stash too so a
+      // remount can't re-adopt a consumed prompt.
+      if (stashedPrompt === evt) stashedPrompt = null;
       deferredPromptRef.current = null;
       setHasPrompt(false);
       if (choice && choice.outcome === 'dismissed') {
         dismissForToday();
       }
       // 'accepted' lets the 'appinstalled' listener flip the installed flag.
-    } catch (_) {
+    } catch {
       // Prompt can throw if it was already used; just dismiss for today.
+      if (stashedPrompt === evt) stashedPrompt = null;
+      deferredPromptRef.current = null;
+      setHasPrompt(false);
       dismissForToday();
     }
   };

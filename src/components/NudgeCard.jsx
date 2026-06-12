@@ -18,6 +18,17 @@ import { PATHS, PATH_KEYS, pathProgress } from '../data/content.js';
 
 const SESSION_KEY = 'infralearn:nudge-shown';
 
+// Local-calendar day stamp, 'YYYY-MM-DD'. Mirrors the store's internal
+// isoDay() (local date parts — NOT toISOString, which is UTC and flips the
+// day at the wrong wall-clock hour). Used as a memo dep so the reviews-due
+// count refreshes on the first render after local midnight.
+function isoDayString(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // Hours since the user's last activity, based on the lastActivityDate day
 // boundary (we don't store a precise timestamp). If lastActivityDate is
 // today, treat as 0; if yesterday, treat as 24; etc. Coarse but enough to
@@ -49,12 +60,16 @@ export default function NudgeCard() {
   // resets the limit but navigating between routes doesn't.
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window === 'undefined') return false;
-    try { return window.sessionStorage.getItem(SESSION_KEY) === '1'; } catch (_) { return false; }
+    try { return window.sessionStorage.getItem(SESSION_KEY) === '1'; } catch { return false; }
   });
 
+  // getReviewsDue compares dueAt against the LOCAL day internally — `today`
+  // in the deps recomputes the count when a render happens after midnight
+  // (no timers; a stale count just lives until the next render).
+  const today = isoDayString();
   const reviewsDue = useMemo(
     () => getReviewsDue({ reviewQueue: reviewQueue || {} }).length,
-    [reviewQueue],
+    [reviewQueue, today],
   );
 
   const nudge = useMemo(() => {
@@ -153,7 +168,7 @@ export default function NudgeCard() {
   // Mark as shown the first time we actually render a nudge.
   useEffect(() => {
     if (!nudge || dismissed) return;
-    try { window.sessionStorage.setItem(SESSION_KEY, '1'); } catch (_) { /* ignore */ }
+    try { window.sessionStorage.setItem(SESSION_KEY, '1'); } catch { /* ignore */ }
   }, [nudge, dismissed]);
 
   if (!nudge || dismissed) return null;

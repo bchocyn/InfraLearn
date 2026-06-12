@@ -44,6 +44,14 @@ export default function MathQuiz({ lessonId, title, questions, onSkip, onComplet
   // picks[i] = 0..3 once a choice is submitted for question i; undefined otherwise.
   const [picks, setPicks] = useState({});
 
+  // Rules of Hooks: every hook must run on every render, so these live ABOVE
+  // the empty-bank early return — otherwise the hook count changes when
+  // `items` flips between empty and populated, and React throws.
+  const recordQuizMiss = useStore((s) => s.recordQuizMiss);
+  const clearQuizMiss  = useStore((s) => s.clearQuizMiss);
+  const addXp          = useStore((s) => s.addXp);
+  const quizMissesMap  = useStore((s) => s.quizMisses);
+
   if (!items.length) {
     // Defensive: render nothing rather than crash if the bank is empty.
     return null;
@@ -57,10 +65,6 @@ export default function MathQuiz({ lessonId, title, questions, onSkip, onComplet
     return n + (items[Number(i)] && items[Number(i)].answer === choice ? 1 : 0);
   }, 0);
 
-  const recordQuizMiss = useStore((s) => s.recordQuizMiss);
-  const clearQuizMiss  = useStore((s) => s.clearQuizMiss);
-  const addXp          = useStore((s) => s.addXp);
-  const quizMissesMap  = useStore((s) => s.quizMisses);
   const submit = (choice) => {
     if (submitted) return;
     setPicks((p) => ({ ...p, [idx]: choice }));

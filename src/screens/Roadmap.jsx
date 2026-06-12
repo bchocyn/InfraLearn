@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS, groupedSections, labUnlockStatus, pathProgress } from '../data/content.js';
 import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
+import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
 import BeastSprite from '../components/BeastSprite.jsx';
 
 // ─── The Adventure Map (v4) ───────────────────────────────────────────────────
@@ -280,12 +281,31 @@ function quadTangent(seg, t) {
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function Roadmap() {
   const nav = useNavigate();
-  const s = useStore();
-  const pathKey = PATHS[s.activePath] ? s.activePath : 'devops';
+  // Narrowed subscriptions — primitives + stable references only, so store
+  // writes that don't touch these fields (XP ticks, celebration set+clear
+  // pairs, review grades) no longer re-render the scene at all. `completed`
+  // changes reference on lesson completion, which is exactly when the
+  // nodes/walker/medal layer must repaint. Actions are stable refs in zustand.
+  const activePath = useStore((st) => st.activePath);
+  const storeCompleted = useStore((st) => st.completed);
+  const level = useStore((st) => st.level);
+  const hideCompanion = useStore((st) => st.settings?.hideCompanion);
+  const companion = useStore((st) => st.companion);
+  const beastTier = useStore((st) => st.beastTier);
+  const setLevel = useStore((st) => st.setLevel);
+  const setActivePath = useStore((st) => st.setActivePath);
+  // Reduced motion: in-app setting OR the OS preference (same pattern as
+  // AnimatedDiagram). Gates the SMIL story animations (fog drift, eye blink,
+  // shimmer breathe) — they simply aren't rendered when motion is reduced.
+  const reducedSetting = useStore((st) => st.settings?.reducedMotion);
+  const reduced = reducedSetting
+    || (typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  const pathKey = PATHS[activePath] ? activePath : 'devops';
   const path = PATHS[pathKey];
   const lessons = path.lessons;
-  const completed = s.completed || {};
-  const scene = SCENES[pathKey] || SCENES.devops;
+  const completed = storeCompleted || {};
 
   // First lesson the learner hasn't completed — drives the walker position
   // and bottom CTA. Falls back to the last lesson if everything's done.
@@ -297,16 +317,221 @@ export default function Roadmap() {
   const allDone = lessons.length > 0 && doneCount === lessons.length;
   const pct = lessons.length ? doneCount / lessons.length : 0;
 
-  const levelLabel = (s.level || 'novice').toUpperCase();
+  const levelLabel = (level || 'novice').toUpperCase();
   const pathLabel = (path.name || pathKey).toUpperCase();
+
+  // Compute the node layout + canvas height.
+  const nodes = useMemo(() => buildNodes(lessons), [lessons]);
+  const H = TOP + lessons.length * STEP_Y + 80;
+
+  // Per-lab unlock map — computed ONCE per (path, completed) change.
+  // labUnlockStatus() rebuilds groupedSections(path) internally, so calling
+  // it inline for every lab node on every render (and again on click) was
+  // O(labs × lessons) work per paint.
+  const labUnlocks = useMemo(() => {
+    const map = {};
+    for (const l of lessons) {
+      if (l.kind === 'lab') map[l.id] = labUnlockStatus(path, l, completed);
+    }
+    return map;
+  }, [pathKey, completed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Walker position. The Byte Beast stands ON the current node.
+  const walkerNode = nodes[currentIdx];
+  const walkerLeftPct = walkerNode ? (walkerNode.mainX / W) * 100 : 50;
+  const walkerTopPct = walkerNode ? (walkerNode.mainY / H) * 100 : 50;
+
+  // ── Story layer derivations ────────────────────────────────────────────
+  // Province identity for the active path (graceful skip when a path has no
+  // lore entry yet) + the Lapse that haunts it.
+  const province = PROVINCES[pathKey] || null;
+  const lapse = province ? FIVE_LAPSES[province.lapse] || null : null;
+  // Frontier of the reclaimed world — the Y of the FIRST not-yet-completed
+  // node, taken from the same `nodes` layout the node circles render from
+  // (node i sits at mainY = TOP + i·STEP_Y). The trail progresses DOWNWARD,
+  // so everything BELOW this line is un-walked: that's where the Null's fog
+  // sits, and it recedes (frontier moves down) as lessons complete. Null
+  // when the path is fully reclaimed or has no lessons — no fog either way.
+  const frontierNode = !allDone && firstIncompleteIdx >= 0 ? nodes[firstIncompleteIdx] : null;
+  const frontierY = frontierNode ? frontierNode.mainY : null;
+
+  const handleNodeClick = (n) => {
+    if (n.lesson.kind === 'lab') {
+      const unlocked = !!labUnlocks[n.lesson.id]?.unlocked;
+      const done = !!completed[n.lesson.id];
+      // Already-finished labs stay openable; otherwise gate on unlock.
+      if (!unlocked && !done) return;
+    }
+    nav(`/lesson/${n.lesson.id}`);
+  };
+
+  return (
+    <div className="screen fade-in">
+      <div className="kicker" style={{ marginBottom: 4 }}>
+        {pathLabel} · {levelLabel}
+      </div>
+      <div className="row" style={{ marginBottom: 4 }}>
+        <h1 className="h1" style={{ margin: 0 }}>The journey<span className="dot">.</span></h1>
+        <span className="spacer" />
+        <span
+          className="pill"
+          style={{
+            background: allDone ? 'rgba(143,168,118,.18)' : 'var(--accent-amber-bg)',
+            color: allDone ? 'var(--status-success)' : 'var(--accent-amber)',
+            fontSize: 10,
+            padding: '4px 10px',
+          }}
+        >
+          {doneCount} / {lessons.length} · {Math.round(pct * 100)}%
+        </span>
+      </div>
+      <p className="caption" style={{ marginBottom: 10, fontSize: 13 }}>
+        {path.icon} {path.name} — {allDone ? 'complete' : `${lessons.length - doneCount} lessons to go`}
+      </p>
+
+      <RoadmapPickers level={level} setLevel={setLevel} setActivePath={setActivePath} pathKey={pathKey} completed={completed} />
+
+      <ProvinceBanner province={province} pathLabel={pathLabel} />
+
+      <div className="roadmap-scene" style={{ aspectRatio: `${W} / ${H}` }}>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
+        >
+          <RoadmapStaticScene pathKey={pathKey} nodes={nodes} H={H} />
+
+          {/* Nodes */}
+          {nodes.map((n, i) => {
+            const lesson = n.lesson;
+            const done = !!completed[lesson.id];
+            const isCurrent = i === currentIdx && !done;
+            const kind = lesson.kind || 'concept';
+
+            let unlocked = true;
+            if (kind === 'lab') {
+              unlocked = !!labUnlocks[lesson.id]?.unlocked || done;
+            }
+
+            const clickable = !(kind === 'lab' && !unlocked);
+            const cursor = clickable ? 'pointer' : 'not-allowed';
+
+            return (
+              <g
+                key={lesson.id}
+                onClick={() => handleNodeClick(n)}
+                style={{ cursor }}
+                aria-label={lesson.title}
+              >
+                {/* Current node halo — gently scales for the "you are here" beat. */}
+                {isCurrent ? (
+                  <circle
+                    className="roadmap-current-pulse"
+                    cx={n.x}
+                    cy={n.y}
+                    r="22"
+                    fill={`url(#halo-${pathKey})`}
+                  />
+                ) : null}
+
+                {kind === 'sd' ? (
+                  <SdNode n={n} done={done} />
+                ) : kind === 'lab' ? (
+                  <LabNode n={n} done={done} unlocked={unlocked} />
+                ) : (
+                  <ConceptNode n={n} done={done} isCurrent={isCurrent} />
+                )}
+
+                {/* Label below node */}
+                <text
+                  x={n.x}
+                  y={n.y + (kind === 'lab' ? 22 : 20)}
+                  fontFamily="JetBrains Mono, ui-monospace, monospace"
+                  fontSize="8.5"
+                  textAnchor={n.x > 250 ? 'end' : n.x < 110 ? 'start' : 'middle'}
+                  fill="#F4EFE3"
+                  style={{ paintOrder: 'stroke', stroke: '#0B0A08', strokeWidth: 3 }}
+                >
+                  {truncate(lesson.title, 26)}
+                </text>
+                {kind === 'lab' && !unlocked ? (
+                  <text
+                    x={n.x}
+                    y={n.y + 4}
+                    fontFamily="JetBrains Mono, ui-monospace, monospace"
+                    fontSize="10"
+                    textAnchor="middle"
+                    fill="#F4EFE3"
+                    opacity="0.85"
+                  >
+                    🔒
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+
+          {/* Medal at end of trail */}
+          <Medal x={W / 2} y={H - 30} active={allDone} pathKey={pathKey} />
+
+          {/* ── Story layer (dynamic — progress-dependent, so it lives OUT-
+              side the memoized static scene). Fog of the Null over the
+              un-walked stretch below the frontier, then the province's
+              Lapse waiting at the trail's far end. Both groups are
+              pointer-events:none so node taps pass straight through. */}
+          <NullFog frontierY={frontierY} H={H} allDone={allDone} reduced={reduced} pathKey={pathKey} />
+          {nodes.length > 0 ? (
+            <LapsePresence lapse={lapse} H={H} allDone={allDone} reduced={reduced} />
+          ) : null}
+        </svg>
+
+        {/* Walking beast — outer div handles positioning + transition between
+            nodes; inner div handles the idle bob so the two transforms don't
+            stomp on each other. */}
+        {!hideCompanion && walkerNode ? (
+          <div
+            className="roadmap-walker"
+            style={{
+              left: `${walkerLeftPct}%`,
+              top: `${walkerTopPct}%`,
+            }}
+          >
+            <div className="roadmap-walker-bob">
+              <BeastSprite species={companion} tier={beastTier} size={42} />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <button
+        className="btn btn-primary btn-block"
+        style={{ marginTop: 14 }}
+        onClick={() => currentLesson && nav(`/lesson/${currentLesson.id}`)}
+        disabled={!currentLesson}
+      >
+        {allDone ? 'Review' : 'Open'}: {currentLesson?.title || '—'} →
+      </button>
+    </div>
+  );
+}
+
+// ─── Static decorative scene (memoized) ──────────────────────────────────────
+// Everything here depends only on (pathKey, nodes, H) — all derived from the
+// active path's STATIC lesson list, never from completed/progress state.
+// `nodes` is referentially stable per path (parent useMemo over the static
+// lessons array), so this memo boundary re-renders only on a path switch.
+// Store writes (XP ticks, celebration set+clear pairs, lesson completions)
+// re-render only the nodes/walker/medal layer in the parent — the ~500
+// decorative elements below (sky, stars, clouds, mountains, trail, speckles,
+// motes, grass, lab connectors, section labels, fireflies) are skipped.
+const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H }) {
+  const path = PATHS[pathKey];
+  const scene = SCENES[pathKey] || SCENES.devops;
 
   // Sections grouped from the schema — used for subtle section labels along
   // the trail (best-effort polish; rendered only if there's space).
   const sections = useMemo(() => groupedSections(path), [pathKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Compute the node layout + canvas height.
-  const nodes = useMemo(() => buildNodes(lessons), [lessons]);
-  const H = TOP + lessons.length * STEP_Y + 80;
   const { d: trailD, segments: trailSegments } = useMemo(() => buildTrailPath(nodes), [nodes]);
 
   // Trail palette for this scene (with safe fallback if a path lacks one).
@@ -511,53 +736,8 @@ export default function Roadmap() {
   const mountainsNear = useMemo(() => buildNearMountains(H), [H]);
   const hillsD = useMemo(() => buildHillsPath(H), [H]);
 
-  // Walker position. The Byte Beast stands ON the current node.
-  const walkerNode = nodes[currentIdx];
-  const walkerLeftPct = walkerNode ? (walkerNode.mainX / W) * 100 : 50;
-  const walkerTopPct = walkerNode ? (walkerNode.mainY / H) * 100 : 50;
-
-  const handleNodeClick = (n) => {
-    if (n.lesson.kind === 'lab') {
-      const { unlocked } = labUnlockStatus(path, n.lesson, completed);
-      const done = !!completed[n.lesson.id];
-      // Already-finished labs stay openable; otherwise gate on unlock.
-      if (!unlocked && !done) return;
-    }
-    nav(`/lesson/${n.lesson.id}`);
-  };
-
   return (
-    <div className="screen fade-in">
-      <div className="kicker" style={{ marginBottom: 4 }}>
-        {pathLabel} · {levelLabel}
-      </div>
-      <div className="row" style={{ marginBottom: 4 }}>
-        <h1 className="h1" style={{ margin: 0 }}>The journey<span className="dot">.</span></h1>
-        <span className="spacer" />
-        <span
-          className="pill"
-          style={{
-            background: allDone ? 'rgba(143,168,118,.18)' : 'var(--accent-amber-bg)',
-            color: allDone ? 'var(--status-success)' : 'var(--accent-amber)',
-            fontSize: 10,
-            padding: '4px 10px',
-          }}
-        >
-          {doneCount} / {lessons.length} · {Math.round(pct * 100)}%
-        </span>
-      </div>
-      <p className="caption" style={{ marginBottom: 10, fontSize: 13 }}>
-        {path.icon} {path.name} — {allDone ? 'complete' : `${lessons.length - doneCount} lessons to go`}
-      </p>
-
-      <RoadmapPickers s={s} pathKey={pathKey} completed={completed} />
-
-      <div className="roadmap-scene" style={{ aspectRatio: `${W} / ${H}` }}>
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="xMidYMid meet"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
-        >
+    <>
           <defs>
             <linearGradient id={`sky-${pathKey}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={scene.skyTop} />
@@ -828,112 +1008,9 @@ export default function Roadmap() {
             />
           ))}
 
-          {/* Nodes */}
-          {nodes.map((n, i) => {
-            const lesson = n.lesson;
-            const done = !!completed[lesson.id];
-            const isCurrent = i === currentIdx && !done;
-            const kind = lesson.kind || 'concept';
-
-            let unlocked = true;
-            let needed = 0;
-            if (kind === 'lab') {
-              const status = labUnlockStatus(path, lesson, completed);
-              unlocked = status.unlocked || done;
-              needed = status.needed;
-            }
-
-            const clickable = !(kind === 'lab' && !unlocked);
-            const cursor = clickable ? 'pointer' : 'not-allowed';
-
-            return (
-              <g
-                key={lesson.id}
-                onClick={() => handleNodeClick(n)}
-                style={{ cursor }}
-                aria-label={lesson.title}
-              >
-                {/* Current node halo — gently scales for the "you are here" beat. */}
-                {isCurrent ? (
-                  <circle
-                    className="roadmap-current-pulse"
-                    cx={n.x}
-                    cy={n.y}
-                    r="22"
-                    fill={`url(#halo-${pathKey})`}
-                  />
-                ) : null}
-
-                {kind === 'sd' ? (
-                  <SdNode n={n} done={done} />
-                ) : kind === 'lab' ? (
-                  <LabNode n={n} done={done} unlocked={unlocked} />
-                ) : (
-                  <ConceptNode n={n} done={done} isCurrent={isCurrent} />
-                )}
-
-                {/* Label below node */}
-                <text
-                  x={n.x}
-                  y={n.y + (kind === 'lab' ? 22 : 20)}
-                  fontFamily="JetBrains Mono, ui-monospace, monospace"
-                  fontSize="8.5"
-                  textAnchor={n.x > 250 ? 'end' : n.x < 110 ? 'start' : 'middle'}
-                  fill="#F4EFE3"
-                  style={{ paintOrder: 'stroke', stroke: '#0B0A08', strokeWidth: 3 }}
-                >
-                  {truncate(lesson.title, 26)}
-                </text>
-                {kind === 'lab' && !unlocked ? (
-                  <text
-                    x={n.x}
-                    y={n.y + 4}
-                    fontFamily="JetBrains Mono, ui-monospace, monospace"
-                    fontSize="10"
-                    textAnchor="middle"
-                    fill="#F4EFE3"
-                    opacity="0.85"
-                  >
-                    🔒
-                  </text>
-                ) : null}
-              </g>
-            );
-          })}
-
-          {/* Medal at end of trail */}
-          <Medal x={W / 2} y={H - 30} active={allDone} />
-        </svg>
-
-        {/* Walking beast — outer div handles positioning + transition between
-            nodes; inner div handles the idle bob so the two transforms don't
-            stomp on each other. */}
-        {!s.settings?.hideCompanion && walkerNode ? (
-          <div
-            className="roadmap-walker"
-            style={{
-              left: `${walkerLeftPct}%`,
-              top: `${walkerTopPct}%`,
-            }}
-          >
-            <div className="roadmap-walker-bob">
-              <BeastSprite species={s.companion} tier={s.beastTier} size={42} />
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <button
-        className="btn btn-primary btn-block"
-        style={{ marginTop: 14 }}
-        onClick={() => currentLesson && nav(`/lesson/${currentLesson.id}`)}
-        disabled={!currentLesson}
-      >
-        {allDone ? 'Review' : 'Open'}: {currentLesson?.title || '—'} →
-      </button>
-    </div>
+    </>
   );
-}
+});
 
 // ─── Node renderers ──────────────────────────────────────────────────────────
 function ConceptNode({ n, done, isCurrent }) {
@@ -1060,11 +1137,14 @@ function LabNode({ n, done, unlocked }) {
   );
 }
 
-function Medal({ x, y, active }) {
+function Medal({ x, y, active, pathKey }) {
   return (
     <g className="roadmap-medal" style={{ pointerEvents: 'none' }}>
       <circle cx={x} cy={y} r="18" fill={active ? '#F5B842' : '#2A2620'} stroke={active ? '#FFE8B0' : '#4D4639'} strokeWidth="2" />
-      {active ? <circle cx={x} cy={y} r="26" fill="url(#halo-medal)" opacity="0.6" /> : null}
+      {/* Halo uses the per-path radial gradient declared in <defs> — the old
+          fill referenced a non-existent #halo-medal id, so the glow never
+          rendered on path completion. */}
+      {active ? <circle cx={x} cy={y} r="26" fill={`url(#halo-${pathKey})`} opacity="0.6" /> : null}
       <text
         x={x}
         y={y + 6}
@@ -1075,6 +1155,182 @@ function Medal({ x, y, active }) {
         fill={active ? '#0B0A08' : '#5C574A'}
       >
         ★
+      </text>
+    </g>
+  );
+}
+
+// ─── Story layer ─────────────────────────────────────────────────────────────
+// The Null is un-remembering the world; each path is a PROVINCE the learner
+// reclaims. Everything below is progress-dependent and renders in the DYNAMIC
+// layer (never inside the memoized static scene).
+
+// Lapse element → theme token (hex fallbacks match theme.css :root values so
+// the eyes still glow if the SVG ever renders outside the themed DOM).
+const ELEMENT_COLOR = {
+  fire: 'var(--el-fire, #E07856)',
+  water: 'var(--el-water, #7B9FB5)',
+  earth: 'var(--el-earth, #8FA876)',
+  sky: 'var(--el-sky, #B888C0)',
+  mystic: 'var(--el-mystic, #F5B842)',
+};
+
+// Region title card above the scene: mono kicker, serif province name, italic
+// epithet, one-line intro. Skipped entirely when the path has no lore entry.
+function ProvinceBanner({ province, pathLabel }) {
+  if (!province) return null;
+  return (
+    <div style={{ margin: '2px 2px 10px', minWidth: 0 }}>
+      <div className="kicker" style={{ marginBottom: 3 }}>
+        PROVINCE OF {pathLabel}
+      </div>
+      <div
+        style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: 21,
+          fontWeight: 700,
+          lineHeight: 1.15,
+          color: 'var(--text-primary)',
+          letterSpacing: '-0.01em',
+        }}
+      >
+        {province.name}
+      </div>
+      {province.epithet ? (
+        <div
+          className="caption"
+          style={{ fontStyle: 'italic', fontSize: 12.5, color: 'var(--text-secondary)' }}
+        >
+          {province.epithet}
+        </div>
+      ) : null}
+      {province.intro ? (
+        <div
+          className="caption"
+          style={{
+            marginTop: 2,
+            fontSize: 12,
+            color: 'var(--text-secondary)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {province.intro}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// Fog of the Null — a desaturating grey-blue wash over the un-walked stretch
+// of trail BELOW the frontier (the first not-yet-completed node). Transparent
+// at the frontier edge, ~75% opaque deep in the fog, with one slow-drifting
+// mist band (SMIL, skipped under reduced motion). At 100% the fog is gone and
+// a very light golden shimmer tints the whole scene instead. The entire group
+// is pointer-events:none so frontier-edge node taps are never blocked.
+function NullFog({ frontierY, H, allDone, reduced, pathKey }) {
+  if (allDone) {
+    return (
+      <g pointerEvents="none" aria-hidden="true">
+        <defs>
+          <linearGradient id={`null-gold-${pathKey}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F5B842" stopOpacity="0.10" />
+            <stop offset="45%" stopColor="#F5B842" stopOpacity="0.03" />
+            <stop offset="100%" stopColor="#F5B842" stopOpacity="0.12" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width={W} height={H} fill={`url(#null-gold-${pathKey})`}>
+          {!reduced ? (
+            <animate attributeName="opacity" values="0.7;1;0.7" dur="6s" repeatCount="indefinite" />
+          ) : null}
+        </rect>
+      </g>
+    );
+  }
+  // Defensive: no frontier (0-node path) or degenerate geometry → no fog.
+  if (!Number.isFinite(frontierY) || !Number.isFinite(H)) return null;
+  // Start just below the frontier node's label so the "you are here" beat
+  // stays crisp; the gradient is transparent at this edge anyway.
+  const fogTop = Math.min(Math.max(frontierY + 24, 0), H);
+  const fogH = H - fogTop;
+  if (fogH <= 8) return null;
+  const mistY = fogTop + fogH * 0.45;
+  return (
+    <g pointerEvents="none" aria-hidden="true">
+      <defs>
+        <linearGradient id={`null-fog-${pathKey}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#8FA3B8" stopOpacity="0" />
+          <stop offset="35%" stopColor="#76889E" stopOpacity="0.38" />
+          <stop offset="70%" stopColor="#52647C" stopOpacity="0.62" />
+          <stop offset="100%" stopColor="#39485E" stopOpacity="0.75" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y={fogTop} width={W} height={fogH} fill={`url(#null-fog-${pathKey})`} />
+      {/* Drifting mist band — only when there's enough fog to drift through. */}
+      {fogH > 70 ? (
+        <rect x={-24} y={mistY} width={W + 48} height={26} rx={13} ry={13} fill="#AFC2D6" opacity="0.10">
+          {!reduced ? (
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="-16 0; 16 0; -16 0"
+              dur="18s"
+              repeatCount="indefinite"
+            />
+          ) : null}
+        </rect>
+      ) : null}
+    </g>
+  );
+}
+
+// The province's haunting presence, deep in the fog near the trail's far end:
+// two softly-glowing element-colored eyes (slow SMIL blink, reduced-motion
+// gated) over a faint mono label. Once the path is fully reclaimed the eyes
+// vanish and a gold "has fled" line takes their place.
+function LapsePresence({ lapse, H, allDone, reduced }) {
+  if (!lapse || !Number.isFinite(H)) return null;
+  const cx = W / 2;
+  const labelY = H - 62; // sits between the last node's label and the medal halo
+  const labelFont = {
+    fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+    fontSize: '7.5',
+    letterSpacing: '0.14em',
+    textAnchor: 'middle',
+  };
+  if (allDone) {
+    return (
+      <text x={cx} y={labelY} {...labelFont} fill="#F5B842" opacity="0.5" pointerEvents="none">
+        {lapse.name.toUpperCase()} HAS FLED — FOR NOW
+      </text>
+    );
+  }
+  const eyeY = H - 78;
+  const color = ELEMENT_COLOR[lapse.element] || ELEMENT_COLOR.mystic;
+  const blink = !reduced ? (
+    <animate
+      attributeName="ry"
+      values="2.4;2.4;0.25;2.4"
+      keyTimes="0;0.88;0.94;1"
+      dur="7s"
+      repeatCount="indefinite"
+    />
+  ) : null;
+  return (
+    <g pointerEvents="none" aria-hidden="true">
+      {/* Soft glow halos */}
+      <ellipse cx={cx - 7} cy={eyeY} rx="4.5" ry="3.4" fill={color} opacity="0.14" />
+      <ellipse cx={cx + 7} cy={eyeY} rx="4.5" ry="3.4" fill={color} opacity="0.14" />
+      {/* The eyes — low-opacity element color, slow synchronized blink */}
+      <ellipse cx={cx - 7} cy={eyeY} rx="2.1" ry="2.4" fill={color} opacity="0.55">
+        {blink}
+      </ellipse>
+      <ellipse cx={cx + 7} cy={eyeY} rx="2.1" ry="2.4" fill={color} opacity="0.55">
+        {blink}
+      </ellipse>
+      <text x={cx} y={labelY} {...labelFont} fill="#F4EFE3" opacity="0.35">
+        {lapse.name.toUpperCase()} WAITS AT THE END
       </text>
     </g>
   );
@@ -1155,7 +1411,7 @@ function truncate(str, n) {
   return str.slice(0, n - 1) + '…';
 }
 
-function RoadmapPickers({ s, pathKey, completed }) {
+function RoadmapPickers({ level, setLevel, setActivePath, pathKey, completed }) {
   const selectStyle = {
     width: '100%',
     background: 'var(--bg-elevated)',
@@ -1182,8 +1438,8 @@ function RoadmapPickers({ s, pathKey, completed }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="kicker" style={{ marginBottom: 6 }}>Skill level</div>
           <select
-            value={s.level}
-            onChange={(e) => s.setLevel(e.target.value)}
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
             style={selectStyle}
             aria-label="Skill level"
           >
@@ -1196,7 +1452,7 @@ function RoadmapPickers({ s, pathKey, completed }) {
           <div className="kicker" style={{ marginBottom: 6 }}>Career path</div>
           <select
             value={pathKey}
-            onChange={(e) => s.setActivePath(e.target.value)}
+            onChange={(e) => setActivePath(e.target.value)}
             style={selectStyle}
             aria-label="Career path"
           >

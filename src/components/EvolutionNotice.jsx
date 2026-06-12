@@ -1,12 +1,26 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, activePathProgress, beastForm } from '../store/useStore.js';
-import { BEASTS, LEVELS, LEVEL_LABEL, ELEMENTS } from '../data/beasts.js';
+import { BEASTS, LEVEL_LABEL, ELEMENTS } from '../data/beasts.js';
 import { PATHS } from '../data/content.js';
 import BeastSprite from './BeastSprite.jsx';
 
 export default function EvolutionNotice() {
-  const s = useStore();
+  // Mounted at the app ROOT — a whole-store subscription here re-rendered on
+  // EVERY store write (each XP tick, each celebration set+clear pair). Narrow
+  // to the six fields actually read; useShallow keeps the grouped object
+  // referentially stable until one of those fields changes. `completed` and
+  // `activePath` are needed by activePathProgress(); `companion`/`beastTier`
+  // by beastForm().
+  const s = useStore(useShallow((st) => ({
+    pendingEvolution: st.pendingEvolution,
+    companion: st.companion,
+    activePath: st.activePath,
+    level: st.level,
+    beastTier: st.beastTier,
+    completed: st.completed,
+  })));
   const nav = useNavigate();
   const loc = useLocation();
   // `dismissed` is keyed implicitly to the current pendingEvolution value —

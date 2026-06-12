@@ -3,12 +3,21 @@ import { useEffect, useState } from 'react';
 // Resolve a sprite URL respecting Vite's base path (works on GitHub Pages subpath).
 const asset = (p) => `${import.meta.env.BASE_URL}beasts/${p}`.replace(/\/{2,}/g, '/').replace(':/', '://');
 
-let manifestCache = null;
-export async function loadManifest() {
-  if (manifestCache) return manifestCache;
-  const res = await fetch(asset('manifest.json'));
-  manifestCache = await res.json();
-  return manifestCache;
+// Cache the IN-FLIGHT promise, not the resolved value: N sprites mounting
+// before the first response lands all share one fetch of manifest.json
+// instead of firing N parallel requests. On failure the cache resets to null
+// so a later mount retries (same semantics the old value-cache had).
+let manifestPromise = null;
+export function loadManifest() {
+  if (!manifestPromise) {
+    manifestPromise = fetch(asset('manifest.json'))
+      .then((res) => res.json())
+      .catch((err) => {
+        manifestPromise = null;
+        throw err;
+      });
+  }
+  return manifestPromise;
 }
 
 // Warm the cache as soon as this module is evaluated, so the first sprite

@@ -35,7 +35,18 @@ function loadLang(lang) {
   const key = (lang || '').toLowerCase();
   const loader = LANG_LOADERS[key];
   if (!loader) return null; // Dockerfile/bash/unknown — no plugin, no-op below.
-  if (!langCache.has(key)) langCache.set(key, loader());
+  if (!langCache.has(key)) {
+    langCache.set(
+      key,
+      loader().catch((e) => {
+        // Never cache a rejected promise: evict so a later mount retries the
+        // chunk import (e.g. it failed while offline) instead of being stuck
+        // with plain text for the rest of the session.
+        langCache.delete(key);
+        throw e;
+      }),
+    );
+  }
   return langCache.get(key);
 }
 
@@ -63,6 +74,18 @@ function loadLang(lang) {
 // scroll horizontally (the user has flagged horizontal scroll repeatedly).
 
 const langCompartment = new Compartment();
+// readOnly lives in its own compartment so prop flips (PracticeBlock locks
+// the editor while a run is in flight) reconfigure the live view instead of
+// being baked in at mount and silently ignored afterwards.
+const readOnlyCompartment = new Compartment();
+
+// The editable/readOnly extension pair for a given readOnly prop value.
+function readOnlyExtensions(readOnly) {
+  return [
+    EditorView.editable.of(!readOnly),
+    EditorState.readOnly.of(!!readOnly),
+  ];
+}
 
 // Highlight style mapped to the existing CSS variables so the editor never
 // looks like a different app.
@@ -149,8 +172,7 @@ export default function CodeEditor({
         // matters because we deliberately ship parsers as separate chunks
         // — the editor must boot without waiting on the network.
         langCompartment.of([]),
-        EditorView.editable.of(!readOnly),
-        EditorState.readOnly.of(!!readOnly),
+        readOnlyCompartment.of(readOnlyExtensions(readOnly)),
         EditorView.updateListener.of((u) => {
           if (u.docChanged && onChangeRef.current) {
             onChangeRef.current(u.state.doc.toString());
@@ -195,6 +217,17 @@ export default function CodeEditor({
     }).catch(() => { /* network/chunk failure → editor still works as plain text */ });
     return () => { cancelled = true; };
   }, [lang]);
+
+  // Reflect readOnly prop changes on the live view. Without this, the value
+  // captured by the mount-once effect stuck forever — e.g. users could keep
+  // editing while a run was in flight.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: readOnlyCompartment.reconfigure(readOnlyExtensions(readOnly)),
+    });
+  }, [readOnly]);
 
   // Reflect external value resets (Reset button, sandbox hand-off load,
   // localStorage hydrate). We only patch the doc when it actually differs

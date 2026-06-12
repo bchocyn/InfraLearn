@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import CodeEditor from './CodeEditor.jsx';
 import { practiceStorageKey } from '../utils/practiceKey.js';
 
@@ -28,31 +28,42 @@ export default function LintEditor({ kind, placeholder, validate, persistKey, le
     try {
       const saved = window.localStorage.getItem(storageKey);
       if (saved != null) return saved;
-    } catch (_) { /* ignore */ }
+    } catch { /* ignore */ }
     return placeholder;
   });
 
   // Debounced persistence, exactly mirrors PracticeBlock's behavior.
+  // `pendingWriteRef` keeps the not-yet-flushed write so the unmount cleanup
+  // can flush it synchronously — otherwise the last <400ms of typing was
+  // dropped when the user navigated away.
+  const pendingWriteRef = useRef(null);
   useEffect(() => {
     if (typeof window === 'undefined' || !storageKey) return undefined;
-    const t = setTimeout(() => {
+    const write = () => {
+      pendingWriteRef.current = null;
       try {
         if (source === placeholder) {
           window.localStorage.removeItem(storageKey);
         } else {
           window.localStorage.setItem(storageKey, source);
         }
-      } catch (_) { /* ignore */ }
-    }, 400);
+      } catch { /* ignore */ }
+    };
+    pendingWriteRef.current = write;
+    const t = setTimeout(write, 400);
     return () => clearTimeout(t);
   }, [source, storageKey, placeholder]);
+  // Unmount-only: flush a still-pending debounced write.
+  useEffect(() => () => {
+    if (pendingWriteRef.current) pendingWriteRef.current();
+  }, []);
 
   const result = validate(source);
 
   const onReset = () => {
     setSource(placeholder);
     if (typeof window !== 'undefined' && storageKey) {
-      try { window.localStorage.removeItem(storageKey); } catch (_) { /* ignore */ }
+      try { window.localStorage.removeItem(storageKey); } catch { /* ignore */ }
     }
   };
 
@@ -172,20 +183,32 @@ export function validateYaml(src) {
     }
   }
 
-  // YML001 — `key:value` (missing space).
+  // YML001 — `key:value` (missing space after the KEY's colon). The match is
+  // anchored at line start (optionally behind a `- ` sequence dash), so a
+  // colon inside a VALUE never fires: `image: python:3.12-slim`, URLs, and
+  // quoted `"8000:8000"` port mappings all have the line's first `key: ` with
+  // a proper space, or start the token with a quote — neither can match.
+  // Colons followed by `/` (e.g. an `http://…` key/scheme) are skipped too.
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (/^\s*#/.test(line)) continue;
-    const idx = line.search(/[^"' ]:[^ \n]/);
-    if (idx >= 0) {
-      return { ok: false, errors: [{ line: i + 1, col: idx + 2, msg: 'YAML keys need a space after `:` — `key: value`, not `key:value`.', rule: 'YML001' }] };
-    }
+    const m = line.match(/^(\s*(?:-\s+)?)([A-Za-z_][\w.-]*):(?=\S)/);
+    if (!m) continue;
+    const afterColon = line.slice(m[0].length);
+    if (afterColon.startsWith('/')) continue;
+    return { ok: false, errors: [{ line: i + 1, col: m[0].length, msg: 'YAML keys need a space after `:` — `key: value`, not `key:value`.', rule: 'YML001' }] };
   }
 
-  // YML002 — duplicate top-level keys (zero-indent `key:`).
+  // YML002 — duplicate top-level keys (zero-indent `key:`). The seen-set
+  // resets at `---` document separators so multi-document files (k8s
+  // manifests) don't false-flag the second document against the first.
   const topLevel = new Map();
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (/^---/.test(line)) {
+      topLevel.clear();
+      continue;
+    }
     if (/^\s*#/.test(line)) continue;
     const m = line.match(/^([A-Za-z_][\w-]*)\s*:/);
     if (m) {
@@ -344,10 +367,30 @@ export function validateSql(src) {
     }
   }
 
-  // SQL002 — NULL compared with `=` or `!=` (should be IS NULL / IS NOT NULL).
-  for (let i = 0; i < lines.length; i++) {
-    if (/=\s*NULL\b|!=\s*NULL\b|<>\s*NULL\b/i.test(lines[i]) && !/^\s*--/.test(lines[i])) {
-      return { ok: false, errors: [{ line: i + 1, msg: 'Compare NULL with `IS NULL` / `IS NOT NULL`, not `=` / `!=` (NULL = NULL is UNKNOWN, not TRUE).', rule: 'SQL002' }] };
+  // SQL002 — NULL compared with `=` / `!=` / `<>` (should be IS NULL /
+  // IS NOT NULL). Only meaningful in COMPARISON contexts — WHERE / ON /
+  // HAVING. `UPDATE … SET col = NULL` is a perfectly valid assignment, so we
+  // track the statement context token-by-token and skip SET (and any other
+  // non-comparison) context. `;` ends the statement and resets the context.
+  {
+    let nullCtx = null; // 'cmp' after WHERE/ON/HAVING, 'set' after SET
+    for (let i = 0; i < lines.length; i++) {
+      const code = lines[i].replace(/--.*$/, '');
+      const re = /;|\b(WHERE|HAVING|ON|SET)\b|(?:!=|<>|=)\s*NULL\b/gi;
+      let m;
+      while ((m = re.exec(code)) !== null) {
+        if (m[0] === ';') {
+          nullCtx = null;
+          continue;
+        }
+        if (m[1]) {
+          nullCtx = m[1].toUpperCase() === 'SET' ? 'set' : 'cmp';
+          continue;
+        }
+        if (nullCtx === 'cmp') {
+          return { ok: false, errors: [{ line: i + 1, msg: 'Compare NULL with `IS NULL` / `IS NOT NULL`, not `=` / `!=` (NULL = NULL is UNKNOWN, not TRUE).', rule: 'SQL002' }] };
+        }
+      }
     }
   }
 
@@ -420,6 +463,16 @@ export function validateDockerfile(src) {
   let lastInstr = null;
   let consecRun = 0;
 
+  // Multi-stage builds: `FROM base AS builder` … `FROM builder`. The second
+  // FROM references a local stage alias, which has no tag BY DESIGN — collect
+  // the aliases up front so DL3006 can exempt them. Stage-name matching is
+  // case-insensitive, like Docker's.
+  const stageAliases = new Set();
+  for (const raw of lines) {
+    const m = raw.trim().match(/^FROM\s+.+\s+AS\s+([\w][\w.-]*)\s*$/i);
+    if (m) stageAliases.add(m[1].toLowerCase());
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
     const line = raw.trim();
@@ -442,9 +495,15 @@ export function validateDockerfile(src) {
 
     if (first === 'FROM') {
       seenFrom = true;
-      // DL3006 — must include a tag.
+      // DL3006 — must include a tag. `FROM <stage-alias>` is exempt: a stage
+      // reference never carries a tag.
       const img = rest.split(/\s+(?:AS\s+\w+)?$/i)[0].trim();
-      if (img && !img.includes(':') && !img.includes('@sha256:')) {
+      if (
+        img &&
+        !img.includes(':') &&
+        !img.includes('@sha256:') &&
+        !stageAliases.has(img.toLowerCase())
+      ) {
         return { ok: false, errors: [{ line: i + 1, msg: `Tag FROM image — \`${img}\` has no tag; defaults to :latest which is reproducibility-poison.`, rule: 'DL3006' }] };
       }
       // DL3007 — explicit :latest.

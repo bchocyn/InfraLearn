@@ -132,12 +132,15 @@ export default function FsrsCurveViz() {
     const fromS = animS;
     const fromStart = animStart;
     const fromSince = animSince;
-    const toS = stability * REVIEW_MULT;     // FSRS "good" boost
+    // FSRS "good" boost — clamped to the slider's max so the drawn curve and
+    // the slider value can't diverge once stability saturates (S ≥ 146 would
+    // otherwise animate toward an unreachable target).
+    const toS = Math.min(MAX_DAYS, stability * REVIEW_MULT);
     const toStart = 0.98;                     // restart near (not at) 100%
     const toSince = 0;                        // reset clock — review = day 0
 
     // Also push the slider value up so the UI stays in sync after the anim.
-    setStability(Math.min(MAX_DAYS, stability * REVIEW_MULT));
+    setStability(toS);
 
     const t0 = performance.now();
     const step = (now) => {

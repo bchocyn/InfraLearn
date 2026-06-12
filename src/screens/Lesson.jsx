@@ -1,24 +1,71 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, labProgress as labProgressFromContent } from '../data/content.js';
 import { loadLessonsForPath } from '../data/lessons/loader.js';
 import MathQuiz from '../components/MathQuiz.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
-import PracticeBlock, { loadPyodide, runUserCode } from '../components/PracticeBlock.jsx';
 import TerminalBlock from '../components/TerminalBlock.jsx';
-import LintEditor, {
-  validateYaml,
-  validateSql,
-  validateDockerfile,
-  validateJson,
-} from '../components/LintEditor.jsx';
 import AnimatedDiagram from '../components/AnimatedDiagram.jsx';
 import BuildAlongBlock from '../components/BuildAlongBlock.jsx';
 import { VIZ_REGISTRY } from '../components/viz/index.jsx';
-import mathQuizzes from '../data/mathQuizzes.js';
-import { practiceStorageKey } from '../utils/practiceKey.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
+
+// --- Lazy CodeMirror-bearing editors ---------------------------------------
+//
+// PracticeBlock and LintEditor both statically import CodeEditor, which pulls
+// the whole @codemirror core (the ~360 KB raw cm-core chunk). Importing them
+// statically here made EVERY lesson — including prose-only ones — fetch that
+// chunk at route load. React.lazy splits both behind their own async chunks,
+// fetched only when a lesson actually renders a practice/lint block.
+//
+// CodeRunBlock's run handler also needs this module's NAMED exports
+// (loadPyodide / runUserCode); React.lazy only carries the default export, so
+// the handler dynamically imports them at the call site (runs are async
+// anyway). A static named import would re-create the eager edge to the
+// CodeMirror graph and defeat the split.
+const PracticeBlock = lazy(() => import('../components/PracticeBlock.jsx'));
+
+// LintEditor's validators (validateYaml/Sql/Dockerfile/Json) are named
+// exports of the same module — importing them statically for the `validate`
+// prop would defeat the chunk split too. The lazy wrapper resolves the
+// validator for `kind` from the freshly loaded module and forwards it, so
+// LintEditor itself receives the exact same props as before.
+const LazyLintEditor = lazy(() =>
+  import('../components/LintEditor.jsx').then((mod) => {
+    const LintEditor = mod.default;
+    const validators = {
+      yaml: mod.validateYaml,
+      sql: mod.validateSql,
+      dockerfile: mod.validateDockerfile,
+      json: mod.validateJson,
+    };
+    return {
+      default: function LintEditorWithValidator({ kind, ...rest }) {
+        return <LintEditor kind={kind} validate={validators[kind]} {...rest} />;
+      },
+    };
+  }),
+);
+
+// Languages LintEditor can validate. Mirrors the validator map above — used
+// only as the render gate in PracticeInline (the old LINT_VALIDATORS object
+// needed the statically imported functions for the same truthiness check).
+const LINT_KINDS = ['yaml', 'sql', 'dockerfile', 'json'];
+
+// --- Math-quiz bank (on demand) --------------------------------------------
+//
+// The bank is a ~92 KB data chunk but only ~10% of lessons carry
+// `hasMathQuiz`; the static import made every lesson fetch it at route load.
+// It's now imported the first time a quiz pane actually opens. The promise is
+// cached at module level so repeat opens never re-import.
+let mathQuizzesPromise = null;
+function loadMathQuizzes() {
+  if (!mathQuizzesPromise) {
+    mathQuizzesPromise = import('../data/mathQuizzes.js').then((m) => m.default || {});
+  }
+  return mathQuizzesPromise;
+}
 
 function locate(id) {
   const pathKeys = Object.keys(PATHS);
@@ -200,10 +247,10 @@ function CodeChip({ text }) {
         ta.style.top = '-9999px';
         document.body.appendChild(ta);
         ta.select();
-        try { document.execCommand('copy'); } catch (_) { /* ignore */ }
+        try { document.execCommand('copy'); } catch { /* ignore */ }
         document.body.removeChild(ta);
       }
-    } catch (_) { /* clipboard denied — still flash + toast for feedback */ }
+    } catch { /* clipboard denied — still flash + toast for feedback */ }
     setCopied(true);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), 900);
@@ -315,38 +362,13 @@ function renderInline(text, keyPrefix = 'i') {
 // The v14 deploy bundle had inline Python sandboxes (textarea + Check button
 // + hint accordions) that the extractor couldn't preserve. The sections that
 // USED to host those widgets ended up in lessonContent.js as headings with
-// an empty `body: []`. We detect those, group consecutive ones into a single
-// "practice" unit, and render them via <PracticeBlock>.
-//
-// Heuristic:
-//   1. A section is a "sandbox marker" if (a) its body is empty AND its
-//      heading looks like a prompt/check/hint label, OR (b) its heading
-//      explicitly starts with a known prompt word ("Your turn", "Try it",
-//      "Practice —", "Make a typo work").
-//   2. Consecutive sandbox-marker sections are grouped into one PracticeBlock.
-//      The first marker is the prompt; subsequent ones become hint labels.
-//   3. The starter code is pulled from the LAST `code` block of the section
-//      immediately preceding the group, if any. The expected value is parsed
-//      out of the prompt heading (e.g. "make x equal 100" → "100") or from
-//      a `# expected: X` comment in the starter.
+// an empty `body: []`. A section is a "sandbox marker" if its body is empty
+// AND its heading looks like a prompt/check/hint label; buildGroups() drops
+// those markers entirely (labs host the practice now, not lessons).
 
 // Headings that, when paired with an empty body, mean "the widget was here".
 const SANDBOX_HEADING_RE =
   /^(your turn|try it|practice\b|tinker|explore|quick check|check|run|compute it|fix the bug|debug it|trace it|predict|what'?s allowed|make a typo work|show hint|show solution|hint|build a sentence|build a shopping list|build it|clean user input|format it|get the middle( three| one)?|safe read|find the max|read the dict|age check|grade calculator|login check|print each color|sum of 1 to 10|find a number|write greet\(\)|write square\(\)|final check)/i;
-
-// Headings that look more like a "task prompt" — these anchor a PracticeBlock
-// even if their body is non-empty (they become the main prompt; later
-// markers in the same run become hints).
-const PROMPT_HEADING_RE =
-  /^(your turn|try it|practice\b|tinker|fix the bug|debug it|build it|clean user input|format it|build a sentence|build a shopping list|get the middle|safe read|find the max|read the dict|age check|grade calculator|login check|print each color|sum of 1 to 10|find a number|write greet|write square|compute it|explore)/i;
-
-// Headings that are clearly "hint / extra info" attached to a previous prompt.
-const HINT_HEADING_RE = /^(what'?s allowed|make a typo work|show hint|show solution|hint)/i;
-
-// Headings that mean "the user types and we check the answer" — these are
-// the check button, not hints, but with no body they're effectively part of
-// the same practice unit.
-const CHECK_HEADING_RE = /^(check|run|quick check|final check)/i;
 
 function isEmptyBody(body) {
   return !Array.isArray(body) || body.length === 0;
@@ -355,45 +377,6 @@ function isEmptyBody(body) {
 function isSandboxMarker(sec) {
   if (!sec || !sec.heading) return false;
   return isEmptyBody(sec.body) && SANDBOX_HEADING_RE.test(sec.heading.trim());
-}
-
-// Extract the last `code` block from a section's body, for use as a starter.
-function lastCodeBlock(body) {
-  if (!Array.isArray(body)) return null;
-  for (let i = body.length - 1; i >= 0; i--) {
-    if (body[i] && body[i].type === 'code' && typeof body[i].text === 'string') {
-      return body[i].text;
-    }
-  }
-  return null;
-}
-
-// Parse an expected value out of a prompt heading like
-// "Your turn — make x equal 100" → "100".
-function parseExpectedFromHeading(h) {
-  if (!h) return null;
-  // "equal NN" or "equal to NN"
-  const m1 = h.match(/equal(?:\s+to)?\s+([-+]?\d+(?:\.\d+)?)/i);
-  if (m1) return m1[1];
-  // "= NN"
-  const m2 = h.match(/=\s*([-+]?\d+(?:\.\d+)?)/);
-  if (m2) return m2[1];
-  return null;
-}
-
-// Parse `# expected: X` out of a starter snippet.
-function parseExpectedFromStarter(starter) {
-  if (!starter) return null;
-  const m = starter.match(/#\s*expected\s*[:=]\s*(\S+)/i);
-  return m ? m[1] : null;
-}
-
-// Trim the noisy "Your turn —" prefix so the prompt reads as a task.
-function cleanPrompt(heading) {
-  if (!heading) return '';
-  return heading
-    .replace(/^(your turn|try it|practice|tinker)\s*[—–\-:]\s*/i, '')
-    .trim();
 }
 
 // Build the render groups. Lessons are READING-FIRST: prose + code examples
@@ -570,7 +553,9 @@ function Block({ block, idx, lessonId }) {
             <tbody>
               {rows.map((row, ri) => (
                 <tr key={ri}>
-                  {row.map((cell, ci) => {
+                  {/* Guard malformed data: a non-array row must not crash the
+                      whole app to the root ErrorBoundary. */}
+                  {(Array.isArray(row) ? row : [row]).map((cell, ci) => {
                     const cc = cellClass(cell);
                     return (
                       <td
@@ -635,7 +620,7 @@ function Block({ block, idx, lessonId }) {
 // this file. Renders an optional headline, the viz, an optional caption,
 // and a small "tap to try" hint that vanishes once the learner interacts
 // (we listen for pointerdown / keydown anywhere inside the viz wrapper).
-function InteractiveVizBlock({ block, idx }) {
+function InteractiveVizBlock({ block }) {
   const VizComponent = VIZ_REGISTRY[block.viz];
   const [interacted, setInteracted] = useState(false);
   // One callback wired to both pointer + keyboard so touch, mouse, and
@@ -975,7 +960,7 @@ function SystemDesignLab({ block, idx, lessonId }) {
 // underneath. Python runs through the real Pyodide runtime (shared with
 // PracticeBlock); other langs fall back to a stub output line until proper
 // runtimes are wired (will hand off to TerminalBlock / LintEditor later).
-function CodeRunBlock({ block, idx }) {
+function CodeRunBlock({ block }) {
   const text = block.text || '';
   const runMode = block.runnable === true ? (block.lang || 'python') : block.runnable;
   const isRunnable = !!runMode;
@@ -1002,6 +987,12 @@ function CodeRunBlock({ block, idx }) {
     const delay = new Promise((r) => setTimeout(r, 350));
     try {
       if (runMode === 'python' || runMode === true) {
+        // Named exports of the (lazy) PracticeBlock module — imported here at
+        // the call site instead of statically so the CodeMirror-bearing chunk
+        // only loads when someone actually taps RUN. Same chunk as the lazy
+        // component above, so a lesson that already mounted a PracticeBlock
+        // resolves this instantly from the module cache.
+        const { loadPyodide, runUserCode } = await import('../components/PracticeBlock.jsx');
         const pyodide = await loadPyodide();
         const { stdout, value } = await runUserCode(pyodide, text, '__none__');
         await delay;
@@ -1308,8 +1299,9 @@ function FillBlankBlock({ block, idx }) {
 //
 // One-shot: first tap locks the block. Right answer flashes green, wrong
 // highlights the user's pick red AND the correct in green. The `explain`
-// panel fades in (250ms) below the options either way. +5 XP on first tap,
-// regardless of correctness — engagement, not punishment.
+// panel fades in (250ms) below the options either way. +5 XP only on a
+// CORRECT first tap ('predict:correct' is combo-eligible in the store);
+// wrong picks award nothing — they just break the combo via practiceMiss().
 function PredictBlock({ block, idx }) {
   const addXp = useStore((s) => s.addXp);
   const practicePass = useStore((s) => s.practicePass);
@@ -1327,12 +1319,18 @@ function PredictBlock({ block, idx }) {
     if (submitted) return;
     setPicked(i);
     const right = i === answer;
-    addXp?.(5, right ? 'predict:correct' : 'predict:attempt');
-    // Combo bookkeeping — right answer extends the chain, wrong breaks it.
-    // Without this, the combo multiplier inside addXp never engages (the
-    // counter stays at 0 forever and `predict:correct` always scales 1x).
-    if (right) practicePass?.();
-    else practiceMiss?.();
+    // XP only on a CORRECT pick. The store's combo matcher treats any
+    // `predict:`-prefixed reason as a tested-item pass, so awarding +5 on a
+    // wrong pick would combo-multiply misses. Wrong picks earn nothing —
+    // they just break the chain via practiceMiss().
+    if (right) {
+      addXp?.(5, 'predict:correct');
+      // Combo bookkeeping — without this the multiplier inside addXp never
+      // engages (the counter stays at 0 and `predict:correct` scales 1x).
+      practicePass?.();
+    } else {
+      practiceMiss?.();
+    }
   };
 
   return (
@@ -1370,7 +1368,7 @@ function PredictBlock({ block, idx }) {
             <span className={`predict-feedback-badge ${correct ? 'is-correct' : 'is-wrong'}`}>
               {correct ? '✓ NAILED IT' : '✗ NOT QUITE'}
             </span>
-            <span className="predict-xp-chip mono">+5 XP</span>
+            {correct && <span className="predict-xp-chip mono">+5 XP</span>}
           </div>
           <div className="predict-explain">{renderInline(block.explain || '', `pe-${idx}`)}</div>
         </div>
@@ -1476,16 +1474,6 @@ function ExplainBackBlock({ block, idx }) {
 const WT_VIEWBOX_W = 360;
 const WT_NODE_W = 96;
 const WT_NODE_H = 46;
-const WT_MIN_NODE_W = 56;
-// Walkthroughs crowd when 4+ nodes share the 360px viewBox horizontally — six
-// 96px boxes need ~616px and overlap badly. Shrink the box proportionally
-// (mirrors AnimatedDiagram.nodeWidthFor) so the boxes stop trampling each
-// other; never below WT_MIN_NODE_W. ≤3 nodes keep the full width.
-function wtNodeWidthFor(count) {
-  if (count <= 3) return WT_NODE_W;
-  const fit = Math.floor((WT_VIEWBOX_W - 16) / count) - 4;
-  return Math.max(WT_MIN_NODE_W, Math.min(WT_NODE_W, fit));
-}
 const WT_ACCENT_VAR = {
   amber: 'var(--accent-amber)',
   fire: 'var(--el-fire)',
@@ -1507,6 +1495,11 @@ function WalkthroughBlock({ block }) {
   const [stepIndex, setStepIndex] = useState(0);
   const containerRef = useRef(null);
   const [measuredWidth, setMeasuredWidth] = useState(null);
+  // Per-instance SVG marker id. useId() is stable across renders (and
+  // StrictMode double-renders) — the old per-render Math.random() minted new
+  // marker ids + a full attribute rewrite on every render. Colons stripped so
+  // the id stays a valid url(#…) fragment.
+  const uid = useId().replace(/:/g, '');
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1589,6 +1582,13 @@ function WalkthroughBlock({ block }) {
     });
   }
 
+  // Distinct row centre-lines, sorted. The midpoints between consecutive
+  // entries are horizontal corridors that no node band touches — cross-row
+  // edge labels are placed there (see label placement below). Works for the
+  // stacked layout too, where every node is its own "row".
+  const rowCys = [...new Set([...positions.values()].map((p) => p.cy))]
+    .sort((p, q) => p - q);
+
   // Edges: declared once at the block level (all the unique active edges
   // across every step), so we don't have to recompute on each step change.
   // We collect them up-front from steps[].activeEdges so the renderer can
@@ -1614,7 +1614,10 @@ function WalkthroughBlock({ block }) {
     if (!isFirst) setStepIndex(safeIdx - 1);
   };
 
-  const uid = Math.random().toString(36).slice(2, 7);
+  // Edge-label rects placed so far THIS render (= this step). Labels check
+  // against it so two labels in one step can't sit on top of each other
+  // (e.g. the bidirectional "encrypted" pair in the TLS walkthroughs).
+  const placedLabels = [];
 
   return (
     <figure className="walkthrough-block" ref={containerRef}>
@@ -1687,26 +1690,79 @@ function WalkthroughBlock({ block }) {
               );
               labelText = match && match.label ? String(match.label) : null;
             }
-            // Dodge: a label on a branch/skip edge can land on an intermediate
-            // node. If the label box overlaps a non-endpoint node, slide it
-            // horizontally clear (to the side of the column).
+            // Label placement. A label centred ON the line only works when the
+            // midpoint corridor is empty — true for cross-row edges (the space
+            // between row bands holds nothing). For SAME-ROW edges the gap
+            // between adjacent boxes (~8-20px) can never hold a 30-110px label,
+            // so it used to sit across both endpoint boxes; those labels float
+            // just above/below the row band instead. Candidates are tried in
+            // order; the first spot inside the viewBox, clear of EVERY node and
+            // every already-placed label, wins.
             const labelW = labelText ? labelText.length * 5.5 + 10 : 0;
             let lx = midX;
+            let ly = midY;
             if (labelText) {
-              const hitsNode = (cx) => nodes.some((n) => {
-                if (n.id === e.from || n.id === e.to) return false;
+              const LABEL_H = 13;
+              const sameRow = Math.abs(a.cy - b.cy) < 1;
+              const clampX = (cx) =>
+                Math.max(labelW / 2 + 2, Math.min(WT_VIEWBOX_W - labelW / 2 - 2, cx));
+              const inBounds = (cy) => cy - LABEL_H / 2 >= 2 && cy + LABEL_H / 2 <= H - 2;
+              const hitsNode = (cx, cy) => nodes.some((n) => {
                 const p = positions.get(n.id);
                 if (!p) return false;
                 return Math.abs(cx - p.cx) < labelW / 2 + nodeW / 2 + 3
-                  && Math.abs(midY - p.cy) < 7 + WT_NODE_H / 2;
+                  && Math.abs(cy - p.cy) < LABEL_H / 2 + WT_NODE_H / 2 + 2;
               });
-              if (hitsNode(lx)) {
-                const shift = nodeW / 2 + labelW / 2 + 8;
-                const right = midX + shift;
-                const left = midX - shift;
-                if (right + labelW / 2 <= WT_VIEWBOX_W - 2 && !hitsNode(right)) lx = right;
-                else if (left - labelW / 2 >= 2 && !hitsNode(left)) lx = left;
+              const hitsLabel = (cx, cy) => placedLabels.some((r) =>
+                Math.abs(cx - r.cx) < (labelW + r.w) / 2 + 4
+                && Math.abs(cy - r.cy) < LABEL_H + 1);
+              const lift = WT_NODE_H / 2 + LABEL_H / 2 + 4; // clears the row band
+              const candidates = sameRow
+                ? [
+                  [midX, midY - lift], [midX, midY + lift],
+                  [midX, midY - lift - 15], [midX, midY + lift + 15],
+                ]
+                : (() => {
+                  // Cross-row edges: the raw midpoint of a pass-through edge
+                  // (top row → bottom row) can land exactly ON the middle
+                  // row's band, where no dodge inside the band can help. The
+                  // corridors between consecutive rows are clear of every
+                  // node by construction, so walk the corridors this edge
+                  // crosses — nearest the midpoint first — and put the label
+                  // where the line crosses that corridor.
+                  const lo = Math.min(a.cy, b.cy);
+                  const hi = Math.max(a.cy, b.cy);
+                  const corridorYs = [];
+                  for (let ci = 0; ci + 1 < rowCys.length; ci++) {
+                    if (rowCys[ci] >= lo - 0.5 && rowCys[ci + 1] <= hi + 0.5) {
+                      corridorYs.push((rowCys[ci] + rowCys[ci + 1]) / 2);
+                    }
+                  }
+                  corridorYs.sort((p, q) => Math.abs(p - midY) - Math.abs(q - midY));
+                  const cands = [];
+                  for (const yy of corridorYs) {
+                    const xx = a.cx + ((b.cx - a.cx) * (yy - a.cy)) / (b.cy - a.cy);
+                    cands.push([xx, yy], [xx + 26, yy], [xx - 26, yy]);
+                  }
+                  cands.push([midX, midY]); // safety net if no corridor matched
+                  return cands;
+                })();
+              let spot = null;
+              for (const [cx, cy] of candidates) {
+                const ccx = clampX(cx);
+                if (!inBounds(cy)) continue;
+                if (hitsNode(ccx, cy) || hitsLabel(ccx, cy)) continue;
+                spot = [ccx, cy];
+                break;
               }
+              if (!spot) {
+                // Best effort: first candidate, clamped into the viewBox —
+                // never worse than the old on-the-line behaviour.
+                const [cx, cy] = candidates[0];
+                spot = [clampX(cx), Math.max(9, Math.min(H - 9, cy))];
+              }
+              [lx, ly] = spot;
+              placedLabels.push({ cx: lx, cy: ly, w: labelW });
             }
             return (
               <g
@@ -1736,7 +1792,7 @@ function WalkthroughBlock({ block }) {
                   <g className="walkthrough-edge-label">
                     <rect
                       x={lx - labelW / 2}
-                      y={midY - 7}
+                      y={ly - 7}
                       width={labelW}
                       height={13}
                       rx={3}
@@ -1747,7 +1803,7 @@ function WalkthroughBlock({ block }) {
                     />
                     <text
                       x={lx}
-                      y={midY}
+                      y={ly}
                       textAnchor="middle"
                       dominantBaseline="central"
                       fontSize={9}
@@ -1774,12 +1830,17 @@ function WalkthroughBlock({ block }) {
             // neighbouring node. A hard cap only trims genuinely absurd lengths
             // (which would otherwise over-squeeze to illegibility).
             const textAvail = nodeW - 8;
-            const HARD = Math.max(10, Math.floor(textAvail / 4));
-            const shownLabel = n.label && n.label.length > HARD
-              ? `${n.label.slice(0, HARD - 1)}…` : (n.label || '');
+            // Truncation point: textLength may condense glyphs to ~80% of
+            // natural width before we cut with an ellipsis — squeezing further
+            // (the old floor allowed ~50%) renders as smashed, overlapping
+            // letters. Full text stays readable via the <title> tooltip.
+            const LABEL_MAX = Math.max(6, Math.floor(textAvail / 6));
+            const SUB_MAX = Math.max(6, Math.floor(textAvail / 5.4));
+            const shownLabel = n.label && n.label.length > LABEL_MAX
+              ? `${n.label.slice(0, LABEL_MAX - 1).trimEnd()}…` : (n.label || '');
             const subRaw = n.subtitle ? String(n.subtitle).toUpperCase() : null;
-            const shownSub = subRaw && subRaw.length > HARD
-              ? `${subRaw.slice(0, HARD - 1)}…` : subRaw;
+            const shownSub = subRaw && subRaw.length > SUB_MAX
+              ? `${subRaw.slice(0, SUB_MAX - 1).trimEnd()}…` : subRaw;
             // Squeeze only when the text would overrun the box (conservative
             // per-glyph widths: serif title ~7.5px, mono subtitle ~6.8px).
             const labelLen = shownLabel.length * 7.5 > textAvail ? textAvail : undefined;
@@ -1925,6 +1986,10 @@ function seqAccent(a) {
 }
 
 function SequenceBlock({ block }) {
+  // Per-instance SVG marker id — useId() (stable across renders, StrictMode-
+  // safe) replaces the old per-render Math.random() mint. The hook call must
+  // precede the early return below.
+  const uid = useId().replace(/:/g, '');
   const actors = Array.isArray(block.actors) ? block.actors.slice(0, 4) : [];
   const events = Array.isArray(block.events) ? block.events.slice(0, 12) : [];
   if (actors.length < 2 || events.length === 0) return null;
@@ -1942,7 +2007,6 @@ function SequenceBlock({ block }) {
   actors.forEach((a) => accentById.set(a.id, seqAccent(a.accent)));
 
   const H = SEQ_HEADER_H + SEQ_ROW_H * events.length + SEQ_BOTTOM_PAD;
-  const uid = Math.random().toString(36).slice(2, 7);
 
   return (
     <figure className="sequence-block">
@@ -1976,11 +2040,20 @@ function SequenceBlock({ block }) {
           {actors.map((a) => {
             const x = laneX.get(a.id);
             const acc = accentById.get(a.id);
+            // Estimated header width (10px mono caps + 0.12em tracking ≈
+            // 7.2px/char). Squeeze via textLength when it exceeds the lane
+            // slot, and clamp x so edge-lane headers can't run out of the
+            // viewBox (a long label on the rightmost lane used to clip).
+            const estW = String(a.label).length * 7.2;
+            const maxW = actors.length > 1 ? slot - 10 : SEQ_VIEWBOX_W - 16;
+            const shownW = Math.min(estW, maxW);
+            const hx = Math.max(shownW / 2 + 2,
+              Math.min(SEQ_VIEWBOX_W - shownW / 2 - 2, x));
             return (
               <g key={`actor-${a.id}`}>
                 <text
                   className="sequence-actor-header"
-                  x={x}
+                  x={hx}
                   y={14}
                   textAnchor="middle"
                   dominantBaseline="central"
@@ -1988,6 +2061,8 @@ function SequenceBlock({ block }) {
                   fontFamily="var(--font-mono), monospace"
                   fontSize={10}
                   letterSpacing="0.12em"
+                  textLength={estW > maxW ? maxW : undefined}
+                  lengthAdjust="spacingAndGlyphs"
                 >
                   {String(a.label).toUpperCase()}
                 </text>
@@ -2008,11 +2083,16 @@ function SequenceBlock({ block }) {
             const dashed = ev.dashed === true;
             const dashAttr = dashed ? '5 4' : undefined;
 
-            // Self-loop: small curve returning to the same lane.
-            if (ev.self) {
-              const x = laneX.get(ev.self);
+            // Self-loop: small curve returning to the same lane. Events
+            // written as { from: X, to: X } render the same way — the old
+            // zero-length-arrow fallback centred a wide label ON the lane and
+            // pushed it out of the viewBox at the edge lanes.
+            const selfId = ev.self
+              || (ev.from != null && ev.from === ev.to ? ev.from : null);
+            if (selfId) {
+              const x = laneX.get(selfId);
               if (x == null) return null;
-              const acc = accentById.get(ev.self) || 'var(--accent-amber)';
+              const acc = accentById.get(selfId) || 'var(--accent-amber)';
               const r = 11;
               const cx = x + 4; // anchor curve to right of lifeline
               const top = rowY - r;
@@ -2020,6 +2100,13 @@ function SequenceBlock({ block }) {
               // Cubic curve out to the right and back — 22px wide loop.
               const d = `M ${x} ${top} C ${cx + 22} ${top}, ${cx + 22} ${bot}, ${x} ${bot}`;
               const labelX = Math.min(cx + 26, SEQ_VIEWBOX_W - 4);
+              // Flip to end-anchor when the wider of label/note would run off
+              // the right edge (note used to be start-anchored regardless).
+              const selfTextW = Math.max(
+                ev.label ? String(ev.label).length * 5.8 : 0,
+                ev.note ? String(ev.note).length * 5.4 : 0,
+              );
+              const anchorEnd = labelX + selfTextW > SEQ_VIEWBOX_W - 4;
               return (
                 <g key={`ev-${i}`} className="sequence-self-loop">
                   <path
@@ -2028,13 +2115,13 @@ function SequenceBlock({ block }) {
                     stroke={acc}
                     strokeWidth={1.4}
                     strokeDasharray={dashAttr}
-                    markerEnd={`url(#seq-arrow-${uid}-${ev.self})`}
+                    markerEnd={`url(#seq-arrow-${uid}-${selfId})`}
                   />
                   {ev.label && (
                     <text
                       className={dashed ? 'sequence-arrow-label sequence-arrow-label-dashed' : 'sequence-arrow-label'}
                       x={labelX}
-                      textAnchor={labelX >= SEQ_VIEWBOX_W - 60 ? 'end' : 'start'}
+                      textAnchor={anchorEnd ? 'end' : 'start'}
                       y={rowY - 2}
                       dominantBaseline="central"
                       fontFamily="'Inter Tight', var(--font-sans), sans-serif"
@@ -2049,6 +2136,7 @@ function SequenceBlock({ block }) {
                     <text
                       className="sequence-arrow-note"
                       x={labelX}
+                      textAnchor={anchorEnd ? 'end' : 'start'}
                       y={rowY + 10}
                       dominantBaseline="central"
                       fontFamily="var(--font-mono), monospace"
@@ -2074,7 +2162,15 @@ function SequenceBlock({ block }) {
             const mid = (xa + xb) / 2;
             const x1 = mid - (arrowLen / 2) * dir;
             const x2 = mid + (arrowLen / 2) * dir;
-            const labelX = mid;
+            // Clamp label/note centres so the estimated text box stays inside
+            // the viewBox — a long label between the two leftmost lanes used
+            // to run off the left edge and get clipped.
+            const estLabelW = ev.label ? String(ev.label).length * 5.8 : 0;
+            const estNoteW = ev.note ? String(ev.note).length * 5.4 : 0;
+            const labelX = Math.max(estLabelW / 2 + 2,
+              Math.min(SEQ_VIEWBOX_W - estLabelW / 2 - 2, mid));
+            const noteX = Math.max(estNoteW / 2 + 2,
+              Math.min(SEQ_VIEWBOX_W - estNoteW / 2 - 2, mid));
             return (
               <g key={`ev-${i}`} className={dashed ? 'sequence-arrow sequence-arrow-dashed' : 'sequence-arrow'}>
                 {ev.label && (
@@ -2106,7 +2202,7 @@ function SequenceBlock({ block }) {
                 {ev.note && (
                   <text
                     className="sequence-arrow-note"
-                    x={labelX}
+                    x={noteX}
                     y={rowY + 12}
                     textAnchor="middle"
                     dominantBaseline="central"
@@ -2312,15 +2408,21 @@ function KanbanBlock({ block, idx }) {
   );
 }
 
-const LINT_VALIDATORS = {
-  yaml: validateYaml,
-  sql: validateSql,
-  dockerfile: validateDockerfile,
-  json: validateJson,
-};
-
 // Storage-key derivation lives in src/utils/practiceKey.js so the inline
 // editor, PracticeBlock, and LintEditor all hit the same bucket.
+
+// EditorFallback — Suspense placeholder for the lazy CodeMirror editors.
+// Layout-stable: a plain non-interactive <pre> showing the same starter code
+// the editor will hydrate with, at the editor's minHeight, so the page
+// doesn't jump when the chunk lands. Inherits the `.lesson-body pre` code-
+// block styling (every practice block renders inside .lesson-body).
+function EditorFallback({ code, minHeight }) {
+  return (
+    <pre style={{ minHeight, margin: 0 }} aria-hidden="true">
+      <code>{code}</code>
+    </pre>
+  );
+}
 
 function PracticeInline({ block, lessonId }) {
   const lang = (block.lang || 'python').toLowerCase();
@@ -2328,6 +2430,7 @@ function PracticeInline({ block, lessonId }) {
   const starter = block.starter || '';
 
   let body = null;
+  let fallback = null;
   if (lang === 'python') {
     body = (
       <PracticeBlock
@@ -2338,17 +2441,20 @@ function PracticeInline({ block, lessonId }) {
         lang="python"
       />
     );
+    // minHeight mirrors PracticeBlock's CodeEditor minHeight (140).
+    fallback = <EditorFallback code={starter} minHeight={140} />;
   } else if (lang === 'bash') {
     body = <TerminalBlock />;
-  } else if (LINT_VALIDATORS[lang]) {
+  } else if (LINT_KINDS.includes(lang)) {
     body = (
-      <LintEditor
+      <LazyLintEditor
         kind={lang}
         placeholder={starter}
-        validate={LINT_VALIDATORS[lang]}
         lessonId={lessonId}
       />
     );
+    // minHeight mirrors LintEditor's CodeEditor minHeight (160).
+    fallback = <EditorFallback code={starter} minHeight={160} />;
   } else {
     return null;
   }
@@ -2358,7 +2464,9 @@ function PracticeInline({ block, lessonId }) {
       {block.prompt && lang !== 'python' && (
         <div className="practice-inline-prompt">{block.prompt}</div>
       )}
-      <div className="practice-inline-body">{body}</div>
+      <div className="practice-inline-body">
+        {fallback ? <Suspense fallback={fallback}>{body}</Suspense> : body}
+      </div>
       {block.hint && (
         <details className="practice-inline-hint">
           <summary>Hint</summary>
@@ -2382,6 +2490,12 @@ export default function Lesson() {
   const setCliffhanger = useStore((s) => s.setCliffhanger);
   const completedMap = useStore((s) => s.completed);
   const [quizOpen, setQuizOpen] = useState(false);
+  // Loaded math-quiz bank entry for THIS lesson: { forId, bank } | null.
+  // `forId` mirrors the body loader's entryForId guard — the module-level
+  // import cache resolves in a microtask on repeat opens, so without it a
+  // stale bank could briefly render under a freshly navigated-to lesson id.
+  // null means "not loaded yet"; the quiz pane shows a small loading state.
+  const [quizBankEntry, setQuizBankEntry] = useState(null);
   // Paging — each section is its own page (Mockup 1 Proposal 1's PAGE k/m
   // indicator). Single-section lessons skip paging entirely.
   const [currentPage, setCurrentPage] = useState(0);
@@ -2391,13 +2505,12 @@ export default function Lesson() {
   const endRef = useRef(null);
   const isComplete = !!completedMap[id];
 
-  // Per-block micro-progress state: which block is currently in viewport.
-  // The blockRefs array is rebuilt each render from the visible page; the
-  // IntersectionObserver effect (below) reattaches whenever the lesson id
-  // or page changes. activeIdx resets to 0 on page change so the track does
-  // not show stale "past" state from a longer prior page.
+  // Per-block micro-progress: the blockRefs array is rebuilt each render
+  // from the visible page. The IntersectionObserver that consumes it — and
+  // the activeIdx state it drives — live inside <LessonProgressRail> (keyed
+  // by lesson id + page at its render site below), so scroll ticks re-render
+  // only that small track instead of this whole component tree.
   const blockRefs = useRef([]);
-  const [activeIdx, setActiveIdx] = useState(0);
 
   // Per-path lesson body loader. We pull just the file that owns this lesson
   // (see src/data/lessons/loader.js) instead of importing the full merged
@@ -2405,6 +2518,13 @@ export default function Lesson() {
   // is loading we render a placeholder; this also means `entry` reads below
   // need to tolerate `null` on the very first paint of a fresh path.
   const [entry, setEntry] = useState(null);
+  // Which lesson id the loaded `entry` belongs to. On same-path navigation
+  // the cached loader resolves in a microtask, so for at least one commit
+  // `entry` still holds the PREVIOUS lesson's body while `id` is already the
+  // new one. The body render and the auto-complete effect both gate on
+  // entryForId === id — that kills the one-frame wrong-body flash and stops
+  // a stale sentinel from completing a never-viewed lesson.
+  const [entryForId, setEntryForId] = useState(null);
   const [bodyLoading, setBodyLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
@@ -2412,12 +2532,14 @@ export default function Lesson() {
     const pathKey = found ? found.pathKey : null;
     if (!pathKey) {
       setEntry(null);
+      setEntryForId(id);
       setBodyLoading(false);
       return () => {};
     }
     loadLessonsForPath(pathKey).then((bodies) => {
       if (cancelled) return;
       setEntry(bodies[id] || null);
+      setEntryForId(id);
       setBodyLoading(false);
     });
     return () => {
@@ -2425,13 +2547,34 @@ export default function Lesson() {
     };
   }, [id, found]);
 
-  // Reset scroll to the top + page to 0 whenever the lesson id changes.
-  // Without this, navigating Continue from the bottom of one lesson lands
-  // you at the bottom of the next one because React Router reuses the
-  // component, and the page index would persist across lessons.
+  // Math-quiz bank loader — fires the first time the quiz pane opens on a
+  // hasMathQuiz lesson (PATHS meta), never for the ~90% of lessons without a
+  // quiz. Same cancelled-flag pattern as the body loader above so navigating
+  // away mid-import can't land a stale bank; the module-level promise cache
+  // in loadMathQuizzes() makes repeat opens resolve instantly.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!quizOpen) return undefined;
+    if (!found || !found.lesson.hasMathQuiz) return undefined;
+    let cancelled = false;
+    loadMathQuizzes().then((banks) => {
+      if (cancelled) return;
+      setQuizBankEntry({ forId: id, bank: banks[id] || null });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, quizOpen, found]);
+
+  // Reset scroll to the top + page to 0 + close any open quiz whenever the
+  // lesson id changes. Without this, navigating Continue from the bottom of
+  // one lesson lands you at the bottom of the next one because React Router
+  // reuses the component, the page index would persist across lessons, and a
+  // quiz left open across browser back/forward would strand the new lesson
+  // (every keyboard handler and the auto-complete effect bail on quizOpen).
+  useEffect(() => {
     setCurrentPage(0);
+    setQuizOpen(false);
+    if (typeof window === 'undefined') return;
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [id]);
 
@@ -2442,40 +2585,11 @@ export default function Lesson() {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [currentPage]);
 
-  // Reset the active block marker whenever the lesson or current page
-  // changes — otherwise the ProgressTrack would briefly flash "all past"
-  // state from the prior page before the observer fires for page 1 block 0.
-  useEffect(() => {
-    setActiveIdx(0);
-  }, [id, currentPage]);
-
-  // IntersectionObserver for per-block ProgressTrack. We observe every
-  // top-level block container that the renderer tagged with data-block-idx.
-  // rootMargin '-30% 0px -30% 0px' creates a thin horizontal band in the
-  // middle 40% of the viewport — a block is considered "current" once it
-  // enters that band, which feels right when slowly scrolling. threshold 0
-  // means any intersection within that band counts (we don't need a fixed %).
-  // The effect re-runs on id, page change, and after the body finishes
-  // loading so the observer always points at the right DOM nodes.
-  useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return undefined;
-    const els = blockRefs.current.filter(Boolean);
-    if (els.length === 0) return undefined;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            const raw = e.target.dataset.blockIdx;
-            const idx = raw == null ? NaN : parseInt(raw, 10);
-            if (!Number.isNaN(idx)) setActiveIdx(idx);
-          }
-        });
-      },
-      { rootMargin: '-30% 0px -30% 0px', threshold: 0 },
-    );
-    els.forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
-  }, [id, currentPage, bodyLoading]);
+  // NOTE: the per-block IntersectionObserver that used to live here (driving
+  // setActiveIdx on THIS component, i.e. re-rendering the entire lesson tree
+  // on every scroll tick) moved into <LessonProgressRail> below — the only
+  // consumer of activeIdx. Blocks never read it; they only carry the
+  // data-block-idx attributes the rail observes.
 
   // Auto-complete when the sentinel scrolls into view. Fires only when the
   // user has actually reached the bottom of the LAST page (the sentinel
@@ -2487,6 +2601,11 @@ export default function Lesson() {
   // motivation. We read `entry?.cliffhanger` inside the effect so each
   // completion path (sentinel-IO, fallback, manual) uses the freshest body.
   useEffect(() => {
+    // Stale-entry guard: until the loader effect swaps `entry` for THIS id,
+    // anything on screen (sentinel included) still belongs to the PREVIOUS
+    // lesson — a short prior page could otherwise mark a never-viewed lesson
+    // complete under the new id.
+    if (entryForId !== id) return;
     if (isComplete) return;
     if (quizOpen) return;
     const el = endRef.current;
@@ -2518,29 +2637,75 @@ export default function Lesson() {
     // bodyLoading included so the observer re-attaches AFTER the placeholder
     // is replaced with the real lesson body (the sentinel ref only exists
     // once the body has mounted). entry included so cliff text is fresh.
-  }, [id, isComplete, quizOpen, complete, setCliffhanger, currentPage, bodyLoading, entry]);
+  }, [id, entryForId, isComplete, quizOpen, complete, setCliffhanger, currentPage, bodyLoading, entry]);
+
+  // ── Derived render structures, memoized on the loaded body ───────────────
+  // buildGroups + the page chunking + the per-page block count used to be
+  // recomputed inline on EVERY render. They only actually change when the
+  // lesson body (or the visible page) changes, so they're memoized here.
+  // They live BEFORE the early returns to keep hook order stable; all of
+  // them degrade gracefully while `entry` is still null.
+  const sections = useMemo(
+    () => (entry && Array.isArray(entry.sections) ? entry.sections : []),
+    [entry],
+  );
+  // Group resolution. Practice-marker sections are dropped by buildGroups;
+  // what's left is the visible-section list.
+  const groups = useMemo(
+    () => (sections.length > 0 ? buildGroups(sections) : []),
+    [sections],
+  );
+  // Page chunking. Per mobile-ux-principles (cap progress indicators at ~5
+  // segments), we chunk sections so most lessons land at 1-3 pages. Rule:
+  //   ≤3 sections    → 1 page
+  //   4-6 sections   → 2 pages (split as evenly as possible)
+  //   7-9 sections   → 3 pages
+  //   10+ sections   → 4 pages (still capped — long lessons get denser pages)
+  const { pages, pageCount } = useMemo(() => {
+    const count = Math.max(1, Math.min(4, Math.ceil(groups.length / 3)));
+    const sectionsPerPage = Math.ceil(groups.length / count);
+    const chunked = [];
+    for (let i = 0; i < groups.length; i += sectionsPerPage) {
+      chunked.push(groups.slice(i, i + sectionsPerPage));
+    }
+    if (chunked.length === 0) chunked.push([]);
+    return { pages: chunked, pageCount: count };
+  }, [groups]);
+  // Clamp currentPage so we don't fall off the end if the lesson body changes.
+  const safePage = Math.min(currentPage, pages.length - 1);
+  const visiblePage = pages[safePage] || [];
+  // Count the trackable block units on the visible page so the ProgressTrack
+  // can render the right number of dots. One unit per section heading (if any)
+  // plus one unit per body block. (buildGroups only emits { kind: 'section' }
+  // groups, so there's no practice-group case here.) The matching
+  // `data-block-idx` indices are assigned inside the render below so counter
+  // math here MUST stay in sync with that render order.
+  const pageBlockCount = useMemo(() => {
+    let n = 0;
+    for (const g of visiblePage) {
+      if (g.section) {
+        if (g.section.heading) n += 1;
+        n += Array.isArray(g.section.body) ? g.section.body.length : 0;
+      }
+    }
+    return n;
+  }, [visiblePage]);
 
   // Keyboard shortcuts (Lesson). Lives BEFORE the early returns so the hook
   // call order stays stable across the loading / not-found branches. The
-  // handlers derive page count from the loaded `entry` on the fly — pre-load
-  // they degrade to lesson-level prev/next (still useful), and after load
-  // they page within the lesson before crossing to the next/prev lesson.
+  // handlers read the memoized page count derived from `entry` — pre-load it
+  // degrades to lesson-level prev/next (still useful), and after load they
+  // page within the lesson before crossing to the next/prev lesson.
   useKeyboardShortcuts(
     {
       ArrowRight: () => {
         if (quizOpen) return;
-        const sections = entry && Array.isArray(entry.sections) ? entry.sections : [];
-        const groups = sections.length > 0 ? buildGroups(sections) : [];
-        const pageCount = Math.max(1, Math.min(4, Math.ceil(groups.length / 3) || 1));
         const isLastPage = currentPage >= pageCount - 1;
         if (!isLastPage) setCurrentPage(currentPage + 1);
         else if (found && found.next) nav(`/lesson/${found.next.id}`);
       },
       l: () => {
         if (quizOpen) return;
-        const sections = entry && Array.isArray(entry.sections) ? entry.sections : [];
-        const groups = sections.length > 0 ? buildGroups(sections) : [];
-        const pageCount = Math.max(1, Math.min(4, Math.ceil(groups.length / 3) || 1));
         const isLastPage = currentPage >= pageCount - 1;
         if (!isLastPage) setCurrentPage(currentPage + 1);
         else if (found && found.next) nav(`/lesson/${found.next.id}`);
@@ -2572,19 +2737,23 @@ export default function Lesson() {
   if (!found) return <div className="screen"><p className="caption">Lesson not found.</p></div>;
   const { path, pathKey, lesson, next, prev, idx: lessonIdx, total: lessonTotal } = found;
   // `entry` is populated by the async loader above; on the first paint after a
-  // navigation it can still be null while the path body file is in flight.
-  if (bodyLoading) {
+  // navigation it can still be null (fresh path file in flight) or STALE —
+  // the cached loader resolves in a microtask, so `entry` belongs to the
+  // previous lesson until entryForId catches up. Show the placeholder in both
+  // cases so lesson B never paints (or reconciles onto) lesson A's body.
+  if (bodyLoading || entryForId !== id) {
     return <div className="screen"><p className="caption">Loading lesson…</p></div>;
   }
-  const sections = entry && Array.isArray(entry.sections) ? entry.sections : [];
   const hasRich = sections.length > 0;
 
-  // Math-quiz gating: lesson must opt in via `hasMathQuiz` AND the bank must
-  // actually contain questions for it. Otherwise we hide the CTA entirely
-  // rather than promise something we can't deliver.
-  const quizBank = mathQuizzes[id];
-  const quizAvailable =
-    !!lesson.hasMathQuiz && Array.isArray(quizBank?.questions) && quizBank.questions.length > 0;
+  // Math-quiz gating: keyed off the PATHS meta flag alone — the bank itself
+  // loads on demand when the pane opens, so question counts aren't knowable
+  // up front anymore. Every hasMathQuiz lesson is supposed to ship a bank;
+  // if the loaded bank turns out empty the pane shows a quiet "unavailable"
+  // state instead of crashing (or retroactively hiding the CTA).
+  const quizAvailable = !!lesson.hasMathQuiz;
+  const quizBankReady = !!(quizBankEntry && quizBankEntry.forId === id);
+  const quizBank = quizBankReady ? quizBankEntry.bank : null;
 
   // Lesson-kind decorations.
   const isSdLesson = lesson.kind === 'sd' || lesson.sd === true;
@@ -2627,46 +2796,12 @@ export default function Lesson() {
   // Big serif title comes next, then optional tagline (used by SD lessons),
   // then a small mono bottom row with duration + DEEP / ∑ MATH / ◇ SD chips.
   // PAGE k/m intentionally omitted: the lesson body is a single scroll.
-  // Group resolution + page count. Practice-marker sections were already
-  // dropped by buildGroups; what's left is the visible-section list.
-  // Per mobile-ux-principles (cap progress indicators at ~5 segments),
-  // we chunk sections so most lessons land at 1-3 pages. Rule:
-  //   ≤3 sections    → 1 page
-  //   4-6 sections   → 2 pages (split as evenly as possible)
-  //   7-9 sections   → 3 pages
-  //   10+ sections   → 4 pages (still capped — long lessons get denser pages)
-  const groups = hasRich ? buildGroups(sections) : [];
-  const pageCount = Math.max(1, Math.min(4, Math.ceil(groups.length / 3)));
-  const sectionsPerPage = Math.ceil(groups.length / pageCount);
-  // Pre-chunk groups into pages so the renderer can drop in the slice for
-  // currentPage without recomputing on every render.
-  const pages = [];
-  for (let i = 0; i < groups.length; i += sectionsPerPage) {
-    pages.push(groups.slice(i, i + sectionsPerPage));
-  }
-  if (pages.length === 0) pages.push([]);
-  // Clamp currentPage so we don't fall off the end if the lesson body changes.
-  const safePage = Math.min(currentPage, pages.length - 1);
+  // Group resolution, page chunking, and the per-page block count are
+  // memoized ABOVE the early returns (see the "Derived render structures"
+  // block) — `groups`, `pages`, `pageCount`, `safePage`, `visiblePage`, and
+  // `pageBlockCount` are already in scope here.
   const isFirstPage = safePage === 0;
   const isLastPage = safePage === pages.length - 1;
-  const visiblePage = pages[safePage] || [];
-
-  // ── Per-block micro-progress (ProgressTrack) ──────────────────────────────
-  // Count the trackable block units on the visible page so the ProgressTrack
-  // can render the right number of dots. One unit per section heading (if any)
-  // plus one unit per body block, or a single unit for a practice group. The
-  // matching `data-block-idx` indices are assigned inside the render below so
-  // counter math here MUST stay in sync with that render order.
-  let pageBlockCount = 0;
-  for (const g of visiblePage) {
-    if (g.kind === 'practice') {
-      pageBlockCount += 1;
-    } else if (g.section) {
-      if (g.section.heading) pageBlockCount += 1;
-      const bodyLen = Array.isArray(g.section.body) ? g.section.body.length : 0;
-      pageBlockCount += bodyLen;
-    }
-  }
 
   const pathSegment = `${path.icon} ${path.name.toUpperCase()}`;
   const sectionSegment = lesson.section ? ` · ${lesson.section}` : '';
@@ -2734,17 +2869,44 @@ export default function Lesson() {
   // We keep the header card for context but hide the lesson body, math CTA,
   // and the bottom "Mark complete" button. Skipping or finishing the quiz
   // marks the lesson complete and re-shows the body.
+  //
+  // The bank arrives async (dynamic import, see the loader effect above), so
+  // the pane has three states: loading (import in flight), playable (bank
+  // entry with questions), and a quiet "unavailable" fallback for the
+  // shouldn't-happen case of a hasMathQuiz lesson with no/empty bank.
   if (quizOpen && quizAvailable) {
+    const quizPlayable =
+      quizBankReady && Array.isArray(quizBank?.questions) && quizBank.questions.length > 0;
     return (
       <div className="screen fade-in">
         {headerCard}
-        <MathQuiz
-          lessonId={id}
-          title={quizBank.title || lesson.title}
-          questions={quizBank.questions}
-          onSkip={handleQuizSkip}
-          onComplete={handleQuizComplete}
-        />
+        {!quizBankReady ? (
+          <div className="card">
+            <p className="caption">Loading quiz…</p>
+          </div>
+        ) : quizPlayable ? (
+          <MathQuiz
+            key={id}
+            lessonId={id}
+            title={quizBank.title || lesson.title}
+            questions={quizBank.questions}
+            onSkip={handleQuizSkip}
+            onComplete={handleQuizComplete}
+          />
+        ) : (
+          <div className="card">
+            <p className="caption" style={{ marginBottom: 12 }}>
+              This quiz isn&apos;t available right now — head back to the lesson and
+              keep moving.
+            </p>
+            <button
+              className="btn btn-block"
+              onClick={() => setQuizOpen(false)}
+            >
+              ← Back to the lesson
+            </button>
+          </div>
+        )}
         <CelebrationMoment />
         <CodeCopyToast />
       </div>
@@ -2818,11 +2980,25 @@ export default function Lesson() {
           )}
           {/* Per-block micro-progress. Hidden on tiny pages (<3 blocks) where
               the track would be more noise than signal. Lives INSIDE the body
-              card so it scrolls away with the content (not sticky-to-viewport). */}
+              card so it scrolls away with the content (not sticky-to-viewport).
+              The rail owns the IntersectionObserver + activeIdx state, so
+              scroll ticks re-render only it — not this whole tree. The key
+              remounts it per lesson/page, which both resets activeIdx to 0
+              and re-attaches the observer to the fresh DOM nodes. */}
           {pageBlockCount >= 3 && (
-            <ProgressTrack count={pageBlockCount} activeIdx={activeIdx} />
+            <LessonProgressRail
+              key={`rail-${id}-${safePage}`}
+              blockRefs={blockRefs}
+              count={pageBlockCount}
+            />
           )}
-          <div className="lesson-body">
+          {/* key={id}: hard-remount the whole body subtree per lesson.
+              Sections/blocks below are keyed by POSITION only, so on
+              same-path navigation (cached loader → the loading placeholder
+              may never commit) React would otherwise reconcile lesson B onto
+              lesson A's mounted block instances — leaking locked PredictBlock
+              picks and PracticeBlock editor text across lessons. */}
+          <div className="lesson-body" key={id}>
             {(() => {
               // Reset the ref array each render — the visible page's block
               // count + ordering changes when the user pages forward/back, so
@@ -2835,24 +3011,6 @@ export default function Lesson() {
               const trackedRef = (i) => (el) => { blockRefs.current[i] = el; };
               return visiblePage.map((g, gidx) => {
                 const isLastOnPage = gidx === visiblePage.length - 1;
-                if (g.kind === 'practice') {
-                  const bi = cursor++;
-                  return (
-                    <section
-                      key={g.key}
-                      ref={trackedRef(bi)}
-                      data-block-idx={bi}
-                      style={{ marginBottom: isLastOnPage ? 0 : 18 }}
-                    >
-                      <PracticeBlock
-                        prompt={g.prompt}
-                        starter={g.starter}
-                        expected={g.expected}
-                        hints={g.hints}
-                      />
-                    </section>
-                  );
-                }
                 const { section: sec, idx: sidx } = g;
                 const bodyArr = sec.body || [];
                 return (
@@ -3052,6 +3210,50 @@ export default function Lesson() {
       )}
     </div>
   );
+}
+
+// LessonProgressRail — owns the per-block IntersectionObserver and the
+// activeIdx state it drives, so scroll ticks re-render ONLY this small track.
+// (The observer used to call setState on the root Lesson component, which
+// re-rendered the header, every block, and every SVG on each scroll step.
+// Blocks never consume activeIdx — they only carry the data-block-idx
+// attributes this rail observes — so the state can live entirely down here.)
+//
+// The render site keys this component by lesson id + page: remounting on
+// either change is what resets activeIdx to 0 (the old root effect's job)
+// and re-attaches the observer to the fresh DOM nodes. The parent assigns
+// blockRefs.current during the same commit; refs populate before child
+// effects fire, so the mount effect always sees the final node list.
+function LessonProgressRail({ blockRefs, count }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  // IntersectionObserver for the per-block ProgressTrack. We observe every
+  // top-level block container that the renderer tagged with data-block-idx.
+  // rootMargin '-30% 0px -30% 0px' creates a thin horizontal band in the
+  // middle 40% of the viewport — a block is considered "current" once it
+  // enters that band, which feels right when slowly scrolling. threshold 0
+  // means any intersection within that band counts (we don't need a fixed %).
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return undefined;
+    const els = blockRefs.current.filter(Boolean);
+    if (els.length === 0) return undefined;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            const raw = e.target.dataset.blockIdx;
+            const idx = raw == null ? NaN : parseInt(raw, 10);
+            if (!Number.isNaN(idx)) setActiveIdx(idx);
+          }
+        });
+      },
+      { rootMargin: '-30% 0px -30% 0px', threshold: 0 },
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, [blockRefs, count]);
+
+  return <ProgressTrack count={count} activeIdx={activeIdx} />;
 }
 
 // ProgressTrack — per-block micro-progress row. One small bar per top-level

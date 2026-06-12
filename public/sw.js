@@ -14,28 +14,46 @@
 //     and the WASM is large; better to let the browser HTTP cache handle it.
 //   - Anything else cross-origin → bypass.
 //
-// On a new SW activation, all previous caches are deleted. There's no
+// On a new SW activation, all previous infralearn-* caches are deleted.
+// (ONLY infralearn-* — the bchocyn.github.io origin is shared by every
+// project site, so other apps' caches must be left alone.) There's no
 // long-tail cache version compatibility — the next visit picks up the
 // freshest shell.
 
-// Bumped to v3: install no longer unconditionally calls skipWaiting() (that
-// hijacked open tabs mid-session). Activation no longer self-claims. A new
-// SW now waits in the 'installed' state until the page explicitly posts
-// {type:'SKIP_WAITING'} after the user confirms the update toast. The
-// activate-step cleanup drops every v1-* / v2-* cache on first activation.
-const CACHE_VERSION = 'infralearn-v3';
-const SHELL_CACHE = `${CACHE_VERSION}-shell`;
-const ASSETS_CACHE = `${CACHE_VERSION}-assets`;
+// Lifecycle: install does NOT unconditionally call skipWaiting() (that
+// hijacked open tabs mid-session). Activation does not self-claim. A new
+// SW waits in the 'installed' state until the page explicitly posts
+// {type:'SKIP_WAITING'} after the user confirms the update toast.
 
 // Build-time-injected precache manifest. The `precache-manifest` plugin in
 // vite.config.js replaces the sentinel below (after the build emits dist/)
-// with a JSON array of the hashed JS/CSS/font chunks + beast sprites, as
-// base-relative paths. An empty array keeps the SW functional in dev / before
-// substitution.
+// with a JSON array of the hashed JS/CSS/font chunks + beast sprites and
+// beasts/manifest.json, as base-relative paths. An empty array keeps the SW
+// functional in dev / before substitution.
 const PRECACHE_ASSETS = /*__PRECACHE_MANIFEST_START__*/[]/*__PRECACHE_MANIFEST_END__*/;
 
+// Cache version is DERIVED from the precache manifest (short djb2 hash of
+// its JSON) instead of hand-bumped. Any deploy that changes the emitted
+// asset set therefore gets fresh cache names, so a waiting SW installs into
+// ITS OWN caches — it never writes into the caches the live SW is serving
+// from — and the activate cleanup below prunes every superseded
+// infralearn-* cache (stale hashed chunks included) in one sweep.
+// NB: PRECACHE_ASSETS must be defined above — the manifest is injected into
+// this file before the SW evaluates, so the hash sees the real array.
+function precacheHash(list) {
+  const str = JSON.stringify(list);
+  let h = 5381;
+  for (let i = 0; i < str.length; i += 1) {
+    h = ((h << 5) + h + str.charCodeAt(i)) >>> 0; // djb2 (h*33 + c), unsigned 32-bit
+  }
+  return h.toString(36);
+}
+const CACHE_VERSION = `infralearn-${precacheHash(PRECACHE_ASSETS)}`;
+const SHELL_CACHE = `${CACHE_VERSION}-shell`;
+const ASSETS_CACHE = `${CACHE_VERSION}-assets`;
+
 // The shell URL the SW falls back to when offline. Computed relative to the
-// SW's own scope, which matches the Vite `base` (e.g. /MLOps-Fundaments-learning-page/).
+// SW's own scope, which matches the Vite `base` (/InfraLearn/).
 function shellURL() {
   return new URL('./', self.registration.scope).href;
 }
@@ -54,16 +72,19 @@ self.addEventListener('install', (event) => {
     // user-facing "Update available — Reload" toast in main.jsx).
     //
     // Warm the shell cache so the very first offline load works.
+    // {cache:'reload'} bypasses the HTTP cache: GitHub Pages serves HTML
+    // with max-age=600, so a default-mode fetch during an update could
+    // precache a 10-minute-stale shell.
     const cache = await caches.open(SHELL_CACHE);
     try {
-      await cache.add(shellURL());
+      await cache.add(new Request(shellURL(), { cache: 'reload' }));
     } catch (_) { /* offline at install time — ignore */ }
     // Pre-cache offline.html so cold-install offline navigations have something
     // branded to render. Failure here is non-fatal; the navigation handler
     // gracefully degrades to a plain 503 if neither shell nor offline.html
     // are available.
     try {
-      await cache.add(offlineURL());
+      await cache.add(new Request(offlineURL(), { cache: 'reload' }));
     } catch (_) { /* same */ }
     // Pre-cache the build-time manifest of hashed assets so a first-time
     // offline navigation to an unvisited route resolves without a chunk-load
@@ -75,6 +96,19 @@ self.addEventListener('install', (event) => {
     await Promise.all(PRECACHE_ASSETS.map(async (path) => {
       try {
         const url = new URL(path, self.registration.scope).href;
+        // assets/* are content-hashed, hence immutable: when any existing
+        // infralearn-* cache (the outgoing version's, typically) already
+        // holds this URL, copy the cached response forward instead of
+        // re-downloading the whole bundle on every deploy. Non-hashed
+        // entries (beasts/, etc.) always take the {cache:'reload'} network
+        // path so updates to them are actually picked up.
+        if (path.startsWith('assets/')) {
+          const old = await caches.match(url);
+          if (old) {
+            await assetCache.put(url, old.clone());
+            return;
+          }
+        }
         const res = await fetch(url, { cache: 'reload' });
         if (res && res.ok) await assetCache.put(url, res);
       } catch (_) { /* one bad asset shouldn't break install */ }
@@ -84,10 +118,17 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    // Drop caches from older versions of this SW.
+    // Drop caches from older versions of this SW — but ONLY our own
+    // infralearn-* caches. The Cache Storage API is per-ORIGIN and
+    // bchocyn.github.io hosts every project site, so an unprefixed filter
+    // here would delete sibling projects' caches too.
     const keep = new Set([SHELL_CACHE, ASSETS_CACHE]);
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => !keep.has(k)).map((k) => caches.delete(k)));
+    await Promise.all(
+      keys
+        .filter((k) => k.startsWith('infralearn-') && !keep.has(k))
+        .map((k) => caches.delete(k))
+    );
     // NB: no clients.claim() — the new SW only takes control once existing
     // tabs reload (which the update-toast in main.jsx triggers via the
     // controllerchange handler). This prevents the new SW from intercepting
@@ -155,10 +196,18 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
-        const cache = await caches.open(SHELL_CACHE);
-        // Only cache a real, successful same-origin shell — never a 4xx/5xx,
-        // opaque, or redirected response (would poison the offline shell).
-        if (fresh && fresh.ok && fresh.type === 'basic') cache.put(shellURL(), fresh.clone()).catch(() => {});
+        // Only refresh the cached shell when the navigation actually WAS the
+        // shell. Every same-origin HTML navigation lands here (offline.html,
+        // 404.html, …) and blindly cache.put()ing it under the shell key
+        // would poison the offline shell — e.g. one online visit to
+        // offline.html and offline users get the offline page forever.
+        // And never cache a 4xx/5xx, opaque, or redirected response.
+        const isShellNav =
+          new URL(req.url).pathname === new URL(shellURL(), self.location).pathname;
+        if (isShellNav && fresh && fresh.ok && fresh.type === 'basic') {
+          const cache = await caches.open(SHELL_CACHE);
+          cache.put(shellURL(), fresh.clone()).catch(() => {});
+        }
         return fresh;
       } catch (_) {
         // 1. Try the cached app shell — keeps HashRouter alive offline.

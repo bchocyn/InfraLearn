@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
-import { PATHS } from '../data/content.js';
+import { PATHS, PATH_KEYS } from '../data/content.js';
 import { loadLessonsForPath, LESSON_PATH_KEYS } from '../data/lessons/loader.js';
 
 // DailyChallengeCard — pinned recall card on Home. ONE question per day, drawn
@@ -109,9 +109,26 @@ export default function DailyChallengeCard() {
     );
   }
 
+  // --- Loading state: concept picked but its body chunk isn't here yet ------
+  // Without this gate buildChallenge falls through to the recall fallback with
+  // reveal = tagline/title — i.e. the question echoed as its own answer — and
+  // a self-grade burns the day's challenge on garbage. Render a non-interactive
+  // stub until real content exists.
+  if (challenge.kind === 'loading') {
+    return (
+      <div className="card daily-challenge" aria-busy="true">
+        <div className="kicker daily-kicker">🎯 TODAY&apos;S CHALLENGE · ~60s</div>
+        <div className="daily-title">{challenge.title}</div>
+      </div>
+    );
+  }
+
   // --- Active state: question to answer -------------------------------------
+  // Keyed by concept so revealed/picked state can't carry across logically
+  // different questions when the challenge object changes shape mid-interaction.
   return (
     <ActiveChallenge
+      key={challenge.conceptId || dailyChallenge.conceptId}
       challenge={challenge}
       conceptMeta={conceptMeta}
       onAnswer={(correct, confidence) => answerDailyChallenge(correct, confidence)}
@@ -278,11 +295,12 @@ function pathKeyForLesson(lessonId) {
 
 // Find the first lesson the user hasn't completed (any path). Used by the
 // empty-state CTA so we don't dead-end users with "complete your first lesson"
-// and no link to follow. Order: fundamentals → devops → mlops → ... (the
-// natural progression).
+// and no link to follow. Order comes from PATH_KEYS (content.js declaration
+// order: fundamentals → devops → mlops → ... → fullstack → cybersec) so newly
+// added paths are covered automatically — a hard-coded list left the CTA a
+// no-op once the listed paths were finished.
 function firstIncompleteLesson(completed) {
-  const order = ['fundamentals', 'devops', 'mlops', 'swe', 'mleng', 'faang'];
-  for (const k of order) {
+  for (const k of PATH_KEYS) {
     const p = PATHS[k];
     if (!p) continue;
     const hit = p.lessons.find((l) => !completed?.[l.id]);
@@ -298,12 +316,14 @@ function firstIncompleteLesson(completed) {
 //   3. tagline / first paragraph — tap-to-reveal recall fallback
 // Returns an object with `kind: 'mcq' | 'recall'` driving the renderer.
 function buildChallenge(lesson, body) {
-  if (!lesson) {
-    // Defensive — selection guarantees a lesson, but the loader race could
-    // leave body null briefly. Return a safe empty MCQ so the card still
-    // renders something while the body finishes loading.
+  if (!lesson || body === null) {
+    // Concept metadata may resolve before loadLessonsForPath delivers the
+    // body (it's an async chunk). Until the body exists, NONE of the layers
+    // below have real content — the recall fallback would echo the question
+    // as its own answer. Return a non-interactive loading stub instead; the
+    // renderer shows a static card for kind 'loading'.
     return {
-      kind: 'recall',
+      kind: 'loading',
       title: 'Loading…',
       reveal: '',
       explain: '',

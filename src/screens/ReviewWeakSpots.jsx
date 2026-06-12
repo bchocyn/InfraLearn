@@ -9,13 +9,20 @@ import FeedbackPanel from '../components/FeedbackPanel.jsx';
 // wrong, with the same per-choice feedback panel the in-lesson MathQuiz uses.
 // Entries clear automatically when the user retakes that quiz and gets the
 // question right (handled in MathQuiz's submit() via clearQuizMiss).
+//
+// Daily-practice recall misses live under the synthetic '__daily_practice__'
+// key (written by Home's free-recall self-grade). They have no options bank —
+// the prompt string IS the question — so they render in their own group as
+// prompt-only cards with a manual "Got it now" clear action.
 
 const LETTERS = ['A', 'B', 'C', 'D'];
+const DAILY_KEY = '__daily_practice__';
 
 // Build a flat list of misses joined to the full question + lesson metadata.
 function collectMisses(quizMisses) {
   const out = [];
   for (const [lessonId, byPrompt] of Object.entries(quizMisses || {})) {
+    if (lessonId === DAILY_KEY) continue;      // rendered separately below
     const bank = mathQuizzes[lessonId];
     if (!bank) continue;                       // bank deleted since miss recorded
     const lessonMeta = findLessonMeta(lessonId);
@@ -45,8 +52,15 @@ function findLessonMeta(lessonId) {
 
 export default function ReviewWeakSpots() {
   const quizMisses = useStore((s) => s.quizMisses);
+  const clearQuizMiss = useStore((s) => s.clearQuizMiss);
   const nav = useNavigate();
   const misses = useMemo(() => collectMisses(quizMisses), [quizMisses]);
+  // Daily-practice prompts, sorted for a stable render order.
+  const dailyMisses = useMemo(
+    () => Object.keys((quizMisses || {})[DAILY_KEY] || {}).sort(),
+    [quizMisses],
+  );
+  const totalCount = misses.length + dailyMisses.length;
 
   return (
     <div className="screen fade-in">
@@ -61,18 +75,18 @@ export default function ReviewWeakSpots() {
           className="h2"
           style={{ fontFamily: 'var(--font-serif)', fontSize: 22, lineHeight: 1.25, marginTop: 6 }}
         >
-          {misses.length > 0
-            ? `${misses.length} question${misses.length === 1 ? '' : 's'} to revisit`
+          {totalCount > 0
+            ? `${totalCount} question${totalCount === 1 ? '' : 's'} to revisit`
             : 'Nothing to review — yet'}
         </h1>
         <p className="caption" style={{ marginTop: 6 }}>
-          {misses.length > 0
-            ? "These are the math-quiz questions you've missed. Retake the lesson's quiz to clear them."
-            : 'When you miss a math-quiz question, it shows up here for review until you get it right.'}
+          {totalCount > 0
+            ? 'Questions you’ve missed. Math-quiz items clear when you retake the lesson’s quiz; daily-practice items clear when you mark them "Got it now".'
+            : 'When you miss a math-quiz or daily-practice question, it shows up here for review until you get it right.'}
         </p>
       </div>
 
-      {misses.length === 0 && (
+      {totalCount === 0 && (
         <div className="card">
           <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             Open a math-flagged lesson from the <Link to="/roadmap">roadmap</Link> and take its quiz —
@@ -191,6 +205,69 @@ export default function ReviewWeakSpots() {
           </button>
         </div>
       ))}
+
+      {/* Daily-practice recall misses — prompt-only cards (no options bank
+          exists for the synthetic key). "Got it now" is the manual clear:
+          unlike math quizzes there's no retake flow that proves the recall,
+          so the learner self-certifies, same as the in-session self-grade. */}
+      {dailyMisses.length > 0 && (
+        <>
+          <div
+            className="mono"
+            style={{
+              fontSize: 10,
+              color: 'var(--accent-amber)',
+              letterSpacing: '.18em',
+              margin: '14px 2px 8px',
+            }}
+          >
+            DAILY PRACTICE
+          </div>
+          {dailyMisses.map((prompt) => (
+            <div className="card" key={`dp-${prompt}`}>
+              <div
+                className="mono"
+                style={{
+                  fontSize: 9,
+                  color: 'var(--text-tertiary)',
+                  letterSpacing: '.16em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Daily practice · Free recall
+              </div>
+              <div
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  marginTop: 6,
+                  marginBottom: 4,
+                  lineHeight: 1.35,
+                }}
+              >
+                {prompt}
+              </div>
+              <p className="caption" style={{ marginTop: 6 }}>
+                Missed during a free-recall session. When you can answer it from
+                memory, clear it below.
+              </p>
+              <button
+                className="btn btn-block"
+                style={{
+                  marginTop: 12,
+                  borderColor: 'var(--status-success)',
+                  color: 'var(--status-success)',
+                }}
+                onClick={() => clearQuizMiss(DAILY_KEY, prompt)}
+              >
+                ✓ Got it now
+              </button>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
