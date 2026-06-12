@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore.js';
+import { loreFragmentTitle } from '../data/lore.js';
 
 const DURATION_MS = 1500;
 const PARTICLE_COUNT = 16;
@@ -81,16 +82,24 @@ export default function CelebrationMoment() {
 
   const isLevel = local.kind === 'level';
   const isBadge = local.kind === 'badge';
+  const isLore = local.kind === 'lore';
   const headline = isLevel
     ? `Level ${local.level}!`
     : isBadge
       ? 'Badge unlocked!'
-      : `+${local.amount} XP`;
+      : isLore
+        ? 'Codex fragment recovered'
+        : `+${local.amount} XP`;
+  // Embers ride whatever celebration the earning action emitted (see
+  // addEmbers in the store) — shown as a suffix, never their own moment.
+  const emberSuffix = local.embers > 0 ? ` · +${local.embers} ⟡` : '';
   const subline = isLevel
-    ? `+${local.amount} XP · You leveled up.`
+    ? `+${local.amount} XP · You leveled up.${emberSuffix}`
     : isBadge
       ? local.badgeId
-      : 'Nice — that counts.';
+      : isLore
+        ? `${loreFragmentTitle(local.loreId)}${emberSuffix}`
+        : `Nice — that counts.${emberSuffix}`;
 
   return (
     <div

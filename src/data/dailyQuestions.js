@@ -498,6 +498,21 @@ export function pickDailyQuestion(pathKey, level) {
   return bank[day % bank.length];
 }
 
+// pickEncounterQuestion — deterministic question for a journey chapter
+// micro-encounter (journey design §5: quiz-bank questions in story costume).
+// Seeded by (pathKey, chapter) — NOT by day, a chapter encounter shouldn't
+// morph at midnight — and shifted by attempt so a paid retry (1 ⟡) draws a
+// fresh question instead of letting the user brute-force the same one.
+export function pickEncounterQuestion(pathKey, chapter, attempt = 0) {
+  const path = DAILY_QUESTIONS[pathKey] || DAILY_QUESTIONS.fundamentals;
+  const pool = Object.values(path).flat();
+  if (pool.length === 0) return null;
+  const s = `${pathKey}:${chapter}`;
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return pool[(h + attempt * 17) % pool.length];
+}
+
 // pickDailySession — return 5 questions sampled deterministically by day index,
 // drawn from the full DAILY_QUESTIONS pool (ignores active path / level). Same
 // 5 questions across the LOCAL calendar day; rotates at local midnight.

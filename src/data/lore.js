@@ -202,6 +202,91 @@ export const BEAST_LORE = {
   },
 };
 
+// ── Journey chapters (§5) ──────────────────────────────────────────────────
+// Five chapters per province, every gate a REAL learning milestone — story
+// never grinds via games. Costs are ember entry fees (§10: 3–8 ⟡; embers
+// pace, gates force). Beats interpolate the province + its lapse so all 8
+// provinces read distinctly from one canonical template set.
+export const JOURNEY_CHAPTERS = [
+  {
+    n: 1,
+    title: 'Crossing the Threshold',
+    cost: 3,
+    gateLabel: (path) => `Complete a lesson in ${path}`,
+    beat: (prov) =>
+      `${prov.intro} You step past the boundary-stone and the gray thins, just a little. The province knows a Keeper walks it again.`,
+  },
+  {
+    n: 2,
+    title: 'The First Watchfire',
+    cost: 4,
+    gateLabel: (path) => `Reach the bronze seal in ${path} (33%)`,
+    beat: (prov) =>
+      `The first watchfire of ${prov.name} stands cold, its ring of stones older than the Null itself. You bank your embers against the dark and strike. It catches. Somewhere far off, something that feeds on forgetting flinches.`,
+  },
+  {
+    n: 3,
+    title: 'The Relay Relit',
+    cost: 5,
+    gateLabel: () => 'Your beast reaches tier 2 on this path',
+    beat: (prov) =>
+      `Your companion noses the dead relay-tower, remembering its shape. Together you climb. When the beacon takes, ${prov.name} answers with lights of its own — relays that waited an age for one Keeper and one beast who did not quit.`,
+  },
+  {
+    n: 4,
+    title: 'Hold the Line',
+    cost: 6,
+    gateLabel: () => 'Hold a 7-day streak (the Long Watch)',
+    beat: (prov, lapse) =>
+      `Seven nights on the wall. The Null probes for the gap it always finds — the missed day, the unkept patrol — and does not find it. On the seventh dawn the fog peels back, and for one breath you see it watching: ${lapse ? `${lapse.name}, ${lapse.title}` : 'something vast'}. It has noticed you. Good.`,
+  },
+  {
+    n: 5,
+    title: 'Province Reclaimed',
+    cost: 8,
+    gateLabel: (path) => `Earn the gold seal in ${path} (100%)`,
+    beat: (prov, lapse) =>
+      `The last fragment slots home and ${prov.name} REMEMBERS — every shelf, every span, every name the Null unwrote. ${lapse ? `${lapse.name} has fled — for now. What you reclaimed it will want back.` : ''} The province seal burns gold on your ledger. The Watch holds.`,
+  },
+];
+
+// ── Codex fragment titles ──────────────────────────────────────────────────
+// Fragment IDs (canonical schema, validated by the store's scrub):
+//   world:myth                  — the founding myth (granted on first unlock pass)
+//   province:{pathKey}          — first lesson completed in that province
+//   beast:{species}:origin      — species bonded (companion or any training)
+//   beast:{species}:field       — species reaches tier 2 on any path
+//   beast:{species}:saga        — tier 3
+//   beast:{species}:scar        — tier 4 (the null-scar is the deepest secret)
+//   lapse:{lapseId}             — an aligned province pushed to bronze (33%);
+//                                 hollow-ink (finale) needs a gold seal
+// Display titles for the "Codex fragment recovered" celebration + reader.
+import { BEASTS } from './beasts.js';
+
+const BEAST_FRAGMENT_LABEL = {
+  origin: 'Origin',
+  field: 'Field notes',
+  saga: 'Saga of forms',
+  scar: 'Null-scar',
+};
+
+export function loreFragmentTitle(id) {
+  if (typeof id !== 'string') return 'Unknown fragment';
+  if (id === 'world:myth') return 'The Network That Was';
+  const [kind, key, part] = id.split(':');
+  if (kind === 'province') return PROVINCES[key]?.name || 'A lost province';
+  if (kind === 'lapse') {
+    const l = FIVE_LAPSES[key];
+    return l ? `${l.name}, ${l.title}` : 'A nameless lapse';
+  }
+  if (kind === 'beast') {
+    const b = BEASTS[key];
+    const label = BEAST_FRAGMENT_LABEL[part] || 'Codex';
+    return b ? `${b.name} — ${label}` : 'A lost bloodline';
+  }
+  return 'Unknown fragment';
+}
+
 // Keeper-rank names for the 10 XP levels (xpLevel 1..10).
 export const KEEPER_RANKS = [
   'Novice Keeper',

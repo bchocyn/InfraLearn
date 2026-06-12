@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { resolveTier, BEASTS, SPECIES_KEYS, LEVELS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as labProgressFromContent } from '../data/content.js';
+import { PROVINCES, LAPSE_KEYS, JOURNEY_CHAPTERS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
 
 // Allow-lists derived from static data — used to scrub user-supplied backups
@@ -28,6 +29,74 @@ const VALID_LAB_IDS = new Set(Object.keys(VALID_LAB_MILESTONES));
 // version bump).
 const VALID_ACCENTS = ACCENT_KEYS;
 const VALID_BG_THEMES = BG_KEYS;
+// Canonical codex fragment IDs (see loreFragmentTitle in lore.js for the
+// schema). Derived from static data so adding a species/path/lapse extends
+// the allow-list automatically.
+const VALID_LORE_IDS = new Set([
+  'world:myth',
+  ...PATH_KEYS.map((k) => `province:${k}`),
+  ...LAPSE_KEYS.map((k) => `lapse:${k}`),
+  ...SPECIES_KEYS.flatMap((sp) => ['origin', 'field', 'saga', 'scar'].map((p) => `beast:${sp}:${p}`)),
+]);
+
+// ── Journey chapter gates (§5/§10) ─────────────────────────────────────────
+// HARD gates — real learning milestones that no ember balance can buy past.
+// Pure + exported so the Journey screen and tests share one source of truth.
+// Returns { met, label } for chapter n (1..5) of the given province.
+export function journeyGate(pathKey, n, state) {
+  const completed = state.completed || {};
+  const { pct, done } = pathProgress(pathKey, completed);
+  const pathName = PATHS[pathKey]?.name || pathKey;
+  const chapter = JOURNEY_CHAPTERS[n - 1];
+  const label = chapter ? chapter.gateLabel(pathName) : '';
+  switch (n) {
+    case 1: return { met: done > 0, label };
+    case 2: return { met: pct >= 0.33, label };
+    case 3: {
+      // Any species' tier on THIS path — switching companions mid-journey
+      // must never lock a chapter the Keeper already earned.
+      const tiers = state.beastTiers || {};
+      const onPath = Object.values(tiers).map((cells) => cells?.[pathKey] || 1);
+      return { met: Math.max(1, ...onPath) >= 2, label };
+    }
+    case 4: return { met: (state.streakHighWater || 0) >= 7, label };
+    case 5: return { met: pct >= 1, label };
+    default: return { met: false, label: '' };
+  }
+}
+
+// Pure derivation: which codex fragments does this state qualify for?
+// Shared by recomputeLore (organic unlocks, celebrated) and the v15 migrate
+// (silent backfill so long-time users open the codex to their real history).
+// Works on both live store state and the raw persisted blob — it only reads
+// completed / beastTiers / companion.
+export function deriveLoreUnlocks(state) {
+  const out = new Set(['world:myth']);
+  const completed = state.completed || {};
+  const tiers = state.beastTiers || {};
+  let anyGold = false;
+  for (const k of PATH_KEYS) {
+    const { pct, done } = pathProgress(k, completed);
+    if (done > 0) out.add(`province:${k}`);
+    // The province's lapse stirs once you push to bronze — deep enough in
+    // for the villain to take notice.
+    if (pct >= 0.33 && PROVINCES[k]?.lapse) out.add(`lapse:${PROVINCES[k].lapse}`);
+    if (pct >= 1) anyGold = true;
+  }
+  // The Unteacher (finale) only reveals himself to Keepers who have
+  // reclaimed a province outright.
+  if (anyGold) out.add('lapse:hollow-ink');
+  for (const sp of SPECIES_KEYS) {
+    const cells = tiers[sp] || {};
+    const trained = Object.keys(cells).length > 0;
+    if (sp === state.companion || trained) out.add(`beast:${sp}:origin`);
+    const maxTier = trained ? Math.max(...Object.values(cells).map((t) => (Number.isInteger(t) ? t : 1))) : 0;
+    if (maxTier >= 2) out.add(`beast:${sp}:field`);
+    if (maxTier >= 3) out.add(`beast:${sp}:saga`);
+    if (maxTier >= 4) out.add(`beast:${sp}:scar`);
+  }
+  return out;
+}
 const MAX_STR_LEN = 64;
 
 // Background unlock req strings live in BACKGROUNDS as free-form text like
@@ -240,7 +309,7 @@ function bumpStat(stats, day, field, n) {
 // synchronous batch was routinely clobbered by the trailing "+5 XP" ack.
 // Equal rank → latest wins; anything older than 4s is stale (its moment
 // has either been shown by CelebrationMoment or never will be).
-const CELEBRATE_RANK = { level: 3, badge: 2, xp: 1 };
+const CELEBRATE_RANK = { level: 4, badge: 3, lore: 2, xp: 1 };
 function shouldReplaceCelebrate(cur, nextKind) {
   if (!cur) return true;
   if (Date.now() - (cur.at || 0) > 4000) return true;
@@ -314,6 +383,28 @@ const initial = {
   // ascensionsSeen guarantees once-per-path even across re-imports.
   pendingAscension: null,
   ascensionsSeen: {},        // { [pathKey]: true }
+  // ── Ember economy (journey layer §10) ───────────────────────────────────
+  // Embers ⟡ are the journey's soft currency, earned ONLY by learning
+  // actions: lesson +3 · lab +5 · review graded +1 (cap 10/day) · daily
+  // practice done +2 · streak day +1. Spent on journey stage entry, retries
+  // and cosmetics in later phases. Mini-games never mint embers, and no
+  // ember balance can skip a hard gate (path %, seals, tiers, streaks).
+  embers: 0,
+  // Per-day earn-cap counter for review embers. Same date-keyed slot pattern
+  // as dailyPractice — a stale date means fresh counters.
+  emberDaily: { date: null, reviews: 0 },
+  // ── Codex fragments (journey layer §3) ──────────────────────────────────
+  // { [fragmentId]: 'YYYY-MM-DD' } — unlock dates for lore fragments, granted
+  // by real milestones via recomputeLore (never by games or purchases). IDs
+  // are validated against VALID_LORE_IDS on import.
+  loreUnlocked: {},
+  // ── Journey chapter progress (§5) ────────────────────────────────────────
+  // { [pathKey]: { chapter, paid, stars } } — chapter = highest COMPLETED
+  // (0..5), paid = highest entry fee spent (chapter ≤ paid ≤ chapter+1, so a
+  // paid-but-unfinished encounter survives navigation), stars = cumulative
+  // encounter performance (≤3 per chapter, 15 max). Entering needs BOTH the
+  // hard gate (journeyGate) and the ember fee — gates can't be bought.
+  journey: {},
   onboarded: false,
   // First-run app tour ("how to use the app"). false until completed or skipped;
   // resetTour() flips it back so Settings → "How it works" can replay it.
@@ -520,6 +611,8 @@ export const useStore = create(
           const cell = s.beastTiers?.[companion]?.[s.activePath] || 1;
           return { companion, beastTier: cell };
         });
+        // Bonding with a species unlocks its origin fragment.
+        get().recomputeLore();
       },
       setBackground: (beastBackground) => set({ beastBackground }),
       finishOnboarding: () => set({ onboarded: true }),
@@ -555,6 +648,12 @@ export const useStore = create(
         // Lightweight ack — XP system intentionally weighs RECALL heavier.
         get().addXp(5, 'lesson:complete');
         get().computeNewBadges();
+        // After badges so a lore moment never clobbers a fresh gold seal —
+        // CELEBRATE_RANK puts badge above lore.
+        get().recomputeLore();
+        // Embers last: the +3 ⟡ suffix annotates whichever celebration
+        // survived the batch (badge > lore > the plain XP ack).
+        get().addEmbers(3);
       },
 
       // ── XP machinery (Engagement Tier B) ─────────────────────────────
@@ -613,6 +712,40 @@ export const useStore = create(
         set({ practiceCombo: 0 });
       },
       clearCelebration: () => set({ celebrate: null }),
+
+      // ── Ember economy (journey layer) ────────────────────────────────
+      // addEmbers: bump the balance and annotate the LIVE celebration (one
+      // emitted in this same action batch) so the toast reads "+5 XP · +3 ⟡".
+      // Embers never create their own celebration — they ride bigger moments.
+      // The freshness window keeps a silent earn (e.g. a graded miss, which
+      // awards no XP) from retro-labeling a stale toast from a prior action.
+      addEmbers: (amount) => {
+        const n = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
+        if (n <= 0) return;
+        set((s) => {
+          const fresh = s.celebrate && (Date.now() - (s.celebrate.at || 0)) < 1000;
+          return {
+            embers: Math.min(1_000_000, (s.embers || 0) + n),
+            celebrate: fresh
+              ? { ...s.celebrate, embers: (s.celebrate.embers || 0) + n }
+              : s.celebrate,
+          };
+        });
+      },
+      // spendEmbers: deduct when the balance covers the cost; returns whether
+      // it did. Callers (journey stage entry, retries, crafting) check hard
+      // gates separately — embers pace, gates force the learning.
+      spendEmbers: (amount) => {
+        const n = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
+        if (n <= 0) return false;
+        let ok = false;
+        set((s) => {
+          if ((s.embers || 0) < n) return s;
+          ok = true;
+          return { embers: s.embers - n };
+        });
+        return ok;
+      },
 
       // ── Cliffhanger (Zeigarnik open-loop) ────────────────────────────────
       // setCliffhanger stamps the slot with today as savedAt. Called from
@@ -783,6 +916,8 @@ export const useStore = create(
           latched = true;
           return { dailyPractice: { ...cur, done: true } };
         });
+        // Drill embers ride the same once-a-day latch as the perfect bonus.
+        if (latched) get().addEmbers(2);
         return latched;
       },
 
@@ -847,6 +982,76 @@ export const useStore = create(
       },
 
       clearPendingAscension: () => set({ pendingAscension: null }),
+
+      // ── Codex fragment unlocks (journey layer §3) ─────────────────────
+      // Diff current entitlements (deriveLoreUnlocks) against loreUnlocked
+      // and grant what's missing, stamped with today. Emits ONE "Codex
+      // fragment recovered" celebration for the last newly-granted fragment
+      // — except world:myth, which is ambient scene-setting, not a moment.
+      // Idempotent; cheap enough to call after any milestone-bearing action.
+      recomputeLore: () => {
+        const s = get();
+        const have = s.loreUnlocked || {};
+        const wanted = deriveLoreUnlocks(s);
+        const today = isoDay();
+        let added = null;
+        let next = null;
+        for (const id of wanted) {
+          if (have[id]) continue;
+          if (!next) next = { ...have };
+          next[id] = today;
+          if (id !== 'world:myth') added = id;
+        }
+        if (!next) return;
+        set((st) => ({
+          loreUnlocked: next,
+          celebrate: (added && shouldReplaceCelebrate(st.celebrate, 'lore'))
+            ? { id: `lore-${added}-${Date.now()}`, kind: 'lore', loreId: added, at: Date.now() }
+            : st.celebrate,
+        }));
+      },
+
+      // ── Journey chapter actions (§5/§10) ──────────────────────────────
+      // enterChapter: pay the ember fee for chapter n of a province. Only
+      // the NEXT chapter is enterable, only when its hard gate is met, and
+      // only once — re-entry of a paid chapter is free (paid watermark).
+      // Returns { ok, reason } so the screen can explain a refusal.
+      enterChapter: (pathKey, n) => {
+        if (!PATH_KEYS.includes(pathKey)) return { ok: false, reason: 'unknown-province' };
+        if (!Number.isInteger(n) || n < 1 || n > JOURNEY_CHAPTERS.length) {
+          return { ok: false, reason: 'unknown-chapter' };
+        }
+        const cur = get().journey?.[pathKey] || { chapter: 0, paid: 0, stars: 0 };
+        if (cur.paid >= n) return { ok: true, reason: 'already-paid' };
+        if (n !== cur.chapter + 1) return { ok: false, reason: 'chapter-order' };
+        if (!journeyGate(pathKey, n, get()).met) return { ok: false, reason: 'gate' };
+        const cost = JOURNEY_CHAPTERS[n - 1].cost;
+        if (!get().spendEmbers(cost)) return { ok: false, reason: 'embers' };
+        set((s) => ({
+          journey: {
+            ...(s.journey || {}),
+            [pathKey]: { ...cur, paid: n },
+          },
+        }));
+        return { ok: true, reason: 'paid' };
+      },
+      // completeChapter: the encounter was answered correctly. Awards +5 XP
+      // exactly once per chapter (the chapter watermark is the latch) and
+      // records stars (3 = first try, floor 1). Story beats re-read freely.
+      completeChapter: (pathKey, n, stars) => {
+        if (!PATH_KEYS.includes(pathKey)) return;
+        if (!Number.isInteger(n) || n < 1 || n > JOURNEY_CHAPTERS.length) return;
+        const cur = get().journey?.[pathKey] || { chapter: 0, paid: 0, stars: 0 };
+        if (cur.paid < n || cur.chapter >= n) return;
+        const earned = Math.min(3, Math.max(1, Number.isInteger(stars) ? stars : 1));
+        set((s) => ({
+          journey: {
+            ...(s.journey || {}),
+            [pathKey]: { ...cur, chapter: n, stars: Math.min(15, (cur.stars || 0) + earned) },
+          },
+        }));
+        get().addXp(5, `journey:${pathKey}:${n}`);
+      },
 
       // ── Spaced-repetition scheduler (FSRS-flavored) ──────────────────
       // grade: 1=miss, 2=hard, 3=good, 4=easy.
@@ -917,6 +1122,19 @@ export const useStore = create(
         set((s) => ({ dailyStats: bumpStat(s.dailyStats, today, 'reviews', 1) }));
         if (g === 2)      get().addXp(3, 'review:hard');
         else if (g >= 3)  get().addXp(6, 'review:good');
+        // Patrol embers: +1 per graded review — misses included, a patrol
+        // walked is a patrol walked — capped at 10/day so spam-grading can't
+        // mint currency (same anti-farm stance as daily practice).
+        let emberEarned = false;
+        set((s) => {
+          const cur = (s.emberDaily && s.emberDaily.date === today)
+            ? s.emberDaily
+            : { date: today, reviews: 0 };
+          if (cur.reviews >= 10) return { emberDaily: cur };
+          emberEarned = true;
+          return { emberDaily: { ...cur, reviews: cur.reviews + 1 } };
+        });
+        if (emberEarned) get().addEmbers(1);
         // Reviewer:10 badge — 10 reviews graded in one calendar day.
         const todayReviews = get().dailyStats?.[today]?.reviews || 0;
         if (todayReviews >= 10 && !(get().badges || {})['reviewer:10']) {
@@ -1015,6 +1233,8 @@ export const useStore = create(
         if (after.last === today && before.last !== today) {
           set((s) => ({ activityDays: [...new Set([...(s.activityDays || []), today])].slice(-400) }));
           get().addXp(2, 'streak:day');
+          // A night held on the Long Watch — one ember per streak-bearing day.
+          get().addEmbers(1);
           const bonus = STREAK_MILESTONE_BONUS[after.streak];
           if (bonus) {
             get().addXp(bonus, `streak:milestone:${after.streak}`);
@@ -1139,6 +1359,9 @@ export const useStore = create(
         });
         get().completeLesson(labId);
         get().addXp(100, `lab:${labId}`);
+        // Lab bonus on top of the lesson-credit embers (3 + 5 = 8 total),
+        // mirroring how lab XP stacks on the lesson ack (+5 + 100).
+        get().addEmbers(5);
         get().recordActivity();
       },
 
@@ -1174,6 +1397,8 @@ export const useStore = create(
             beastTier: nextTier,           // keep mirror in sync for consumers
             pendingEvolution: s.companion,
           });
+          // Tier-ups unlock beast codex fragments (field/saga/scar).
+          get().recomputeLore();
         }
       },
 
@@ -1289,6 +1514,54 @@ export const useStore = create(
             // so a restore can't replay every ascension.
             pendingAscension: null,
             ascensionsSeen: scrubBoolMap(raw.ascensionsSeen, new Set(PATH_KEYS)),
+            // Ember balance — clamped like xp so a tampered backup can't mint
+            // a fortune. The daily review-cap slot only survives with a well-
+            // formed date and an in-range count (mirrors dailyPractice).
+            embers: scrubInt(raw.embers, 0, 1_000_000, 0),
+            emberDaily: (() => {
+              const d = raw.emberDaily;
+              const empty = { date: null, reviews: 0 };
+              if (!d || typeof d !== 'object') return empty;
+              const date = (typeof d.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) ? d.date : null;
+              if (!date) return empty;
+              return { date, reviews: scrubInt(d.reviews, 0, 10, 0) };
+            })(),
+            // Journey progress — per-province ints clamped to the chapter
+            // count; paid can lead chapter by at most one (the invariant the
+            // actions maintain), so a tampered backup can't pre-pay the road.
+            journey: (() => {
+              const out = {};
+              const m = raw.journey;
+              if (!m || typeof m !== 'object') return out;
+              for (const k of Object.keys(m)) {
+                if (!PATH_KEYS.includes(k)) continue;
+                const e = m[k];
+                if (!e || typeof e !== 'object') continue;
+                const chapter = scrubInt(e.chapter, 0, JOURNEY_CHAPTERS.length, 0);
+                const paid = Math.min(scrubInt(e.paid, 0, JOURNEY_CHAPTERS.length, 0), chapter + 1);
+                out[k] = {
+                  chapter,
+                  paid: Math.max(paid, chapter),
+                  stars: scrubInt(e.stars, 0, 15, 0),
+                };
+              }
+              return out;
+            })(),
+            // Codex fragments — only canonical IDs survive, each with a
+            // well-formed unlock date (malformed dates fall back to today so
+            // a legit fragment isn't dropped over a mangled timestamp).
+            loreUnlocked: (() => {
+              const out = {};
+              const m = raw.loreUnlocked;
+              if (!m || typeof m !== 'object') return out;
+              for (const id of Object.keys(m)) {
+                if (!VALID_LORE_IDS.has(id)) continue;
+                const at = (typeof m[id] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m[id]))
+                  ? m[id] : isoDay();
+                out[id] = at;
+              }
+              return out;
+            })(),
             settings: {
               reducedMotion: raw.settings?.reducedMotion === true,
               hideCompanion: raw.settings?.hideCompanion === true,
@@ -1511,6 +1784,39 @@ export const useStore = create(
                 onboarded: s.onboarded || clean.onboarded,
                 tourSeen: s.tourSeen || clean.tourSeen,
                 ascensionsSeen: { ...(s.ascensionsSeen || {}), ...clean.ascensionsSeen },
+                // Embers: max of both (same stance as xp/streak — merging two
+                // devices must never halve a balance). The daily cap slot only
+                // takes the import's counter when it's TODAY's and local isn't,
+                // so a stale backup can't reopen an already-spent daily cap.
+                embers: Math.max(s.embers || 0, clean.embers),
+                emberDaily: (s.emberDaily?.date === today)
+                  ? s.emberDaily
+                  : (clean.emberDaily?.date === today ? clean.emberDaily : (s.emberDaily || { date: null, reviews: 0 })),
+                // Journey — per-province field-wise max (story progress
+                // never regresses; mirrors the beastTiers stance).
+                journey: (() => {
+                  const merged = { ...(s.journey || {}) };
+                  for (const k of Object.keys(clean.journey || {})) {
+                    const a = merged[k] || { chapter: 0, paid: 0, stars: 0 };
+                    const b = clean.journey[k];
+                    merged[k] = {
+                      chapter: Math.max(a.chapter || 0, b.chapter),
+                      paid: Math.max(a.paid || 0, b.paid),
+                      stars: Math.max(a.stars || 0, b.stars),
+                    };
+                  }
+                  return merged;
+                })(),
+                // Codex union — earliest unlock date wins, like badges.
+                loreUnlocked: (() => {
+                  const merged = { ...(clean.loreUnlocked || {}) };
+                  for (const id of Object.keys(s.loreUnlocked || {})) {
+                    const a = s.loreUnlocked[id];
+                    const b = merged[id];
+                    merged[id] = !b ? a : ([a, b].filter(Boolean).sort()[0] || a);
+                  }
+                  return merged;
+                })(),
                 pendingCliffhanger: s.pendingCliffhanger?.lessonId ? s.pendingCliffhanger : clean.pendingCliffhanger,
                 // NOT merged on purpose (local wins): displayName, avatar,
                 // settings, level, activePath, companion, pendingEvolution,
@@ -1527,6 +1833,8 @@ export const useStore = create(
           // completion (which might never come for review-only users).
           get().computeNewBadges();
           get().recomputeBackgrounds();
+          // Merged progress can newly satisfy codex fragments too.
+          get().recomputeLore();
           return { ok: true };
         } catch (e) {
           return { ok: false, error: String(e) };
@@ -1576,7 +1884,20 @@ export const useStore = create(
       //      Existing gold-seal holders do NOT retroactively get the cinematic
       //      queued (we mark their golds as seen so the new system starts
       //      forward-looking, mirroring the v7 no-backfill stance).
-      version: 13,
+      // v14: ember economy (journey forcing loop). Forward-looking like v7's
+      //      XP stance — no backfill from past lessons; the balance starts at
+      //      0 and accrues from the next learning action. emberDaily is the
+      //      per-day review-earn cap counter (10/day).
+      // v15: codex fragments (loreUnlocked). BACKFILLED from current progress
+      //      — unlike XP, the codex is a record, not a reward stream: a
+      //      Keeper with three provinces walked should open the reader to
+      //      their real history. Seeding in migrate keeps the backfill
+      //      silent (no celebration spam), mirroring the v13 stance.
+      // v16: journey chapter progress. Empty default — chapters are new
+      //      CONTENT to play, not a record: existing users keep their met
+      //      gates (instant access) but still walk the road and pay the
+      //      ember pacing like everyone else.
+      version: 16,
       // Drop the transient celebrate signal from the persisted payload —
       // it's a one-shot UI flag (migrate also clears it defensively for
       // blobs written before this existed).
@@ -1763,6 +2084,44 @@ export const useStore = create(
         }
         if (prevVersion < 13 || persisted.pendingAscension === undefined) {
           persisted.pendingAscension = null;
+        }
+        // v14 — ember economy. Defensive shape-checks stand alone (same as
+        // every block above) so a hand-edited localStorage still heals.
+        if (
+          prevVersion < 14
+          || !Number.isInteger(persisted.embers)
+          || persisted.embers < 0
+        ) {
+          persisted.embers = 0;
+        }
+        if (
+          prevVersion < 14
+          || !persisted.emberDaily
+          || typeof persisted.emberDaily !== 'object'
+        ) {
+          persisted.emberDaily = { date: null, reviews: 0 };
+        }
+        // v15 — codex fragments, backfilled silently from real progress so
+        // the reader opens to the user's actual history (no celebrations
+        // fire from migrate; recomputeLore only celebrates future diffs).
+        if (
+          prevVersion < 15
+          || !persisted.loreUnlocked
+          || typeof persisted.loreUnlocked !== 'object'
+        ) {
+          const seeded = {};
+          const today = isoDay();
+          for (const id of deriveLoreUnlocks(persisted)) seeded[id] = today;
+          persisted.loreUnlocked = seeded;
+        }
+        // v16 — journey chapters. Empty default; the road is walked, not
+        // backfilled (gates already met simply open immediately).
+        if (
+          prevVersion < 16
+          || !persisted.journey
+          || typeof persisted.journey !== 'object'
+        ) {
+          persisted.journey = {};
         }
         // Always clear the ephemeral celebrate flag on rehydrate — it's a
         // transient UI signal, persisting it would replay celebrations on

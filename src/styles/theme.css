@@ -4333,6 +4333,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .celebration-chip-level { border-color: var(--accent-amber); }
 .celebration-chip-badge { border-color: var(--status-success); }
 .celebration-chip-xp    { border-color: var(--accent-amber); }
+.celebration-chip-lore  { border-color: var(--el-mystic); }
 .celebration-headline {
   font-family: var(--font-serif);
   font-size: 22px;
@@ -5355,6 +5356,376 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 }
 @media (prefers-reduced-motion: reduce) {
   .combo-header-chip { animation: none; }
+}
+
+/* ───── Codex (journey lore reader) ─────────────────────────────────────
+ * Locked entries dim as a whole; locked fragments inside an unlocked entry
+ * dim individually. Hints always state the real learning action that opens
+ * the page — the codex never sells shortcuts. */
+.codex-section { margin: 18px 0 8px; }
+.codex-entry { margin-bottom: 10px; }
+.codex-locked { opacity: 0.6; }
+.codex-kicker { margin-bottom: 6px; }
+.codex-title {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.codex-epithet { font-weight: 400; font-size: 12px; color: var(--text-tertiary); }
+.codex-pill { font-size: 8px; }
+.codex-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+.codex-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+.codex-voice {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--el-mystic);
+  background: var(--bg-elevated);
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.codex-haunt {
+  margin-top: 6px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--el-fire);
+}
+.codex-beast-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.codex-shadow { filter: brightness(0) opacity(0.45); }
+.codex-frag {
+  padding: 8px 0 0;
+  margin-top: 8px;
+  border-top: 1px dashed var(--border-subtle);
+}
+.codex-frag-label { margin-bottom: 4px; font-size: 9px; }
+.codex-frag-locked .codex-frag-label { color: var(--text-quaternary, var(--text-tertiary)); }
+
+/* ───── Watchfire Defense (reviews-as-battles) ──────────────────────────
+ * The stage is theater over the honest Reviews loop. fx classes flash for
+ * ~450ms after a grade: strike = beast lunges + wraith dissolves, stagger =
+ * wraith flinches, hit = the fire dims and shakes. wf-static (the user
+ * setting) and the media query freeze everything. */
+.wf-stage {
+  position: relative;
+  height: 120px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(#14121E 0%, #221E33 70%, #2E2A40 100%);
+}
+.wf-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wf-flame { transform-origin: 6px 14px; animation: camp-flicker 600ms steps(3) infinite; }
+.wf-glow { animation: camp-glow-pulse 2.4s ease-in-out infinite; }
+.wf-wraith { animation: wf-drift 3.2s ease-in-out infinite; }
+@keyframes wf-drift {
+  0%, 100% { transform: translate(300px, 40px); }
+  50%      { transform: translate(294px, 36px); }
+}
+.wf-beast {
+  position: absolute;
+  left: 18%;
+  bottom: 10px;
+  transition: transform 180ms ease;
+}
+.wf-fx-strike .wf-beast { transform: translateX(46px); }
+.wf-fx-strike .wf-wraith { animation: wf-dissolve 420ms ease forwards; }
+@keyframes wf-dissolve {
+  from { opacity: 1; transform: translate(300px, 40px); }
+  to   { opacity: 0; transform: translate(308px, 22px); }
+}
+.wf-fx-stagger .wf-wraith { animation: wf-flinch 420ms ease; }
+@keyframes wf-flinch {
+  0%, 100% { transform: translate(300px, 40px); }
+  40%      { transform: translate(312px, 42px); }
+}
+.wf-fx-hit .wf-flame { animation: none; transform: scaleY(0.6); }
+.wf-fx-hit.wf-stage { animation: wf-shake 320ms ease; }
+@keyframes wf-shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-4px); }
+  75%      { transform: translateX(4px); }
+}
+.wf-hearts {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--el-fire);
+}
+.wf-static .wf-flame,
+.wf-static .wf-glow,
+.wf-static .wf-wraith,
+.wf-static.wf-stage { animation: none; }
+.wf-static .wf-beast { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .wf-flame, .wf-glow, .wf-wraith, .wf-stage { animation: none; }
+  .wf-beast { transition: none; }
+}
+
+/* ───── Journey (province chapter road) ─────────────────────────────────
+ * Chapter cards: done = full beat text, paid = live encounter, next =
+ * gate/toll, beyond = dimmed teaser. Province switcher is an icon-pill row
+ * (names live in the header to keep 8 pills on a 375px row). */
+.journey-prov-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+.journey-prov-pill {
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.journey-prov-pill.is-active {
+  border-color: var(--accent-amber);
+  background: var(--accent-amber-bg, rgba(245, 184, 66, 0.12));
+}
+.journey-ch { margin-bottom: 10px; }
+.journey-ch-done { border-left: 3px solid var(--status-success); }
+.journey-ch-locked { opacity: 0.65; }
+.journey-ch-kicker { margin-bottom: 6px; }
+.journey-far { font-style: italic; opacity: 0.7; }
+.journey-stars { color: var(--accent-amber); letter-spacing: 0.08em; }
+.journey-wraith {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--el-mystic);
+  background: var(--bg-elevated);
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ───── Ember chip (journey economy, Home header) ─────────────────────── */
+.ember-header-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: var(--accent-amber-bg, rgba(245, 184, 66, 0.12));
+  border: 1px solid var(--accent-amber-dim, rgba(245, 184, 66, 0.4));
+  color: var(--accent-amber);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1;
+  min-height: 20px;
+}
+
+/* ───── Camp hero (Home journey panel) ──────────────────────────────────
+ * Layered "Keeper and companion at camp" scene. Sky gradient keys to local
+ * time of day; hills drift on two parallax speeds; the watchfire flickers;
+ * the beast breathes (squash-and-stretch, CRK-style) and droops with zzz
+ * when ≥5 reviews are due. `.camp-static` (the reducedMotion setting) and
+ * the media query both freeze every animation. */
+.camp-hero { position: relative; margin-bottom: 12px; }
+.camp-stage {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 172px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.camp-stage:active .camp-beast { transform: scale(1.08, 0.92); }
+/* Time-of-day skies — dawn rose, day blue, dusk amber, night indigo. */
+.camp-sky-dawn  { background: linear-gradient(#41324F 0%, #8A4A44 55%, #C97B4E 100%); }
+.camp-sky-day   { background: linear-gradient(#3D5A73 0%, #5E7E94 60%, #8FA48C 100%); }
+.camp-sky-dusk  { background: linear-gradient(#2E2440 0%, #6E3A4A 55%, #C9784E 100%); }
+.camp-sky-night { background: linear-gradient(#14121E 0%, #221E33 60%, #2E2A40 100%); }
+.camp-sky-dawn  { --camp-hill-back: #4A3A48; --camp-hill-front: #322833; }
+.camp-sky-day   { --camp-hill-back: #44604E; --camp-hill-front: #2E443A; }
+.camp-sky-dusk  { --camp-hill-back: #3A2B3E; --camp-hill-front: #28202C; }
+.camp-sky-night { --camp-hill-back: #232033; --camp-hill-front: #181624; }
+.camp-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+.camp-hills-back  { animation: camp-drift 80s ease-in-out infinite alternate; }
+.camp-hills-front { animation: camp-drift 50s ease-in-out infinite alternate-reverse; }
+@keyframes camp-drift {
+  from { transform: translateX(-5px); }
+  to   { transform: translateX(5px); }
+}
+.camp-stars rect { animation: camp-twinkle 3.5s ease-in-out infinite; }
+.camp-stars rect:nth-child(2n) { animation-delay: 1.2s; }
+.camp-stars rect:nth-child(3n) { animation-delay: 2.1s; }
+@keyframes camp-twinkle {
+  0%, 100% { opacity: 0.9; }
+  50%      { opacity: 0.3; }
+}
+.camp-flame {
+  transform-origin: 6px 14px;
+  animation: camp-flicker 600ms steps(3) infinite;
+}
+@keyframes camp-flicker {
+  0%   { transform: scaleY(1); }
+  50%  { transform: scaleY(0.88) scaleX(1.06); }
+  100% { transform: scaleY(1.05); }
+}
+.camp-glow { animation: camp-glow-pulse 2.4s ease-in-out infinite; }
+@keyframes camp-glow-pulse {
+  0%, 100% { opacity: 0.13; }
+  50%      { opacity: 0.2; }
+}
+/* Keeper + beast sprites — HTML overlays anchored to the fire. */
+.camp-avatar {
+  position: absolute;
+  left: 31%;
+  bottom: 26px;
+  pointer-events: none;
+}
+.camp-beast {
+  position: absolute;
+  left: 56%;
+  bottom: 24px;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  animation: camp-breathe 3s ease-in-out infinite;
+  transition: transform 120ms ease;
+}
+@keyframes camp-breathe {
+  0%, 100% { transform: scaleY(1) translateY(0); }
+  50%      { transform: scaleY(0.975) translateY(2px); }
+}
+.camp-beast-sleepy {
+  animation-duration: 5s;
+  filter: saturate(0.8) brightness(0.92);
+}
+.camp-zzz {
+  position: absolute;
+  top: -14px;
+  right: -10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.2em;
+  animation: camp-zzz-float 2.8s ease-in-out infinite;
+}
+@keyframes camp-zzz-float {
+  0%, 100% { opacity: 0.4; transform: translateY(0); }
+  50%      { opacity: 1; transform: translateY(-4px); }
+}
+.camp-sparkle {
+  position: absolute;
+  top: -12px;
+  right: -8px;
+  font-size: 13px;
+  color: var(--accent-amber);
+  animation: camp-twinkle 1.8s ease-in-out infinite;
+}
+/* Identity strip pinned to the stage's bottom edge. */
+.camp-info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 12px 8px;
+  background: linear-gradient(transparent, rgba(10, 8, 14, 0.72));
+  pointer-events: none;
+}
+.camp-kicker {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  color: rgba(244, 239, 227, 0.55);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.camp-form-row { display: flex; align-items: baseline; gap: 8px; }
+.camp-form-name {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 14px;
+  color: #F4EFE3;
+}
+.camp-form-meta {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: rgba(244, 239, 227, 0.6);
+}
+.camp-arrow { margin-left: auto; color: var(--accent-amber); }
+/* Speech bubble — a real button overlaying the stage's top edge. Keyed
+ * remount per bark re-runs the fade so cycling reads as speech. */
+.camp-bubble {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  max-width: 78%;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  border-bottom-left-radius: 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  animation: fade 400ms ease both;
+}
+.camp-bubble:hover { border-color: var(--accent-amber-dim, var(--accent-amber)); color: var(--text-primary); }
+/* Freeze everything under the user setting or the OS preference. */
+.camp-static .camp-hills-back,
+.camp-static .camp-hills-front,
+.camp-static .camp-stars rect,
+.camp-static .camp-flame,
+.camp-static .camp-glow,
+.camp-static .camp-beast,
+.camp-static .camp-zzz,
+.camp-static .camp-sparkle,
+.camp-static .camp-bubble { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .camp-hills-back,
+  .camp-hills-front,
+  .camp-stars rect,
+  .camp-flame,
+  .camp-glow,
+  .camp-beast,
+  .camp-zzz,
+  .camp-sparkle,
+  .camp-bubble { animation: none; }
 }
 
 /* ───── Fix-it ──────────────────────────────────────────────────────────
