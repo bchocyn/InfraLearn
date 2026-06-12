@@ -48,6 +48,9 @@ const ReviewWeakSpots  = lazy(() => import('./screens/ReviewWeakSpots.jsx'));
 // Codex — the journey lore reader. Pure flavor text; loads only when a
 // Keeper actually opens it from the ByteBeast screen.
 const Codex            = lazy(() => import('./screens/Codex.jsx'));
+// Journey — the province chapter road. Story + encounters; the quiz bank it
+// uses stays its own chunk (dynamic import inside the screen).
+const Journey          = lazy(() => import('./screens/Journey.jsx'));
 
 // Suspense fallback — deliberately NOT a spinner. A serif "Loading…" in the
 // app's own font fades in after a short delay so we don't strobe on fast
@@ -238,6 +241,7 @@ function App() {
             <Route path="/weak-spots" element={<ReviewWeakSpots />} />
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/codex" element={<Codex />} />
+            <Route path="/journey" element={<Journey />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

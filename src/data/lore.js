@@ -202,6 +202,54 @@ export const BEAST_LORE = {
   },
 };
 
+// ── Journey chapters (§5) ──────────────────────────────────────────────────
+// Five chapters per province, every gate a REAL learning milestone — story
+// never grinds via games. Costs are ember entry fees (§10: 3–8 ⟡; embers
+// pace, gates force). Beats interpolate the province + its lapse so all 8
+// provinces read distinctly from one canonical template set.
+export const JOURNEY_CHAPTERS = [
+  {
+    n: 1,
+    title: 'Crossing the Threshold',
+    cost: 3,
+    gateLabel: (path) => `Complete a lesson in ${path}`,
+    beat: (prov) =>
+      `${prov.intro} You step past the boundary-stone and the gray thins, just a little. The province knows a Keeper walks it again.`,
+  },
+  {
+    n: 2,
+    title: 'The First Watchfire',
+    cost: 4,
+    gateLabel: (path) => `Reach the bronze seal in ${path} (33%)`,
+    beat: (prov) =>
+      `The first watchfire of ${prov.name} stands cold, its ring of stones older than the Null itself. You bank your embers against the dark and strike. It catches. Somewhere far off, something that feeds on forgetting flinches.`,
+  },
+  {
+    n: 3,
+    title: 'The Relay Relit',
+    cost: 5,
+    gateLabel: () => 'Your beast reaches tier 2 on this path',
+    beat: (prov) =>
+      `Your companion noses the dead relay-tower, remembering its shape. Together you climb. When the beacon takes, ${prov.name} answers with lights of its own — relays that waited an age for one Keeper and one beast who did not quit.`,
+  },
+  {
+    n: 4,
+    title: 'Hold the Line',
+    cost: 6,
+    gateLabel: () => 'Hold a 7-day streak (the Long Watch)',
+    beat: (prov, lapse) =>
+      `Seven nights on the wall. The Null probes for the gap it always finds — the missed day, the unkept patrol — and does not find it. On the seventh dawn the fog peels back, and for one breath you see it watching: ${lapse ? `${lapse.name}, ${lapse.title}` : 'something vast'}. It has noticed you. Good.`,
+  },
+  {
+    n: 5,
+    title: 'Province Reclaimed',
+    cost: 8,
+    gateLabel: (path) => `Earn the gold seal in ${path} (100%)`,
+    beat: (prov, lapse) =>
+      `The last fragment slots home and ${prov.name} REMEMBERS — every shelf, every span, every name the Null unwrote. ${lapse ? `${lapse.name} has fled — for now. What you reclaimed it will want back.` : ''} The province seal burns gold on your ledger. The Watch holds.`,
+  },
+];
+
 // ── Codex fragment titles ──────────────────────────────────────────────────
 // Fragment IDs (canonical schema, validated by the store's scrub):
 //   world:myth                  — the founding myth (granted on first unlock pass)

@@ -94,6 +94,22 @@ export default function ByteBeast() {
         >
           📖 CODEX →
         </button>
+        <button
+          type="button"
+          className="pill pill-action"
+          onClick={() => nav('/journey')}
+          aria-label="Open the journey map"
+          style={{
+            border: '1px solid var(--border-strong)',
+            color: 'var(--text-secondary)',
+            background: 'transparent',
+            cursor: 'pointer',
+            font: 'inherit',
+            minHeight: 32,
+          }}
+        >
+          🗺 JOURNEY →
+        </button>
       </div>
 
       {/* beast on equipped background */}

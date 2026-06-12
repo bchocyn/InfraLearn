@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { resolveTier, BEASTS, SPECIES_KEYS, LEVELS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as labProgressFromContent } from '../data/content.js';
-import { PROVINCES, LAPSE_KEYS } from '../data/lore.js';
+import { PROVINCES, LAPSE_KEYS, JOURNEY_CHAPTERS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
 
 // Allow-lists derived from static data — used to scrub user-supplied backups
@@ -38,6 +38,32 @@ const VALID_LORE_IDS = new Set([
   ...LAPSE_KEYS.map((k) => `lapse:${k}`),
   ...SPECIES_KEYS.flatMap((sp) => ['origin', 'field', 'saga', 'scar'].map((p) => `beast:${sp}:${p}`)),
 ]);
+
+// ── Journey chapter gates (§5/§10) ─────────────────────────────────────────
+// HARD gates — real learning milestones that no ember balance can buy past.
+// Pure + exported so the Journey screen and tests share one source of truth.
+// Returns { met, label } for chapter n (1..5) of the given province.
+export function journeyGate(pathKey, n, state) {
+  const completed = state.completed || {};
+  const { pct, done } = pathProgress(pathKey, completed);
+  const pathName = PATHS[pathKey]?.name || pathKey;
+  const chapter = JOURNEY_CHAPTERS[n - 1];
+  const label = chapter ? chapter.gateLabel(pathName) : '';
+  switch (n) {
+    case 1: return { met: done > 0, label };
+    case 2: return { met: pct >= 0.33, label };
+    case 3: {
+      // Any species' tier on THIS path — switching companions mid-journey
+      // must never lock a chapter the Keeper already earned.
+      const tiers = state.beastTiers || {};
+      const onPath = Object.values(tiers).map((cells) => cells?.[pathKey] || 1);
+      return { met: Math.max(1, ...onPath) >= 2, label };
+    }
+    case 4: return { met: (state.streakHighWater || 0) >= 7, label };
+    case 5: return { met: pct >= 1, label };
+    default: return { met: false, label: '' };
+  }
+}
 
 // Pure derivation: which codex fragments does this state qualify for?
 // Shared by recomputeLore (organic unlocks, celebrated) and the v15 migrate
@@ -372,6 +398,13 @@ const initial = {
   // by real milestones via recomputeLore (never by games or purchases). IDs
   // are validated against VALID_LORE_IDS on import.
   loreUnlocked: {},
+  // ── Journey chapter progress (§5) ────────────────────────────────────────
+  // { [pathKey]: { chapter, paid, stars } } — chapter = highest COMPLETED
+  // (0..5), paid = highest entry fee spent (chapter ≤ paid ≤ chapter+1, so a
+  // paid-but-unfinished encounter survives navigation), stars = cumulative
+  // encounter performance (≤3 per chapter, 15 max). Entering needs BOTH the
+  // hard gate (journeyGate) and the ember fee — gates can't be bought.
+  journey: {},
   onboarded: false,
   // First-run app tour ("how to use the app"). false until completed or skipped;
   // resetTour() flips it back so Settings → "How it works" can replay it.
@@ -978,6 +1011,48 @@ export const useStore = create(
         }));
       },
 
+      // ── Journey chapter actions (§5/§10) ──────────────────────────────
+      // enterChapter: pay the ember fee for chapter n of a province. Only
+      // the NEXT chapter is enterable, only when its hard gate is met, and
+      // only once — re-entry of a paid chapter is free (paid watermark).
+      // Returns { ok, reason } so the screen can explain a refusal.
+      enterChapter: (pathKey, n) => {
+        if (!PATH_KEYS.includes(pathKey)) return { ok: false, reason: 'unknown-province' };
+        if (!Number.isInteger(n) || n < 1 || n > JOURNEY_CHAPTERS.length) {
+          return { ok: false, reason: 'unknown-chapter' };
+        }
+        const cur = get().journey?.[pathKey] || { chapter: 0, paid: 0, stars: 0 };
+        if (cur.paid >= n) return { ok: true, reason: 'already-paid' };
+        if (n !== cur.chapter + 1) return { ok: false, reason: 'chapter-order' };
+        if (!journeyGate(pathKey, n, get()).met) return { ok: false, reason: 'gate' };
+        const cost = JOURNEY_CHAPTERS[n - 1].cost;
+        if (!get().spendEmbers(cost)) return { ok: false, reason: 'embers' };
+        set((s) => ({
+          journey: {
+            ...(s.journey || {}),
+            [pathKey]: { ...cur, paid: n },
+          },
+        }));
+        return { ok: true, reason: 'paid' };
+      },
+      // completeChapter: the encounter was answered correctly. Awards +5 XP
+      // exactly once per chapter (the chapter watermark is the latch) and
+      // records stars (3 = first try, floor 1). Story beats re-read freely.
+      completeChapter: (pathKey, n, stars) => {
+        if (!PATH_KEYS.includes(pathKey)) return;
+        if (!Number.isInteger(n) || n < 1 || n > JOURNEY_CHAPTERS.length) return;
+        const cur = get().journey?.[pathKey] || { chapter: 0, paid: 0, stars: 0 };
+        if (cur.paid < n || cur.chapter >= n) return;
+        const earned = Math.min(3, Math.max(1, Number.isInteger(stars) ? stars : 1));
+        set((s) => ({
+          journey: {
+            ...(s.journey || {}),
+            [pathKey]: { ...cur, chapter: n, stars: Math.min(15, (cur.stars || 0) + earned) },
+          },
+        }));
+        get().addXp(5, `journey:${pathKey}:${n}`);
+      },
+
       // ── Spaced-repetition scheduler (FSRS-flavored) ──────────────────
       // grade: 1=miss, 2=hard, 3=good, 4=easy.
       // Stability grows multiplicatively with grade; difficulty (1..10) creeps
@@ -1451,6 +1526,27 @@ export const useStore = create(
               if (!date) return empty;
               return { date, reviews: scrubInt(d.reviews, 0, 10, 0) };
             })(),
+            // Journey progress — per-province ints clamped to the chapter
+            // count; paid can lead chapter by at most one (the invariant the
+            // actions maintain), so a tampered backup can't pre-pay the road.
+            journey: (() => {
+              const out = {};
+              const m = raw.journey;
+              if (!m || typeof m !== 'object') return out;
+              for (const k of Object.keys(m)) {
+                if (!PATH_KEYS.includes(k)) continue;
+                const e = m[k];
+                if (!e || typeof e !== 'object') continue;
+                const chapter = scrubInt(e.chapter, 0, JOURNEY_CHAPTERS.length, 0);
+                const paid = Math.min(scrubInt(e.paid, 0, JOURNEY_CHAPTERS.length, 0), chapter + 1);
+                out[k] = {
+                  chapter,
+                  paid: Math.max(paid, chapter),
+                  stars: scrubInt(e.stars, 0, 15, 0),
+                };
+              }
+              return out;
+            })(),
             // Codex fragments — only canonical IDs survive, each with a
             // well-formed unlock date (malformed dates fall back to today so
             // a legit fragment isn't dropped over a mangled timestamp).
@@ -1696,6 +1792,21 @@ export const useStore = create(
                 emberDaily: (s.emberDaily?.date === today)
                   ? s.emberDaily
                   : (clean.emberDaily?.date === today ? clean.emberDaily : (s.emberDaily || { date: null, reviews: 0 })),
+                // Journey — per-province field-wise max (story progress
+                // never regresses; mirrors the beastTiers stance).
+                journey: (() => {
+                  const merged = { ...(s.journey || {}) };
+                  for (const k of Object.keys(clean.journey || {})) {
+                    const a = merged[k] || { chapter: 0, paid: 0, stars: 0 };
+                    const b = clean.journey[k];
+                    merged[k] = {
+                      chapter: Math.max(a.chapter || 0, b.chapter),
+                      paid: Math.max(a.paid || 0, b.paid),
+                      stars: Math.max(a.stars || 0, b.stars),
+                    };
+                  }
+                  return merged;
+                })(),
                 // Codex union — earliest unlock date wins, like badges.
                 loreUnlocked: (() => {
                   const merged = { ...(clean.loreUnlocked || {}) };
@@ -1782,7 +1893,11 @@ export const useStore = create(
       //      Keeper with three provinces walked should open the reader to
       //      their real history. Seeding in migrate keeps the backfill
       //      silent (no celebration spam), mirroring the v13 stance.
-      version: 15,
+      // v16: journey chapter progress. Empty default — chapters are new
+      //      CONTENT to play, not a record: existing users keep their met
+      //      gates (instant access) but still walk the road and pay the
+      //      ember pacing like everyone else.
+      version: 16,
       // Drop the transient celebrate signal from the persisted payload —
       // it's a one-shot UI flag (migrate also clears it defensively for
       // blobs written before this existed).
@@ -1998,6 +2113,15 @@ export const useStore = create(
           const today = isoDay();
           for (const id of deriveLoreUnlocks(persisted)) seeded[id] = today;
           persisted.loreUnlocked = seeded;
+        }
+        // v16 — journey chapters. Empty default; the road is walked, not
+        // backfilled (gates already met simply open immediately).
+        if (
+          prevVersion < 16
+          || !persisted.journey
+          || typeof persisted.journey !== 'object'
+        ) {
+          persisted.journey = {};
         }
         // Always clear the ephemeral celebrate flag on rehydrate — it's a
         // transient UI signal, persisting it would replay celebrations on

@@ -5422,6 +5422,50 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .codex-frag-label { margin-bottom: 4px; font-size: 9px; }
 .codex-frag-locked .codex-frag-label { color: var(--text-quaternary, var(--text-tertiary)); }
 
+/* ───── Journey (province chapter road) ─────────────────────────────────
+ * Chapter cards: done = full beat text, paid = live encounter, next =
+ * gate/toll, beyond = dimmed teaser. Province switcher is an icon-pill row
+ * (names live in the header to keep 8 pills on a 375px row). */
+.journey-prov-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+.journey-prov-pill {
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.journey-prov-pill.is-active {
+  border-color: var(--accent-amber);
+  background: var(--accent-amber-bg, rgba(245, 184, 66, 0.12));
+}
+.journey-ch { margin-bottom: 10px; }
+.journey-ch-done { border-left: 3px solid var(--status-success); }
+.journey-ch-locked { opacity: 0.65; }
+.journey-ch-kicker { margin-bottom: 6px; }
+.journey-far { font-style: italic; opacity: 0.7; }
+.journey-stars { color: var(--accent-amber); letter-spacing: 0.08em; }
+.journey-wraith {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--el-mystic);
+  background: var(--bg-elevated);
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 /* ───── Ember chip (journey economy, Home header) ─────────────────────── */
 .ember-header-chip {
   display: inline-flex;

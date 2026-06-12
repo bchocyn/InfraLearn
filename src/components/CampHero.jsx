@@ -15,7 +15,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, beastForm, getReviewsDue } from '../store/useStore.js';
+import { useStore, beastForm, getReviewsDue, journeyGate } from '../store/useStore.js';
+import { JOURNEY_CHAPTERS } from '../data/lore.js';
 import { BEASTS, ELEMENTS } from '../data/beasts.js';
 import { PATHS } from '../data/content.js';
 import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
@@ -53,6 +54,9 @@ export default function CampHero() {
   const badges = useStore((s) => s.badges);
   const dailyPractice = useStore((s) => s.dailyPractice);
   const reducedMotion = useStore((s) => s.settings?.reducedMotion);
+  const journey = useStore((s) => s.journey);
+  const beastTiers = useStore((s) => s.beastTiers);
+  const streakHighWater = useStore((s) => s.streakHighWater);
 
   const beast = BEASTS[companion] || BEASTS.dragon;
   const formName = beastForm({ companion, beastTier });
@@ -95,6 +99,19 @@ export default function CampHero() {
         scrollTo: '#daily-practice',
       });
     }
+    // A journey chapter whose gate is met but not yet entered — the story
+    // hook that surfaces the forcing loop (§10 camp hero panel).
+    {
+      const cur = journey?.[activePath] || { chapter: 0, paid: 0 };
+      const nextCh = cur.chapter + 1;
+      if (cur.paid < nextCh && nextCh <= JOURNEY_CHAPTERS.length
+        && journeyGate(activePath, nextCh, { completed, beastTiers, streakHighWater }).met) {
+        out.push({
+          text: `A relay waits in ${prov.name}. Chapter ${nextCh} asks ${JOURNEY_CHAPTERS[nextCh - 1].cost} ⟡ at the threshold.`,
+          to: '/journey',
+        });
+      }
+    }
     if (out.length === 0) {
       out.push({
         text: lapse ? `All quiet. ${lapse.name} ${lapse.title} watches from beyond the fire.` : prov.intro,
@@ -102,7 +119,7 @@ export default function CampHero() {
       });
     }
     return out;
-  }, [dueCount, nextLesson, practiceDone, prov, lapse]);
+  }, [dueCount, nextLesson, practiceDone, prov, lapse, journey, activePath, completed, beastTiers, streakHighWater]);
 
   // Cycle barks; pinned to the first (highest-priority) one under reduced
   // motion or when there's only one to show.
