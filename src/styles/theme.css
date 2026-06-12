@@ -1358,7 +1358,18 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   background: #0B0A08;
+  /* HD-2D diorama lean: a hair of perspective keystone — the far (top) end
+     of the province narrows slightly, like a table-top world viewed from a
+     low camera. Static transform, safe under reduced motion. */
+  transform: perspective(1200px) rotateX(1.6deg);
 }
+
+/* Camera parallax: Roadmap writes a unitless scroll offset into --plx on the
+   scene element (rAF-throttled); the sky layers consume it at different
+   rates so stars/clouds drift slower than the trail. Under reduced motion
+   the var is never written, so these resolve to translateY(0). */
+.roadmap-plx-far { transform: translateY(calc(var(--plx, 0) * 0.18px)); will-change: transform; }
+.roadmap-plx-mid { transform: translateY(calc(var(--plx, 0) * 0.10px)); will-change: transform; }
 
 .roadmap-walker {
   position: absolute;

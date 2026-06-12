@@ -211,6 +211,66 @@ function mulberry32(seed) {
   };
 }
 
+// ─── PixelLab map props ──────────────────────────────────────────────────────
+// Generated pixel-art scenery (scripts/generate-map-props.mjs) replaces the
+// old hand-coded polygons: trees, rocks, ruins, the fog gate, grace shrines.
+// One shared twilight set; per-path variety comes from which TREE each scene
+// plants (palette-matched at generation time, no runtime filters needed).
+const mapSrc = (k) =>
+  `${import.meta.env.BASE_URL}map/${k}.png`.replace(/\/{2,}/g, '/').replace(':/', '://');
+
+// Native pixel dimensions of each prop (render sizes derive from these so
+// aspect ratios never squash).
+const PROP_DIMS = {
+  pine_a: [48, 64],
+  pine_b: [40, 56],
+  tree_dead: [48, 64],
+  tree_crystal: [48, 64],
+  rock_a: [32, 32],
+  rock_b: [32, 32],
+  bush: [32, 32],
+  ruin_arch: [64, 64],
+  fog_gate: [96, 112],
+  fog_gate_broken: [96, 112],
+  grace_lantern: [32, 48],
+  grace_dark: [32, 48],
+  signpost: [32, 48],
+};
+
+// Which tree species each province plants. Dark conifers for the green/cool
+// scenes, gnarled dead wood for the grim ones, crystal growth for the ML
+// observatories.
+const SCENE_TREES = {
+  fundamentals: 'pine_a',
+  devops: 'tree_dead',
+  mlops: 'tree_crystal',
+  swe: 'pine_a',
+  mleng: 'tree_crystal',
+  faang: 'pine_b',
+  fullstack: 'pine_b',
+  cybersec: 'tree_dead',
+};
+
+// Small <image> prop with a soft contact shadow at its feet — the grounding
+// shadow is what sells the "standing in the world" depth read.
+function MapProp({ k, x, y, w, pixelated = true, opacity = 1 }) {
+  const dims = PROP_DIMS[k] || [32, 32];
+  const h = (w * dims[1]) / dims[0];
+  return (
+    <g pointerEvents="none" opacity={opacity}>
+      <ellipse cx={x} cy={y} rx={w * 0.38} ry={w * 0.1} fill="#000" opacity="0.32" />
+      <image
+        href={mapSrc(k)}
+        x={x - w / 2}
+        y={y - h + w * 0.04}
+        width={w}
+        height={h}
+        style={pixelated ? { imageRendering: 'pixelated' } : undefined}
+      />
+    </g>
+  );
+}
+
 // ─── Geometry helpers ────────────────────────────────────────────────────────
 const W = 360;
 const STEP_Y = 88;
@@ -389,6 +449,29 @@ export default function Roadmap() {
       rect.top + window.scrollY + rect.height * (walkerTopPct / 100) - window.innerHeight * 0.4;
     if (target > 0) window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
   }, [pathKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Parallax — the far (stars) and mid (clouds/moon) sky layers drift slower
+  // than the trail while scrolling, faking camera depth. Writes one unitless
+  // CSS var; the .roadmap-plx-* classes turn it into translateY at different
+  // rates. rAF-throttled, passive, and skipped entirely under reduced motion.
+  useEffect(() => {
+    const el = sceneRef.current;
+    if (!el || typeof window === 'undefined' || reduced) return undefined;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        el.style.setProperty('--plx', String(-el.getBoundingClientRect().top));
+      });
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [reduced]);
 
   // ── Story layer derivations ────────────────────────────────────────────
   // Province identity for the active path (graceful skip when a path has no
@@ -742,18 +825,30 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
     return out;
   }, [pathKey, H]);
 
-  const trees = useMemo(() => {
-    const rnd = mulberry32(hash(pathKey + 'trees'));
+  // Scenery prop scatter — PixelLab trees/rocks/bushes along the trail
+  // margins, full canvas height. Size jitter doubles as a depth cue and the
+  // painter's sort (by ground-line y) keeps nearer props drawn over farther
+  // ones. Margin bands keep them clear of nodes, labels, and lab offshoots.
+  const sceneProps = useMemo(() => {
+    const rnd = mulberry32(hash(pathKey + 'props'));
+    const tree = SCENE_TREES[pathKey] || 'pine_a';
+    const kinds = [
+      { k: tree, w: 30, n: 12 },
+      { k: 'rock_a', w: 15, n: 6 },
+      { k: 'bush', w: 13, n: 8 },
+      { k: 'rock_b', w: 11, n: 5 },
+    ];
     const out = [];
-    for (let i = 0; i < 10; i++) {
-      // Place trees in the foreground band (roughly 78%–96% of height).
-      out.push({
-        x: 10 + rnd() * (W - 20),
-        y: H * (0.78 + rnd() * 0.16),
-        h: 14 + rnd() * 10,
-      });
+    for (const { k, w, n } of kinds) {
+      for (let i = 0; i < n; i++) {
+        const left = rnd() < 0.5;
+        const x = left ? 8 + rnd() * 32 : W - 8 - rnd() * 32;
+        const y = 100 + rnd() * (H - 220);
+        const s = 0.7 + rnd() * 0.6;
+        out.push({ k, x, y, w: w * s, key: `pr-${k}-${i}` });
+      }
     }
-    return out;
+    return out.sort((a, b) => a.y - b.y);
   }, [pathKey, H]);
 
   // Drifting clouds — small pill shapes scattered across mid-canvas at varied
@@ -867,7 +962,9 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
           {/* Sky */}
           <rect x="0" y="0" width={W} height={H} fill={`url(#sky-${pathKey})`} />
 
-          {/* Stars — span the full canvas; bigger ones glow, ~20% twinkle. */}
+          {/* Stars — span the full canvas; bigger ones glow, ~20% twinkle.
+              The group drifts at 0.18x scroll speed (parallax far layer). */}
+          <g className="roadmap-plx-far">
           {stars.map((st, i) => {
             const cls = [
               st.big ? 'roadmap-star-glow' : null,
@@ -890,7 +987,11 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
             );
           })}
 
-          {/* Drifting clouds — varied altitude, slow horizontal oscillation. */}
+          </g>
+
+          {/* Drifting clouds — varied altitude, slow horizontal oscillation.
+              Mid parallax layer (0.1x scroll). */}
+          <g className="roadmap-plx-mid">
           {clouds.map((c, i) => (
             <rect
               key={`cl${i}`}
@@ -911,9 +1012,10 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
             />
           ))}
 
-          {/* Moon */}
+          {/* Moon — rides the mid parallax layer with the clouds. */}
           <circle cx={W * 0.85} cy={H * 0.12} r="10" fill={scene.moon} opacity="0.95" />
           <circle cx={W * 0.85} cy={H * 0.12} r="18" fill={scene.moon} opacity="0.15" />
+          </g>
 
           {/* Light shafts — pale rays falling across the ruins from above. */}
           <polygon points={`${W * 0.52},0 ${W * 0.66},0 ${W * 0.38},${H * 0.2}`} fill={scene.moon} opacity="0.05" />
@@ -930,14 +1032,20 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
           {/* Foreground hills */}
           <path d={hillsD} fill={scene.hill} />
 
-          {/* Foreground pine trees */}
-          {trees.map((t, i) => (
-            <polygon
-              key={`t${i}`}
-              points={`${t.x},${t.y - t.h} ${t.x - t.h * 0.45},${t.y} ${t.x + t.h * 0.45},${t.y}`}
-              fill={scene.tree}
-            />
+          {/* Scenery props — PixelLab trees, rocks, bushes (painter's order). */}
+          {sceneProps.map((p) => (
+            <MapProp key={p.key} k={p.k} x={p.x} y={p.y} w={p.w} />
           ))}
+
+          {/* Trailhead signpost — the journey starts here. */}
+          {nodes[0] ? (
+            <MapProp
+              k="signpost"
+              x={nodes[0].onLeft ? nodes[0].mainX + 34 : nodes[0].mainX - 34}
+              y={nodes[0].mainY + 14}
+              w={20}
+            />
+          ) : null}
 
           {/* Trail (main) — tile-textured terrain pathway. Layered strokes
               build a grass-edged path with sun-lit highlight + speckled
@@ -1064,7 +1172,7 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
             return (
               <g key={`sec-${sec.name}`}>
                 {sIdx > 0 ? (
-                  <Ruins x={ruinX} y={ruinY} stone={scene.snowCap} dark={scene.mountainsNear} />
+                  <Ruins x={ruinX} y={ruinY} />
                 ) : null}
                 <text
                   x={labelX}
@@ -1449,11 +1557,8 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
   if (allDone) {
     return (
       <g pointerEvents="none" aria-hidden="true">
-        {/* Shattered gate — pillar stubs and fallen stones. */}
-        <rect x={cx - 32} y={gateBase - 12} width="5" height="12" fill="#8A93A3" opacity="0.5" />
-        <rect x={cx + 27} y={gateBase - 8} width="5" height="8" fill="#8A93A3" opacity="0.5" />
-        <rect x={cx - 14} y={gateBase - 3} width="7" height="3" fill="#8A93A3" opacity="0.4" />
-        <rect x={cx + 8} y={gateBase - 3} width="5" height="3" fill="#8A93A3" opacity="0.35" />
+        {/* Shattered gate — pillar stubs and golden light on the rubble. */}
+        <MapProp k="fog_gate_broken" x={cx} y={gateBase} w={64} opacity={0.9} />
         <text
           x={cx}
           y={labelY}
@@ -1470,14 +1575,16 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
     );
   }
   const color = ELEMENT_COLOR[lapse.element] || ELEMENT_COLOR.mystic;
-  const spriteSize = 52;
-  // Bottom of the sprite rests just above the pillar feet; its head peeks
-  // over the veil top — the beast is taller than the gate that holds it.
-  const spriteY = gateBase - spriteSize - 2;
+  const gateW = 72;
+  const gateH = (gateW * 112) / 96; // 84 — native fog_gate aspect
+  const spriteSize = 56;
+  // The beast looms BEHIND the gate, head rising above the veil top — taller
+  // than the door that holds it. Its lower body hides behind the mist.
+  const spriteY = gateBase - gateH - 14;
   return (
     <g pointerEvents="none" aria-hidden="true">
       {/* Element-glow aura behind the beast. */}
-      <ellipse cx={cx} cy={spriteY + spriteSize / 2} rx="30" ry="22" fill={color} opacity="0.12" />
+      <ellipse cx={cx} cy={spriteY + spriteSize / 2} rx="32" ry="24" fill={color} opacity="0.14" />
       {/* The Lapse itself — its Null Beast sprite, dim in the fog. */}
       <image
         href={nullBeastSrc(lapse.id)}
@@ -1492,16 +1599,20 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
           <animate attributeName="opacity" values="0.4;0.6;0.4" dur="5s" repeatCount="indefinite" />
         ) : null}
       </image>
-      {/* Fog gate — ruined pillars + the pale veil between them. */}
-      <rect x={cx - 32} y={gateBase - 44} width="5" height="44" fill="#8A93A3" opacity="0.55" />
-      <rect x={cx - 34} y={gateBase - 48} width="9" height="4" fill="#8A93A3" opacity="0.45" />
-      <rect x={cx + 27} y={gateBase - 38} width="5" height="38" fill="#8A93A3" opacity="0.55" />
-      <rect x={cx + 25} y={gateBase - 42} width="9" height="4" fill="#8A93A3" opacity="0.45" />
-      <rect x={cx - 27} y={gateBase - 42} width="54" height="42" fill="#C7D3E0" opacity="0.22">
+      {/* Fog gate — PixelLab pillars + misted veil, breathing slowly. */}
+      <image
+        href={mapSrc('fog_gate')}
+        x={cx - gateW / 2}
+        y={gateBase - gateH}
+        width={gateW}
+        height={gateH}
+        opacity="0.92"
+        style={{ imageRendering: 'pixelated' }}
+      >
         {!reduced ? (
-          <animate attributeName="opacity" values="0.16;0.28;0.16" dur="7s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.84;0.96;0.84" dur="7s" repeatCount="indefinite" />
         ) : null}
-      </rect>
+      </image>
       <text
         x={cx}
         y={labelY}
@@ -1519,21 +1630,10 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
 }
 
 // ─── Ruined waymarker (static) ──────────────────────────────────────────────
-// A small pillar-pair with a broken lintel and rubble at a section boundary —
-// the shrine the section's grace light (dynamic layer) nests inside.
-function Ruins({ x, y, stone, dark }) {
-  return (
-    <g opacity="0.8" pointerEvents="none">
-      {/* Pillars */}
-      <rect x={x - 10} y={y - 22} width="4" height="22" fill={stone} opacity="0.5" />
-      <rect x={x + 6} y={y - 17} width="4" height="17" fill={stone} opacity="0.5" />
-      {/* Broken lintel — resting tilted on the taller pillar */}
-      <polygon points={`${x - 12},${y - 22} ${x + 2},${y - 26} ${x + 2},${y - 23} ${x - 12},${y - 19}`} fill={stone} opacity="0.4" />
-      {/* Rubble */}
-      <rect x={x - 2} y={y - 2} width="4" height="2" fill={dark} opacity="0.9" />
-      <rect x={x + 4} y={y - 1} width="3" height="1" fill={dark} opacity="0.7" />
-    </g>
-  );
+// A PixelLab ruined arch at each section boundary — the shrine the section's
+// grace light (dynamic layer) nests beside.
+function Ruins({ x, y }) {
+  return <MapProp k="ruin_arch" x={x} y={y + 4} w={42} opacity={0.95} />;
 }
 
 // ─── Sites of grace (dynamic) ───────────────────────────────────────────────
@@ -1553,10 +1653,10 @@ function GraceSites({ sectionMeta, nodes, lessons, completed, reduced }) {
           .slice(sec.startIdx, sec.startIdx + sec.count)
           .some((l) => completed[l.id]);
         if (!lit) {
+          // Grace not yet found — the cold, unlit shrine in the arch doorway.
           return (
             <g key={`grace-${sec.name}`}>
-              <circle cx={gx} cy={gy} r="4.5" fill="#8FA3B8" opacity="0.1" />
-              <circle cx={gx} cy={gy} r="1.6" fill="#AFC2D6" opacity="0.4" />
+              <MapProp k="grace_dark" x={gx} y={gy + 12} w={13} opacity={0.85} />
             </g>
           );
         }
@@ -1566,17 +1666,17 @@ function GraceSites({ sectionMeta, nodes, lessons, completed, reduced }) {
               className={reduced ? undefined : 'roadmap-lantern-glow'}
               cx={gx}
               cy={gy}
-              r="9"
+              r="11"
               fill="#F5B842"
-              opacity="0.2"
+              opacity="0.22"
             />
-            <circle cx={gx} cy={gy} r="2.2" fill="#FFE8B0" opacity="0.95" />
+            <MapProp k="grace_lantern" x={gx} y={gy + 12} w={13} />
             {/* Rising wisps */}
             {[-3.5, 0.5, 3].map((dx, i) => (
               <path
                 key={i}
                 className={reduced ? undefined : 'roadmap-grace-wisp'}
-                d={`M ${gx + dx} ${gy - 2} q ${dx > 0 ? 2 : -2} -4 0 -8`}
+                d={`M ${gx + dx} ${gy - 8} q ${dx > 0 ? 2 : -2} -4 0 -8`}
                 stroke="#F5B842"
                 strokeWidth="0.8"
                 fill="none"
