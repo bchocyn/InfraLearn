@@ -4333,6 +4333,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .celebration-chip-level { border-color: var(--accent-amber); }
 .celebration-chip-badge { border-color: var(--status-success); }
 .celebration-chip-xp    { border-color: var(--accent-amber); }
+.celebration-chip-lore  { border-color: var(--el-mystic); }
 .celebration-headline {
   font-family: var(--font-serif);
   font-size: 22px;
@@ -5356,6 +5357,70 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 @media (prefers-reduced-motion: reduce) {
   .combo-header-chip { animation: none; }
 }
+
+/* ───── Codex (journey lore reader) ─────────────────────────────────────
+ * Locked entries dim as a whole; locked fragments inside an unlocked entry
+ * dim individually. Hints always state the real learning action that opens
+ * the page — the codex never sells shortcuts. */
+.codex-section { margin: 18px 0 8px; }
+.codex-entry { margin-bottom: 10px; }
+.codex-locked { opacity: 0.6; }
+.codex-kicker { margin-bottom: 6px; }
+.codex-title {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.codex-epithet { font-weight: 400; font-size: 12px; color: var(--text-tertiary); }
+.codex-pill { font-size: 8px; }
+.codex-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+.codex-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+.codex-voice {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--el-mystic);
+  background: var(--bg-elevated);
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.codex-haunt {
+  margin-top: 6px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--el-fire);
+}
+.codex-beast-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.codex-shadow { filter: brightness(0) opacity(0.45); }
+.codex-frag {
+  padding: 8px 0 0;
+  margin-top: 8px;
+  border-top: 1px dashed var(--border-subtle);
+}
+.codex-frag-label { margin-bottom: 4px; font-size: 9px; }
+.codex-frag-locked .codex-frag-label { color: var(--text-quaternary, var(--text-tertiary)); }
 
 /* ───── Ember chip (journey economy, Home header) ─────────────────────── */
 .ember-header-chip {

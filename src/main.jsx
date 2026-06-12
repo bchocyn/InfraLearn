@@ -45,6 +45,9 @@ const Reviews          = lazy(() => import('./screens/Reviews.jsx'));
 // null fallback so the chunk fetch never flashes the route-level "Loading…".
 const PathAscension    = lazy(() => import('./components/PathAscension.jsx'));
 const ReviewWeakSpots  = lazy(() => import('./screens/ReviewWeakSpots.jsx'));
+// Codex — the journey lore reader. Pure flavor text; loads only when a
+// Keeper actually opens it from the ByteBeast screen.
+const Codex            = lazy(() => import('./screens/Codex.jsx'));
 
 // Suspense fallback — deliberately NOT a spinner. A serif "Loading…" in the
 // app's own font fades in after a short delay so we don't strobe on fast
@@ -234,6 +237,7 @@ function App() {
             <Route path="/lesson/:id" element={<Lesson />} />
             <Route path="/weak-spots" element={<ReviewWeakSpots />} />
             <Route path="/reviews" element={<Reviews />} />
+            <Route path="/codex" element={<Codex />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

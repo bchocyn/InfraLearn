@@ -202,6 +202,43 @@ export const BEAST_LORE = {
   },
 };
 
+// ── Codex fragment titles ──────────────────────────────────────────────────
+// Fragment IDs (canonical schema, validated by the store's scrub):
+//   world:myth                  — the founding myth (granted on first unlock pass)
+//   province:{pathKey}          — first lesson completed in that province
+//   beast:{species}:origin      — species bonded (companion or any training)
+//   beast:{species}:field       — species reaches tier 2 on any path
+//   beast:{species}:saga        — tier 3
+//   beast:{species}:scar        — tier 4 (the null-scar is the deepest secret)
+//   lapse:{lapseId}             — an aligned province pushed to bronze (33%);
+//                                 hollow-ink (finale) needs a gold seal
+// Display titles for the "Codex fragment recovered" celebration + reader.
+import { BEASTS } from './beasts.js';
+
+const BEAST_FRAGMENT_LABEL = {
+  origin: 'Origin',
+  field: 'Field notes',
+  saga: 'Saga of forms',
+  scar: 'Null-scar',
+};
+
+export function loreFragmentTitle(id) {
+  if (typeof id !== 'string') return 'Unknown fragment';
+  if (id === 'world:myth') return 'The Network That Was';
+  const [kind, key, part] = id.split(':');
+  if (kind === 'province') return PROVINCES[key]?.name || 'A lost province';
+  if (kind === 'lapse') {
+    const l = FIVE_LAPSES[key];
+    return l ? `${l.name}, ${l.title}` : 'A nameless lapse';
+  }
+  if (kind === 'beast') {
+    const b = BEASTS[key];
+    const label = BEAST_FRAGMENT_LABEL[part] || 'Codex';
+    return b ? `${b.name} — ${label}` : 'A lost bloodline';
+  }
+  return 'Unknown fragment';
+}
+
 // Keeper-rank names for the 10 XP levels (xpLevel 1..10).
 export const KEEPER_RANKS = [
   'Novice Keeper',

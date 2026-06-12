@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, beastForm, activePathProgress } from '../store/useStore.js';
 import { BEASTS, ELEMENTS, EVO_RULES } from '../data/beasts.js';
@@ -18,6 +19,7 @@ import CelebrationMoment from '../components/CelebrationMoment.jsx';
 const Trophies = lazy(() => import('./Trophies.jsx'));
 
 export default function ByteBeast() {
+  const nav = useNavigate();
   // Narrowed subscription: only the five fields this component renders.
   // beastForm(s) reads companion + beastTier off the grouped object. The
   // setAvatar action is a stable reference, selected separately.
@@ -73,6 +75,24 @@ export default function ByteBeast() {
           }}
         >
           🏆 TROPHIES →
+        </button>
+        {/* Codex entry — same secondary weight as TROPHIES. Lazy route, so
+            the lore reader costs nothing until a Keeper opens it. */}
+        <button
+          type="button"
+          className="pill pill-action"
+          onClick={() => nav('/codex')}
+          aria-label="Open the Keeper's codex"
+          style={{
+            border: '1px solid var(--border-strong)',
+            color: 'var(--text-secondary)',
+            background: 'transparent',
+            cursor: 'pointer',
+            font: 'inherit',
+            minHeight: 32,
+          }}
+        >
+          📖 CODEX →
         </button>
       </div>
 

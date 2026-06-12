@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { resolveTier, BEASTS, SPECIES_KEYS, LEVELS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as labProgressFromContent } from '../data/content.js';
+import { PROVINCES, LAPSE_KEYS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
 
 // Allow-lists derived from static data — used to scrub user-supplied backups
@@ -28,6 +29,48 @@ const VALID_LAB_IDS = new Set(Object.keys(VALID_LAB_MILESTONES));
 // version bump).
 const VALID_ACCENTS = ACCENT_KEYS;
 const VALID_BG_THEMES = BG_KEYS;
+// Canonical codex fragment IDs (see loreFragmentTitle in lore.js for the
+// schema). Derived from static data so adding a species/path/lapse extends
+// the allow-list automatically.
+const VALID_LORE_IDS = new Set([
+  'world:myth',
+  ...PATH_KEYS.map((k) => `province:${k}`),
+  ...LAPSE_KEYS.map((k) => `lapse:${k}`),
+  ...SPECIES_KEYS.flatMap((sp) => ['origin', 'field', 'saga', 'scar'].map((p) => `beast:${sp}:${p}`)),
+]);
+
+// Pure derivation: which codex fragments does this state qualify for?
+// Shared by recomputeLore (organic unlocks, celebrated) and the v15 migrate
+// (silent backfill so long-time users open the codex to their real history).
+// Works on both live store state and the raw persisted blob — it only reads
+// completed / beastTiers / companion.
+export function deriveLoreUnlocks(state) {
+  const out = new Set(['world:myth']);
+  const completed = state.completed || {};
+  const tiers = state.beastTiers || {};
+  let anyGold = false;
+  for (const k of PATH_KEYS) {
+    const { pct, done } = pathProgress(k, completed);
+    if (done > 0) out.add(`province:${k}`);
+    // The province's lapse stirs once you push to bronze — deep enough in
+    // for the villain to take notice.
+    if (pct >= 0.33 && PROVINCES[k]?.lapse) out.add(`lapse:${PROVINCES[k].lapse}`);
+    if (pct >= 1) anyGold = true;
+  }
+  // The Unteacher (finale) only reveals himself to Keepers who have
+  // reclaimed a province outright.
+  if (anyGold) out.add('lapse:hollow-ink');
+  for (const sp of SPECIES_KEYS) {
+    const cells = tiers[sp] || {};
+    const trained = Object.keys(cells).length > 0;
+    if (sp === state.companion || trained) out.add(`beast:${sp}:origin`);
+    const maxTier = trained ? Math.max(...Object.values(cells).map((t) => (Number.isInteger(t) ? t : 1))) : 0;
+    if (maxTier >= 2) out.add(`beast:${sp}:field`);
+    if (maxTier >= 3) out.add(`beast:${sp}:saga`);
+    if (maxTier >= 4) out.add(`beast:${sp}:scar`);
+  }
+  return out;
+}
 const MAX_STR_LEN = 64;
 
 // Background unlock req strings live in BACKGROUNDS as free-form text like
@@ -240,7 +283,7 @@ function bumpStat(stats, day, field, n) {
 // synchronous batch was routinely clobbered by the trailing "+5 XP" ack.
 // Equal rank → latest wins; anything older than 4s is stale (its moment
 // has either been shown by CelebrationMoment or never will be).
-const CELEBRATE_RANK = { level: 3, badge: 2, xp: 1 };
+const CELEBRATE_RANK = { level: 4, badge: 3, lore: 2, xp: 1 };
 function shouldReplaceCelebrate(cur, nextKind) {
   if (!cur) return true;
   if (Date.now() - (cur.at || 0) > 4000) return true;
@@ -324,6 +367,11 @@ const initial = {
   // Per-day earn-cap counter for review embers. Same date-keyed slot pattern
   // as dailyPractice — a stale date means fresh counters.
   emberDaily: { date: null, reviews: 0 },
+  // ── Codex fragments (journey layer §3) ──────────────────────────────────
+  // { [fragmentId]: 'YYYY-MM-DD' } — unlock dates for lore fragments, granted
+  // by real milestones via recomputeLore (never by games or purchases). IDs
+  // are validated against VALID_LORE_IDS on import.
+  loreUnlocked: {},
   onboarded: false,
   // First-run app tour ("how to use the app"). false until completed or skipped;
   // resetTour() flips it back so Settings → "How it works" can replay it.
@@ -530,6 +578,8 @@ export const useStore = create(
           const cell = s.beastTiers?.[companion]?.[s.activePath] || 1;
           return { companion, beastTier: cell };
         });
+        // Bonding with a species unlocks its origin fragment.
+        get().recomputeLore();
       },
       setBackground: (beastBackground) => set({ beastBackground }),
       finishOnboarding: () => set({ onboarded: true }),
@@ -564,9 +614,13 @@ export const useStore = create(
         get().scheduleReview(lessonId, 3);
         // Lightweight ack — XP system intentionally weighs RECALL heavier.
         get().addXp(5, 'lesson:complete');
-        // Knowledge fragment recovered — the journey economy's main earn.
-        get().addEmbers(3);
         get().computeNewBadges();
+        // After badges so a lore moment never clobbers a fresh gold seal —
+        // CELEBRATE_RANK puts badge above lore.
+        get().recomputeLore();
+        // Embers last: the +3 ⟡ suffix annotates whichever celebration
+        // survived the batch (badge > lore > the plain XP ack).
+        get().addEmbers(3);
       },
 
       // ── XP machinery (Engagement Tier B) ─────────────────────────────
@@ -895,6 +949,34 @@ export const useStore = create(
       },
 
       clearPendingAscension: () => set({ pendingAscension: null }),
+
+      // ── Codex fragment unlocks (journey layer §3) ─────────────────────
+      // Diff current entitlements (deriveLoreUnlocks) against loreUnlocked
+      // and grant what's missing, stamped with today. Emits ONE "Codex
+      // fragment recovered" celebration for the last newly-granted fragment
+      // — except world:myth, which is ambient scene-setting, not a moment.
+      // Idempotent; cheap enough to call after any milestone-bearing action.
+      recomputeLore: () => {
+        const s = get();
+        const have = s.loreUnlocked || {};
+        const wanted = deriveLoreUnlocks(s);
+        const today = isoDay();
+        let added = null;
+        let next = null;
+        for (const id of wanted) {
+          if (have[id]) continue;
+          if (!next) next = { ...have };
+          next[id] = today;
+          if (id !== 'world:myth') added = id;
+        }
+        if (!next) return;
+        set((st) => ({
+          loreUnlocked: next,
+          celebrate: (added && shouldReplaceCelebrate(st.celebrate, 'lore'))
+            ? { id: `lore-${added}-${Date.now()}`, kind: 'lore', loreId: added, at: Date.now() }
+            : st.celebrate,
+        }));
+      },
 
       // ── Spaced-repetition scheduler (FSRS-flavored) ──────────────────
       // grade: 1=miss, 2=hard, 3=good, 4=easy.
@@ -1240,6 +1322,8 @@ export const useStore = create(
             beastTier: nextTier,           // keep mirror in sync for consumers
             pendingEvolution: s.companion,
           });
+          // Tier-ups unlock beast codex fragments (field/saga/scar).
+          get().recomputeLore();
         }
       },
 
@@ -1366,6 +1450,21 @@ export const useStore = create(
               const date = (typeof d.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) ? d.date : null;
               if (!date) return empty;
               return { date, reviews: scrubInt(d.reviews, 0, 10, 0) };
+            })(),
+            // Codex fragments — only canonical IDs survive, each with a
+            // well-formed unlock date (malformed dates fall back to today so
+            // a legit fragment isn't dropped over a mangled timestamp).
+            loreUnlocked: (() => {
+              const out = {};
+              const m = raw.loreUnlocked;
+              if (!m || typeof m !== 'object') return out;
+              for (const id of Object.keys(m)) {
+                if (!VALID_LORE_IDS.has(id)) continue;
+                const at = (typeof m[id] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m[id]))
+                  ? m[id] : isoDay();
+                out[id] = at;
+              }
+              return out;
             })(),
             settings: {
               reducedMotion: raw.settings?.reducedMotion === true,
@@ -1597,6 +1696,16 @@ export const useStore = create(
                 emberDaily: (s.emberDaily?.date === today)
                   ? s.emberDaily
                   : (clean.emberDaily?.date === today ? clean.emberDaily : (s.emberDaily || { date: null, reviews: 0 })),
+                // Codex union — earliest unlock date wins, like badges.
+                loreUnlocked: (() => {
+                  const merged = { ...(clean.loreUnlocked || {}) };
+                  for (const id of Object.keys(s.loreUnlocked || {})) {
+                    const a = s.loreUnlocked[id];
+                    const b = merged[id];
+                    merged[id] = !b ? a : ([a, b].filter(Boolean).sort()[0] || a);
+                  }
+                  return merged;
+                })(),
                 pendingCliffhanger: s.pendingCliffhanger?.lessonId ? s.pendingCliffhanger : clean.pendingCliffhanger,
                 // NOT merged on purpose (local wins): displayName, avatar,
                 // settings, level, activePath, companion, pendingEvolution,
@@ -1613,6 +1722,8 @@ export const useStore = create(
           // completion (which might never come for review-only users).
           get().computeNewBadges();
           get().recomputeBackgrounds();
+          // Merged progress can newly satisfy codex fragments too.
+          get().recomputeLore();
           return { ok: true };
         } catch (e) {
           return { ok: false, error: String(e) };
@@ -1666,7 +1777,12 @@ export const useStore = create(
       //      XP stance — no backfill from past lessons; the balance starts at
       //      0 and accrues from the next learning action. emberDaily is the
       //      per-day review-earn cap counter (10/day).
-      version: 14,
+      // v15: codex fragments (loreUnlocked). BACKFILLED from current progress
+      //      — unlike XP, the codex is a record, not a reward stream: a
+      //      Keeper with three provinces walked should open the reader to
+      //      their real history. Seeding in migrate keeps the backfill
+      //      silent (no celebration spam), mirroring the v13 stance.
+      version: 15,
       // Drop the transient celebrate signal from the persisted payload —
       // it's a one-shot UI flag (migrate also clears it defensively for
       // blobs written before this existed).
@@ -1869,6 +1985,19 @@ export const useStore = create(
           || typeof persisted.emberDaily !== 'object'
         ) {
           persisted.emberDaily = { date: null, reviews: 0 };
+        }
+        // v15 — codex fragments, backfilled silently from real progress so
+        // the reader opens to the user's actual history (no celebrations
+        // fire from migrate; recomputeLore only celebrates future diffs).
+        if (
+          prevVersion < 15
+          || !persisted.loreUnlocked
+          || typeof persisted.loreUnlocked !== 'object'
+        ) {
+          const seeded = {};
+          const today = isoDay();
+          for (const id of deriveLoreUnlocks(persisted)) seeded[id] = today;
+          persisted.loreUnlocked = seeded;
         }
         // Always clear the ephemeral celebrate flag on rehydrate — it's a
         // transient UI signal, persisting it would replay celebrations on
