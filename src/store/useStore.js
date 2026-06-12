@@ -383,6 +383,14 @@ const initial = {
   // ascensionsSeen guarantees once-per-path even across re-imports.
   pendingAscension: null,
   ascensionsSeen: {},        // { [pathKey]: true }
+  // ── Story cutscenes (journey layer) ─────────────────────────────────────
+  // pendingCutscene holds a cutscene id ('enter:devops', 'notice:devops',
+  // 'turn:devops') while one is queued; cutscenesSeen guarantees once-ever,
+  // even across re-imports. Queued by setActivePath (province entry) and
+  // computeNewBadges (bronze = the Lapse notices you, silver = the tide
+  // turns). Gold already has the PathAscension cinematic.
+  pendingCutscene: null,
+  cutscenesSeen: {},         // { [cutsceneId]: true }
   // ── Ember economy (journey layer §10) ───────────────────────────────────
   // Embers ⟡ are the journey's soft currency, earned ONLY by learning
   // actions: lesson +3 · lab +5 · review graded +1 (cap 10/day) · daily
@@ -595,6 +603,7 @@ export const useStore = create(
       setName: (displayName) => set({ displayName: scrubString(displayName, 'Learner') }),
       setAvatar: (patch) => set((s) => ({ avatar: { ...s.avatar, ...patch } })),
       setActivePath: (activePath) => {
+        const changed = activePath !== get().activePath;
         set((s) => {
           // Re-sync the mirror beastTier to the cell for the new (species, path).
           const cell = s.beastTiers?.[s.companion]?.[activePath] || 1;
@@ -603,7 +612,24 @@ export const useStore = create(
           return { activePath, beastTier: cell, pendingEvolution: cell >= s.beastTier ? s.pendingEvolution : null };
         });
         get().recomputeEvolution();
+        // Crossing into a new province for the first time plays its entry
+        // cutscene. Onboarding's initial pick is exempt — the journey hasn't
+        // started yet, and the Onboarding screen does its own scene-setting.
+        if (changed && get().onboarded) get().queueCutscene(`enter:${activePath}`);
       },
+
+      // ── Story cutscenes ────────────────────────────────────────────────
+      // Queue a cutscene exactly once, ever. A queued Ascension cinematic
+      // outranks story beats — the Cutscene component defers to it at render
+      // time, and the pending slot survives until viewed either way.
+      queueCutscene: (id) => {
+        if (get().cutscenesSeen?.[id]) return;
+        set((s) => ({
+          pendingCutscene: s.pendingCutscene || id,
+          cutscenesSeen: { ...(s.cutscenesSeen || {}), [id]: true },
+        }));
+      },
+      clearPendingCutscene: () => set({ pendingCutscene: null }),
       chooseCompanion: (companion) => {
         set((s) => {
           // Switching companion drops the live tier to whatever that species
@@ -965,8 +991,16 @@ export const useStore = create(
         // badges — so the user sees gold, not bronze.
         for (const k of PATH_KEYS) {
           const { pct } = pathProgress(k, completed);
-          if (pct >= 0.33 && !have[`path:${k}:bronze`]) get().grantBadge(`path:${k}:bronze`);
-          if (pct >= 0.66 && !have[`path:${k}:silver`]) get().grantBadge(`path:${k}:silver`);
+          if (pct >= 0.33 && !have[`path:${k}:bronze`]) {
+            get().grantBadge(`path:${k}:bronze`);
+            // A third of the province reclaimed — its Lapse takes notice.
+            get().queueCutscene(`notice:${k}`);
+          }
+          if (pct >= 0.66 && !have[`path:${k}:silver`]) {
+            get().grantBadge(`path:${k}:silver`);
+            // Two thirds — the tide turns, and the Lapse feels it.
+            get().queueCutscene(`turn:${k}`);
+          }
           if (pct >= 1 && !have[`path:${k}:gold`]) {
             get().grantBadge(`path:${k}:gold`);
             // Province reclaimed — queue the Ascension cinematic exactly once
@@ -1514,6 +1548,12 @@ export const useStore = create(
             // so a restore can't replay every ascension.
             pendingAscension: null,
             ascensionsSeen: scrubBoolMap(raw.ascensionsSeen, new Set(PATH_KEYS)),
+            // Same policy for story cutscenes: never a queued one, keep seen.
+            pendingCutscene: null,
+            cutscenesSeen: scrubBoolMap(
+              raw.cutscenesSeen,
+              new Set(PATH_KEYS.flatMap((k) => [`enter:${k}`, `notice:${k}`, `turn:${k}`]))
+            ),
             // Ember balance — clamped like xp so a tampered backup can't mint
             // a fortune. The daily review-cap slot only survives with a well-
             // formed date and an in-range count (mirrors dailyPractice).
@@ -1897,7 +1937,7 @@ export const useStore = create(
       //      CONTENT to play, not a record: existing users keep their met
       //      gates (instant access) but still walk the road and pay the
       //      ember pacing like everyone else.
-      version: 16,
+      version: 17,
       // Drop the transient celebrate signal from the persisted payload —
       // it's a one-shot UI flag (migrate also clears it defensively for
       // blobs written before this existed).
@@ -2122,6 +2162,25 @@ export const useStore = create(
           || typeof persisted.journey !== 'object'
         ) {
           persisted.journey = {};
+        }
+        // v17 — story cutscenes. Backfill cutscenesSeen from existing badges
+        // and progress so long-time users don't get a backlog of story beats
+        // for provinces they've already pushed through (same policy as the
+        // v13 ascension backfill).
+        if (prevVersion < 17 || !persisted.cutscenesSeen || typeof persisted.cutscenesSeen !== 'object') {
+          const seen = {};
+          const badges = persisted.badges && typeof persisted.badges === 'object' ? persisted.badges : {};
+          const completed = persisted.completed && typeof persisted.completed === 'object' ? persisted.completed : {};
+          for (const k of PATH_KEYS) {
+            if (badges[`path:${k}:bronze`]) seen[`notice:${k}`] = true;
+            if (badges[`path:${k}:silver`]) seen[`turn:${k}`] = true;
+            const { done } = pathProgress(k, completed);
+            if (done > 0 || persisted.activePath === k) seen[`enter:${k}`] = true;
+          }
+          persisted.cutscenesSeen = seen;
+        }
+        if (prevVersion < 17 || persisted.pendingCutscene === undefined) {
+          persisted.pendingCutscene = null;
         }
         // Always clear the ephemeral celebrate flag on rehydrate — it's a
         // transient UI signal, persisting it would replay celebrations on

@@ -44,6 +44,9 @@ const Reviews          = lazy(() => import('./screens/Reviews.jsx'));
 // until the store queues a pendingAscension; it gets its OWN Suspense with a
 // null fallback so the chunk fetch never flashes the route-level "Loading…".
 const PathAscension    = lazy(() => import('./components/PathAscension.jsx'));
+// Story cutscenes — same once-per-milestone economics as PathAscension, same
+// lazy treatment: null until the store queues a pendingCutscene.
+const Cutscene         = lazy(() => import('./components/Cutscene.jsx'));
 const ReviewWeakSpots  = lazy(() => import('./screens/ReviewWeakSpots.jsx'));
 // Codex — the journey lore reader. Pure flavor text; loads only when a
 // Keeper actually opens it from the ByteBeast screen.
@@ -254,6 +257,7 @@ function App() {
       {/* Onboarded branch only — a gold seal can't be earned pre-onboarding. */}
       <Suspense fallback={null}>
         <PathAscension />
+        <Cutscene />
       </Suspense>
       <CoachTour />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />

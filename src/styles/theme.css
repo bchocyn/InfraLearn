@@ -7281,3 +7281,98 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   .ascend-ring { stroke-dashoffset: 0; }
 }
 
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Story cutscenes (components/Cutscene.jsx) — letterboxed visual-novel beats
+ * for province entry / the Lapse noticing / the tide turning. z-index 180:
+ * above EvolutionNotice (100), below PathAscension (200) so the gold-seal
+ * cinematic always wins the screen if both somehow mount.
+ * ────────────────────────────────────────────────────────────────────────── */
+.cutscene-overlay {
+  position: fixed; inset: 0; z-index: 180;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 35%, #14110C 0%, #0B0A08 72%);
+  cursor: pointer; overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  animation: cutscene-fade-in .45s ease both;
+}
+@keyframes cutscene-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.cutscene-letterbox { position: absolute; left: 0; right: 0; height: 8vh; background: #000; z-index: 2; }
+.cutscene-letterbox-top { top: 0; }
+.cutscene-letterbox-bottom { bottom: 0; }
+
+.cutscene-skip {
+  position: absolute; top: calc(8vh + 10px); right: 14px; z-index: 4;
+  background: rgba(11,10,8,.65); color: var(--text-secondary);
+  border: 1px solid var(--border-subtle); border-radius: 999px;
+  padding: 6px 12px; font-size: 10px; letter-spacing: .12em; cursor: pointer;
+}
+
+/* Parallax star drift — two layers sliding at different speeds/directions. */
+.cutscene-drift, .cutscene-drift-far, .cutscene-drift-near { position: absolute; inset: -25%; pointer-events: none; }
+.cutscene-drift-far {
+  background-image:
+    radial-gradient(1px 1px at 18% 28%, rgba(244,239,227,.55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 64% 16%, rgba(244,239,227,.4) 50%, transparent 51%),
+    radial-gradient(2px 2px at 82% 64%, rgba(245,184,66,.45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 38% 76%, rgba(244,239,227,.45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 90% 38%, rgba(244,239,227,.35) 50%, transparent 51%);
+  animation: cutscene-drift 70s linear infinite alternate;
+}
+.cutscene-drift-near {
+  background-image:
+    radial-gradient(2px 2px at 28% 52%, rgba(245,184,66,.3) 50%, transparent 51%),
+    radial-gradient(1px 1px at 74% 80%, rgba(244,239,227,.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 52% 22%, rgba(244,239,227,.3) 50%, transparent 51%);
+  opacity: .75;
+  animation: cutscene-drift 40s linear infinite alternate-reverse;
+}
+@keyframes cutscene-drift { from { transform: translate3d(0,0,0); } to { transform: translate3d(-46px, 34px, 0); } }
+
+.cutscene-panel {
+  position: relative; z-index: 3; max-width: 430px; padding: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  text-align: center;
+}
+.cutscene-actor {
+  filter: drop-shadow(0 12px 26px rgba(0,0,0,.6));
+  animation: cutscene-actor-in .7s cubic-bezier(.2,.9,.3,1.15) both;
+}
+@keyframes cutscene-actor-in {
+  from { opacity: 0; transform: translateY(18px) scale(.9); }
+  to   { opacity: 1; transform: none; }
+}
+.cutscene-sigil {
+  width: 112px; height: 112px; border-radius: 50%;
+  border: 2px solid rgba(245,184,66,.4);
+  background: radial-gradient(circle, rgba(245,184,66,.14), transparent 72%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 46px;
+}
+.cutscene-kicker { color: var(--accent-amber); }
+.cutscene-title {
+  font-family: var(--font-serif); font-size: 26px; font-weight: 700;
+  line-height: 1.1; color: var(--text-primary); letter-spacing: -0.01em;
+}
+.cutscene-line {
+  margin: 0; max-width: 360px;
+  color: var(--text-secondary); font-size: 14.5px; line-height: 1.55;
+  animation: cutscene-line-up .6s ease both;
+}
+@keyframes cutscene-line-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.cutscene-hint {
+  margin-top: 8px; font-size: 9.5px; letter-spacing: .16em; color: #8A8170;
+  animation: cutscene-hint-pulse 1.8s ease-in-out infinite;
+}
+@keyframes cutscene-hint-pulse { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
+
+/* Reduced motion — JS-gated class AND the OS-level belt: panels render
+   statically, no drift layers (JS already skips mounting them). */
+.cutscene-reduced .cutscene-actor,
+.cutscene-reduced .cutscene-line,
+.cutscene-reduced .cutscene-hint { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .cutscene-overlay, .cutscene-actor, .cutscene-line, .cutscene-hint,
+  .cutscene-drift-far, .cutscene-drift-near { animation: none; }
+}
