@@ -13,7 +13,7 @@ import { useStore } from '../store/useStore.js';
 import { WORLD, PROVINCES, FIVE_LAPSES, LAPSE_KEYS, BEAST_LORE, KEEPER_RANKS } from '../data/lore.js';
 import { BEASTS, SPECIES_KEYS, ELEMENTS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS } from '../data/content.js';
-import BeastSprite from '../components/BeastSprite.jsx';
+import BeastSprite, { nullBeastSrc } from '../components/BeastSprite.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 
 const TOTAL_FRAGMENTS = 1 + PATH_KEYS.length + LAPSE_KEYS.length + SPECIES_KEYS.length * 4;
@@ -119,24 +119,42 @@ function LapseSection({ loreUnlocked }) {
             <div className="kicker codex-kicker">
               {lapse.virtue.toUpperCase()} → {lapse.vice.toUpperCase()}
             </div>
+            <div className="codex-beast-head">
+              {/* The Lapse's boss sprite — full art once named, a black
+                  silhouette while it's still "a presence unnamed". */}
+              <div className={unlocked ? '' : 'codex-shadow'}>
+                <img
+                  className="beast-img"
+                  src={nullBeastSrc(id)}
+                  alt={unlocked ? `${lapse.name}, ${lapse.title}` : 'An unnamed presence'}
+                  width={52}
+                  height={52}
+                  style={{ width: 52, height: 52, imageRendering: 'pixelated' }}
+                  draggable={false}
+                />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                {unlocked ? (
+                  <div className="codex-title" style={{ marginBottom: 2 }}>
+                    {lapse.name}, {lapse.title}
+                    <span className={`pill ${el.cls} codex-pill`}>{el.icon} {el.label.toUpperCase()}</span>
+                  </div>
+                ) : (
+                  <div className="codex-title" style={{ marginBottom: 2 }}>A presence unnamed</div>
+                )}
+              </div>
+            </div>
             {unlocked ? (
               <>
-                <div className="codex-title">
-                  {lapse.name}, {lapse.title}
-                  <span className={`pill ${el.cls} codex-pill`}>{el.icon} {el.label.toUpperCase()}</span>
-                </div>
                 <p className="codex-body">{lapse.codex}</p>
                 <blockquote className="codex-voice">“{lapse.voice}”</blockquote>
               </>
             ) : (
-              <>
-                <div className="codex-title">A presence unnamed</div>
-                <p className="codex-hint">
-                  🔒 {lapse.finale
-                    ? 'Reclaim a province outright (gold seal) — and it will introduce itself.'
-                    : `Push deeper into ${(homes[id] || []).join(' or ')} — a third of the way in, it takes notice.`}
-                </p>
-              </>
+              <p className="codex-hint">
+                🔒 {lapse.finale
+                  ? 'Reclaim a province outright (gold seal) — and it will introduce itself.'
+                  : `Push deeper into ${(homes[id] || []).join(' or ')} — a third of the way in, it takes notice.`}
+              </p>
             )}
           </div>
         );

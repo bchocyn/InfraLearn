@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS, groupedSections, labUnlockStatus, pathProgress } from '../data/content.js';
 import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
 import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
-import BeastSprite from '../components/BeastSprite.jsx';
+import BeastSprite, { nullBeastSrc } from '../components/BeastSprite.jsx';
 
 // ─── The Adventure Map (v5) ───────────────────────────────────────────────────
 // Serpentine SVG trail, now styled as a stage-road through province ruins
@@ -1349,13 +1349,6 @@ function NullFog({ frontierY, H, allDone, reduced, pathKey }) {
   );
 }
 
-// Null Beast sprite URL for a Lapse id ('hollow-ink' → null_hollow_ink.png),
-// resolved against Vite's base path the same way BeastSprite does.
-const lapseSprite = (lapseId) =>
-  `${import.meta.env.BASE_URL}beasts/null_${String(lapseId).replace(/-/g, '_')}.png`
-    .replace(/\/{2,}/g, '/')
-    .replace(':/', '://');
-
 // The fog gate at the trail's far end — two ruined pillars with a pale veil
 // stretched between them, and the province's Lapse looming behind it as its
 // actual Null Beast sprite (dim, breathing in the mist, element-glow eyes
@@ -1365,12 +1358,6 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
   if (!lapse || !Number.isFinite(H)) return null;
   const cx = W / 2;
   const labelY = H - 62; // sits between the last node's label and the medal halo
-  const labelFont = {
-    fontFamily: 'JetBrains Mono, ui-monospace, monospace',
-    fontSize: '7.5',
-    letterSpacing: '0.14em',
-    textAnchor: 'middle',
-  };
   const gateBase = H - 70; // pillar feet — between the last node's label and the medal
   if (allDone) {
     return (
@@ -1380,7 +1367,16 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
         <rect x={cx + 27} y={gateBase - 8} width="5" height="8" fill="#8A93A3" opacity="0.5" />
         <rect x={cx - 14} y={gateBase - 3} width="7" height="3" fill="#8A93A3" opacity="0.4" />
         <rect x={cx + 8} y={gateBase - 3} width="5" height="3" fill="#8A93A3" opacity="0.35" />
-        <text x={cx} y={labelY} {...labelFont} fill="#F5B842" opacity="0.5">
+        <text
+          x={cx}
+          y={labelY}
+          fontFamily="JetBrains Mono, ui-monospace, monospace"
+          fontSize="7.5"
+          letterSpacing="0.14em"
+          textAnchor="middle"
+          fill="#F5B842"
+          opacity="0.5"
+        >
           {lapse.name.toUpperCase()} HAS FLED — FOR NOW
         </text>
       </g>
@@ -1397,7 +1393,7 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
       <ellipse cx={cx} cy={spriteY + spriteSize / 2} rx="30" ry="22" fill={color} opacity="0.12" />
       {/* The Lapse itself — its Null Beast sprite, dim in the fog. */}
       <image
-        href={lapseSprite(lapse.id)}
+        href={nullBeastSrc(lapse.id)}
         x={cx - spriteSize / 2}
         y={spriteY}
         width={spriteSize}
@@ -1419,7 +1415,16 @@ function LapsePresence({ lapse, H, allDone, reduced }) {
           <animate attributeName="opacity" values="0.16;0.28;0.16" dur="7s" repeatCount="indefinite" />
         ) : null}
       </rect>
-      <text x={cx} y={labelY} {...labelFont} fill="#F4EFE3" opacity="0.35">
+      <text
+        x={cx}
+        y={labelY}
+        fontFamily="JetBrains Mono, ui-monospace, monospace"
+        fontSize="7.5"
+        letterSpacing="0.14em"
+        textAnchor="middle"
+        fill="#F4EFE3"
+        opacity="0.35"
+      >
         {lapse.name.toUpperCase()} WAITS BEYOND THE FOG
       </text>
     </g>
