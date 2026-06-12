@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS, groupedSections, labUnlockStatus, pathProgress } from '../data/content.js';
@@ -291,6 +291,9 @@ export default function Roadmap() {
   // Journey star tally for the active province — reference changes only on
   // journey writes (chapter completions), so this stays render-cheap.
   const journeyMap = useStore((st) => st.journey);
+  // Per-lesson quiz misses → per-stage star ratings (CRK-style). Writes only
+  // happen inside lessons, so this never re-renders the map mid-browse.
+  const quizMisses = useStore((st) => st.quizMisses);
   const level = useStore((st) => st.level);
   const hideCompanion = useStore((st) => st.settings?.hideCompanion);
   const companion = useStore((st) => st.companion);
@@ -367,6 +370,26 @@ export default function Roadmap() {
   const walkerLeftPct = walkerNode ? (walkerNode.mainX / W) * 100 : 50;
   const walkerTopPct = walkerNode ? (walkerNode.mainY / H) * 100 : 50;
 
+  // Stage star rating for a completed lesson, derived from quiz misses:
+  // clean run = 3★, a slip or two = 2★, more = 1★. Lessons without quizzes
+  // rate a clean 3★ — same as CRK handing out full stars on easy stages.
+  const starsFor = (lessonId) => {
+    const missed = Object.keys(quizMisses?.[lessonId] || {}).length;
+    return missed === 0 ? 3 : missed <= 2 ? 2 : 1;
+  };
+
+  // Auto-center the map on the current stage (CRK always opens on "you are
+  // here"). Skipped near the trailhead — no point scrolling for stage 1-1.
+  const sceneRef = useRef(null);
+  useEffect(() => {
+    const el = sceneRef.current;
+    if (!el || typeof window === 'undefined' || currentIdx < 3) return;
+    const rect = el.getBoundingClientRect();
+    const target =
+      rect.top + window.scrollY + rect.height * (walkerTopPct / 100) - window.innerHeight * 0.4;
+    if (target > 0) window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
+  }, [pathKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Story layer derivations ────────────────────────────────────────────
   // Province identity for the active path (graceful skip when a path has no
   // lore entry yet) + the Lapse that haunts it.
@@ -434,7 +457,7 @@ export default function Roadmap() {
 
       <ProvinceBanner province={province} pathLabel={pathLabel} />
 
-      <div className="roadmap-scene" style={{ aspectRatio: `${W} / ${H}` }}>
+      <div ref={sceneRef} className="roadmap-scene" style={{ aspectRatio: `${W} / ${H}` }}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"
@@ -493,11 +516,15 @@ export default function Roadmap() {
                   <ConceptNode n={n} done={done} isCurrent={isCurrent} />
                 )}
 
-                {/* Stage number — world-map "2-4" plate above the node. */}
+                {/* Stage stars — CRK-style fan above cleared stages. */}
+                {done ? <StageStars x={n.x} y={n.y} count={starsFor(lesson.id)} /> : null}
+
+                {/* Stage number — world-map "2-4" plate above the node.
+                    Cleared stages push it up to clear the star fan. */}
                 {stageLabels[i] ? (
                   <text
                     x={n.x}
-                    y={n.y - (kind === 'lab' ? 19 : 17)}
+                    y={n.y - (done ? 29 : kind === 'lab' ? 19 : 17)}
                     fontFamily="JetBrains Mono, ui-monospace, monospace"
                     fontSize="6.5"
                     letterSpacing="0.08em"
@@ -1077,64 +1104,82 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
 });
 
 // ─── Node renderers ──────────────────────────────────────────────────────────
+// All nodes are drawn as chunky candy buttons (CRK-style): a darker "base"
+// shape offset a few px down for depth, the face shape on top, and a pale
+// arc along the upper edge as a baked-in specular highlight.
+
+// Highlight arc across the top of a circular button face.
+function ButtonShine({ x, y, r, color = '#FFF3D6', opacity = 0.75 }) {
+  const span = r * 0.62;
+  const lift = r * 0.6;
+  return (
+    <path
+      d={`M ${x - span} ${y - lift} A ${r * 0.85} ${r * 0.85} 0 0 1 ${x + span} ${y - lift}`}
+      stroke={color}
+      strokeWidth={r * 0.22}
+      strokeLinecap="round"
+      fill="none"
+      opacity={opacity}
+      pointerEvents="none"
+    />
+  );
+}
+
 function ConceptNode({ n, done, isCurrent }) {
-  // Done = filled amber + outline ring.
-  // Current = filled amber + outer halo (drawn above) + crisp ring.
-  // Upcoming = dark fill with grey ring.
+  // Done = amber candy button with ✓. Current = same button with ▶.
+  // Upcoming = dark recessed button.
   if (done || isCurrent) {
     return (
       <>
-        <circle cx={n.x} cy={n.y} r="11" fill="#F5B842" stroke="#FFE8B0" strokeWidth="2" />
-        {done ? (
-          <text
-            x={n.x}
-            y={n.y + 4}
-            fontFamily="JetBrains Mono, ui-monospace, monospace"
-            fontSize="11"
-            fontWeight="700"
-            textAnchor="middle"
-            fill="#0B0A08"
-          >
-            ✓
-          </text>
-        ) : (
-          <text
-            x={n.x}
-            y={n.y + 4}
-            fontFamily="JetBrains Mono, ui-monospace, monospace"
-            fontSize="11"
-            fontWeight="700"
-            textAnchor="middle"
-            fill="#0B0A08"
-          >
-            ▶
-          </text>
-        )}
+        <circle cx={n.x} cy={n.y + 3} r="13" fill="#9C6E1C" />
+        <circle cx={n.x} cy={n.y} r="13" fill="#F5B842" stroke="#FFE8B0" strokeWidth="1.5" />
+        <ButtonShine x={n.x} y={n.y} r={13} />
+        <text
+          x={n.x}
+          y={n.y + 4}
+          fontFamily="JetBrains Mono, ui-monospace, monospace"
+          fontSize="11"
+          fontWeight="700"
+          textAnchor="middle"
+          fill="#0B0A08"
+        >
+          {done ? '✓' : '▶'}
+        </text>
       </>
     );
   }
   // Upcoming
   return (
-    <circle
-      cx={n.x}
-      cy={n.y}
-      r="10"
-      fill="#17140F"
-      stroke="#4D4639"
-      strokeWidth="2"
-      opacity="0.95"
-    />
+    <>
+      <circle cx={n.x} cy={n.y + 3} r="11" fill="#060504" opacity="0.95" />
+      <circle cx={n.x} cy={n.y} r="11" fill="#17140F" stroke="#4D4639" strokeWidth="2" opacity="0.95" />
+      <ButtonShine x={n.x} y={n.y} r={11} color="#5C574A" opacity="0.4" />
+    </>
   );
 }
 
 function SdNode({ n, done }) {
-  // Diamond (rotated square) — blue-tinted.
-  const r = 8;
-  const pts = `${n.x},${n.y - r} ${n.x + r},${n.y} ${n.x},${n.y + r} ${n.x - r},${n.y}`;
+  // Diamond (rotated square) — blue-tinted candy button.
+  const r = 9;
+  const diamond = (cy) =>
+    `${n.x},${cy - r} ${n.x + r},${cy} ${n.x},${cy + r} ${n.x - r},${cy}`;
   const fill = done ? '#7B9FB5' : 'rgba(123,159,181,.18)';
   return (
     <>
-      <polygon points={pts} fill={fill} stroke="#7B9FB5" strokeWidth="2" />
+      <polygon points={diamond(n.y + 3)} fill={done ? '#42596B' : '#101820'} />
+      <polygon points={diamond(n.y)} fill={fill} stroke="#7B9FB5" strokeWidth="2" />
+      {/* Upper-left facet catch-light */}
+      <line
+        x1={n.x - r * 0.55}
+        y1={n.y - r * 0.4}
+        x2={n.x - r * 0.1}
+        y2={n.y - r * 0.85}
+        stroke={done ? '#D8E6F0' : '#7B9FB5'}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity={done ? 0.85 : 0.45}
+        pointerEvents="none"
+      />
       {done ? (
         <text
           x={n.x}
@@ -1153,24 +1198,36 @@ function SdNode({ n, done }) {
 }
 
 function LabNode({ n, done, unlocked }) {
-  // Hexagon. Amber outline. Unlocked = filled amber. Locked = grey.
-  const r = 12;
-  const pts = [
-    [n.x + r, n.y],
-    [n.x + r / 2, n.y + (r * 0.866)],
-    [n.x - r / 2, n.y + (r * 0.866)],
-    [n.x - r, n.y],
-    [n.x - r / 2, n.y - (r * 0.866)],
-    [n.x + r / 2, n.y - (r * 0.866)],
-  ]
-    .map((p) => p.join(','))
-    .join(' ');
+  // Hexagon candy button. Amber when unlocked, recessed grey when locked.
+  const r = 13;
+  const hex = (cy) =>
+    [
+      [n.x + r, cy],
+      [n.x + r / 2, cy + (r * 0.866)],
+      [n.x - r / 2, cy + (r * 0.866)],
+      [n.x - r, cy],
+      [n.x - r / 2, cy - (r * 0.866)],
+      [n.x + r / 2, cy - (r * 0.866)],
+    ]
+      .map((p) => p.join(','))
+      .join(' ');
 
   const fill = done ? '#F5B842' : unlocked ? '#F5B842' : '#1D1A14';
   const stroke = unlocked ? '#F5B842' : '#4D4639';
   return (
     <>
-      <polygon points={pts} fill={fill} stroke={stroke} strokeWidth="2" />
+      <polygon points={hex(n.y + 3)} fill={unlocked || done ? '#9C6E1C' : '#0A0805'} />
+      <polygon points={hex(n.y)} fill={fill} stroke={stroke} strokeWidth="2" />
+      {/* Top-facet highlight along the hexagon's upper edges */}
+      <polyline
+        points={`${n.x - r / 2 + 1.5},${n.y - r * 0.866 + 1.5} ${n.x + r / 2 - 1.5},${n.y - r * 0.866 + 1.5}`}
+        stroke={unlocked || done ? '#FFF3D6' : '#5C574A'}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        fill="none"
+        opacity={unlocked || done ? 0.7 : 0.35}
+        pointerEvents="none"
+      />
       {unlocked && !done ? (
         <text
           x={n.x}
@@ -1201,10 +1258,40 @@ function LabNode({ n, done, unlocked }) {
   );
 }
 
+// CRK-style star fan above a cleared stage: three small stars arced over the
+// node, earned ones gold, the rest dim sockets — the "2/3 stars" itch that
+// makes replaying (re-reading) a stage feel like polishing, not repeating.
+function StageStars({ x, y, count }) {
+  const slots = [
+    { dx: -8.5, dy: -14.5, size: 7 },
+    { dx: 0, dy: -18, size: 8.5 },
+    { dx: 8.5, dy: -14.5, size: 7 },
+  ];
+  return (
+    <g pointerEvents="none" aria-hidden="true">
+      {slots.map((s, i) => (
+        <text
+          key={i}
+          x={x + s.dx}
+          y={y + s.dy}
+          fontSize={s.size}
+          textAnchor="middle"
+          fill={i < count ? '#F5B842' : '#332E24'}
+          style={{ paintOrder: 'stroke', stroke: '#0B0A08', strokeWidth: 1.5 }}
+        >
+          ★
+        </text>
+      ))}
+    </g>
+  );
+}
+
 function Medal({ x, y, active, pathKey }) {
   return (
     <g className="roadmap-medal" style={{ pointerEvents: 'none' }}>
+      <circle cx={x} cy={y + 3.5} r="18" fill={active ? '#9C6E1C' : '#0E0C09'} />
       <circle cx={x} cy={y} r="18" fill={active ? '#F5B842' : '#2A2620'} stroke={active ? '#FFE8B0' : '#4D4639'} strokeWidth="2" />
+      <ButtonShine x={x} y={y} r={18} color={active ? '#FFF3D6' : '#5C574A'} opacity={active ? 0.75 : 0.35} />
       {/* Halo uses the per-path radial gradient declared in <defs> — the old
           fill referenced a non-existent #halo-medal id, so the glow never
           rendered on path completion. */}
