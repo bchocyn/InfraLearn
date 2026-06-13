@@ -960,19 +960,22 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
     };
 
     const out = [];
-    // Standing props — denser and spread full-width (rejection-sampled around
-    // the trail). `pad` is the min clearance of the prop's base from the path.
+    // Density scales with the province's scroll height so a tall province isn't
+    // sparse per screen: `per(px)` ≈ one prop for every `px` of vertical extent.
+    const per = (px) => Math.max(5, Math.round(span / px));
+    // Standing props — dense, spread full-width (rejection-sampled around the
+    // trail). `pad` is the min clearance of the prop's base from the path.
     const standing = [
-      { k: tree,          w: 30, n: 30, pad: 30 },
-      { k: altTree,       w: 26, n: 14, pad: 28 },
-      { k: 'bush',        w: 13, n: 30, pad: 18 },
-      { k: 'rock_a',      w: 15, n: 14, pad: 20 },
-      { k: 'rock_b',      w: 11, n: 12, pad: 16 },
-      { k: 'ruin_pillar', w: 16, n: 3,  pad: 26 },
+      { k: tree,          w: 30, n: per(46),  pad: 22 },
+      { k: altTree,       w: 26, n: per(110), pad: 22 },
+      { k: 'bush',        w: 13, n: per(32),  pad: 12 },
+      { k: 'rock_a',      w: 15, n: per(85),  pad: 14 },
+      { k: 'rock_b',      w: 11, n: per(95),  pad: 12 },
+      { k: 'ruin_pillar', w: 16, n: per(550), pad: 22 },
     ];
     for (const { k, w, n, pad } of standing) {
       let placed = 0;
-      for (let tries = 0; placed < n && tries < n * 14; tries++) {
+      for (let tries = 0; placed < n && tries < n * 16; tries++) {
         const x = 8 + rnd() * (W - 16);
         const y = top + rnd() * span;
         if (tooClose(x, y, pad)) continue;
@@ -982,8 +985,9 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
       }
     }
     // Flat ground decals — texture; allowed closer to the trail edge.
+    const decalTarget = per(30);
     let dc = 0;
-    for (let tries = 0; dc < 34 && tries < 34 * 8; tries++) {
+    for (let tries = 0; dc < decalTarget && tries < decalTarget * 10; tries++) {
       const k = decals[Math.floor(rnd() * decals.length)];
       const x = 12 + rnd() * (W - 24);
       const y = top + rnd() * span;
