@@ -366,6 +366,14 @@ function UiSprite({ k, x, y, w, className, opacity = 1 }) {
 
 // ─── Geometry helpers ────────────────────────────────────────────────────────
 const W = 360;
+
+// PixelLab pixel-art parallax backdrops for the per-province sky band
+// (scripts/generate-roadmap-scenes.mjs). Paths listed here render the image
+// over the procedural sky gradient; any path not listed keeps the gradient.
+// The animated moon + parallax stars still draw on top of the image.
+const ROADMAP_SCENE_IMG = new Set(['fundamentals']);
+const roadmapSceneSrc = (k) =>
+  `${import.meta.env.BASE_URL}roadmap-scenes/${k}.png`.replace(/\/{2,}/g, '/').replace(':/', '://');
 const STEP_Y = 88;
 const TOP = 60;
 
@@ -1089,6 +1097,21 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
 
           {/* Sky */}
           <rect x="0" y="0" width={W} height={H} fill={`url(#sky-${pathKey})`} />
+
+          {/* PixelLab pixel-art landscape over the sky band (per province).
+              Covers the gradient up to just past the horizon; the opaque ground
+              gradient below + stars/moon above layer over it. */}
+          {ROADMAP_SCENE_IMG.has(pathKey) && (
+            <image
+              href={roadmapSceneSrc(pathKey)}
+              x="0"
+              y="0"
+              width={W}
+              height={HORIZON + 12}
+              preserveAspectRatio="none"
+              style={{ imageRendering: 'pixelated' }}
+            />
+          )}
 
           {/* Stars — span the full canvas; bigger ones glow, ~20% twinkle.
               The group drifts at 0.18x scroll speed (parallax far layer). */}
