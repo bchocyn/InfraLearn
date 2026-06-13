@@ -69,6 +69,7 @@ const PROPS = {
   },
   fog_gate: {
     size: [96, 112],
+    view: 'side', // front-facing set piece — the player walks INTO it
     prompt: `${STYLE}. A tall ominous fog gate: two ruined stone pillars #8A93A3 with a pale ghostly translucent veil of mist #C7D3E0 stretched between them, the veil glowing faintly cold blue-white, dark dread emanating, Elden Ring boss door`,
   },
   grace_lantern: {
@@ -81,6 +82,7 @@ const PROPS = {
   },
   fog_gate_broken: {
     size: [96, 112],
+    view: 'side', // matches fog_gate — the pair must share a camera
     prompt: `${STYLE}. The shattered remains of a ruined stone gate: two broken pillar stubs #8A93A3, fallen stones and rubble scattered between them, NO mist veil — the fog is gone, open sky visible through the gap, faint warm golden light #F5B842 settling on the rubble, peaceful aftermath`,
   },
   chest: {
@@ -97,7 +99,7 @@ const PROPS = {
   },
 };
 
-async function generate(key, { size, prompt }) {
+async function generate(key, { size, prompt, view }) {
   console.log(`→ ${key} (${size[0]}x${size[1]})`);
   const res = await fetch(`${API}/generate-image-pixflux`, {
     method: 'POST',
@@ -106,6 +108,13 @@ async function generate(key, { size, prompt }) {
       description: prompt,
       image_size: { width: size[0], height: size[1] },
       no_background: true,
+      // Camera height via the dedicated param, not prompt text (per
+      // pixellab.ai/docs/options/camera). 'low top-down' (~20°) is the same
+      // camera the Beast Tamer characters render under — props and walkers
+      // must share one view or the scene's perspective falls apart. Tall
+      // front-facing set pieces (fog gates, the ruin arch) may override
+      // with view: 'side' per prop.
+      view: view || 'low top-down',
     }),
   });
   if (!res.ok) throw new Error(`${key}: HTTP ${res.status} ${await res.text()}`);

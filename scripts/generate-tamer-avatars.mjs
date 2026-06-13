@@ -81,6 +81,11 @@ async function generate(key, { name, prompt }) {
       detail: 'medium detail',
       outline: 'single color black outline',
       shading: 'basic shading',
+      // Camera height is a dedicated param, NOT prompt text (per
+      // pixellab.ai/docs/options/camera) — 'low top-down' is the ~20° 3/4
+      // RPG view. It must match across the cast AND across all four facing
+      // directions, or characters appear to change height as they turn.
+      view: 'low top-down',
     }),
   });
   if (!res.ok) throw new Error(`${key}: HTTP ${res.status} ${await res.text()}`);
