@@ -23,7 +23,7 @@ export const BEAST_ANIMS = {
   // species key is `unicorn` (renamed to Qilin in display only)
   unicorn: { 1: { folder: 'qilin_idle', frames: 7, fps: 8 } },
   sphinx: { 1: { folder: 'sphinx_idle', frames: 7, fps: 8 } },
-  // pegasus pending (v2 mecha warhorse still rendering)
+  pegasus: { 1: { folder: 'pegasus_idle', frames: 7, fps: 8 } },
 };
 
 export function beastIdleFrames(species, tier) {
