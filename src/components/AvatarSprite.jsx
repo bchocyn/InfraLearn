@@ -14,11 +14,13 @@
 
 import { TAMERS, tamerSrc } from '../data/tamers.js';
 import { ARMOR_SETS, armorSrc, weaponSrc } from '../data/armorSets.js';
+import { tamerIdleFrames, tamerIdleFps } from '../data/anims.js';
+import AnimatedSprite from './AnimatedSprite.jsx';
 
 // Shown when an account has no tamer and no armor selected.
 export const DEFAULT_TAMER = 'ember_warden';
 
-export default function AvatarSprite({ avatar, size = 96, direction = 'south', weapon = true }) {
+export default function AvatarSprite({ avatar, size = 96, direction = 'south', weapon = true, animate = true }) {
   const a = avatar || {};
 
   // Armor set takes priority — full figure, optionally wielding its weapon.
@@ -34,8 +36,21 @@ export default function AvatarSprite({ avatar, size = 96, direction = 'south', w
   }
 
   // Otherwise a Beast Tamer (the chosen one, or the default). Tamers carry no
-  // weapon of their own.
+  // weapon of their own. If the tamer has an idle loop for this facing, play it
+  // (AnimatedSprite falls back to the first frame under reduced motion).
   const tamerId = a.tamer && TAMERS[a.tamer] ? a.tamer : DEFAULT_TAMER;
+  const idle = animate ? tamerIdleFrames(tamerId, direction) : null;
+  if (idle) {
+    return (
+      <AnimatedSprite
+        frames={idle}
+        fps={tamerIdleFps(tamerId, direction)}
+        width={size}
+        height={size * 1.5}
+        alt="Your avatar"
+      />
+    );
+  }
   return <Figure src={tamerSrc(tamerId, direction)} size={size} />;
 }
 
