@@ -23,6 +23,7 @@ import {
   isUnlocked,
   unlockHint,
 } from '../data/avatarParts.js';
+import { TAMERS, TAMER_KEYS, tamerSrc } from '../data/tamers.js';
 import { useStore } from '../store/useStore.js';
 
 export default function AvatarCreator({ avatar, onChange }) {
@@ -31,6 +32,7 @@ export default function AvatarCreator({ avatar, onChange }) {
   const slotMeta = AVATAR_SLOTS.find((s) => s.key === slot) || AVATAR_SLOTS[0];
   const variants = AVATAR_PARTS[slot] || [];
   const currentId = avatar?.[slot] ?? 0;
+  const activeTamer = avatar?.tamer && TAMERS[avatar.tamer] ? avatar.tamer : null;
 
   const colorKey = slotMeta.colorKey;
   const colorField = colorKey === 'hair' ? 'hairColor' : colorKey === 'top' ? 'topColor' : null;
@@ -44,6 +46,72 @@ export default function AvatarCreator({ avatar, onChange }) {
         <AvatarSprite avatar={avatar} size={120} />
       </div>
 
+      {/* Tamer presets — PixelLab-drawn Beast Tamers. Picking one swaps the
+          whole look; "Custom" returns to the layered part-builder below. */}
+      <div className="kicker" style={{ margin: '10px 0 6px' }}>Beast Tamer</div>
+      <div className="avatar-variants">
+        <button
+          type="button"
+          className={`avatar-variant ${activeTamer ? '' : 'active'}`}
+          title="Build your own from parts"
+          onClick={() => onChange({ tamer: null })}
+        >
+          <span className="avatar-variant-preview" aria-hidden="true">
+            <AvatarSprite avatar={{ ...(avatar || {}), tamer: null }} size={44} />
+          </span>
+          <span className="avatar-variant-name">Custom</span>
+        </button>
+        {TAMER_KEYS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={`avatar-variant ${activeTamer === id ? 'active' : ''}`}
+            title={`${TAMERS[id].name} — ${TAMERS[id].epithet}`}
+            onClick={() => onChange({ tamer: id })}
+          >
+            <span className="avatar-variant-preview" aria-hidden="true">
+              <img
+                src={tamerSrc(id)}
+                alt=""
+                width={44}
+                height={44}
+                draggable={false}
+                style={{ width: 44, height: 44, objectFit: 'contain', imageRendering: 'pixelated' }}
+              />
+            </span>
+            <span className="avatar-variant-name">{TAMERS[id].name}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* The part-builder only applies to the Custom avatar — hide it while
+          a Tamer preset is wearing the stage. */}
+      {activeTamer ? (
+        <p className="caption avatar-creator-foot">
+          {TAMERS[activeTamer].name} — {TAMERS[activeTamer].epithet}. Switch to Custom to build your own.
+        </p>
+      ) : (
+        <CustomBuilder
+          avatar={avatar}
+          onChange={onChange}
+          slot={slot}
+          setSlot={setSlot}
+          completed={completed}
+          variants={variants}
+          currentId={currentId}
+          colorKey={colorKey}
+          colorField={colorField}
+          colorList={colorList}
+          currentColor={currentColor}
+        />
+      )}
+    </div>
+  );
+}
+
+function CustomBuilder({ avatar, onChange, slot, setSlot, completed, variants, currentId, colorKey, colorField, colorList, currentColor }) {
+  return (
+    <>
       {/* Slot tabs ───────────────────────────────────── */}
       <div className="avatar-slots" role="tablist" aria-label="Avatar slots">
         {AVATAR_SLOTS.map((s) => (
@@ -107,7 +175,7 @@ export default function AvatarCreator({ avatar, onChange }) {
       <p className="caption avatar-creator-foot">
         Some items unlock as you complete paths.
       </p>
-    </div>
+    </>
   );
 }
 
