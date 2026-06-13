@@ -375,7 +375,9 @@ const W = 360;
 // (scripts/generate-roadmap-scenes.mjs). Paths listed here render the image
 // over the procedural sky gradient; any path not listed keeps the gradient.
 // The animated moon + parallax stars still draw on top of the image.
-const ROADMAP_SCENE_IMG = new Set(['fundamentals']);
+const ROADMAP_SCENE_IMG = new Set([
+  'fundamentals', 'devops', 'mlops', 'swe', 'mleng', 'faang', 'fullstack', 'cybersec',
+]);
 const roadmapSceneSrc = (k) =>
   `${import.meta.env.BASE_URL}roadmap-scenes/${k}.png`.replace(/\/{2,}/g, '/').replace(':/', '://');
 const STEP_Y = 88;
@@ -1197,10 +1199,15 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
             />
           ))}
 
-          {/* Moon — fixed in the sky band (above the horizon) so it never
-              ends up buried under the ground on longer provinces. */}
-          <circle cx={W * 0.82} cy={62} r="10" fill={scene.moon} opacity="0.95" />
-          <circle cx={W * 0.82} cy={62} r="18" fill={scene.moon} opacity="0.15" />
+          {/* Moon — only when there's no PixelLab landscape. Those images carry
+              their own sky (and often a setting sun), so a moon on top would be
+              a second celestial body. */}
+          {!ROADMAP_SCENE_IMG.has(pathKey) && (
+            <>
+              <circle cx={W * 0.82} cy={62} r="10" fill={scene.moon} opacity="0.95" />
+              <circle cx={W * 0.82} cy={62} r="18" fill={scene.moon} opacity="0.15" />
+            </>
+          )}
           </g>
 
           {/* Light shafts — pale rays falling across the ruins from above. */}
