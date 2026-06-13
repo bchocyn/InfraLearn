@@ -235,6 +235,15 @@ const PROP_DIMS = {
   grace_lantern: [32, 48],
   grace_dark: [32, 48],
   signpost: [32, 48],
+  // Gamified UI chips (PixelLab map objects, view: side) — stage buttons,
+  // the SD gem, the lab hex, the path medal and the rating star. State
+  // variants (locked/dim) come from CSS filter classes, not extra art.
+  ui_node_amber: [32, 32],
+  ui_node_dark: [32, 32],
+  ui_gem: [32, 32],
+  ui_hex: [32, 32],
+  ui_medal: [48, 48],
+  ui_star: [32, 32],
 };
 
 // Which tree species each province plants. Dark conifers for the green/cool
@@ -268,6 +277,28 @@ function MapProp({ k, x, y, w, pixelated = true, opacity = 1 }) {
         style={pixelated ? { imageRendering: 'pixelated' } : undefined}
       />
     </g>
+  );
+}
+
+// Centered UI chip — like MapProp but anchored on its center (buttons sit ON
+// the trail, not standing behind it) and with no contact shadow. State
+// styling (locked, dim star socket) is a CSS class so one sprite covers all
+// states and tests can assert on the class name.
+function UiSprite({ k, x, y, w, className, opacity = 1 }) {
+  const dims = PROP_DIMS[k] || [32, 32];
+  const h = (w * dims[1]) / dims[0];
+  return (
+    <image
+      href={mapSrc(k)}
+      className={className}
+      x={x - w / 2}
+      y={y - h / 2}
+      width={w}
+      height={h}
+      pointerEvents="none"
+      opacity={opacity}
+      style={{ imageRendering: 'pixelated' }}
+    />
   );
 }
 
@@ -1217,21 +1248,9 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
 // arc along the upper edge as a baked-in specular highlight.
 
 // Highlight arc across the top of a circular button face.
-function ButtonShine({ x, y, r, color = '#FFF3D6', opacity = 0.75 }) {
-  const span = r * 0.62;
-  const lift = r * 0.6;
-  return (
-    <path
-      d={`M ${x - span} ${y - lift} A ${r * 0.85} ${r * 0.85} 0 0 1 ${x + span} ${y - lift}`}
-      stroke={color}
-      strokeWidth={r * 0.22}
-      strokeLinecap="round"
-      fill="none"
-      opacity={opacity}
-      pointerEvents="none"
-    />
-  );
-}
+// All node chips below are PixelLab-drawn sprites (public/map/ui_*.png) with
+// SVG <text> glyphs overlaid — glyphs stay vector so they render crisp at any
+// zoom and never bake into the art.
 
 function ConceptNode({ n, done, isCurrent }) {
   // Done = amber candy button with ✓. Current = same button with ▶.
@@ -1239,12 +1258,10 @@ function ConceptNode({ n, done, isCurrent }) {
   if (done || isCurrent) {
     return (
       <>
-        <circle cx={n.x} cy={n.y + 3} r="13" fill="#9C6E1C" />
-        <circle cx={n.x} cy={n.y} r="13" fill="#F5B842" stroke="#FFE8B0" strokeWidth="1.5" />
-        <ButtonShine x={n.x} y={n.y} r={13} />
+        <UiSprite k="ui_node_amber" x={n.x} y={n.y} w={30} />
         <text
           x={n.x}
-          y={n.y + 4}
+          y={n.y + 3}
           fontFamily="JetBrains Mono, ui-monospace, monospace"
           fontSize="11"
           fontWeight="700"
@@ -1257,37 +1274,14 @@ function ConceptNode({ n, done, isCurrent }) {
     );
   }
   // Upcoming
-  return (
-    <>
-      <circle cx={n.x} cy={n.y + 3} r="11" fill="#060504" opacity="0.95" />
-      <circle cx={n.x} cy={n.y} r="11" fill="#17140F" stroke="#4D4639" strokeWidth="2" opacity="0.95" />
-      <ButtonShine x={n.x} y={n.y} r={11} color="#5C574A" opacity="0.4" />
-    </>
-  );
+  return <UiSprite k="ui_node_dark" x={n.x} y={n.y} w={26} opacity={0.95} />;
 }
 
 function SdNode({ n, done }) {
-  // Diamond (rotated square) — blue-tinted candy button.
-  const r = 9;
-  const diamond = (cy) =>
-    `${n.x},${cy - r} ${n.x + r},${cy} ${n.x},${cy + r} ${n.x - r},${cy}`;
-  const fill = done ? '#7B9FB5' : 'rgba(123,159,181,.18)';
+  // Blue gem diamond — full luster once cleared, cold and dim before.
   return (
     <>
-      <polygon points={diamond(n.y + 3)} fill={done ? '#42596B' : '#101820'} />
-      <polygon points={diamond(n.y)} fill={fill} stroke="#7B9FB5" strokeWidth="2" />
-      {/* Upper-left facet catch-light */}
-      <line
-        x1={n.x - r * 0.55}
-        y1={n.y - r * 0.4}
-        x2={n.x - r * 0.1}
-        y2={n.y - r * 0.85}
-        stroke={done ? '#D8E6F0' : '#7B9FB5'}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        opacity={done ? 0.85 : 0.45}
-        pointerEvents="none"
-      />
+      <UiSprite k="ui_gem" x={n.x} y={n.y} w={22} className={done ? undefined : 'roadmap-ui-unlit'} />
       {done ? (
         <text
           x={n.x}
@@ -1306,36 +1300,10 @@ function SdNode({ n, done }) {
 }
 
 function LabNode({ n, done, unlocked }) {
-  // Hexagon candy button. Amber when unlocked, recessed grey when locked.
-  const r = 13;
-  const hex = (cy) =>
-    [
-      [n.x + r, cy],
-      [n.x + r / 2, cy + (r * 0.866)],
-      [n.x - r / 2, cy + (r * 0.866)],
-      [n.x - r, cy],
-      [n.x - r / 2, cy - (r * 0.866)],
-      [n.x + r / 2, cy - (r * 0.866)],
-    ]
-      .map((p) => p.join(','))
-      .join(' ');
-
-  const fill = done ? '#F5B842' : unlocked ? '#F5B842' : '#1D1A14';
-  const stroke = unlocked ? '#F5B842' : '#4D4639';
+  // Amber hex forge chip. Locked = greyed out via filter class.
   return (
     <>
-      <polygon points={hex(n.y + 3)} fill={unlocked || done ? '#9C6E1C' : '#0A0805'} />
-      <polygon points={hex(n.y)} fill={fill} stroke={stroke} strokeWidth="2" />
-      {/* Top-facet highlight along the hexagon's upper edges */}
-      <polyline
-        points={`${n.x - r / 2 + 1.5},${n.y - r * 0.866 + 1.5} ${n.x + r / 2 - 1.5},${n.y - r * 0.866 + 1.5}`}
-        stroke={unlocked || done ? '#FFF3D6' : '#5C574A'}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        fill="none"
-        opacity={unlocked || done ? 0.7 : 0.35}
-        pointerEvents="none"
-      />
+      <UiSprite k="ui_hex" x={n.x} y={n.y} w={30} className={unlocked || done ? undefined : 'roadmap-ui-dim'} />
       {unlocked && !done ? (
         <text
           x={n.x}
@@ -1352,7 +1320,7 @@ function LabNode({ n, done, unlocked }) {
       {done ? (
         <text
           x={n.x}
-          y={n.y + 4}
+          y={n.y + 3}
           fontFamily="JetBrains Mono, ui-monospace, monospace"
           fontSize="11"
           fontWeight="700"
@@ -1371,24 +1339,21 @@ function LabNode({ n, done, unlocked }) {
 // makes replaying (re-reading) a stage feel like polishing, not repeating.
 function StageStars({ x, y, count }) {
   const slots = [
-    { dx: -8.5, dy: -14.5, size: 7 },
-    { dx: 0, dy: -18, size: 8.5 },
-    { dx: 8.5, dy: -14.5, size: 7 },
+    { dx: -8.5, dy: -16, size: 9 },
+    { dx: 0, dy: -19.5, size: 11 },
+    { dx: 8.5, dy: -16, size: 9 },
   ];
   return (
     <g pointerEvents="none" aria-hidden="true">
       {slots.map((s, i) => (
-        <text
+        <UiSprite
           key={i}
+          k="ui_star"
           x={x + s.dx}
           y={y + s.dy}
-          fontSize={s.size}
-          textAnchor="middle"
-          fill={i < count ? '#F5B842' : '#332E24'}
-          style={{ paintOrder: 'stroke', stroke: '#0B0A08', strokeWidth: 1.5 }}
-        >
-          ★
-        </text>
+          w={s.size}
+          className={i < count ? undefined : 'roadmap-star-socket'}
+        />
       ))}
     </g>
   );
@@ -1397,24 +1362,11 @@ function StageStars({ x, y, count }) {
 function Medal({ x, y, active, pathKey }) {
   return (
     <g className="roadmap-medal" style={{ pointerEvents: 'none' }}>
-      <circle cx={x} cy={y + 3.5} r="18" fill={active ? '#9C6E1C' : '#0E0C09'} />
-      <circle cx={x} cy={y} r="18" fill={active ? '#F5B842' : '#2A2620'} stroke={active ? '#FFE8B0' : '#4D4639'} strokeWidth="2" />
-      <ButtonShine x={x} y={y} r={18} color={active ? '#FFF3D6' : '#5C574A'} opacity={active ? 0.75 : 0.35} />
       {/* Halo uses the per-path radial gradient declared in <defs> — the old
           fill referenced a non-existent #halo-medal id, so the glow never
           rendered on path completion. */}
       {active ? <circle cx={x} cy={y} r="26" fill={`url(#halo-${pathKey})`} opacity="0.6" /> : null}
-      <text
-        x={x}
-        y={y + 6}
-        fontFamily="JetBrains Mono, ui-monospace, monospace"
-        fontSize="16"
-        fontWeight="700"
-        textAnchor="middle"
-        fill={active ? '#0B0A08' : '#5C574A'}
-      >
-        ★
-      </text>
+      <UiSprite k="ui_medal" x={x} y={y} w={40} className={active ? undefined : 'roadmap-ui-dim'} />
     </g>
   );
 }

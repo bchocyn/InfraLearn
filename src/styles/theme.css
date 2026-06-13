@@ -1371,6 +1371,13 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .roadmap-plx-far { transform: translateY(calc(var(--plx, 0) * 0.18px)); will-change: transform; }
 .roadmap-plx-mid { transform: translateY(calc(var(--plx, 0) * 0.10px)); will-change: transform; }
 
+/* PixelLab UI chip states — one sprite per shape, filters carry the state.
+   dim = locked/inactive (lab hex, medal); unlit = a gem not yet earned;
+   star-socket = the unfilled slots of a stage's 3-star fan. */
+.roadmap-ui-dim { filter: grayscale(1) brightness(0.38); }
+.roadmap-ui-unlit { filter: grayscale(0.55) brightness(0.55); }
+.roadmap-star-socket { filter: grayscale(1) brightness(0.32); opacity: 0.9; }
+
 .roadmap-walker {
   position: absolute;
   z-index: 2;

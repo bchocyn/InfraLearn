@@ -54,24 +54,25 @@ describe('Roadmap v5 story layers', () => {
     expect(html).toContain('roadmap-bang-bob');
     // Journey-star tally pill.
     expect(html).toContain('✦ 0/15');
-    // Candy-button depth: amber base disc + shine highlight render.
-    expect(html).toContain('#9C6E1C');
-    expect(html).toContain('#FFF3D6');
+    // PixelLab node chips: the current stage wears the amber candy button,
+    // upcoming stages the dark recessed one.
+    expect(html).toContain('ui_node_amber.png');
+    expect(html).toContain('ui_node_dark.png');
   });
 
   it('cleared stages grow a star fan rated by quiz misses', () => {
     const first = PATHS.devops.lessons[0];
-    // Clean run → 3 gold stars, no dim sockets.
+    // Clean run → 3 gold star sprites, no dim sockets.
     useStore.setState({ completed: { [first.id]: true } });
     let html = render(Roadmap);
-    expect(html).toContain('★');
-    expect(html).not.toContain('#332E24');
+    expect(html).toContain('ui_star.png');
+    expect(html).not.toContain('roadmap-star-socket');
     // Two missed prompts → 2 stars; the dim third socket appears.
     useStore.setState({
       quizMisses: { [first.id]: { 'q one': { picked: 0 }, 'q two': { picked: 1 } } },
     });
     html = render(Roadmap);
-    expect(html).toContain('#332E24');
+    expect(html).toContain('roadmap-star-socket');
   });
 
   it('grace sites ignite once a section has progress', () => {

@@ -97,6 +97,42 @@ const PROPS = {
     size: [32, 32],
     prompt: `${STYLE}. A low round shrub, very dark green #16201A silhouette with a few tiny amber berries #F5B842 catching the light`,
   },
+
+  // ── Gamified UI chips ────────────────────────────────────────────────────
+  // Stage buttons, the SD gem, the lab hex, the medal and the rating star —
+  // rendered straight-on (view: 'side', they're interface elements, not
+  // scenery). State variants (locked/dim/socket) are CSS filter classes in
+  // theme.css, so one sprite covers every state.
+  ui_node_amber: {
+    size: [32, 32],
+    view: 'side',
+    prompt: 'round glossy candy button game UI stage node, golden amber #F5B842 dome with pale cream rim highlight #FFE8B0 along the top edge, darker amber #9C6E1C base shadow underneath, crisp pixel art, centered on transparent background',
+  },
+  ui_node_dark: {
+    size: [32, 32],
+    view: 'side',
+    prompt: 'round dark recessed stone button game UI locked stage node, sunken near-black #17140F disc with dim grey-brown rim #4D4639, subtle dark depth shadow, crisp pixel art, centered on transparent background',
+  },
+  ui_gem: {
+    size: [32, 32],
+    view: 'side',
+    prompt: 'diamond-shaped polished blue gem game UI node, steel blue #7B9FB5 faceted rhombus with pale catch-light facet #D8E6F0 on the upper left, dark navy base shadow, crisp pixel art, centered on transparent background',
+  },
+  ui_hex: {
+    size: [32, 32],
+    view: 'side',
+    prompt: 'hexagonal amber candy button game UI forge node, golden yellow #F5B842 hexagon with bright top facet highlight #FFF3D6, darker amber #9C6E1C base shadow, crisp pixel art, centered on transparent background',
+  },
+  ui_medal: {
+    size: [48, 48],
+    view: 'side',
+    prompt: 'round golden victory medallion with embossed five-pointed star, polished gold #F5B842 disc, pale cream rim #FFE8B0, dark amber #9C6E1C base shadow, ceremonial game UI seal, crisp pixel art, centered on transparent background',
+  },
+  ui_star: {
+    size: [32, 32],
+    view: 'side',
+    prompt: 'five-pointed gold rating star game UI icon, warm golden yellow #F5B842 with a small bright glint on the upper left point, thin dark outline, crisp pixel art, centered on transparent background',
+  },
 };
 
 async function generate(key, { size, prompt, view }) {
