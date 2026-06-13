@@ -1053,28 +1053,28 @@ export const useStore = create(
       },
 
       // ── Journey chapter actions (§5/§10) ──────────────────────────────
-      // enterChapter: pay the ember fee for chapter n of a province. Only
-      // the NEXT chapter is enterable, only when its hard gate is met, and
-      // only once — re-entry of a paid chapter is free (paid watermark).
-      // Returns { ok, reason } so the screen can explain a refusal.
+      // enterChapter: open chapter n of a province. Gated on REAL LEARNING
+      // only (journeyGate) — never on currency. The next chapter opens once its
+      // hard gate is met; re-opening is idempotent (the `paid` field is the
+      // "opened up to" watermark, kept for save-shape compatibility). Returns
+      // { ok, reason } so the screen can explain a refusal. Embers are an earned
+      // reward now, never a toll on learning.
       enterChapter: (pathKey, n) => {
         if (!PATH_KEYS.includes(pathKey)) return { ok: false, reason: 'unknown-province' };
         if (!Number.isInteger(n) || n < 1 || n > JOURNEY_CHAPTERS.length) {
           return { ok: false, reason: 'unknown-chapter' };
         }
         const cur = get().journey?.[pathKey] || { chapter: 0, paid: 0, stars: 0 };
-        if (cur.paid >= n) return { ok: true, reason: 'already-paid' };
+        if (cur.paid >= n) return { ok: true, reason: 'already-open' };
         if (n !== cur.chapter + 1) return { ok: false, reason: 'chapter-order' };
         if (!journeyGate(pathKey, n, get()).met) return { ok: false, reason: 'gate' };
-        const cost = JOURNEY_CHAPTERS[n - 1].cost;
-        if (!get().spendEmbers(cost)) return { ok: false, reason: 'embers' };
         set((s) => ({
           journey: {
             ...(s.journey || {}),
             [pathKey]: { ...cur, paid: n },
           },
         }));
-        return { ok: true, reason: 'paid' };
+        return { ok: true, reason: 'open' };
       },
       // completeChapter: the encounter was answered correctly. Awards +5 XP
       // exactly once per chapter (the chapter watermark is the latch) and

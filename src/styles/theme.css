@@ -5497,6 +5497,17 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .codex-section { margin: 18px 0 8px; }
 .codex-entry { margin-bottom: 10px; }
 .codex-locked { opacity: 0.6; }
+/* Slim fragment-progress bar under the Codex header. */
+.codex-progress {
+  height: 6px; border-radius: 999px; margin-bottom: 18px; overflow: hidden;
+  background: var(--border-subtle, rgba(245,184,66,.12));
+}
+.codex-progress-fill {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-amber), #FFE8B0);
+  box-shadow: 0 0 10px rgba(245,184,66,.45);
+  transition: width .6s cubic-bezier(.2,.9,.3,1);
+}
 .codex-kicker { margin-bottom: 6px; }
 .codex-title {
   font-family: var(--font-serif);

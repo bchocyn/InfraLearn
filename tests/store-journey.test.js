@@ -1,15 +1,14 @@
 // Unit tests for journey chapter progression (journey design §5/§10).
 //
-// The two-lock invariant under test: HARD gates (real learning milestones,
-// journeyGate) can never be bought with embers, and the ember toll can never
-// be skipped once a gate is met. Chapters complete in order, pay once, and
-// award their +5 XP exactly once. Import scrubs the shape; merge never
-// regresses story progress. Same harness as the other store suites.
+// The access invariant under test: chapters open on HARD gates only (real
+// learning milestones, journeyGate) — never on currency. Embers are an earned
+// reward, never a toll, so a met gate opens regardless of balance. Chapters
+// open in order, re-open idempotently, and award their +5 XP exactly once.
+// Import scrubs the shape; merge never regresses story progress.
 
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { useStore, journeyGate } from '../src/store/useStore.js';
 import { PATHS, PATH_KEYS } from '../src/data/content.js';
-import { JOURNEY_CHAPTERS } from '../src/data/lore.js';
 
 const PATH_A = PATH_KEYS[0];
 const LESSON_A = PATHS[PATH_A].lessons[0].id;
@@ -55,31 +54,33 @@ describe('journeyGate', () => {
   });
 });
 
-describe('enterChapter — the two locks', () => {
-  it('a fat ember balance cannot buy past an unmet gate', () => {
+describe('enterChapter — gate-only access (no toll)', () => {
+  it('an unmet gate stays shut no matter the ember balance', () => {
     useStore.setState({ embers: 999 });
     const r = useStore.getState().enterChapter(PATH_A, 1);
     expect(r).toEqual({ ok: false, reason: 'gate' });
     expect(useStore.getState().embers).toBe(999);
   });
 
-  it('a met gate cannot be entered without the toll', () => {
-    useStore.setState({ completed: { [LESSON_A]: true }, embers: JOURNEY_CHAPTERS[0].cost - 1 });
+  it('a met gate opens regardless of embers — learning is never charged', () => {
+    useStore.setState({ completed: { [LESSON_A]: true }, embers: 0 });
     const r = useStore.getState().enterChapter(PATH_A, 1);
-    expect(r).toEqual({ ok: false, reason: 'embers' });
-  });
-
-  it('pays the toll once and never twice', () => {
-    useStore.setState({ completed: { [LESSON_A]: true }, embers: 10 });
-    expect(useStore.getState().enterChapter(PATH_A, 1)).toEqual({ ok: true, reason: 'paid' });
-    expect(useStore.getState().embers).toBe(10 - JOURNEY_CHAPTERS[0].cost);
+    expect(r).toEqual({ ok: true, reason: 'open' });
+    expect(useStore.getState().embers).toBe(0);
     expect(useStore.getState().journey[PATH_A].paid).toBe(1);
-    // Re-entry of a paid chapter is free.
-    expect(useStore.getState().enterChapter(PATH_A, 1)).toEqual({ ok: true, reason: 'already-paid' });
-    expect(useStore.getState().embers).toBe(10 - JOURNEY_CHAPTERS[0].cost);
   });
 
-  it('chapters cannot be skipped even with gates met and embers in hand', () => {
+  it('opens once and re-opening is idempotent, never touching embers', () => {
+    useStore.setState({ completed: { [LESSON_A]: true }, embers: 10 });
+    expect(useStore.getState().enterChapter(PATH_A, 1)).toEqual({ ok: true, reason: 'open' });
+    expect(useStore.getState().embers).toBe(10); // not spent
+    expect(useStore.getState().journey[PATH_A].paid).toBe(1);
+    // Re-opening an already-open chapter is a no-op.
+    expect(useStore.getState().enterChapter(PATH_A, 1)).toEqual({ ok: true, reason: 'already-open' });
+    expect(useStore.getState().embers).toBe(10);
+  });
+
+  it('chapters cannot be skipped even with gates met', () => {
     useStore.setState({ completed: completeFraction(PATH_A, 0.5), embers: 50 });
     expect(useStore.getState().enterChapter(PATH_A, 2)).toEqual({ ok: false, reason: 'chapter-order' });
   });

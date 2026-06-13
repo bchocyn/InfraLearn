@@ -63,12 +63,12 @@ export default function Journey() {
         ))}
       </div>
 
-      <ChapterRoad province={province} lapse={lapse} prov={prov} embers={embers} />
+      <ChapterRoad province={province} lapse={lapse} prov={prov} />
     </div>
   );
 }
 
-function ChapterRoad({ province, prov, lapse, embers }) {
+function ChapterRoad({ province, prov, lapse }) {
   const journey = useStore((s) => s.journey) || {};
   // journeyGate reads completed/beastTiers/streakHighWater — subscribe so
   // gates re-check live when progress lands while the screen is open.
@@ -100,9 +100,9 @@ function ChapterRoad({ province, prov, lapse, embers }) {
             {paidOpen && <Encounter province={province} chapter={ch} prov={prov} lapse={lapse} embers={embers} />}
             {isNext && (
               gate.met ? (
-                <EnterButton province={province} ch={ch} embers={embers} enterChapter={enterChapter} />
+                <EnterButton province={province} ch={ch} enterChapter={enterChapter} />
               ) : (
-                <p className="codex-hint">🔒 {gate.label} — the road only opens to real progress.</p>
+                <p className="codex-hint">🔒 {gate.label} to open this chapter — real progress unlocks it, never currency.</p>
               )
             )}
             {!done && !paidOpen && !isNext && (
@@ -115,37 +115,28 @@ function ChapterRoad({ province, prov, lapse, embers }) {
   );
 }
 
-function EnterButton({ province, ch, embers, enterChapter }) {
-  const short = embers < ch.cost;
+function EnterButton({ province, ch, enterChapter }) {
   return (
     <div>
-      <p className="codex-hint" style={{ marginBottom: 8 }}>Gate met ✓ — the threshold asks its toll.</p>
+      <p className="codex-hint" style={{ marginBottom: 8 }}>You earned your way here.</p>
       <button
         type="button"
         className="btn btn-primary"
-        disabled={short}
         onClick={() => enterChapter(province, ch.n)}
       >
-        Enter — {ch.cost} ⟡
+        Begin Chapter {ch.n} →
       </button>
-      {short && (
-        <p className="codex-hint" style={{ marginTop: 6 }}>
-          Not enough embers ({embers}/{ch.cost}). Lessons +3 ⟡ · reviews +1 ⟡ · daily practice +2 ⟡.
-        </p>
-      )}
     </div>
   );
 }
 
-// The micro-encounter: a null-wraith bars the way with one question from the
-// province's own bank. Right → chapter complete (3★ first try, 2★ second,
-// 1★ after). Wrong → the wraith holds; a retry costs 1 ⟡ and draws a fresh
-// question. FeedbackPanel renders the honest whyCorrect/whyWrong either way
-// — the encounter teaches even when it blocks.
+// The micro-encounter: one question from the province's own bank stands before
+// the next stretch of road. Right → chapter complete (3★ first try, 2★ second,
+// 1★ after). Wrong → it holds; a FREE retry draws a FRESH question (so it can't
+// be brute-forced, but a miss never costs you anything). FeedbackPanel renders
+// the honest whyCorrect/whyWrong either way — the encounter teaches, never tolls.
 function Encounter({ province, chapter, prov, lapse }) {
   const completeChapter = useStore((s) => s.completeChapter);
-  const spendEmbers = useStore((s) => s.spendEmbers);
-  const embers = useStore((s) => s.embers) || 0;
   const [attempt, setAttempt] = useState(0);
   const [picked, setPicked] = useState(null);
   const [bank, setBank] = useState(() => bankMod);
@@ -178,7 +169,6 @@ function Encounter({ province, chapter, prov, lapse }) {
   // whyCorrect gets read before the story beat replaces the encounter.
   const advance = () => completeChapter(province, chapter.n, stars);
   const retry = () => {
-    if (!spendEmbers(1)) return;
     setAttempt((a) => a + 1);
     setPicked(null);
   };
@@ -186,8 +176,8 @@ function Encounter({ province, chapter, prov, lapse }) {
   return (
     <div>
       <p className="journey-wraith">
-        A null-wraith bars the way through {prov.name}
-        {lapse ? ` — ${lapse.name}'s work, no doubt` : ''}. It hisses a question:
+        One question stands between you and the next stretch of {prov.name}
+        {lapse ? ` — ${lapse.name}'s doing` : ''}:
       </p>
       <p style={{ fontSize: 14, fontWeight: 500, margin: '0 0 10px' }}>{Q.q}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -207,7 +197,7 @@ function Encounter({ province, chapter, prov, lapse }) {
       {answered && correct && (
         <div style={{ marginTop: 10 }}>
           <p className="codex-hint" style={{ marginBottom: 6 }}>
-            The wraith thins to nothing. The way opens — {'★'.repeat(stars)} earned.
+            Nailed it — {'★'.repeat(stars)} earned. The way opens.
           </p>
           <button type="button" className="btn btn-primary" onClick={advance}>
             Walk on →
@@ -217,10 +207,10 @@ function Encounter({ province, chapter, prov, lapse }) {
       {answered && !correct && (
         <div style={{ marginTop: 10 }}>
           <p className="codex-hint" style={{ marginBottom: 6 }}>
-            The wraith holds the road. {lapse ? `“${lapse.voice}”` : ''}
+            Not quite — take another look. {lapse ? `“${lapse.voice}”` : ''}
           </p>
-          <button type="button" className="btn" disabled={embers < 1} onClick={retry}>
-            Press again — 1 ⟡ {embers < 1 ? '(no embers)' : ''}
+          <button type="button" className="btn" onClick={retry}>
+            Try again →
           </button>
         </div>
       )}

@@ -31,11 +31,14 @@ export default function Codex() {
       <button type="button" className="btn" onClick={() => nav('/beast')} style={{ marginBottom: 12 }}>
         ← Byte Beast
       </button>
-      <div className="kicker">📖 CODEX · {count}/{TOTAL_FRAGMENTS} FRAGMENTS RECOVERED</div>
+      <div className="kicker">📖 CODEX · {count}/{TOTAL_FRAGMENTS} FRAGMENTS</div>
       <h1 className="h1">The Keeper&apos;s Codex<span className="dot">.</span></h1>
-      <p className="caption" style={{ marginBottom: 16 }}>
-        Recovered by {rank}s like you — one lesson, one patrol, one held night at a time.
+      <p className="caption" style={{ marginBottom: 10 }}>
+        Every entry here is earned by doing the work — a lesson, a review, a streak kept. Right now you&apos;re a {rank}.
       </p>
+      <div className="codex-progress" role="img" aria-label={`${count} of ${TOTAL_FRAGMENTS} fragments recovered`}>
+        <span className="codex-progress-fill" style={{ width: `${Math.round((count / TOTAL_FRAGMENTS) * 100)}%` }} />
+      </div>
 
       <WorldEntry unlocked={!!loreUnlocked['world:myth']} />
       <ProvinceSection loreUnlocked={loreUnlocked} />

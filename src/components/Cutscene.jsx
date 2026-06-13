@@ -22,11 +22,13 @@ import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
 import BeastSprite, { nullBeastSrc } from './BeastSprite.jsx';
 
 // Dev-only manual trigger: `window.__cutscene('enter:devops')`.
+// `window.__seed(patch)` is a dev-only state seeder for manual QA / screenshots.
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   window.__cutscene = (id) => useStore.setState((s) => ({
     pendingCutscene: id,
     cutscenesSeen: { ...(s.cutscenesSeen || {}), [id]: true },
   }));
+  window.__seed = (patch) => useStore.setState(patch);
 }
 
 const sceneBgSrc = (pathKey) =>
