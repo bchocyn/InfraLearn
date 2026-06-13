@@ -30,10 +30,10 @@ export const BEAST_ANIMS = {
   // species key is `unicorn` (renamed to Qilin in display only)
   unicorn:  { 1: { folder: 'qilin_baby_idle', frames: 7, fps: 8 },    2: { folder: 'qilin_idle', frames: 7, fps: 8 } },
   sphinx:   { 1: { folder: 'sphinx_baby_idle', frames: 7, fps: 8 },   2: { folder: 'sphinx_idle', frames: 7, fps: 8 } },
-  // Pegasus: redesigned as a Shadow Monarch warhorse (obsidian + violet flame).
-  // Static frames:1 for now — object-mode animation needs the PixelLab MCP tool
-  // (absent in the redesign session); animate baby + adult when it's available.
-  pegasus:  { 1: { folder: 'pegasus_baby_idle', frames: 1, fps: 1 }, 2: { folder: 'pegasus_idle', frames: 1, fps: 1 } },
+  // Pegasus: Shadow Monarch warhorse (obsidian + violet flame). Idle loops were
+  // animated skeleton-free via PixelLab /animate-with-text (64px) from the hero
+  // sprite — see scripts/animate-pegasus.mjs.
+  pegasus:  { 1: { folder: 'pegasus_baby_idle', frames: 4, fps: 6 }, 2: { folder: 'pegasus_idle', frames: 4, fps: 6 } },
 };
 
 export function beastIdleFrames(species, tier) {
