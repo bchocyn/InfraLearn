@@ -156,24 +156,32 @@ function CutsceneOverlay({ sceneId }) {
       </button>
 
       {/* Staged cast — companion left, Lapse right; entrances keyed so they
-          replay when a character first walks on. */}
+          replay when a character first walks on. The inner wrapper carries the
+          idle bob so it never fights the active/dim transform on the outer. */}
       <div className="cutscene-cr-stage" aria-hidden="true">
         {companionFirst !== -1 && idx >= companionFirst && (
           <div key={`L${companionFirst}`} className={`cutscene-cr-char cutscene-cr-left ${leftClass}`}>
-            <BeastSprite
-              species={BEASTS[companion] ? companion : 'dragon'}
-              tier={beastTier || 1}
-              size={150}
-            />
+            <div className="cutscene-cr-charinner">
+              <BeastSprite
+                species={BEASTS[companion] ? companion : 'dragon'}
+                tier={beastTier || 1}
+                size={150}
+              />
+            </div>
           </div>
         )}
         {lapseFirst !== -1 && idx >= lapseFirst && lapseId && (
           <div key={`R${lapseFirst}`} className={`cutscene-cr-char cutscene-cr-right ${rightClass}`}>
-            <img src={nullBeastSrc(lapseId)} alt="" width={150} height={150}
-              draggable={false} style={{ width: 150, height: 150, imageRendering: 'pixelated' }} />
+            <div className="cutscene-cr-charinner">
+              <img src={nullBeastSrc(lapseId)} alt="" width={150} height={150}
+                draggable={false} style={{ width: 150, height: 150, imageRendering: 'pixelated' }} />
+            </div>
           </div>
         )}
       </div>
+
+      {/* Cozy drifting motes (GoGoMuffin warmth). */}
+      {!reduced && <div className="cutscene-cr-motes" aria-hidden="true" />}
 
       {/* Dialogue box — name plate + portrait + typewriter text. Keyed by panel
           so the slide-up replays per beat. */}
