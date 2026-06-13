@@ -12,6 +12,7 @@
 // sprites later.
 
 import { TAMERS, tamerSrc } from '../data/tamers.js';
+import { ARMOR_SETS, armorSrc } from '../data/armorSets.js';
 
 const SKIN = '#E6B89C';
 const SKIN_SHADOW = '#C99178';
@@ -33,6 +34,28 @@ const HAT_COLORS    = [null,      '#2A2620', '#E07856', '#F5B842', '#1A1410', '#
 
 export default function AvatarSprite({ avatar, size = 96, direction = 'south' }) {
   const a = avatar || {};
+
+  // Armor set (PixelLab full-body figure, 64x96) — takes priority over tamer
+  // and the custom build when equipped. One sprite per set, so the same image
+  // shows for every `direction` (the figures are single-view, unlike tamers).
+  if (a.armor && ARMOR_SETS[a.armor]) {
+    return (
+      <img
+        src={armorSrc(a.armor)}
+        alt="Your avatar"
+        width={size}
+        height={size * 1.5}
+        draggable={false}
+        style={{
+          display: 'block',
+          width: size,
+          height: size * 1.5,
+          objectFit: 'contain',
+          imageRendering: 'pixelated',
+        }}
+      />
+    );
+  }
 
   // Beast Tamer preset (PixelLab 4-direction sprite) — when chosen it
   // replaces the layered SVG entirely. `direction` lets cutscenes and the

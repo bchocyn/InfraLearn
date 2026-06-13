@@ -1,6 +1,20 @@
 # InfraLearn Armor Set System
 ## Monster Hunter + Elden Ring Inspired
 
+> **STATUS — IMPLEMENTED (full-body wearable sets).** PixelLab generates each
+> piece as a centered inventory icon, not a body-aligned layer, so compositing
+> 96 floating parts onto the small avatar would misalign. Instead each set ships
+> as ONE full-body figure (`public/armor/<path>_<tier>.png`, 64×96) you equip
+> like a Beast Tamer — your character transforms into the whole coordinated set,
+> the true MH/Elden Ring "wear the set" experience. The eight legendary weapons
+> ship as held-item icons (`public/armor/weapon_<path>.png`) shown in the set
+> detail. 24 sets + 8 weapons = 32 sprites. Data: `src/data/armorSets.js`;
+> picker: `AvatarCreator`'s Armor Sets section; render: `AvatarSprite`
+> (`avatar.armor`). Unlock tiers: bronze 33% · silver 66% · gold 100% of the
+> province. The piece-by-piece breakdown below is the original design intent and
+> the source for each set's prompt.
+
+
 ### Design Philosophy
 - **Modular**: Helm, Chest, Gauntlets, Legs separately (not a fixed "top")
 - **Elemental**: Each path has an elemental theme + tier progression (Bronze/Silver/Gold)

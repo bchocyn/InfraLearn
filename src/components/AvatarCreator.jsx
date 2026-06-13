@@ -24,6 +24,14 @@ import {
   unlockHint,
 } from '../data/avatarParts.js';
 import { TAMERS, TAMER_KEYS, tamerSrc } from '../data/tamers.js';
+import {
+  ARMOR_SETS,
+  ARMOR_BY_PATH,
+  armorSrc,
+  weaponSrc,
+  isArmorUnlocked,
+  armorUnlockHint,
+} from '../data/armorSets.js';
 import { useStore } from '../store/useStore.js';
 
 export default function AvatarCreator({ avatar, onChange }) {
@@ -33,6 +41,8 @@ export default function AvatarCreator({ avatar, onChange }) {
   const variants = AVATAR_PARTS[slot] || [];
   const currentId = avatar?.[slot] ?? 0;
   const activeTamer = avatar?.tamer && TAMERS[avatar.tamer] ? avatar.tamer : null;
+  const activeArmor = avatar?.armor && ARMOR_SETS[avatar.armor] ? avatar.armor : null;
+  const isCustom = !activeTamer && !activeArmor;
 
   const colorKey = slotMeta.colorKey;
   const colorField = colorKey === 'hair' ? 'hairColor' : colorKey === 'top' ? 'topColor' : null;
@@ -47,17 +57,18 @@ export default function AvatarCreator({ avatar, onChange }) {
       </div>
 
       {/* Tamer presets — PixelLab-drawn Beast Tamers. Picking one swaps the
-          whole look; "Custom" returns to the layered part-builder below. */}
+          whole look; "Custom" returns to the layered part-builder below.
+          Picking a Tamer clears any equipped armor (mutually exclusive looks). */}
       <div className="kicker" style={{ margin: '10px 0 6px' }}>Beast Tamer</div>
       <div className="avatar-variants">
         <button
           type="button"
-          className={`avatar-variant ${activeTamer ? '' : 'active'}`}
+          className={`avatar-variant ${isCustom ? 'active' : ''}`}
           title="Build your own from parts"
-          onClick={() => onChange({ tamer: null })}
+          onClick={() => onChange({ tamer: null, armor: null })}
         >
           <span className="avatar-variant-preview" aria-hidden="true">
-            <AvatarSprite avatar={{ ...(avatar || {}), tamer: null }} size={44} />
+            <AvatarSprite avatar={{ ...(avatar || {}), tamer: null, armor: null }} size={44} />
           </span>
           <span className="avatar-variant-name">Custom</span>
         </button>
@@ -67,7 +78,7 @@ export default function AvatarCreator({ avatar, onChange }) {
             type="button"
             className={`avatar-variant ${activeTamer === id ? 'active' : ''}`}
             title={`${TAMERS[id].name} — ${TAMERS[id].epithet}`}
-            onClick={() => onChange({ tamer: id })}
+            onClick={() => onChange({ tamer: id, armor: null })}
           >
             <span className="avatar-variant-preview" aria-hidden="true">
               <img
@@ -84,9 +95,23 @@ export default function AvatarCreator({ avatar, onChange }) {
         ))}
       </div>
 
-      {/* The part-builder only applies to the Custom avatar — hide it while
-          a Tamer preset is wearing the stage. */}
-      {activeTamer ? (
+      {/* Armor sets — earned by path progress (33/66/100%). Picking one clears
+          any Tamer. Each province shows its bronze → silver → gold line. */}
+      <ArmorPicker
+        avatar={avatar}
+        onChange={onChange}
+        completed={completed}
+        activeArmor={activeArmor}
+      />
+
+      {/* The part-builder only applies to the Custom avatar — hide it while a
+          Tamer or Armor set is wearing the stage. */}
+      {activeArmor ? (
+        <p className="caption avatar-creator-foot">
+          {ARMOR_SETS[activeArmor].name} — {ARMOR_SETS[activeArmor].epithet}.
+          {ARMOR_SETS[activeArmor].weapon ? ` Wields the ${ARMOR_SETS[activeArmor].weapon}.` : ''} Switch to Custom to build your own.
+        </p>
+      ) : activeTamer ? (
         <p className="caption avatar-creator-foot">
           {TAMERS[activeTamer].name} — {TAMERS[activeTamer].epithet}. Switch to Custom to build your own.
         </p>
@@ -106,6 +131,66 @@ export default function AvatarCreator({ avatar, onChange }) {
         />
       )}
     </div>
+  );
+}
+
+// Armor-set picker — eight provinces, each a bronze → silver → gold line.
+// Locked tiers are dimmed with a 🔒 and an unlock-requirement tooltip. The
+// equipped set's legendary weapon (gold only) shows beside its name.
+function ArmorPicker({ avatar, onChange, completed, activeArmor }) {
+  return (
+    <details className="avatar-armor" open={!!activeArmor}>
+      <summary className="kicker" style={{ margin: '12px 0 6px', cursor: 'pointer' }}>
+        Armor Sets {activeArmor ? `· ${ARMOR_SETS[activeArmor].name}` : '· earned by path mastery'}
+      </summary>
+      {ARMOR_BY_PATH.map(({ path, label, tiers }) => (
+        <div key={path} className="avatar-armor-row">
+          <div className="caption avatar-armor-label">{label}</div>
+          <div className="avatar-variants">
+            {tiers.map((id) => {
+              const set = ARMOR_SETS[id];
+              const unlocked = isArmorUnlocked(id, completed);
+              const active = activeArmor === id;
+              const hint = unlocked
+                ? `${set.name} — ${set.epithet}`
+                : armorUnlockHint(id);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={`avatar-variant ${active ? 'active' : ''} ${unlocked ? '' : 'locked'}`}
+                  title={hint}
+                  disabled={!unlocked}
+                  onClick={() => unlocked && onChange({ armor: id, tamer: null })}
+                >
+                  <span className="avatar-variant-preview" aria-hidden="true">
+                    <img
+                      src={armorSrc(id)}
+                      alt=""
+                      width={44}
+                      height={44}
+                      draggable={false}
+                      style={{ width: 44, height: 44, objectFit: 'contain', imageRendering: 'pixelated' }}
+                    />
+                  </span>
+                  <span className="avatar-variant-name">{set.tier}</span>
+                  {set.weapon ? (
+                    <img
+                      className="avatar-armor-weapon"
+                      src={weaponSrc(path)}
+                      alt=""
+                      title={set.weapon}
+                      draggable={false}
+                    />
+                  ) : null}
+                  {!unlocked && <span className="avatar-variant-lock" aria-hidden="true">🔒</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </details>
   );
 }
 
