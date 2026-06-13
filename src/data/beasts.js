@@ -14,7 +14,7 @@ export const BEASTS = {
   dragon:   { name: 'Dragon',   element: 'fire',   archetype: 'The slow burn — deep, sustained study.',          forms: ['Ember', 'Cinderwing', 'Infernath', 'Infernath Prime'] },
   phoenix:  { name: 'Phoenix',  element: 'fire',   archetype: 'Restarts strong — great for stop-start learning.', forms: ['Sparkling', 'Flarewing', 'Solaris', 'Solaris Prime'] },
   griffin:  { name: 'Griffin',  element: 'sky',    archetype: 'Pattern-spotter — a systems thinker.',             forms: ['Fledgewing', 'Skyclaw', 'Stormcrest', 'Stormcrest Prime'] },
-  unicorn:  { name: 'Unicorn',  element: 'mystic', archetype: 'Topic-hopper — chaotic-curious.',                  forms: ['Foalight', 'Lumicorn', 'Prismare', 'Prismare Prime'] },
+  unicorn:  { name: 'Qilin',    element: 'mystic', archetype: 'Topic-hopper — chaotic-curious.',                  forms: ['Qiling', 'Jadehorn', 'Qilin', 'Qilin Prime'] },
   kraken:   { name: 'Kraken',   element: 'water',  archetype: 'Deep diver — one concept at a time.',              forms: ['Tideling', 'Deepmaw', 'Abyssal', 'Abyssal Prime'] },
   hydra:    { name: 'Hydra',    element: 'water',  archetype: 'Multitasker — parallel paths.',                    forms: ['Twincoil', 'Triscale', 'Heptyr', 'Heptyr Prime'] },
   cerberus: { name: 'Cerberus', element: 'earth',  archetype: 'Guardian — perfects the fundamentals.',           forms: ['Pupguard', 'Wardenhound', 'Cerberus', 'Cerberus Prime'] },
