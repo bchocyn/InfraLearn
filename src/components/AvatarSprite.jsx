@@ -11,6 +11,8 @@
 // fixed palettes baked in here. Variants are simple enough to swap with PNG
 // sprites later.
 
+import { TAMERS, tamerSrc } from '../data/tamers.js';
+
 const SKIN = '#E6B89C';
 const SKIN_SHADOW = '#C99178';
 const OUTLINE = '#1A1410';
@@ -29,8 +31,31 @@ const BOTTOM_COLORS = ['#3A352D', '#6B4226', '#7B9FB5', '#C7BFA9'];     // pants
 const SHOE_COLORS   = ['#E07856', '#2A2620', '#C7A06B', '#F5B842'];     // sneakers, boots, sandals, wingfeet
 const HAT_COLORS    = [null,      '#2A2620', '#E07856', '#F5B842', '#1A1410', '#5E5A8E']; // none, beanie, cap, crown, headphones, wizard
 
-export default function AvatarSprite({ avatar, size = 96 }) {
+export default function AvatarSprite({ avatar, size = 96, direction = 'south' }) {
   const a = avatar || {};
+
+  // Beast Tamer preset (PixelLab 4-direction sprite) — when chosen it
+  // replaces the layered SVG entirely. `direction` lets cutscenes and the
+  // map turn the character; unknown ids fall through to the SVG builder.
+  if (a.tamer && TAMERS[a.tamer]) {
+    return (
+      <img
+        src={tamerSrc(a.tamer, direction)}
+        alt="Your avatar"
+        width={size}
+        height={size * 1.5}
+        draggable={false}
+        style={{
+          display: 'block',
+          width: size,
+          height: size * 1.5,
+          objectFit: 'contain',
+          imageRendering: 'pixelated',
+        }}
+      />
+    );
+  }
+
   const hair = clampIdx(a.hair, 6);
   const eyes = clampIdx(a.eyes, 4);
   const top = clampIdx(a.top, 6);

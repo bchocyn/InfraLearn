@@ -71,7 +71,17 @@ async function generate(key, { name, prompt }) {
   const res = await fetch(`${API}/create-character-with-4-directions`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ description: prompt, image_size: { width: 64, height: 64 } }),
+    body: JSON.stringify({
+      description: prompt,
+      image_size: { width: 64, height: 64 },
+      // Pinned style (PixelLab consistent-style guidance): every tamer in
+      // the cast renders with the same detail/outline/shading treatment, so
+      // the presets read as one art set rather than eight one-offs. These
+      // mirror the API's current defaults — pinning guards against drift.
+      detail: 'medium detail',
+      outline: 'single color black outline',
+      shading: 'basic shading',
+    }),
   });
   if (!res.ok) throw new Error(`${key}: HTTP ${res.status} ${await res.text()}`);
   const { character_id: cid, background_job_id: jid } = await res.json();

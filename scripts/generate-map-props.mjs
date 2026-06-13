@@ -9,7 +9,7 @@
 // Reads the key from the environment ONLY — never hardcode it here.
 // Outputs RGBA PNGs to public/map/<key>.png.
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const API = 'https://api.pixellab.ai/v1';
 const KEY = process.env.PIXELLAB_API_KEY;
@@ -17,6 +17,14 @@ if (!KEY) {
   console.error('PIXELLAB_API_KEY not set. source ~/.pixellab.env first.');
   process.exit(1);
 }
+
+// Consistent style (https://www.pixellab.ai/docs/tools/consistent-style):
+// point STYLE_REF at an existing prop PNG and generation switches from
+// PixFlux (text-only) to BitForge with that image as the style reference —
+// new props inherit the established palette/outline/shading instead of
+// re-rolling the look. Example:
+//   STYLE_REF=public/map/ruin_arch.png node scripts/generate-map-props.mjs chest
+const STYLE_REF = process.env.STYLE_REF || null;
 
 // Shared style: every prop must sit on the same dark-twilight stage as the
 // existing scene palettes (theme: deep dusk, warm amber accent light) and be
