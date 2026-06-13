@@ -17,6 +17,13 @@ export const BEAST_ANIMS = {
   phoenix: { 1: { folder: 'phoenix_idle', frames: 7, fps: 8 } },
   hydra: { 1: { folder: 'hydra_idle', frames: 7, fps: 8 } },
   wyvern: { 1: { folder: 'wyvern_idle', frames: 7, fps: 8 } },
+  cerberus: { 1: { folder: 'cerberus_idle', frames: 7, fps: 8 } },
+  griffin: { 1: { folder: 'griffin_idle', frames: 7, fps: 8 } },
+  kraken: { 1: { folder: 'kraken_idle', frames: 7, fps: 8 } },
+  // species key is `unicorn` (renamed to Qilin in display only)
+  unicorn: { 1: { folder: 'qilin_idle', frames: 7, fps: 8 } },
+  sphinx: { 1: { folder: 'sphinx_idle', frames: 7, fps: 8 } },
+  // pegasus pending (v2 mecha warhorse still rendering)
 };
 
 export function beastIdleFrames(species, tier) {
