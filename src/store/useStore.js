@@ -354,7 +354,10 @@ const SECTION_LESSONS = (() => {
 
 const initial = {
   displayName: 'Learner',
-  avatar: { hair: 0, hairColor: '#6B4226', top: 0, topColor: '#7B9FB5', bottom: 0, shoes: 0, hat: 0, held: 0, tamer: null, armor: null },
+  // The custom build-from-parts avatar was retired; a new account starts as a
+  // default Beast Tamer. The legacy part fields stay in the shape for backup
+  // migration safety but are no longer edited or rendered.
+  avatar: { hair: 0, hairColor: '#6B4226', top: 0, topColor: '#7B9FB5', bottom: 0, shoes: 0, hat: 0, held: 0, tamer: 'ember_warden', armor: null },
   level: 'novice',           // novice | junior | senior | distinguished
   activePath: 'devops',
   companion: 'dragon',       // chosen species

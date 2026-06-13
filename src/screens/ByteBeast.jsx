@@ -11,7 +11,7 @@ import BeastPicker, { Starfield } from '../components/BeastPicker.jsx';
 import BeastScene from '../components/BeastScene.jsx';
 import BadgeHex, { badgeTier } from '../components/BadgeHex.jsx';
 import AvatarSprite from '../components/AvatarSprite.jsx';
-import AvatarCreator from '../components/AvatarCreator.jsx';
+import Wardrobe from '../components/Wardrobe.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 // Trophy room is gated behind a button — never ships in the initial ByteBeast
 // chunk. Lazy import means the trophy code only downloads when the user
@@ -31,7 +31,7 @@ export default function ByteBeast() {
     avatar: st.avatar,
   })));
   const setAvatar = useStore((st) => st.setAvatar);
-  const [tab, setTab] = useState('beast'); // beast | scenes | badges | avatar
+  const [tab, setTab] = useState('beast'); // beast | scenes | badges | wardrobe
   // Trophy room overlay state. Reached via the TROPHIES pill below the title
   // row. Lives here (not in main.jsx) because the routing layer is owned by
   // the lazy-loading agent and we must not collide.
@@ -118,7 +118,7 @@ export default function ByteBeast() {
         <div className="beast-stage-label">{bg.name.toUpperCase()}</div>
         <StageDecor />
         <div className="beast-stage-avatar" aria-hidden="false">
-          <AvatarSprite avatar={s.avatar} size={32} />
+          <AvatarSprite avatar={s.avatar} size={56} />
         </div>
         <div className="beast-stage-sprite">
           <BeastSprite species={s.companion} tier={s.beastTier} size={120} className="beast-stage-sprite-img" />
@@ -137,13 +137,13 @@ export default function ByteBeast() {
       <div className="beast-page-grid">
         <div className="beast-page-main">
           <div className="row beast-tab-row" style={{ gap: 6, marginBottom: 14 }}>
-            {/* Compact padding + clamp font so 4 tabs ("🧬 EVOLVE"…"🧑 AVATAR")
+            {/* Compact padding + clamp font so 4 tabs ("🧬 EVOLVE"…"🎽 WARDROBE")
                 fit a 375px iPhone without horizontal overflow. */}
             {[
               { id: 'beast',  label: '🧬 EVOLVE' },
               { id: 'scenes', label: '🖼 SCENES' },
               { id: 'badges', label: '🏆 BADGES' },
-              { id: 'avatar', label: '🧑 AVATAR' },
+              { id: 'wardrobe', label: '🎽 WARDROBE' },
             ].map((t) => {
               const active = tab === t.id;
               return (
@@ -166,7 +166,7 @@ export default function ByteBeast() {
           {tab === 'beast' && <EvolutionViewer />}
           {tab === 'scenes' && <Scenes />}
           {tab === 'badges' && <Badges />}
-          {tab === 'avatar' && <AvatarCreator avatar={s.avatar} onChange={setAvatar} />}
+          {tab === 'wardrobe' && <Wardrobe avatar={s.avatar} onChange={setAvatar} />}
         </div>
         <aside className="beast-page-aside">
           <AboutBeastCard />

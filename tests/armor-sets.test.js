@@ -20,7 +20,7 @@ import {
   weaponSrc,
 } from '../src/data/armorSets.js';
 import AvatarSprite from '../src/components/AvatarSprite.jsx';
-import AvatarCreator from '../src/components/AvatarCreator.jsx';
+import Wardrobe from '../src/components/Wardrobe.jsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -107,31 +107,33 @@ describe('AvatarSprite armor rendering', () => {
     expect(html).not.toContain('tamers/ember_warden');
   });
 
-  it('falls through to the SVG build when no armor/tamer is set', () => {
-    const html = render(createElement(AvatarSprite, { avatar: { hair: 0 }, size: 64 }));
+  it('defaults to a Beast Tamer when no armor/tamer is set (custom avatar removed)', () => {
+    const html = render(createElement(AvatarSprite, { avatar: {}, size: 64 }));
     expect(html).not.toContain('armor/');
-    expect(html).toContain('<svg');
+    expect(html).toContain('tamers/ember_warden');
+    expect(html).not.toContain('<svg');
+  });
+
+  it('wields the gold set\'s legendary weapon on the figure', () => {
+    const html = render(createElement(AvatarSprite, { avatar: { armor: 'faang_gold' }, size: 64 }));
+    expect(html).toContain('armor/faang_gold.png');
+    expect(html).toContain('armor/weapon_faang.png'); // overlaid, held
   });
 });
 
-describe('AvatarCreator armor picker', () => {
-  it('shows the armor section and equips a set when unlocked', () => {
-    // Unlock the faang line.
+describe('Wardrobe', () => {
+  it('surfaces the equipped set + wielded weapon in the loadout strip + a collection counter', () => {
     const completed = {};
     for (const l of PATHS.faang.lessons) completed[l.id] = true;
     useStore.setState({ completed });
 
-    let lastPatch = null;
     const html = render(
-      createElement(AvatarCreator, {
-        avatar: { armor: 'faang_gold' },
-        onChange: (p) => { lastPatch = p; },
-      })
+      createElement(Wardrobe, { avatar: { armor: 'faang_gold' }, onChange: () => {} })
     );
-    // Section header + the equipped set name + its weapon icon render.
-    expect(html).toContain('Armor Sets');
     expect(html).toContain('Ancient Dragon Lord');
     expect(html).toContain('armor/weapon_faang.png');
+    // Looks/Armor toggle exposes the x/24 collection counter.
+    expect(html).toMatch(/ARMOR\s*·\s*\d+\/24/);
   });
 });
 

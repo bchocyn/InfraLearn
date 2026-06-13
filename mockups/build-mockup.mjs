@@ -32,6 +32,14 @@ const A = {
   dawn: enc('public/tamers/dawn_shield_south.png'),
 };
 
+// A figure (tamer or armor set) optionally WIELDING its legendary weapon —
+// the weapon sprite is overlaid at the hand, angled, so it reads as held.
+const heldFigure = (fig, wpn, w, h, cls = 'hero') => `
+  <span class="fig" style="width:${w}px;height:${h}px">
+    <img class="${cls}" src="${fig}" alt="" style="width:${w}px;height:${h}px;object-fit:contain;image-rendering:pixelated">
+    ${wpn ? `<img class="held" src="${wpn}" alt="" style="width:${Math.round(w * 0.5)}px;left:${Math.round(w * 0.5)}px;bottom:${Math.round(h * 0.08)}px">` : ''}
+  </span>`;
+
 const chip = (img, label, { mark = '', locked = false, weapon = '' } = {}) => `
   <button class="variant ${locked ? 'locked' : ''} ${mark === 'on' ? 'active' : ''}">
     <span class="variant-prev">${img ? `<img src="${img}" alt="">` : ''}</span>
@@ -106,6 +114,9 @@ const html = `<!doctype html>
     border:1px solid var(--accent-amber);border-radius:12px;padding:10px 12px;margin-bottom:12px;
     background-image:linear-gradient(135deg,rgba(245,184,66,.12),rgba(224,120,86,.06))}
   .loadout img.hero{width:54px;height:81px;object-fit:contain;image-rendering:pixelated}
+  .fig{position:relative;display:inline-block;flex:0 0 auto}
+  .fig .held{position:absolute;image-rendering:pixelated;transform:rotate(38deg);
+    transform-origin:bottom center;filter:drop-shadow(0 2px 3px rgba(0,0,0,.65))}
   .loadout .meta{display:flex;flex-direction:column;gap:3px}
   .loadout .name{font-family:var(--serif);font-size:17px}
   .loadout .sub{display:flex;gap:6px;align-items:center}
@@ -170,7 +181,7 @@ const html = `<!doctype html>
         <div class="stage">
           <div class="stage-label">MEADOW</div>
           <div class="stage-figs">
-            <img src="${A.faang_gold}" width="46" height="69" alt="">
+            ${heldFigure(A.faang_gold, A.weapon_faang, 46, 69)}
             <span class="beast">🐉</span>
           </div>
         </div>
@@ -180,7 +191,7 @@ const html = `<!doctype html>
         </div>
         <div class="kicker">Equipped loadout</div>
         <div class="loadout">
-          <img class="hero" src="${A.faang_gold}" alt="">
+          ${heldFigure(A.faang_gold, A.weapon_faang, 54, 81)}
           <div class="meta">
             <div class="name">Ancient Dragon Lord</div>
             <div class="sub"><span class="pill gold">FAANG · GOLD ★</span></div>
@@ -212,7 +223,7 @@ const html = `<!doctype html>
         </div>
         <div class="kicker">Equipped loadout</div>
         <div class="loadout">
-          <img class="hero" src="${A.faang_gold}" alt="">
+          ${heldFigure(A.faang_gold, A.weapon_faang, 54, 81)}
           <div class="meta">
             <div class="name">Ancient Dragon Lord</div>
             <div class="sub"><span class="pill gold">FAANG · GOLD ★</span></div>
