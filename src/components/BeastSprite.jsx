@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import AnimatedSprite from './AnimatedSprite.jsx';
+import { beastIdleFrames, beastIdleFps } from '../data/beastAnims.js';
 
 // Resolve a sprite URL respecting Vite's base path (works on GitHub Pages subpath).
 const asset = (p) => `${import.meta.env.BASE_URL}beasts/${p}`.replace(/\/{2,}/g, '/').replace(':/', '://');
@@ -46,6 +48,22 @@ export default function BeastSprite({ species, tier = 1, size = 96, className = 
     }).catch(() => {});
     return () => { live = false; };
   }, [species, tier]);
+
+  // Animated species/tier — play the skeleton-free idle loop (object-mode
+  // PixelLab frames). Bypasses the static manifest sprite + skeleton entirely.
+  const idle = beastIdleFrames(species, tier);
+  if (idle) {
+    return (
+      <AnimatedSprite
+        frames={idle}
+        fps={beastIdleFps(species, tier)}
+        size={size}
+        className={`beast-img ${className}`}
+        style={style}
+        alt={`${species} tier ${tier}`}
+      />
+    );
+  }
 
   if (!src) {
     return (

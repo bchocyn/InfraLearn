@@ -9,18 +9,19 @@ export const ELEMENTS = {
   mystic: { label: 'Mystic', icon: '✦', cls: 'el-mystic' },
 };
 
-// Each species: element, archetype, and the 4 evolution-stage display names.
+// Each species: element, archetype (learning-style fit), a short flavor `desc`
+// (shown after the egg hatches / on selection), and the 4 evolution-stage names.
 export const BEASTS = {
-  dragon:   { name: 'Dragon',   element: 'fire',   archetype: 'The slow burn — deep, sustained study.',          forms: ['Ember', 'Cinderwing', 'Infernath', 'Infernath Prime'] },
-  phoenix:  { name: 'Phoenix',  element: 'fire',   archetype: 'Restarts strong — great for stop-start learning.', forms: ['Sparkling', 'Flarewing', 'Solaris', 'Solaris Prime'] },
-  griffin:  { name: 'Griffin',  element: 'sky',    archetype: 'Pattern-spotter — a systems thinker.',             forms: ['Fledgewing', 'Skyclaw', 'Stormcrest', 'Stormcrest Prime'] },
-  unicorn:  { name: 'Unicorn',  element: 'mystic', archetype: 'Topic-hopper — chaotic-curious.',                  forms: ['Foalight', 'Lumicorn', 'Prismare', 'Prismare Prime'] },
-  kraken:   { name: 'Kraken',   element: 'water',  archetype: 'Deep diver — one concept at a time.',              forms: ['Tideling', 'Deepmaw', 'Abyssal', 'Abyssal Prime'] },
-  hydra:    { name: 'Hydra',    element: 'water',  archetype: 'Multitasker — parallel paths.',                    forms: ['Twincoil', 'Triscale', 'Heptyr', 'Heptyr Prime'] },
-  cerberus: { name: 'Cerberus', element: 'earth',  archetype: 'Guardian — perfects the fundamentals.',           forms: ['Pupguard', 'Wardenhound', 'Cerberus', 'Cerberus Prime'] },
-  pegasus:  { name: 'Pegasus',  element: 'sky',    archetype: 'Momentum-driven — a fast learner.',                forms: ['Coltwing', 'Galehoof', 'Celestride', 'Celestride Prime'] },
-  sphinx:   { name: 'Sphinx',   element: 'mystic', archetype: 'Riddle-solver — loves puzzles (FAANG).',           forms: ['Cubsphinx', 'Riddlepaw', 'Enigmara', 'Enigmara Prime'] },
-  wyvern:   { name: 'Wyvern',   element: 'earth',  archetype: 'Lab builder — a pragmatist.',                      forms: ['Drakeling', 'Cragwyrm', 'Terravyrn', 'Terravyrn Prime'] },
+  dragon:   { name: 'Dragon',   element: 'fire',   archetype: 'The slow burn — deep, sustained study.',          desc: 'An azure Qinglong of the East, coiled around a pearl of deep knowledge. It rewards patience.', forms: ['Ember', 'Cinderwing', 'Infernath', 'Infernath Prime'] },
+  phoenix:  { name: 'Phoenix',  element: 'fire',   archetype: 'Restarts strong — great for stop-start learning.', desc: 'A blazing firebird that burns away every mistake and rises again, brighter than before.', forms: ['Sparkling', 'Flarewing', 'Solaris', 'Solaris Prime'] },
+  griffin:  { name: 'Griffin',  element: 'sky',    archetype: 'Pattern-spotter — a systems thinker.',             desc: 'A storm griffin with an eagle’s sight and a lion’s heart — it hunts the pattern in the noise.', forms: ['Fledgewing', 'Skyclaw', 'Stormcrest', 'Stormcrest Prime'] },
+  unicorn:  { name: 'Qilin',    element: 'mystic', archetype: 'Topic-hopper — chaotic-curious.',                  desc: 'A jade Qilin, auspicious chimera of dragon and deer, drawn to every new wonder it meets.', forms: ['Qiling', 'Jadehorn', 'Qilin', 'Qilin Prime'] },
+  kraken:   { name: 'Kraken',   element: 'water',  archetype: 'Deep diver — one concept at a time.',              desc: 'An eldritch dweller of the lightless trenches — patient, fathomless, and never rushed.', forms: ['Tideling', 'Deepmaw', 'Abyssal', 'Abyssal Prime'] },
+  hydra:    { name: 'Hydra',    element: 'water',  archetype: 'Multitasker — parallel paths.',                    desc: 'A many-headed water serpent — sever one thread of thought and two more rise to take it up.', forms: ['Twincoil', 'Triscale', 'Heptyr', 'Heptyr Prime'] },
+  cerberus: { name: 'Cerberus', element: 'earth',  archetype: 'Guardian — perfects the fundamentals.',           desc: 'A three-headed warden hound, blue gem alight, that guards the foundations and forgets nothing.', forms: ['Pupguard', 'Wardenhound', 'Cerberus', 'Cerberus Prime'] },
+  pegasus:  { name: 'Pegasus',  element: 'sky',    archetype: 'Momentum-driven — a fast learner.',                desc: 'A black mecha warhorse, all blades and red light — momentum given armored form.', forms: ['Coltwing', 'Galehoof', 'Celestride', 'Celestride Prime'] },
+  sphinx:   { name: 'Sphinx',   element: 'mystic', archetype: 'Riddle-solver — loves puzzles (FAANG).',           desc: 'A gold-and-crimson guardian of riddles, ancient as Uruk and Giza both — it answers only the worthy.', forms: ['Cubsphinx', 'Riddlepaw', 'Enigmara', 'Enigmara Prime'] },
+  wyvern:   { name: 'Wyvern',   element: 'earth',  archetype: 'Lab builder — a pragmatist.',                      desc: 'A rugged earth wyvern — territorial and practical, a tireless builder of nests and labs.', forms: ['Drakeling', 'Cragwyrm', 'Terravyrn', 'Terravyrn Prime'] },
 };
 
 export const SPECIES_KEYS = Object.keys(BEASTS);

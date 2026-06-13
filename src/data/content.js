@@ -35,6 +35,7 @@ export const BACKGROUNDS = [
 export const PATHS = {
   fundamentals: {
     name: 'Fundamentals', icon: '◆',
+    desc: 'The bedrock every engineer stands on — programming, data structures, and how computers actually work.',
     lessons: [
       { id: 'py-variables',      title: 'Variables',                   min: 11, kind: 'concept', section: 'FUNDAMENTALS · ESSENTIALS', tierLevel: 'junior' },
       { id: 'py-types',          title: 'Numbers, Strings & Booleans', min: 5,  kind: 'concept', section: 'FUNDAMENTALS · ESSENTIALS', tierLevel: 'junior' },
@@ -89,6 +90,7 @@ export const PATHS = {
   },
   devops: {
     name: 'DevOps', icon: '🛠',
+    desc: 'Ship and run software reliably — containers, CI/CD, cloud infrastructure, and keeping systems alive at scale.',
     lessons: [
       // ── Container Foundations ──────────────────────────────────────────────
       { id: 'ci-cd',                title: 'CI/CD Pipelines',                    min: 7,  kind: 'concept', section: 'CONTAINER FOUNDATIONS', tierLevel: 'junior' },
@@ -173,6 +175,7 @@ export const PATHS = {
   },
   mlops: {
     name: 'MLOps', icon: '🧠',
+    desc: 'Put machine learning into production — model serving, pipelines, monitoring, and the data infrastructure behind it.',
     lessons: [
       { id: 'ml-lifecycle',       title: 'The ML Lifecycle',             min: 8,  kind: 'concept', section: 'MLOPS · ESSENTIALS', tierLevel: 'junior' },
       { id: 'training-eval',      title: 'Training & Evaluation',        min: 9,  hasMathQuiz: true, kind: 'concept', section: 'MLOPS · ESSENTIALS', tierLevel: 'junior' },
@@ -232,6 +235,7 @@ export const PATHS = {
   },
   swe: {
     name: 'SWE', icon: '⌨',
+    desc: 'The craft of building software — clean code, systems design, and the day-to-day of a working software engineer.',
     lessons: [
       { id: 'cs-bigo',            title: 'Big O Notation',                       min: 5,  deep: true, hasMathQuiz: true, kind: 'concept', section: 'SWE · ESSENTIALS', tierLevel: 'staff' },
       { id: 'cs-recursion',       title: 'Recursion',                            min: 5,  deep: true, kind: 'concept', section: 'SWE · ESSENTIALS', tierLevel: 'senior' },
@@ -278,6 +282,7 @@ export const PATHS = {
   },
   mleng: {
     name: 'ML Eng', icon: '⚙',
+    desc: 'Build the models themselves — training, fine-tuning, evaluation, and the math that powers modern AI.',
     lessons: [
       { id: 'math-linalg',             title: 'Linear Algebra for ML',                  min: 20, deep: true, hasMathQuiz: true, kind: 'concept', section: 'ML ENG · ESSENTIALS', tierLevel: 'staff' },
       { id: 'math-calculus',           title: 'Calculus for ML',                        min: 19, deep: true, hasMathQuiz: true, kind: 'concept', section: 'ML ENG · ESSENTIALS', tierLevel: 'staff' },
@@ -316,6 +321,7 @@ export const PATHS = {
   },
   faang: {
     name: 'FAANG', icon: '◈',
+    desc: 'Crack the big-tech interview — algorithms, data structures, and system design under real pressure.',
     lessons: [
       { id: 'star-framework',     title: 'STAR Framework for Behavioral',          min: 15, kind: 'concept', section: 'FAANG · ESSENTIALS', tierLevel: 'junior' },
       { id: 'g2',                 title: 'Dynamic programming',                    min: 8,  deep: true, kind: 'concept', section: 'FAANG · ESSENTIALS', tierLevel: 'senior' },
@@ -355,6 +361,7 @@ export const PATHS = {
   },
   fullstack: {
     name: 'Full Stack', icon: '⌘',
+    desc: 'End-to-end product engineering — front-end, back-end, databases, and shipping whole features yourself.',
     lessons: [
       { id: 'fs-html-structure', title: 'HTML structure & semantics',         tagline: 'Semantic tags, landmarks, and the a11y tree', min: 7, kind: 'concept', section: 'WEB FOUNDATIONS', tierLevel: 'junior' },
       { id: 'fs-css-layout',     title: 'CSS layout: flex + grid + box model', tagline: 'Four rectangles and two layout engines',     min: 9, kind: 'concept', section: 'WEB FOUNDATIONS', tierLevel: 'junior' },
@@ -389,6 +396,7 @@ export const PATHS = {
   },
   cybersec: {
     name: 'Cybersecurity', icon: '▣',
+    desc: 'Defend systems and break them ethically — threats, hardening, supply-chain security, and secure-by-design.',
     lessons: [
       { id: 'sec-cia-triad',        title: 'Threat models & the CIA triad',    tagline: 'Confidentiality, integrity, availability — the only three things you protect', min: 7, kind: 'concept', section: 'Security Foundations', tierLevel: 'junior' },
       { id: 'sec-authn-vs-authz',   title: 'Authentication vs authorization',  tagline: 'The bouncer checks your ID — the velvet rope decides where you go',           min: 7, kind: 'concept', section: 'Security Foundations', tierLevel: 'junior' },

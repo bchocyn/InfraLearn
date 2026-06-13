@@ -230,6 +230,7 @@ const PROP_DIMS = {
   rock_b: [32, 32],
   bush: [32, 32],
   ruin_arch: [64, 64],
+  ruin_pillar: [32, 56],
   fog_gate: [96, 112],
   fog_gate_broken: [96, 112],
   grace_lantern: [32, 48],
@@ -244,14 +245,12 @@ const PROP_DIMS = {
   ui_hex: [32, 32],
   ui_medal: [48, 48],
   ui_star: [32, 32],
-  // Ground terrain bands — PixelLab-drawn seamless ground tiles per province,
-  // tiled vertically to fill the Roadmap height (360x160 each, repeat-y).
-  ground_fundamentals: [360, 160],
-  ground_devops: [360, 160],
-  ground_mlops: [360, 160],
-  ground_alpine: [360, 160],
-  ground_mleng: [360, 160],
-  ground_cybersec: [360, 160],
+  // Ground decals — small PixelLab patches (transparent-cornered ovals) that
+  // scatter across the ground for texture without any tiling seams.
+  decal_moss: [40, 32],
+  decal_flowers: [36, 32],
+  decal_mushrooms: [32, 32],
+  decal_leaves: [40, 32],
 };
 
 // Which tree species each province plants. Dark conifers for the green/cool
@@ -268,24 +267,42 @@ const SCENE_TREES = {
   cybersec: 'tree_dead',
 };
 
-// Which ground terrain band each province uses. Generated PixelLab seamless
-// tiles (360x160, repeat-y) replace the hand-coded polygon mountains/hills.
-const SCENE_GROUND = {
-  fundamentals: 'ground_fundamentals',
-  devops: 'ground_devops',
-  mlops: 'ground_mlops',
-  swe: 'ground_alpine',
-  mleng: 'ground_mleng',
-  faang: 'ground_alpine',
-  fullstack: 'ground_alpine',
-  cybersec: 'ground_cybersec',
+// Which ground decals dress each province. Green/earthy provinces get the
+// full nature set; the grim/tech ones stay sparse (just moss + leaves) so the
+// flowers/mushrooms don't feel out of place.
+const SCENE_DECALS = {
+  fundamentals: ['decal_moss', 'decal_flowers', 'decal_mushrooms', 'decal_leaves'],
+  devops: ['decal_moss', 'decal_leaves'],
+  mlops: ['decal_moss'],
+  swe: ['decal_moss', 'decal_flowers', 'decal_leaves'],
+  mleng: ['decal_moss', 'decal_mushrooms', 'decal_leaves'],
+  faang: ['decal_moss', 'decal_leaves'],
+  fullstack: ['decal_moss', 'decal_flowers', 'decal_leaves'],
+  cybersec: ['decal_moss'],
 };
 
 // Small <image> prop with a soft contact shadow at its feet — the grounding
 // shadow is what sells the "standing in the world" depth read.
-function MapProp({ k, x, y, w, pixelated = true, opacity = 1 }) {
+function MapProp({ k, x, y, w, pixelated = true, opacity = 1, decal = false }) {
   const dims = PROP_DIMS[k] || [32, 32];
   const h = (w * dims[1]) / dims[0];
+  // Flat ground decals lie ON the ground: centered on (x,y), no standing
+  // contact shadow. Standing props are bottom-anchored at (x,y) with a soft
+  // ellipse shadow at their feet for the "in the world" depth read.
+  if (decal) {
+    return (
+      <image
+        href={mapSrc(k)}
+        x={x - w / 2}
+        y={y - h / 2}
+        width={w}
+        height={h}
+        opacity={opacity * 0.9}
+        pointerEvents="none"
+        style={pixelated ? { imageRendering: 'pixelated' } : undefined}
+      />
+    );
+  }
   return (
     <g pointerEvents="none" opacity={opacity}>
       <ellipse cx={x} cy={y} rx={w * 0.38} ry={w * 0.1} fill="#000" opacity="0.32" />
@@ -301,31 +318,28 @@ function MapProp({ k, x, y, w, pixelated = true, opacity = 1 }) {
   );
 }
 
-// Ground terrain layer — seamless PixelLab tile (360x160) tiled vertically
-// to fill the roadmap. Sits behind all trails, props, and nodes.
-function GroundLayer({ pathKey, H }) {
-  const groundKey = SCENE_GROUND[pathKey] || 'ground_fundamentals';
-  const groundUrl = mapSrc(groundKey);
-  // Tile the ground seamlessly by rendering it multiple times vertically.
-  // Each tile is 160px tall, so ceil(H / 160) tiles covers the full height.
-  const tileHeight = 160;
-  const numTiles = Math.ceil(H / tileHeight);
-  const tiles = [];
-  for (let i = 0; i < numTiles; i++) {
-    tiles.push(
-      <image
-        key={`ground${i}`}
-        href={groundUrl}
-        x="0"
-        y={i * tileHeight}
-        width={W}
-        height={tileHeight}
-        pointerEvents="none"
-        style={{ imageRendering: 'pixelated' }}
-      />
-    );
+// Fixed horizon line (px from the top of the SVG). Sky + its decorations live
+// above it; the ground gradient + scenery live below. A constant pixel (not an
+// H-fraction) keeps the horizon stable no matter how long the province is.
+const HORIZON = 168;
+
+// Distant tree-line silhouette sitting on the horizon — a row of overlapping
+// pine triangles for depth. Pure SVG (a backdrop, not a placed prop), tinted
+// with the province's far-mountain color and ridden on the mid parallax layer.
+function FarTreeline({ color }) {
+  const rnd = mulberry32(0x7ee71);
+  const pts = [`0,${HORIZON + 6}`];
+  let x = 0;
+  while (x <= W) {
+    const tw = 14 + rnd() * 16;          // tree footprint width
+    const th = 16 + rnd() * 18;          // tree height above the horizon
+    pts.push(`${x},${HORIZON + 2}`);
+    pts.push(`${x + tw / 2},${HORIZON + 2 - th}`);
+    pts.push(`${x + tw},${HORIZON + 2}`);
+    x += tw * 0.78;                       // overlap so the ridge reads as a mass
   }
-  return <g>{tiles}</g>;
+  pts.push(`${W},${HORIZON + 6}`);
+  return <polygon points={pts.join(' ')} fill={color} opacity="0.5" pointerEvents="none" />;
 }
 
 // Centered UI chip — like MapProp but anchored on its center (buttons sit ON
@@ -517,8 +531,12 @@ export default function Roadmap() {
     return missed === 0 ? 3 : missed <= 2 ? 2 : 1;
   };
 
-  // Auto-center the map on the current stage (CRK always opens on "you are
-  // here"). Skipped near the trailhead — no point scrolling for stage 1-1.
+  // Camera-follow (Pokémon-overworld groundwork, POKEMON_DS_RESEARCH.md): keep
+  // the walker in view both on a province switch AND whenever it advances a
+  // stage (lesson completed), so the camera trails the character like the DS
+  // overworld instead of only re-centering on tab change. The walker itself
+  // already slides between nodes via a CSS transition; this scrolls to meet it.
+  // Skipped near the trailhead — no point scrolling for stage 1-1.
   const sceneRef = useRef(null);
   useEffect(() => {
     const el = sceneRef.current;
@@ -527,7 +545,7 @@ export default function Roadmap() {
     const target =
       rect.top + window.scrollY + rect.height * (walkerTopPct / 100) - window.innerHeight * 0.4;
     if (target > 0) window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
-  }, [pathKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathKey, currentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parallax — the far (stars) and mid (clouds/moon) sky layers drift slower
   // than the trail while scrolling, faking camera depth. Writes one unitless
@@ -911,21 +929,39 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
   const sceneProps = useMemo(() => {
     const rnd = mulberry32(hash(pathKey + 'props'));
     const tree = SCENE_TREES[pathKey] || 'pine_a';
-    const kinds = [
-      { k: tree, w: 30, n: 12 },
-      { k: 'rock_a', w: 15, n: 6 },
-      { k: 'bush', w: 13, n: 8 },
-      { k: 'rock_b', w: 11, n: 5 },
-    ];
+    const decals = SCENE_DECALS[pathKey] || ['decal_moss'];
+    // Standing scenery hugs the side margins so it never covers the trail or a
+    // node label; flat ground decals scatter a little wider since they lie on
+    // the ground and read as texture. All of it lives below the horizon.
+    const top = HORIZON + 12;
+    const span = Math.max(80, H - top - 60);
     const out = [];
-    for (const { k, w, n } of kinds) {
+    // Standing props (trees/rocks/bushes) — denser than before for a fuller
+    // treeline along the route.
+    const standing = [
+      { k: tree, w: 30, n: 18 },
+      { k: 'rock_a', w: 15, n: 9 },
+      { k: 'bush', w: 13, n: 14 },
+      { k: 'rock_b', w: 11, n: 7 },
+      { k: 'ruin_pillar', w: 16, n: 2 },
+    ];
+    for (const { k, w, n } of standing) {
       for (let i = 0; i < n; i++) {
         const left = rnd() < 0.5;
-        const x = left ? 8 + rnd() * 32 : W - 8 - rnd() * 32;
-        const y = 100 + rnd() * (H - 220);
+        const x = left ? 7 + rnd() * 34 : W - 7 - rnd() * 34;
+        const y = top + rnd() * span;
         const s = 0.7 + rnd() * 0.6;
-        out.push({ k, x, y, w: w * s, key: `pr-${k}-${i}` });
+        out.push({ k, x, y, w: w * s, key: `pr-${k}-${i}`, decal: false });
       }
+    }
+    // Ground decals — flat patches, smaller, allowed a bit closer to the trail.
+    for (let i = 0; i < 18; i++) {
+      const k = decals[Math.floor(rnd() * decals.length)];
+      const left = rnd() < 0.5;
+      const x = left ? 10 + rnd() * 52 : W - 10 - rnd() * 52;
+      const y = top + rnd() * span;
+      const s = 0.7 + rnd() * 0.5;
+      out.push({ k, x, y, w: (PROP_DIMS[k]?.[0] || 36) * 0.5 * s, key: `dc-${i}`, decal: true });
     }
     return out.sort((a, b) => a.y - b.y);
   }, [pathKey, H]);
@@ -942,7 +978,9 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
       const h = 5 + rnd() * 3;
       out.push({
         x: rnd() * (W - w),
-        y: H * (0.05 + rnd() * 0.80),
+        // Keep clouds in the sky band (above the horizon) so they never drift
+        // over the ground.
+        y: 12 + rnd() * (HORIZON - 40),
         w,
         h,
         op: 0.28 + rnd() * 0.22,
@@ -1018,6 +1056,11 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
   // palettes; falls back nicely across all six paths.)
   const grassColor = scene.hill;
 
+  // Horizon as a fraction of the (variable) canvas height, capped so very
+  // short provinces still keep a sky band. The ground gradient is transparent
+  // above this and opaque ground below, so the sky + stars read at the top
+  // while the lower canvas is solid earth — no tiling, no seams.
+  const hz = Math.min(0.5, HORIZON / H);
 
   return (
     <>
@@ -1026,6 +1069,16 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
               <stop offset="0%" stopColor={scene.skyTop} />
               <stop offset="55%" stopColor={scene.skyMid} />
               <stop offset="100%" stopColor={scene.skyBot} />
+            </linearGradient>
+            {/* Ground: transparent through the sky band, then earth from the
+                horizon down — hill at the horizon deepening to the darkest
+                tree tone at the bottom for depth. */}
+            <linearGradient id={`ground-${pathKey}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={scene.hill} stopOpacity="0" />
+              <stop offset={`${(hz * 99).toFixed(2)}%`} stopColor={scene.hill} stopOpacity="0" />
+              <stop offset={`${(hz * 100).toFixed(2)}%`} stopColor={scene.hill} stopOpacity="1" />
+              <stop offset={`${(hz * 100 + (100 - hz * 100) * 0.5).toFixed(2)}%`} stopColor={scene.mountainsNear} />
+              <stop offset="100%" stopColor={scene.tree} />
             </linearGradient>
             <radialGradient id={`halo-${pathKey}`} cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#F5B842" stopOpacity="0.65" />
@@ -1087,21 +1140,27 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
             />
           ))}
 
-          {/* Moon — rides the mid parallax layer with the clouds. */}
-          <circle cx={W * 0.85} cy={H * 0.12} r="10" fill={scene.moon} opacity="0.95" />
-          <circle cx={W * 0.85} cy={H * 0.12} r="18" fill={scene.moon} opacity="0.15" />
+          {/* Moon — fixed in the sky band (above the horizon) so it never
+              ends up buried under the ground on longer provinces. */}
+          <circle cx={W * 0.82} cy={62} r="10" fill={scene.moon} opacity="0.95" />
+          <circle cx={W * 0.82} cy={62} r="18" fill={scene.moon} opacity="0.15" />
           </g>
 
           {/* Light shafts — pale rays falling across the ruins from above. */}
           <polygon points={`${W * 0.52},0 ${W * 0.66},0 ${W * 0.38},${H * 0.2}`} fill={scene.moon} opacity="0.05" />
           <polygon points={`${W * 0.74},0 ${W * 0.86},0 ${W * 0.56},${H * 0.24}`} fill={scene.moon} opacity="0.035" />
 
-          {/* Ground terrain — PixelLab-drawn seamless tiles per province. */}
-          <GroundLayer pathKey={pathKey} H={H} />
+          {/* Ground — clean per-province gradient (seam-free). It's transparent
+              through the sky band (above the horizon) so the stars/moon still
+              read up top, then opaque earth below. No tiling, no seams. */}
+          <rect x="0" y="0" width={W} height={H} fill={`url(#ground-${pathKey})`} pointerEvents="none" />
+          {/* Warm horizon glow + distant tree-line silhouette for depth. */}
+          <rect x="0" y={HORIZON - 3} width={W} height="7" fill={scene.skyBot} opacity="0.3" pointerEvents="none" />
+          <g className="roadmap-plx-mid"><FarTreeline color={scene.mountainsFar} /></g>
 
           {/* Scenery props — PixelLab trees, rocks, bushes (painter's order). */}
           {sceneProps.map((p) => (
-            <MapProp key={p.key} k={p.k} x={p.x} y={p.y} w={p.w} />
+            <MapProp key={p.key} k={p.k} x={p.x} y={p.y} w={p.w} decal={p.decal} />
           ))}
 
           {/* Trailhead signpost — the journey starts here. */}
