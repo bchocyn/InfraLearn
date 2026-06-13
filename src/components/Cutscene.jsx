@@ -1,21 +1,24 @@
-// Cutscene — short visual-novel story beats between milestones (province
-// entry, the Lapse noticing you at 1/3, the tide turning at 2/3). Fed by the
+// Cutscene — Cookie Run-style story beats between milestones (province entry,
+// the Lapse noticing you at 1/3, the tide turning at 2/3). Fed by the
 // `pendingCutscene` store slot; panel data comes from data/cutscenes.js.
 //
-// Presentation: full-screen letterboxed overlay. Each panel is an actor
-// (companion sprite / Null Beast / province sigil) over a drifting parallax
-// backdrop, with the text fading up beneath. Tap/click advances; the last
-// panel shows Continue; Escape skips the whole scene. Reduced motion (app
-// setting OR OS pref) drops every drift/zoom and renders panels statically.
+// Presentation (CRK-inspired): a full-bleed province scene backdrop, the cast
+// staged left (your companion) and right (the province's Lapse) with the
+// active speaker lit + forward and the others dimmed back, and a bottom
+// dialogue box with a name plate, the speaker's portrait, and typewriter text.
+// Characters pop in the first time they appear. Tap/click advances; Escape
+// skips the whole scene. Reduced motion (app setting OR OS pref) drops every
+// drift/zoom/typewriter and renders panels statically.
 //
 // Defers to PathAscension: if an Ascension cinematic is queued at the same
-// time (gold seal + story beat in one batch), the bigger moment plays first
-// and the cutscene waits its turn in the pending slot.
+// time, the bigger moment plays first and the cutscene waits its turn.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore.js';
-import { getCutscene } from '../data/cutscenes.js';
+import { getCutscene, parseCutsceneId } from '../data/cutscenes.js';
 import { BEASTS } from '../data/beasts.js';
+import { PATHS } from '../data/content.js';
+import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
 import BeastSprite, { nullBeastSrc } from './BeastSprite.jsx';
 
 // Dev-only manual trigger: `window.__cutscene('enter:devops')`.
@@ -26,36 +29,40 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
   }));
 }
 
-function Actor({ actor, companion, beastTier }) {
-  if (actor.type === 'companion') {
+const sceneBgSrc = (pathKey) =>
+  `${import.meta.env.BASE_URL}roadmap-scenes/${pathKey}.png`
+    .replace(/\/{2,}/g, '/')
+    .replace(':/', '://');
+
+// Reveal `text` one character at a time. Returns the full string immediately
+// when disabled (reduced motion / tests, where timers don't tick).
+function useTypewriter(text, enabled) {
+  const [n, setN] = useState(enabled ? 0 : text.length);
+  useEffect(() => {
+    if (!enabled) { setN(text.length); return undefined; }
+    setN(0);
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setN(i);
+      if (i >= text.length) clearInterval(id);
+    }, 26);
+    return () => clearInterval(id);
+  }, [text, enabled]);
+  return text.slice(0, n);
+}
+
+// A small framed portrait bust of whoever is speaking.
+function Portrait({ kind, companion, beastTier, lapseId, icon }) {
+  if (kind === 'companion') {
     const species = BEASTS[companion] ? companion : 'dragon';
-    return <BeastSprite species={species} tier={beastTier || 1} size={120} />;
+    return <BeastSprite species={species} tier={beastTier || 1} size={60} />;
   }
-  if (actor.type === 'lapse' || actor.type === 'lapse-dim') {
-    const dim = actor.type === 'lapse-dim';
-    return (
-      <img
-        src={nullBeastSrc(actor.lapseId)}
-        alt=""
-        width={120}
-        height={120}
-        draggable={false}
-        style={{
-          width: 120,
-          height: 120,
-          imageRendering: 'pixelated',
-          filter: dim ? 'brightness(0.3) saturate(0.4)' : 'none',
-          opacity: dim ? 0.85 : 1,
-        }}
-      />
-    );
+  if (kind === 'lapse') {
+    return <img src={nullBeastSrc(lapseId)} alt="" width={60} height={60}
+      draggable={false} style={{ width: 60, height: 60, imageRendering: 'pixelated' }} />;
   }
-  // province sigil — the path icon in a faint ring
-  return (
-    <div className="cutscene-sigil" aria-hidden="true">
-      <span>{actor.icon}</span>
-    </div>
-  );
+  return <span className="cutscene-cr-portrait-sigil" aria-hidden="true">{icon}</span>;
 }
 
 function CutsceneOverlay({ sceneId }) {
@@ -69,9 +76,10 @@ function CutsceneOverlay({ sceneId }) {
 
   const [idx, setIdx] = useState(0);
   const scene = getCutscene(sceneId);
+  const parsed = parseCutsceneId(sceneId);
+  const pathKey = parsed?.pathKey;
 
-  // Escape = skip the whole scene. Capture-phase, same convention as
-  // PathAscension so global chord handlers don't also fire.
+  // Escape = skip the whole scene (capture-phase, like PathAscension).
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
@@ -83,37 +91,61 @@ function CutsceneOverlay({ sceneId }) {
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [clearPendingCutscene]);
 
-  // Unknown/tampered id — clear the slot rather than wedging the overlay.
-  useEffect(() => {
-    if (!scene) clearPendingCutscene();
-  }, [scene, clearPendingCutscene]);
-  if (!scene) return null;
+  useEffect(() => { if (!scene) clearPendingCutscene(); }, [scene, clearPendingCutscene]);
 
-  const panel = scene.panels[Math.min(idx, scene.panels.length - 1)];
-  const last = idx >= scene.panels.length - 1;
-  const advance = () => {
-    if (last) clearPendingCutscene();
-    else setIdx((i) => i + 1);
-  };
+  // Which character first appears on which panel — so the Lapse isn't on stage
+  // before its reveal, and entrances animate when each first walks on.
+  const panels = scene?.panels || [];
+  const safeIdx = Math.min(idx, Math.max(0, panels.length - 1));
+  const panel = panels[safeIdx] || null;
+  const companionFirst = panels.findIndex((p) => p.actor?.type === 'companion');
+  const lapseFirst = panels.findIndex((p) => p.actor?.type === 'lapse' || p.actor?.type === 'lapse-dim');
+  const lapseId = panels.find((p) => p.actor?.lapseId)?.actor?.lapseId || null;
+
+  // Typewriter is a hook — must run unconditionally, before any early return.
+  const fullText = panel ? panel.lines.filter(Boolean).join('\n') : '';
+  const typed = useTypewriter(fullText, !reduced);
+
+  if (!scene || !panel) return null;
+
+  const last = idx >= panels.length - 1;
+  const advance = () => { if (last) clearPendingCutscene(); else setIdx((i) => i + 1); };
+
+  const actorType = panel.actor?.type;
+  const lapseName = lapseId ? (FIVE_LAPSES[lapseId]?.name || '???') : null;
+  const provinceName = pathKey ? (PROVINCES[pathKey]?.name || PATHS[pathKey]?.name) : null;
+
+  // Speaker name plate + which portrait to show in the box.
+  let speakerName = provinceName;
+  let portraitKind = 'sigil';
+  if (actorType === 'companion') {
+    speakerName = BEASTS[companion]?.name || 'Your Companion';
+    portraitKind = 'companion';
+  } else if (actorType === 'lapse') {
+    speakerName = lapseName;
+    portraitKind = 'lapse';
+  } else if (actorType === 'lapse-dim') {
+    speakerName = '???';
+    portraitKind = 'lapse';
+  }
+
+  const leftClass = actorType === 'companion' ? 'is-active' : 'is-dim';
+  const rightClass = actorType === 'lapse' ? 'is-active'
+    : actorType === 'lapse-dim' ? 'is-shadow' : 'is-dim';
 
   return (
     <div
-      className={`cutscene-overlay${reduced ? ' cutscene-reduced' : ''}`}
+      className={`cutscene-overlay cutscene-cr${reduced ? ' cutscene-reduced' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label="Story moment"
       onClick={advance}
     >
-      <div className="cutscene-letterbox cutscene-letterbox-top" aria-hidden="true" />
-      <div className="cutscene-letterbox cutscene-letterbox-bottom" aria-hidden="true" />
-
-      {/* Parallax backdrop — two drifting star layers behind the actor. */}
-      {!reduced && (
-        <div className="cutscene-drift" aria-hidden="true">
-          <div className="cutscene-drift-far" />
-          <div className="cutscene-drift-near" />
-        </div>
-      )}
+      {/* Province scene backdrop (PixelLab) + legibility vignette. */}
+      <div className="cutscene-cr-bg" aria-hidden="true">
+        {pathKey ? <img src={sceneBgSrc(pathKey)} alt="" draggable={false} /> : null}
+        <div className="cutscene-cr-vignette" />
+      </div>
 
       <button
         type="button"
@@ -123,22 +155,46 @@ function CutsceneOverlay({ sceneId }) {
         SKIP ▸▸
       </button>
 
-      {/* Keyed by panel index so the enter animations replay per panel. */}
-      <div key={idx} className="cutscene-panel">
-        <div className="cutscene-actor">
-          <Actor actor={panel.actor} companion={companion} beastTier={beastTier} />
+      {/* Staged cast — companion left, Lapse right; entrances keyed so they
+          replay when a character first walks on. */}
+      <div className="cutscene-cr-stage" aria-hidden="true">
+        {companionFirst !== -1 && idx >= companionFirst && (
+          <div key={`L${companionFirst}`} className={`cutscene-cr-char cutscene-cr-left ${leftClass}`}>
+            <BeastSprite
+              species={BEASTS[companion] ? companion : 'dragon'}
+              tier={beastTier || 1}
+              size={150}
+            />
+          </div>
+        )}
+        {lapseFirst !== -1 && idx >= lapseFirst && lapseId && (
+          <div key={`R${lapseFirst}`} className={`cutscene-cr-char cutscene-cr-right ${rightClass}`}>
+            <img src={nullBeastSrc(lapseId)} alt="" width={150} height={150}
+              draggable={false} style={{ width: 150, height: 150, imageRendering: 'pixelated' }} />
+          </div>
+        )}
+      </div>
+
+      {/* Dialogue box — name plate + portrait + typewriter text. Keyed by panel
+          so the slide-up replays per beat. */}
+      <div key={idx} className="cutscene-cr-box">
+        <div className="cutscene-cr-nameplate">{speakerName}</div>
+        <div className="cutscene-cr-portrait">
+          <Portrait
+            kind={portraitKind}
+            companion={companion}
+            beastTier={beastTier}
+            lapseId={lapseId}
+            icon={panel.actor?.icon || PATHS[pathKey]?.icon || '✦'}
+          />
         </div>
-        <div className="cutscene-text">
-          {panel.kicker ? <div className="kicker cutscene-kicker">{panel.kicker}</div> : null}
-          {panel.title ? <div className="cutscene-title">{panel.title}</div> : null}
-          {panel.lines.map((l, i) => (
-            <p key={i} className="cutscene-line" style={reduced ? undefined : { animationDelay: `${0.25 + i * 0.5}s` }}>
-              {l}
-            </p>
-          ))}
+        <div className="cutscene-cr-text">
+          {panel.kicker ? <div className="kicker cutscene-cr-kicker">{panel.kicker}</div> : null}
+          {panel.title ? <div className="cutscene-cr-title">{panel.title}</div> : null}
+          <p className="cutscene-cr-lines">{typed}</p>
         </div>
-        <div className="cutscene-hint mono" aria-hidden="true">
-          {last ? 'TAP TO CONTINUE →' : `TAP ▸ ${idx + 1}/${scene.panels.length}`}
+        <div className="cutscene-cr-advance mono" aria-hidden="true">
+          {last ? 'CONTINUE ▸' : `▸ ${idx + 1}/${scene.panels.length}`}
         </div>
       </div>
     </div>
@@ -148,8 +204,6 @@ function CutsceneOverlay({ sceneId }) {
 export default function Cutscene() {
   const pendingCutscene = useStore((s) => s.pendingCutscene);
   const pendingAscension = useStore((s) => s.pendingAscension);
-  // The gold-seal cinematic outranks story beats; the cutscene keeps its
-  // pending slot and plays right after the ascension is dismissed.
   if (!pendingCutscene || pendingAscension) return null;
   return <CutsceneOverlay key={pendingCutscene} sceneId={pendingCutscene} />;
 }

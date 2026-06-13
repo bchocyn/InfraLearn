@@ -7473,3 +7473,91 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   .cutscene-overlay, .cutscene-actor, .cutscene-line, .cutscene-hint,
   .cutscene-drift-far, .cutscene-drift-near { animation: none; }
 }
+
+/* ── Cookie Run-style cutscene (CRK treatment) ──────────────────────────────
+   Full-bleed province scene backdrop, a staged cast (active speaker lit and
+   nudged forward, the others dimmed back), and a bottom dialogue box with a
+   name plate, the speaker's portrait, and typewriter text. Layers over the
+   .cutscene-overlay base defined above. */
+.cutscene-cr { background: #07060A; align-items: stretch; justify-content: stretch; }
+.cutscene-cr .cutscene-skip { top: 14px; }
+
+.cutscene-cr-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.cutscene-cr-bg img {
+  width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated;
+  transform: scale(1.06);
+  animation: cutscene-cr-kenburns 18s ease-in-out infinite alternate;
+}
+@keyframes cutscene-cr-kenburns {
+  from { transform: scale(1.04) translateY(0); }
+  to   { transform: scale(1.12) translateY(-2%); }
+}
+.cutscene-cr-vignette {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 28%, transparent 42%, rgba(7,6,10,.5) 100%),
+    linear-gradient(to bottom, rgba(7,6,10,.22) 0%, transparent 28%, transparent 44%, rgba(7,6,10,.86) 100%);
+}
+
+/* Staged characters */
+.cutscene-cr-stage { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.cutscene-cr-char {
+  position: absolute; bottom: 150px;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.55));
+  transition: transform .4s cubic-bezier(.2,.9,.3,1.1), filter .4s ease, opacity .4s ease;
+  animation: cutscene-cr-walkon .55s cubic-bezier(.2,.9,.3,1.15) both;
+}
+.cutscene-cr-left  { left: 4%; transform-origin: bottom left; }
+.cutscene-cr-right { right: 4%; transform-origin: bottom right; }
+.cutscene-cr-right img { transform: scaleX(-1); } /* face inward, toward the companion */
+.cutscene-cr-char.is-active { opacity: 1; filter: drop-shadow(0 0 16px rgba(245,184,66,.45)) drop-shadow(0 10px 22px rgba(0,0,0,.55)); transform: translateY(-6px) scale(1.04); z-index: 2; }
+.cutscene-cr-char.is-dim    { opacity: .72; filter: brightness(.5) saturate(.7) drop-shadow(0 10px 18px rgba(0,0,0,.5)); transform: scale(.9) translateY(6px); z-index: 1; }
+.cutscene-cr-char.is-shadow { opacity: .92; filter: brightness(.24) saturate(.5) drop-shadow(0 0 18px rgba(155,80,224,.5)); transform: scale(1.02); z-index: 2; }
+@keyframes cutscene-cr-walkon { from { opacity: 0; transform: translateY(28px) scale(.92); } }
+
+/* Dialogue box */
+.cutscene-cr-box {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 3; width: min(94vw, 600px); min-height: 116px;
+  display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start;
+  padding: 16px 18px 30px;
+  background: linear-gradient(180deg, rgba(24,20,32,.94), rgba(14,12,20,.96));
+  border: 2px solid var(--accent-amber); border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+  animation: cutscene-cr-box-up .35s ease both;
+}
+@keyframes cutscene-cr-box-up { from { opacity: 0; transform: translate(-50%, 14px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.cutscene-cr-nameplate {
+  position: absolute; top: -14px; left: 18px;
+  background: var(--accent-amber); color: #1A140A;
+  font-family: var(--font-serif); font-weight: 800; font-size: 13px;
+  padding: 3px 14px; border-radius: 999px; letter-spacing: .01em;
+  box-shadow: 0 3px 10px rgba(0,0,0,.4);
+}
+.cutscene-cr-portrait {
+  width: 64px; height: 64px; flex: none; border-radius: 12px;
+  background: radial-gradient(circle at 50% 40%, rgba(245,184,66,.16), rgba(8,7,12,.6));
+  border: 1.5px solid rgba(245,184,66,.5);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.cutscene-cr-portrait-sigil { font-size: 30px; }
+.cutscene-cr-text { min-width: 0; padding-top: 2px; }
+.cutscene-cr-kicker { color: var(--accent-amber); font-size: 9.5px; margin-bottom: 2px; }
+.cutscene-cr-title { font-family: var(--font-serif); font-size: 19px; font-weight: 700; color: var(--text-primary); line-height: 1.15; margin-bottom: 4px; }
+.cutscene-cr-lines {
+  margin: 0; color: #ECE6DA; font-size: 14.5px; line-height: 1.5;
+  white-space: pre-line; min-height: 1.5em;
+}
+.cutscene-cr-advance {
+  position: absolute; right: 16px; bottom: 8px;
+  font-size: 9.5px; letter-spacing: .14em; color: var(--accent-amber);
+  animation: cutscene-hint-pulse 1.4s ease-in-out infinite;
+}
+
+.cutscene-reduced .cutscene-cr-bg img,
+.cutscene-reduced .cutscene-cr-char,
+.cutscene-reduced .cutscene-cr-box,
+.cutscene-reduced .cutscene-cr-advance { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .cutscene-cr-bg img, .cutscene-cr-char, .cutscene-cr-box, .cutscene-cr-advance { animation: none; }
+}
