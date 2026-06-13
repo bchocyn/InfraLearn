@@ -76,6 +76,7 @@ function ChapterRoad({ province, prov, lapse }) {
   const beastTiers = useStore((s) => s.beastTiers);
   const streakHighWater = useStore((s) => s.streakHighWater);
   const enterChapter = useStore((s) => s.enterChapter);
+  const replayCutscene = useStore((s) => s.replayCutscene);
   const cur = journey[province] || { chapter: 0, paid: 0, stars: 0 };
   const gateState = { completed, beastTiers, streakHighWater };
 
@@ -96,7 +97,18 @@ function ChapterRoad({ province, prov, lapse }) {
             <div className="kicker journey-ch-kicker">
               {done ? '✓' : paidOpen ? '◈' : gate.met && isNext ? '▸' : '🔒'} CHAPTER {ch.n} · {ch.title.toUpperCase()}
             </div>
-            {done && <p className="codex-body">{ch.beat(prov, lapse)}</p>}
+            {done && (
+              <>
+                <p className="codex-body">{ch.beat(prov, lapse)}</p>
+                <button
+                  type="button"
+                  className="btn journey-replay"
+                  onClick={() => replayCutscene(`chapter:${province}:${ch.n}`)}
+                >
+                  ▶ Replay story
+                </button>
+              </>
+            )}
             {paidOpen && <Encounter province={province} chapter={ch} prov={prov} lapse={lapse} embers={embers} />}
             {isNext && (
               gate.met ? (

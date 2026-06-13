@@ -637,6 +637,9 @@ export const useStore = create(
         }));
       },
       clearPendingCutscene: () => set({ pendingCutscene: null }),
+      // replayCutscene: re-show a cutscene on demand (e.g. the Journey screen's
+      // "replay story" button), bypassing the once-ever cutscenesSeen guard.
+      replayCutscene: (id) => set({ pendingCutscene: id }),
       chooseCompanion: (companion) => {
         set((s) => {
           // Switching companion drops the live tier to whatever that species
@@ -1092,6 +1095,8 @@ export const useStore = create(
           },
         }));
         get().addXp(5, `journey:${pathKey}:${n}`);
+        // The chapter's story plays as a cinematic cutscene (once per chapter).
+        get().queueCutscene(`chapter:${pathKey}:${n}`);
       },
 
       // ── Spaced-repetition scheduler (FSRS-flavored) ──────────────────

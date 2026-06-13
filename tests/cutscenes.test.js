@@ -55,6 +55,30 @@ describe('cutscene data', () => {
   });
 });
 
+describe('chapter cutscenes', () => {
+  it('builds a staged scene for every chapter of every province with lore', () => {
+    for (const k of PATH_KEYS) {
+      if (!PROVINCES[k]) continue;
+      for (let n = 1; n <= 5; n++) {
+        const sc = getCutscene(`chapter:${k}:${n}`);
+        expect(sc, `chapter:${k}:${n}`).toBeTruthy();
+        expect(sc.panels.length).toBeGreaterThan(0);
+        for (const p of sc.panels) {
+          expect(p.actor?.type).toBeTruthy();
+          expect(p.lines.length).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it('parses and rejects chapter ids correctly', () => {
+    expect(parseCutsceneId('chapter:devops:3')).toEqual({ beat: 'chapter', pathKey: 'devops', n: 3 });
+    expect(parseCutsceneId('chapter:devops:0')).toBeNull();
+    expect(getCutscene('chapter:devops:99')).toBeNull();
+    expect(getCutscene('chapter:atlantis:1')).toBeNull();
+  });
+});
+
 describe('cutscene queueing', () => {
   it('switching career paths queues the province-entry beat exactly once', () => {
     useStore.getState().setActivePath('mlops');
