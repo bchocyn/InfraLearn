@@ -937,42 +937,63 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
   const sceneProps = useMemo(() => {
     const rnd = mulberry32(hash(pathKey + 'props'));
     const tree = SCENE_TREES[pathKey] || 'pine_a';
+    const altTree = tree === 'pine_a' ? 'pine_b' : 'pine_a';
     const decals = SCENE_DECALS[pathKey] || ['decal_moss'];
-    // Standing scenery hugs the side margins so it never covers the trail or a
-    // node label; flat ground decals scatter a little wider since they lie on
-    // the ground and read as texture. All of it lives below the horizon.
     const top = HORIZON + 12;
     const span = Math.max(80, H - top - 60);
+
+    // Scatter props across the WHOLE grass (not just the side margins) for a
+    // fuller landscape, but keep a clear corridor around the winding trail and
+    // a clearing around each node so the path + labels stay readable. Each
+    // candidate's base point is rejection-tested against sampled trail points
+    // (every 0.1 of each quad segment) and node centers.
+    const trailPts = [];
+    trailSegments.forEach((seg) => {
+      for (let t = 0; t <= 1.0001; t += 0.1) trailPts.push(quadPoint(seg, t));
+    });
+    const tooClose = (x, y, pad) => {
+      const p2 = pad * pad;
+      for (const p of trailPts) { const dx = p.x - x, dy = p.y - y; if (dx * dx + dy * dy < p2) return true; }
+      const np = pad + 14, np2 = np * np;
+      for (const n of nodes) { const dx = n.x - x, dy = n.y - y; if (dx * dx + dy * dy < np2) return true; }
+      return false;
+    };
+
     const out = [];
-    // Standing props (trees/rocks/bushes) — denser than before for a fuller
-    // treeline along the route.
+    // Standing props — denser and spread full-width (rejection-sampled around
+    // the trail). `pad` is the min clearance of the prop's base from the path.
     const standing = [
-      { k: tree, w: 30, n: 18 },
-      { k: 'rock_a', w: 15, n: 9 },
-      { k: 'bush', w: 13, n: 14 },
-      { k: 'rock_b', w: 11, n: 7 },
-      { k: 'ruin_pillar', w: 16, n: 2 },
+      { k: tree,          w: 30, n: 30, pad: 30 },
+      { k: altTree,       w: 26, n: 14, pad: 28 },
+      { k: 'bush',        w: 13, n: 30, pad: 18 },
+      { k: 'rock_a',      w: 15, n: 14, pad: 20 },
+      { k: 'rock_b',      w: 11, n: 12, pad: 16 },
+      { k: 'ruin_pillar', w: 16, n: 3,  pad: 26 },
     ];
-    for (const { k, w, n } of standing) {
-      for (let i = 0; i < n; i++) {
-        const left = rnd() < 0.5;
-        const x = left ? 7 + rnd() * 34 : W - 7 - rnd() * 34;
+    for (const { k, w, n, pad } of standing) {
+      let placed = 0;
+      for (let tries = 0; placed < n && tries < n * 14; tries++) {
+        const x = 8 + rnd() * (W - 16);
         const y = top + rnd() * span;
+        if (tooClose(x, y, pad)) continue;
         const s = 0.7 + rnd() * 0.6;
-        out.push({ k, x, y, w: w * s, key: `pr-${k}-${i}`, decal: false });
+        out.push({ k, x, y, w: w * s, key: `pr-${k}-${placed}`, decal: false });
+        placed++;
       }
     }
-    // Ground decals — flat patches, smaller, allowed a bit closer to the trail.
-    for (let i = 0; i < 18; i++) {
+    // Flat ground decals — texture; allowed closer to the trail edge.
+    let dc = 0;
+    for (let tries = 0; dc < 34 && tries < 34 * 8; tries++) {
       const k = decals[Math.floor(rnd() * decals.length)];
-      const left = rnd() < 0.5;
-      const x = left ? 10 + rnd() * 52 : W - 10 - rnd() * 52;
+      const x = 12 + rnd() * (W - 24);
       const y = top + rnd() * span;
+      if (tooClose(x, y, 12)) continue;
       const s = 0.7 + rnd() * 0.5;
-      out.push({ k, x, y, w: (PROP_DIMS[k]?.[0] || 36) * 0.5 * s, key: `dc-${i}`, decal: true });
+      out.push({ k, x, y, w: (PROP_DIMS[k]?.[0] || 36) * 0.5 * s, key: `dc-${dc}`, decal: true });
+      dc++;
     }
     return out.sort((a, b) => a.y - b.y);
-  }, [pathKey, H]);
+  }, [pathKey, H, trailSegments, nodes]);
 
   // Drifting clouds — small pill shapes scattered across mid-canvas at varied
   // altitudes (5%–85% of H). Each cloud picks its own drift direction and
