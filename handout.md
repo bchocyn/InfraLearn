@@ -82,9 +82,11 @@ The baby tier is **animated** (it's the early-game beast the egg hatches).
 - Dragon evo tier obj_ids: T3 `a4d20c11`, T4 `1f421512`. (`dragon_t2` `b2a965ca` =
   unused "young on clouds" — azure took the T2 slot.)
 
-**Babies approved by user** ("I like all the babies") — except Pegasus (will change).
-Baby statics are in `/tmp/babies/*.png` (ephemeral!) + `/tmp/evo/dragon_baby.png`.
-**These must be re-downloaded from their obj_ids if the container recycled.**
+**Babies approved + WIRED** ("I like all the babies"). All 9 species (Pegasus
+excepted) are now baby-first in `beastAnims.js`: **T1 = `<species>_baby_idle`
+(animated baby)**, **T2 = adult `<species>_idle`**. Dragon also has T3/T4. Baby
+frames are committed under `public/beasts/anim/*_baby_idle/`. Pegasus baby
+`4625b876` exists but is NOT wired (awaiting redesign).
 
 ---
 
@@ -120,18 +122,11 @@ Baby statics are in `/tmp/babies/*.png` (ephemeral!) + `/tmp/evo/dragon_baby.png
 
 ## 7. REMAINING WORK (the rollout)
 
-### A. Finish baby-first for the 9 non-dragon species
-For each species (skip/redo Pegasus per user):
-1. **Animate the baby** (`animate_object` on baby obj_id) → `<species>_baby_idle/`.
-2. **Re-tier `BEAST_ANIMS[species]`**: T1 = `<species>_baby_idle` (animated),
-   T2 = `<species>_idle` (current art-directed adult), T3/T4 = escalation (below).
-3. The egg hatch reveals T1 baby (BeastSprite tier 1) — already wired via tier.
+### A. ✅ DONE — baby-first wired for 9 species
+All 9 (Pegasus excepted) are baby-first in `beastAnims.js`: T1 animated baby
+(`<species>_baby_idle`) → T2 animated adult (`<species>_idle`). Committed + pushed.
 
-Baby obj_ids to animate: phoenix `e14e64af`, griffin `866cf887`, qilin `525d8755`,
-kraken `ffec88bc`, hydra `e3e09984`, cerberus `7d9aa543`, sphinx `3d175918`,
-wyvern `315631fa`. (pegasus `4625b876` — wait for redesign.)
-
-### B. Generate T2 (slightly-grown) + T4 (elder/mega) per species
+### B. Generate T2 (slightly-grown) + T4 (elder/mega) per species  ← NEXT
 ~18 sprites (object mode, escalating each approved adult look). T3 = the existing
 adult form. Wire as `frames:1` static (or animate later).
 
@@ -162,12 +157,15 @@ For each: `get_character` → download `breathing-idle` south frames →
 
 ---
 
-## 9. Quick resume checklist
+## 9. Quick resume checklist (next session)
 
-1. Confirm baby statics still present (`ls /tmp/babies`); if gone, re-download from §3 baby obj_ids.
-2. Animate the 8 remaining babies (§7.A) — respect the 8-job cap.
-3. Re-tier `BEAST_ANIMS` for each (baby T1 animated, adult → T2).
-4. Generate + wire T2/T4 escalations (§7.B).
-5. Collect the 7 tamer idles (§7.D).
-6. Build (`npm run build`), test (`npm test`), commit, push to the feature branch.
-7. Hold Pegasus until the user gives the redesign direction.
+Baby-first (§7.A) is **done**. Remaining, in priority order:
+1. **Pegasus redesign** — get the user's direction; regenerate adult + baby
+   (object mode, no humanoid), animate, wire baby-first like the others.
+2. **Escalation tiers** (§7.B) — T2-grown + T4-elder per species (~18 sprites);
+   wire as `BEAST_ANIMS[species][3|4]` (static `frames:1` or animate).
+3. **Tamer idles** (§7.D) — `get_character` each of the 7 IDs → download
+   `breathing-idle` south → `public/anim/<tamer>_idle_south/` → `anims.js`.
+4. **Egg-crack hatch animation** (§5) — replace the confetti reveal.
+5. Each step: `npm run build` + `npm test`, commit, push to the feature branch.
+6. **Merge to `main`** when the user approves (push to main needs their go-ahead).
