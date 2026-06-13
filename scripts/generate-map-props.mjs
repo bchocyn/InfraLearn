@@ -133,6 +133,50 @@ const PROPS = {
     view: 'side',
     prompt: 'five-pointed gold rating star game UI icon, warm golden yellow #F5B842 with a small bright glint on the upper left point, thin dark outline, crisp pixel art, centered on transparent background',
   },
+  // ── Ground terrain bands ─────────────────────────────────────────────────
+  // 360x160px seamless terrain tiles per province, tiled vertically under the
+  // trail. Replaces the hand-coded polygon mountains and hills. Generated once,
+  // tiled infinitely to match Roadmap height.
+  ground_fundamentals: {
+    size: [360, 160],
+    view: 'high top-down',
+    prompt: 'wide ground terrain band for fantasy game roadmap, dark brown soil with grass tufts, small rocks scattered, medieval tile game style, textured ground surface, seamless edges for vertical tiling',
+  },
+  ground_devops: {
+    size: [360, 160],
+    view: 'high top-down',
+    prompt: 'industrial ground terrain band for devops province, dark grey asphalt with cracks, metal grilles, circuit board patterns, tech-themed road surface, seamless edges for vertical tiling',
+  },
+  ground_mlops: {
+    size: [360, 160],
+    view: 'high top-down',
+    prompt: 'data science ground terrain band for mlops province, crystalline/digital ground, glowing data nodes, grid pattern overlay, dark teal-grey with cyan accents, seamless edges for vertical tiling',
+  },
+  ground_swe: {
+    size: [360, 160],
+    view: 'high top-down',
+    prompt: 'rocky mountain pass ground terrain band, alpine gravel and exposed stone, sparse vegetation, peak slopes, seamless edges for vertical tiling',
+  },
+  ground_mleng: {
+    size: [360, 160],
+    view: 'high top-down',
+    prompt: 'lush forest ground terrain band, moss-covered forest floor, leaves and twigs, dark earth with patches of vibrant moss and ferns, seamless edges for vertical tiling',
+  },
+  ground_faang: {
+    size: [360, 160],
+    view: 'high top-down',
+    prompt: 'rocky mountain pass ground terrain band, alpine gravel and exposed stone, sparse vegetation, peak slopes, seamless edges for vertical tiling',
+  },
+  ground_fullstack: {
+    size: [360, 160],
+    view: 'high top-down',
+    prompt: 'rocky mountain pass ground terrain band, alpine gravel and exposed stone, sparse vegetation, peak slopes, seamless edges for vertical tiling',
+  },
+  ground_cybersec: {
+    size: [360, 160],
+    view: 'high top-down',
+    prompt: 'cybersecurity ground terrain band, dark chrome metal ground with warning lines, red digital trails, lockdown aesthetic, industrial security-themed floor, seamless edges for vertical tiling',
+  },
 };
 
 async function generate(key, { size, prompt, view }) {

@@ -244,6 +244,14 @@ const PROP_DIMS = {
   ui_hex: [32, 32],
   ui_medal: [48, 48],
   ui_star: [32, 32],
+  // Ground terrain bands — PixelLab-drawn seamless ground tiles per province,
+  // tiled vertically to fill the Roadmap height (360x160 each, repeat-y).
+  ground_fundamentals: [360, 160],
+  ground_devops: [360, 160],
+  ground_mlops: [360, 160],
+  ground_alpine: [360, 160],
+  ground_mleng: [360, 160],
+  ground_cybersec: [360, 160],
 };
 
 // Which tree species each province plants. Dark conifers for the green/cool
@@ -258,6 +266,19 @@ const SCENE_TREES = {
   faang: 'pine_b',
   fullstack: 'pine_b',
   cybersec: 'tree_dead',
+};
+
+// Which ground terrain band each province uses. Generated PixelLab seamless
+// tiles (360x160, repeat-y) replace the hand-coded polygon mountains/hills.
+const SCENE_GROUND = {
+  fundamentals: 'ground_fundamentals',
+  devops: 'ground_devops',
+  mlops: 'ground_mlops',
+  swe: 'ground_alpine',
+  mleng: 'ground_mleng',
+  faang: 'ground_alpine',
+  fullstack: 'ground_alpine',
+  cybersec: 'ground_cybersec',
 };
 
 // Small <image> prop with a soft contact shadow at its feet — the grounding
@@ -278,6 +299,33 @@ function MapProp({ k, x, y, w, pixelated = true, opacity = 1 }) {
       />
     </g>
   );
+}
+
+// Ground terrain layer — seamless PixelLab tile (360x160) tiled vertically
+// to fill the roadmap. Sits behind all trails, props, and nodes.
+function GroundLayer({ pathKey, H }) {
+  const groundKey = SCENE_GROUND[pathKey] || 'ground_fundamentals';
+  const groundUrl = mapSrc(groundKey);
+  // Tile the ground seamlessly by rendering it multiple times vertically.
+  // Each tile is 160px tall, so ceil(H / 160) tiles covers the full height.
+  const tileHeight = 160;
+  const numTiles = Math.ceil(H / tileHeight);
+  const tiles = [];
+  for (let i = 0; i < numTiles; i++) {
+    tiles.push(
+      <image
+        key={`ground${i}`}
+        href={groundUrl}
+        x="0"
+        y={i * tileHeight}
+        width={W}
+        height={tileHeight}
+        pointerEvents="none"
+        style={{ imageRendering: 'pixelated' }}
+      />
+    );
+  }
+  return <g>{tiles}</g>;
 }
 
 // Centered UI chip — like MapProp but anchored on its center (buttons sit ON
@@ -970,10 +1018,6 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
   // palettes; falls back nicely across all six paths.)
   const grassColor = scene.hill;
 
-  // Mountain polygon points.
-  const mountainsFar = useMemo(() => buildFarMountains(H), [H]);
-  const mountainsNear = useMemo(() => buildNearMountains(H), [H]);
-  const hillsD = useMemo(() => buildHillsPath(H), [H]);
 
   return (
     <>
@@ -1052,16 +1096,8 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
           <polygon points={`${W * 0.52},0 ${W * 0.66},0 ${W * 0.38},${H * 0.2}`} fill={scene.moon} opacity="0.05" />
           <polygon points={`${W * 0.74},0 ${W * 0.86},0 ${W * 0.56},${H * 0.24}`} fill={scene.moon} opacity="0.035" />
 
-          {/* Distant zig-zag mountains */}
-          <polygon points={mountainsFar} fill={scene.mountainsFar} />
-          {/* Snow caps on far peaks */}
-          <SnowCaps color={scene.snowCap} H={H} />
-
-          {/* Nearer smoother mountains */}
-          <polygon points={mountainsNear} fill={scene.mountainsNear} />
-
-          {/* Foreground hills */}
-          <path d={hillsD} fill={scene.hill} />
+          {/* Ground terrain — PixelLab-drawn seamless tiles per province. */}
+          <GroundLayer pathKey={pathKey} H={H} />
 
           {/* Scenery props — PixelLab trees, rocks, bushes (painter's order). */}
           {sceneProps.map((p) => (
@@ -1666,75 +1702,6 @@ function GuidanceRay({ from, to, reduced }) {
       ) : null}
     </line>
   );
-}
-
-// ─── Background geometry ─────────────────────────────────────────────────────
-function buildFarMountains(H) {
-  // Zigzag polygon at ~40-50% canvas height. Floor at H so the shape paints
-  // down through the bottom of the scene (the closer layers will cover it).
-  const baseY = H * 0.5;
-  const pts = [`0,${H}`];
-  const peaks = 7;
-  for (let i = 0; i <= peaks; i++) {
-    const x = (W / peaks) * i;
-    const isPeak = i % 2 === 0;
-    const y = isPeak ? baseY - 30 : baseY - 8;
-    pts.push(`${x},${y}`);
-  }
-  pts.push(`${W},${H}`);
-  return pts.join(' ');
-}
-
-function buildNearMountains(H) {
-  // Smoother polygon at ~50-65% height. Two big lumps.
-  const baseY = H * 0.62;
-  const pts = [
-    `0,${H}`,
-    `0,${baseY}`,
-    `${W * 0.18},${baseY - 28}`,
-    `${W * 0.38},${baseY - 10}`,
-    `${W * 0.55},${baseY - 40}`,
-    `${W * 0.72},${baseY - 18}`,
-    `${W * 0.88},${baseY - 32}`,
-    `${W},${baseY - 6}`,
-    `${W},${H}`,
-  ];
-  return pts.join(' ');
-}
-
-function buildHillsPath(H) {
-  // Smooth curve from ~70% down to 100% — covers the foreground band.
-  const baseY = H * 0.78;
-  return [
-    `M 0 ${H}`,
-    `L 0 ${baseY}`,
-    `Q ${W * 0.25} ${baseY - 18}, ${W * 0.5} ${baseY - 6}`,
-    `T ${W} ${baseY - 10}`,
-    `L ${W} ${H}`,
-    'Z',
-  ].join(' ');
-}
-
-// Small snow caps drawn over the FAR mountain peaks. Mirrors buildFarMountains
-// math so they sit on top of the alternating peaks.
-function SnowCaps({ color, H }) {
-  const baseY = H * 0.5;
-  const peaks = 7;
-  const caps = [];
-  for (let i = 0; i <= peaks; i++) {
-    if (i % 2 !== 0) continue;
-    const x = (W / peaks) * i;
-    const y = baseY - 30;
-    caps.push(
-      <polygon
-        key={`cap${i}`}
-        points={`${x - 7},${y + 6} ${x},${y} ${x + 7},${y + 6}`}
-        fill={color}
-        opacity="0.75"
-      />
-    );
-  }
-  return <>{caps}</>;
 }
 
 function truncate(str, n) {
