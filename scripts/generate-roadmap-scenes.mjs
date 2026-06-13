@@ -20,12 +20,14 @@ const SIZE = { width: 360, height: 180 }; // W=360, ~HORIZON=168 + buffer
 
 const STYLE =
   'retro pixel art game parallax background, side-view distant landscape, ' +
-  'crisp pixels, no anti-aliasing, horizontal banner, a dusk twilight sky in ' +
-  'the upper area fading down to layered silhouettes of distant mountains and ' +
-  'hills along the bottom horizon, atmospheric depth, empty scene with no characters, ';
+  'crisp pixels, no anti-aliasing, horizontal banner, a smooth clean gradient ' +
+  'dusk twilight sky in the upper area fading evenly down to layered silhouettes ' +
+  'of distant mountains and hills along the bottom horizon, atmospheric depth, ' +
+  'empty scene with no characters, ';
 
 const NEG =
-  'moon, stars, sun, character, person, animal, creature, monster, ' +
+  'horizontal lines, horizontal bands, scanlines, banding, stripes, color banding, ' +
+  'dithering stripes, moon, stars, sun, character, person, animal, creature, monster, ' +
   'close-up foreground objects, text, watermark, ui, hud, frame, border';
 
 // Keyed by PATH key. Palettes mirror SCENES in Roadmap.jsx.
