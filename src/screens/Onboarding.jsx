@@ -7,6 +7,7 @@ import BeastSprite from '../components/BeastSprite.jsx';
 // The species grid + detail card are shared with the ByteBeast screen's
 // companion switcher (same window, one source of truth).
 import BeastPicker, { Starfield } from '../components/BeastPicker.jsx';
+import { eggSrc } from '../data/eggs.js';
 
 const TAGLINES = [
   'Zero to distinguished engineer.',
@@ -776,9 +777,9 @@ function BeastStep({ pick, setPick, onBack, onNext, stepIdx, totalSteps }) {
       <div className="screen" style={{ paddingTop: 28, position: 'relative', zIndex: 1 }}>
         <ProgressDots stepIdx={stepIdx} total={totalSteps} />
         <h1 className="h2" style={{ marginBottom: 4 }}>Choose your Byte Beast<span style={{ color: 'var(--accent-amber)' }}>.</span></h1>
-        <p className="caption" style={{ marginBottom: 14 }}>It evolves through four forms as you climb.</p>
+        <p className="caption" style={{ marginBottom: 14 }}>Each beast waits inside an egg — pick one, then hatch it. It evolves through four forms as you climb.</p>
 
-        <BeastPicker pick={pick} setPick={setPick} />
+        <BeastPicker pick={pick} setPick={setPick} egg />
 
         <div className="row" style={{ gap: 8, marginTop: 12 }}>
           <button className="btn btn-block" onClick={onBack}>← Back</button>
@@ -816,11 +817,16 @@ function PathStep({ pathPick, setPathPick, onBack, onHatch, hatching, pickedBeas
             );
           })}
         </div>
+        {PATHS[pathPick].desc && (
+          <p className="caption" style={{ margin: '8px 2px 0' }}>{PATHS[pathPick].desc}</p>
+        )}
 
         <div className="card ob-summary">
           <div className="row">
             <div className={`ob-summary-beast${hatching ? ' hatching' : ''}`}>
-              <BeastSprite species={pickedBeast} tier={1} size={56} />
+              {hatching
+                ? <BeastSprite species={pickedBeast} tier={1} size={56} />
+                : <img src={eggSrc(pickedBeast)} alt="" width={46} height={58} draggable={false} style={{ width: 46, height: 58, objectFit: 'contain', imageRendering: 'pixelated' }} />}
               {hatching && <span className="ob-sparkle">✦</span>}
               {hatching && (
                 <div className="ob-confetti" aria-hidden>

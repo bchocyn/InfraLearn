@@ -1,6 +1,21 @@
 import { useMemo } from 'react';
 import { BEASTS, SPECIES_KEYS, ELEMENTS } from '../data/beasts.js';
 import BeastSprite from './BeastSprite.jsx';
+import { eggSrc } from '../data/eggs.js';
+
+// Small egg thumbnail (used in egg-selection mode) — the beast waits inside.
+function Egg({ species, size = 48 }) {
+  return (
+    <img
+      src={eggSrc(species)}
+      alt=""
+      width={size}
+      height={size * 1.25}
+      draggable={false}
+      style={{ width: size, height: size * 1.25, objectFit: 'contain', imageRendering: 'pixelated' }}
+    />
+  );
+}
 
 // BeastPicker — the species-selection UI from onboarding's "Choose your
 // Byte Beast" step, extracted so the ByteBeast screen's companion switcher
@@ -14,7 +29,9 @@ import BeastSprite from './BeastSprite.jsx';
 //                tier that species has actually EARNED on the active path.
 //   note       — optional mono footer line in the detail card (the switcher
 //                uses it for "TIER n/4 ON THIS PATH").
-export default function BeastPicker({ pick, setPick, detailTier = 3, note = null }) {
+// `egg` — first-run hatching mode: the grid + detail card show each beast's
+// EGG instead of its sprite (the beast waits inside until it hatches).
+export default function BeastPicker({ pick, setPick, detailTier = 3, note = null, egg = false }) {
   const beast = BEASTS[pick];
   return (
     <>
@@ -23,7 +40,7 @@ export default function BeastPicker({ pick, setPick, detailTier = 3, note = null
           const active = pick === k;
           return (
             <button key={k} onClick={() => setPick(k)} className={`ob-beast-cell${active ? ' active' : ''}`}>
-              <BeastSprite species={k} tier={1} size={48} />
+              {egg ? <Egg species={k} size={44} /> : <BeastSprite species={k} tier={1} size={48} />}
               <span className="mono" style={{ fontSize: 8, marginTop: 2, letterSpacing: '.06em',
                 color: active ? 'var(--accent-amber)' : 'var(--text-tertiary)' }}>
                 {BEASTS[k].name.toUpperCase()}
@@ -36,12 +53,18 @@ export default function BeastPicker({ pick, setPick, detailTier = 3, note = null
       <div className="card ob-beast-card" key={pick}>
         <div className="row">
           <div className="ob-float">
-            <BeastSprite species={pick} tier={detailTier} size={84} />
+            {egg ? <Egg species={pick} size={72} /> : <BeastSprite species={pick} tier={detailTier} size={84} />}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 700 }}>{beast.name}</div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 700 }}>
+              {egg ? `${beast.name} Egg` : beast.name}
+            </div>
             <span className={`pill ${ELEMENTS[beast.element].cls}`}>{ELEMENTS[beast.element].icon} {ELEMENTS[beast.element].label.toUpperCase()}</span>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '8px 0 0', fontStyle: 'italic', fontFamily: 'var(--font-serif)' }}>{beast.archetype}</p>
+            {/* Flavor description — surfaced on selection / after hatch. */}
+            {beast.desc && (
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '8px 0 0', fontFamily: 'var(--font-serif)' }}>{beast.desc}</p>
+            )}
+            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', margin: '6px 0 0', fontStyle: 'italic' }}>{beast.archetype}</p>
           </div>
         </div>
         <div className="mono ob-evo-line" style={{ marginTop: 10 }}>
