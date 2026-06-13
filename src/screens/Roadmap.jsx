@@ -231,6 +231,10 @@ const PROP_DIMS = {
   bush: [32, 32],
   ruin_arch: [64, 64],
   ruin_pillar: [32, 56],
+  greek_column: [32, 64],
+  greek_columns: [88, 80],
+  greek_temple: [112, 80],
+  greek_rubble: [56, 32],
   fog_gate: [96, 112],
   fog_gate_broken: [96, 112],
   grace_lantern: [32, 48],
@@ -966,12 +970,17 @@ const RoadmapStaticScene = memo(function RoadmapStaticScene({ pathKey, nodes, H 
     // Standing props — dense, spread full-width (rejection-sampled around the
     // trail). `pad` is the min clearance of the prop's base from the path.
     const standing = [
-      { k: tree,          w: 30, n: per(46),  pad: 22 },
-      { k: altTree,       w: 26, n: per(110), pad: 22 },
-      { k: 'bush',        w: 13, n: per(32),  pad: 12 },
-      { k: 'rock_a',      w: 15, n: per(85),  pad: 14 },
-      { k: 'rock_b',      w: 11, n: per(95),  pad: 12 },
-      { k: 'ruin_pillar', w: 16, n: per(550), pad: 22 },
+      { k: tree,            w: 30, n: per(46),   pad: 22 },
+      { k: altTree,         w: 26, n: per(110),  pad: 22 },
+      { k: 'bush',          w: 13, n: per(32),   pad: 12 },
+      { k: 'rock_a',        w: 15, n: per(85),   pad: 14 },
+      { k: 'rock_b',        w: 11, n: per(95),   pad: 12 },
+      // Greek ruins — pillared fragments, colonnades, broken temples, rubble.
+      { k: 'greek_column',  w: 18, n: per(130),  pad: 22 },
+      { k: 'greek_columns', w: 46, n: per(420),  pad: 38 },
+      { k: 'greek_temple',  w: 62, n: per(1100), pad: 50 },
+      { k: 'greek_rubble',  w: 30, n: per(300),  pad: 14 },
+      { k: 'ruin_pillar',   w: 16, n: per(700),  pad: 22 },
     ];
     for (const { k, w, n, pad } of standing) {
       let placed = 0;

@@ -67,6 +67,24 @@ const PROPS = {
     size: [32, 56],
     prompt: `${STYLE}. A single broken ancient column, pale weathered stone #8A93A3, cracked diagonally with the top half missing, ivy creeping up one side`,
   },
+  greek_column: {
+    size: [32, 64],
+    prompt: `${STYLE}. A single tall ancient Greek marble column standing alone, pale grey-white weathered stone #8A93A3, fluted vertical grooves, the top third broken off, simple Doric capital, ONLY grey stone (no purple, no pink, no warm color), a little ivy at the base`,
+  },
+  greek_columns: {
+    size: [88, 80],
+    view: 'side', // front-facing architecture reads best as an elevation
+    prompt: `${STYLE}. Ancient Greek ruins: several tall thin SEPARATED white marble columns #8A93A3 standing in a row with open gaps of sky between them, like the Parthenon, fluted shafts and Doric capitals, one column broken and one toppled, a low cracked stone base, weathered grey stone — NOT chimneys, NOT a solid tower, NOT a wall`,
+  },
+  greek_temple: {
+    size: [112, 80],
+    view: 'side', // front-facing temple facade
+    prompt: `${STYLE}. The ruins of a small ancient Greek temple: a row of fluted marble columns #8A93A3 supporting a broken triangular pediment with half of it collapsed, crumbling steps and scattered rubble at the base, weathered stone with ivy`,
+  },
+  greek_rubble: {
+    size: [56, 32],
+    prompt: `${STYLE}. A low scatter of ancient Greek ruin rubble on the ground — fallen fluted column drums, a cracked marble capital, broken stone blocks #8A93A3, weathered with a little moss`,
+  },
   fog_gate: {
     size: [96, 112],
     view: 'side', // front-facing set piece — the player walks INTO it
