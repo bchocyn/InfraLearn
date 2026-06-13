@@ -13,7 +13,13 @@ const animUrl = (folder, i) =>
 // One idle loop per species for now (tier 1); the same loop plays across tiers
 // until tier-specific evolved art is generated.
 export const BEAST_ANIMS = {
-  dragon: { 1: { folder: 'azure_dragon_idle', frames: 7, fps: 8 } },
+  dragon: {
+    1: { folder: 'azure_dragon_idle', frames: 7, fps: 8 },
+    // Evolved tiers — single static frame for now (escalating azure forms).
+    2: { folder: 'dragon_t2', frames: 1, fps: 1 },
+    3: { folder: 'dragon_t3', frames: 1, fps: 1 },
+    4: { folder: 'dragon_t4', frames: 1, fps: 1 },
+  },
   phoenix: { 1: { folder: 'phoenix_idle', frames: 7, fps: 8 } },
   hydra: { 1: { folder: 'hydra_idle', frames: 7, fps: 8 } },
   wyvern: { 1: { folder: 'wyvern_idle', frames: 7, fps: 8 } },
