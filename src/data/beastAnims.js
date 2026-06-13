@@ -14,9 +14,10 @@ const animUrl = (folder, i) =>
 // until tier-specific evolved art is generated.
 export const BEAST_ANIMS = {
   dragon: {
-    1: { folder: 'azure_dragon_idle', frames: 7, fps: 8 },
-    // Evolved tiers — single static frame for now (escalating azure forms).
-    2: { folder: 'dragon_t2', frames: 1, fps: 1 },
+    // Pokémon-style line: baby (animated) → azure juvenile (animated) →
+    // adult storm → celestial emperor. The egg hatches the T1 baby.
+    1: { folder: 'dragon_baby_idle', frames: 7, fps: 8 },
+    2: { folder: 'azure_dragon_idle', frames: 7, fps: 8 },
     3: { folder: 'dragon_t3', frames: 1, fps: 1 },
     4: { folder: 'dragon_t4', frames: 1, fps: 1 },
   },
