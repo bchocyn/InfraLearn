@@ -531,8 +531,12 @@ export default function Roadmap() {
     return missed === 0 ? 3 : missed <= 2 ? 2 : 1;
   };
 
-  // Auto-center the map on the current stage (CRK always opens on "you are
-  // here"). Skipped near the trailhead — no point scrolling for stage 1-1.
+  // Camera-follow (Pokémon-overworld groundwork, POKEMON_DS_RESEARCH.md): keep
+  // the walker in view both on a province switch AND whenever it advances a
+  // stage (lesson completed), so the camera trails the character like the DS
+  // overworld instead of only re-centering on tab change. The walker itself
+  // already slides between nodes via a CSS transition; this scrolls to meet it.
+  // Skipped near the trailhead — no point scrolling for stage 1-1.
   const sceneRef = useRef(null);
   useEffect(() => {
     const el = sceneRef.current;
@@ -541,7 +545,7 @@ export default function Roadmap() {
     const target =
       rect.top + window.scrollY + rect.height * (walkerTopPct / 100) - window.innerHeight * 0.4;
     if (target > 0) window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
-  }, [pathKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathKey, currentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parallax — the far (stars) and mid (clouds/moon) sky layers drift slower
   // than the trail while scrolling, faking camera depth. Writes one unitless
