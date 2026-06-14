@@ -32,8 +32,9 @@ export const BEAST_ANIMS = {
   kraken:   { 1: { folder: 'kraken_baby_idle', frames: 7, fps: 8 },   2: { folder: 'kraken_idle', frames: 7, fps: 8 },   3: { folder: 'kraken_t3', frames: 1, fps: 1 },   4: { folder: 'kraken_t4', frames: 1, fps: 1 } },
   // species key is `unicorn` (renamed to Qilin in display only)
   unicorn:  { 1: { folder: 'qilin_baby_idle', frames: 7, fps: 8 },    2: { folder: 'qilin_idle', frames: 7, fps: 8 },    3: { folder: 'unicorn_t3', frames: 1, fps: 1 },  4: { folder: 'unicorn_t4', frames: 1, fps: 1 } },
-  // sphinx T3 = Babylonian lamassu (gold chain), T4 = solar Ra-sphinx.
-  sphinx:   { 1: { folder: 'sphinx_baby_idle', frames: 7, fps: 8 },   2: { folder: 'sphinx_idle', frames: 7, fps: 8 },   3: { folder: 'sphinx_t3', frames: 1, fps: 1 },   4: { folder: 'sphinx_t4', frames: 1, fps: 1 } },
+  // sphinx: adult = Babylonian lamassu (gold chain, static), T3 = fiery
+  // Enigmara, T4 = solar Ra-sphinx.
+  sphinx:   { 1: { folder: 'sphinx_baby_idle', frames: 7, fps: 8 },   2: { folder: 'sphinx_idle', frames: 1, fps: 1 },   3: { folder: 'sphinx_t3', frames: 1, fps: 1 },   4: { folder: 'sphinx_t4', frames: 1, fps: 1 } },
   // Pegasus: Shadow Monarch warhorse (obsidian + violet flame). Idle loops were
   // animated skeleton-free via PixelLab /animate-with-text (64px) from the hero
   // sprite — see scripts/animate-pegasus.mjs.
