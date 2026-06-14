@@ -5751,8 +5751,8 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 /* Keeper + beast sprites — HTML overlays anchored to the fire. */
 .camp-avatar {
   position: absolute;
-  left: 31%;
-  bottom: 26px;
+  left: 22%;
+  bottom: 22px;
   pointer-events: none;
 }
 .camp-beast {

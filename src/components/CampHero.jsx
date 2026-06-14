@@ -107,7 +107,7 @@ export default function CampHero() {
       if (cur.paid < nextCh && nextCh <= JOURNEY_CHAPTERS.length
         && journeyGate(activePath, nextCh, { completed, beastTiers, streakHighWater }).met) {
         out.push({
-          text: `A relay waits in ${prov.name}. Chapter ${nextCh} asks ${JOURNEY_CHAPTERS[nextCh - 1].cost} ⟡ at the threshold.`,
+          text: `A relay waits in ${prov.name} — Chapter ${nextCh} is ready to walk.`,
           to: '/journey',
         });
       }
@@ -194,7 +194,7 @@ export default function CampHero() {
 
         {/* Keeper at the fire, beast beside it. HTML overlay > foreignObject. */}
         <div className="camp-avatar" aria-hidden="true">
-          <AvatarSprite avatar={avatar} size={34} />
+          <AvatarSprite avatar={avatar} size={64} />
         </div>
         <div className={`camp-beast${sleepy ? ' camp-beast-sleepy' : ''}`} aria-hidden="true">
           <BeastSprite species={companion} tier={beastTier} size={62} />
