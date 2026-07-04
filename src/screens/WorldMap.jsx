@@ -27,33 +27,29 @@ import BeastSprite from '../components/BeastSprite.jsx';
 
 const ASSET = `${import.meta.env.BASE_URL}worldmap/`;
 
-// World canvas — landscape like the reference map. All world-view geometry is
-// in this coordinate space; the SVG scales to the frame via preserveAspectRatio.
-const WORLD_W = 1000;
-const WORLD_H = 680;
+// World canvas — PORTRAIT: this is a phone-first app, and a landscape map
+// renders as a short strip with a screen of dead space under it. Vertical is
+// also the shape CRK's own world map takes on a phone (it scrolls down).
+// All world-view geometry lives in this coordinate space; the SVG scales to
+// the frame via preserveAspectRatio.
+const WORLD_W = 480;
+const WORLD_H = 1040;
 
 // ── Continent layout ─────────────────────────────────────────────────────────
-// Hand-authored positions. Order encodes a soft learning progression (the §11
-// "recommend a path / buildsOn" idea): Fundamentals is the home island, the
-// rest fan outward. `accent` tints the progress medallion + "you are here" glow
-// so each province reads distinctly on the monochrome parchment. `r` is the
-// blob radius (continent size); `seed` drives its organic silhouette.
-// Two gentle arcs of an archipelago. Islands are transparent cutouts, so small
-// box overlaps don't read as collisions. `r` sizes the island; smaller + more
-// spread than v0 so they don't crowd.
-// Big continents packed into two bands (a mid-ocean strait between) so they
-// read as a world of landmasses, not floating islands. `w` is the render width
-// in canvas units; height derives at the art's 0.78 ratio. Transparent coasts
-// let neighbouring frames overlap without looking like collisions.
+// Two continents per row, the journey meandering DOWNWARD — Fundamentals (the
+// home island, "start here") top-left, advanced provinces at the bottom. `w`
+// is the render width in canvas units; height derives at the art's 0.78
+// ratio. Transparent coasts let neighbouring frames overlap without reading
+// as collisions. `accent` tints the medallion + "you are here" glow.
 const CONTINENTS = [
-  { key: 'fundamentals', x: 200, y: 232, w: 384, accent: '#8FA876', home: true },
-  { key: 'swe',          x: 438, y: 206, w: 320, accent: '#8FB5D8' },
-  { key: 'faang',        x: 660, y: 208, w: 320, accent: '#E8C36A' },
-  { key: 'mleng',        x: 878, y: 252, w: 300, accent: '#5ED8B8' },
-  { key: 'devops',       x: 214, y: 498, w: 340, accent: '#E07E3A' },
-  { key: 'fullstack',    x: 470, y: 500, w: 320, accent: '#C58FD8' },
-  { key: 'mlops',        x: 700, y: 502, w: 320, accent: '#F5B842' },
-  { key: 'cybersec',     x: 898, y: 540, w: 300, accent: '#E0706A' },
+  { key: 'fundamentals', x: 135, y: 210, w: 225, accent: '#8FA876', home: true },
+  { key: 'swe',          x: 345, y: 210, w: 205, accent: '#8FB5D8' },
+  { key: 'devops',       x: 135, y: 425, w: 210, accent: '#E07E3A' },
+  { key: 'fullstack',    x: 345, y: 425, w: 205, accent: '#C58FD8' },
+  { key: 'mlops',        x: 135, y: 640, w: 205, accent: '#F5B842' },
+  { key: 'faang',        x: 345, y: 640, w: 205, accent: '#E8C36A' },
+  { key: 'mleng',        x: 135, y: 855, w: 205, accent: '#5ED8B8' },
+  { key: 'cybersec',     x: 345, y: 855, w: 200, accent: '#E0706A' },
 ];
 
 // ── Deterministic RNG so layouts never jump between renders ───────────────────
@@ -166,6 +162,10 @@ export function WorldView({ completed, reduced, onOpen, activePath = null, foote
         </span>
       </div>
 
+      {/* Hero CTA rides ABOVE the tall map: one visible next action before
+          any scrolling (the map is explore-space, the button is the path). */}
+      {footer}
+
       <div className="wm-frame">
         <svg viewBox={`0 0 ${WORLD_W} ${WORLD_H}`} preserveAspectRatio="xMidYMid meet" className="wm-svg">
           <WorldDefs />
@@ -173,13 +173,13 @@ export function WorldView({ completed, reduced, onOpen, activePath = null, foote
           <rect x="0" y="0" width={WORLD_W} height={WORLD_H} fill="url(#wm-vignette)" />
 
           {/* Title cartouche */}
-          <g transform={`translate(${WORLD_W / 2}, 56)`}>
-            <image href={`${ASSET}banner.png`} x="-185" y="-56" width="370" height="118" preserveAspectRatio="xMidYMid meet" />
+          <g transform={`translate(${WORLD_W / 2}, 50)`}>
+            <image href={`${ASSET}banner.png`} x="-150" y="-46" width="300" height="96" preserveAspectRatio="xMidYMid meet" />
             <text className="wm-banner-text" x="0" y="4" textAnchor="middle">WORLD MAP</text>
           </g>
 
-          {/* A sea serpent for the deep (pixellab) */}
-          <image href={`${ASSET}seamonster.png`} x="786" y="566" width="150" height="110" opacity="0.5" preserveAspectRatio="xMidYMid meet" />
+          {/* A sea serpent in the top-right shallows (pixellab) */}
+          <image href={`${ASSET}seamonster.png`} x="392" y="34" width="80" height="60" opacity="0.5" preserveAspectRatio="xMidYMid meet" />
 
           {continents.map((c) => (
             <ContinentBlob key={c.key} c={c} reduced={reduced} onOpen={onOpen}
@@ -187,9 +187,9 @@ export function WorldView({ completed, reduced, onOpen, activePath = null, foote
               showStartHere={c.key === 'fundamentals' && !fundStarted} />
           ))}
 
-          {/* Compass rose, bottom-left */}
+          {/* Compass rose — bottom-centre, in the strait below the last row */}
           <g>
-            <Compass x={92} y={WORLD_H - 92} r={58} />
+            <Compass x={WORLD_W / 2} y={WORLD_H - 38} r={34} />
           </g>
         </svg>
       </div>
@@ -197,7 +197,6 @@ export function WorldView({ completed, reduced, onOpen, activePath = null, foote
       <p className="caption" style={{ marginTop: 10, fontSize: 12.5, textAlign: 'center' }}>
         Tap a continent to sail in. Fog hides provinces the Null still holds.
       </p>
-      {footer}
     </div>
   );
 }
@@ -310,8 +309,11 @@ function ContinentView({ pathKey, completed, companion, beastTier, reduced, onBa
   const pct = lessons.length ? done / lessons.length : 0;
 
   // Big island fills the frame; nodes scatter inside an inner ellipse.
-  const cx = WORLD_W / 2, cy = WORLD_H / 2 + 8;
-  const nodes = useMemo(() => scatterNodes(lessons.length, cx, cy, 322, 214, (pathKey.charCodeAt(1) || 11) + 3), [pathKey, lessons.length]);
+  // Portrait canvas: the island art keeps its native 4:3 in the upper half;
+  // lessons scatter inside its landmass. (This view is the /worldmap dev
+  // prototype — the shipped drill-in is the Roadmap trail.)
+  const cx = WORLD_W / 2, cy = 320;
+  const nodes = useMemo(() => scatterNodes(lessons.length, cx, cy, 195, 140, (pathKey.charCodeAt(1) || 11) + 3), [pathKey, lessons.length]);
 
   const labUnlocks = useMemo(() => {
     const m = {};
@@ -353,10 +355,10 @@ function ContinentView({ pathKey, completed, companion, beastTier, reduced, onBa
           <WorldDefs />
           <rect x="0" y="0" width={WORLD_W} height={WORLD_H} fill="url(#wm-parch)" />
           {/* Cast shadow under the continent */}
-          <ellipse cx={cx} cy={cy + 248} rx="340" ry="62" fill="#0E3A66" opacity="0.2" />
+          <ellipse cx={cx} cy={cy + 165} rx="205" ry="42" fill="#0E3A66" opacity="0.2" />
           {/* Big per-continent continent art (pixellab; background keyed transparent) */}
-          <image href={`${ASSET}island-${pathKey}.png`} x={cx - 400} y={cy - 320}
-            width="800" height="640" preserveAspectRatio="xMidYMid meet" style={{ imageRendering: 'pixelated' }} />
+          <image href={`${ASSET}island-${pathKey}.png`} x={cx - 235} y={cy - 176}
+            width="470" height="352" preserveAspectRatio="xMidYMid meet" style={{ imageRendering: 'pixelated' }} />
 
           {/* Order trail */}
           {trail && <path d={trail} fill="none" stroke="#5A4327" strokeWidth="2.5" strokeDasharray="2 8" strokeLinecap="round" opacity="0.55" />}
@@ -389,7 +391,7 @@ function ContinentView({ pathKey, completed, companion, beastTier, reduced, onBa
           {lapse && pct < 1 && (
             <image
               href={`${ASSET}lapse-${lapse.id}.png`}
-              x={WORLD_W - 150} y={WORLD_H - 168}
+              x={WORLD_W - 160} y={540}
               width="120" height="120"
               preserveAspectRatio="xMidYMid meet"
               aria-hidden="true"
@@ -397,7 +399,7 @@ function ContinentView({ pathKey, completed, companion, beastTier, reduced, onBa
             />
           )}
           {lapse && (
-            <text x={WORLD_W - 30} y={WORLD_H - 24} textAnchor="end" className="wm-cont-sub" opacity={pct >= 1 ? 0.4 : 0.8}>
+            <text x={WORLD_W - 24} y={690} textAnchor="end" className="wm-cont-sub" opacity={pct >= 1 ? 0.4 : 0.8}>
               {pct >= 1 ? `${lapse.name.toUpperCase()} HAS FLED` : `${lapse.name.toUpperCase()} WAITS AT THE END`}
             </text>
           )}

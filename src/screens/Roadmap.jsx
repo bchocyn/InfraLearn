@@ -644,7 +644,7 @@ export default function Roadmap({ initialView = 'world' }) {
         footer={currentLesson ? (
           <button
             className="btn btn-primary btn-block"
-            style={{ marginTop: 12 }}
+            style={{ marginBottom: 12 }}
             onClick={() => (heroGate.blocked
               ? nav(`/battle/${pathKey}/${heroGate.stage}`)
               : nav(`/lesson/${currentLesson.id}`))}
