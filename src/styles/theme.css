@@ -7608,7 +7608,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .wm-frame {
   position: relative;
   width: 100%;
-  aspect-ratio: 480 / 1040;          /* matches WORLD_W / WORLD_H — portrait, phone-first */
+  aspect-ratio: 480 / 2260;          /* matches WORLD_W / WORLD_H — one-per-row voyage */
   border-radius: 14px;
   overflow: hidden;
   background: #d9be86;

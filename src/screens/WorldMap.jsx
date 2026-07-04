@@ -27,30 +27,43 @@ import BeastSprite from '../components/BeastSprite.jsx';
 
 const ASSET = `${import.meta.env.BASE_URL}worldmap/`;
 
-// World canvas — PORTRAIT: this is a phone-first app, and a landscape map
-// renders as a short strip with a screen of dead space under it. Vertical is
-// also the shape CRK's own world map takes on a phone (it scrolls down).
-// All world-view geometry lives in this coordinate space; the SVG scales to
-// the frame via preserveAspectRatio.
+// World canvas — PORTRAIT, single-file voyage: one continent per stop,
+// meandering down the page like a board-game route (the shape CRK's own
+// phone map takes). All world-view geometry lives in this coordinate space;
+// the SVG scales to the frame via preserveAspectRatio.
 const WORLD_W = 480;
-const WORLD_H = 1040;
+const WORLD_H = 2260;
 
 // ── Continent layout ─────────────────────────────────────────────────────────
-// Two continents per row, the journey meandering DOWNWARD — Fundamentals (the
-// home island, "start here") top-left, advanced provinces at the bottom. `w`
-// is the render width in canvas units; height derives at the art's 0.78
-// ratio. Transparent coasts let neighbouring frames overlap without reading
-// as collisions. `accent` tints the medallion + "you are here" glow.
+// ONE continent per row in learning order, alternating left/right so the
+// sea-route snakes: Fundamentals (home, "start here") first, advanced
+// provinces at the bottom of the voyage. `w` is the render width in canvas
+// units; height derives at the art's 0.78 ratio. `accent` tints the
+// medallion + "you are here" glow.
 const CONTINENTS = [
-  { key: 'fundamentals', x: 135, y: 210, w: 225, accent: '#8FA876', home: true },
-  { key: 'swe',          x: 345, y: 210, w: 205, accent: '#8FB5D8' },
-  { key: 'devops',       x: 135, y: 425, w: 210, accent: '#E07E3A' },
-  { key: 'fullstack',    x: 345, y: 425, w: 205, accent: '#C58FD8' },
-  { key: 'mlops',        x: 135, y: 640, w: 205, accent: '#F5B842' },
-  { key: 'faang',        x: 345, y: 640, w: 205, accent: '#E8C36A' },
-  { key: 'mleng',        x: 135, y: 855, w: 205, accent: '#5ED8B8' },
-  { key: 'cybersec',     x: 345, y: 855, w: 200, accent: '#E0706A' },
+  { key: 'fundamentals', x: 185, y: 230,  w: 275, accent: '#8FA876', home: true },
+  { key: 'swe',          x: 300, y: 480,  w: 260, accent: '#8FB5D8' },
+  { key: 'devops',       x: 180, y: 730,  w: 265, accent: '#E07E3A' },
+  { key: 'fullstack',    x: 300, y: 980,  w: 260, accent: '#C58FD8' },
+  { key: 'mlops',        x: 180, y: 1230, w: 260, accent: '#F5B842' },
+  { key: 'faang',        x: 300, y: 1480, w: 260, accent: '#E8C36A' },
+  { key: 'mleng',        x: 180, y: 1730, w: 260, accent: '#5ED8B8' },
+  { key: 'cybersec',     x: 300, y: 1980, w: 255, accent: '#E0706A' },
 ];
+
+// Dotted sea-route threading the continents in learning order — the
+// "connected" part of the voyage, drawn on the water beneath the landmasses.
+function seaRoute(list) {
+  if (list.length < 2) return '';
+  let d = `M ${list[0].x} ${list[0].y}`;
+  for (let i = 1; i < list.length; i++) {
+    const a = list[i - 1];
+    const b = list[i];
+    const midY = (a.y + b.y) / 2;
+    d += ` C ${a.x} ${midY}, ${b.x} ${midY}, ${b.x} ${b.y}`;
+  }
+  return d;
+}
 
 // ── Deterministic RNG so layouts never jump between renders ───────────────────
 function hashSeed(n) {
@@ -181,15 +194,27 @@ export function WorldView({ completed, reduced, onOpen, activePath = null, foote
           {/* A sea serpent in the top-right shallows (pixellab) */}
           <image href={`${ASSET}seamonster.png`} x="392" y="34" width="80" height="60" opacity="0.5" preserveAspectRatio="xMidYMid meet" />
 
+          {/* The voyage route — foam-dotted line linking the continents in
+              learning order, under the landmasses. */}
+          <path
+            d={seaRoute(continents)}
+            fill="none"
+            stroke="#F4EFE3"
+            strokeWidth="3.5"
+            strokeDasharray="1 12"
+            strokeLinecap="round"
+            opacity="0.45"
+          />
+
           {continents.map((c) => (
             <ContinentBlob key={c.key} c={c} reduced={reduced} onOpen={onOpen}
               isActive={c.key === activePath}
               showStartHere={c.key === 'fundamentals' && !fundStarted} />
           ))}
 
-          {/* Compass rose — bottom-centre, in the strait below the last row */}
+          {/* Compass rose — bottom-left, across the strait from the last stop */}
           <g>
-            <Compass x={WORLD_W / 2} y={WORLD_H - 38} r={34} />
+            <Compass x={96} y={WORLD_H - 70} r={40} />
           </g>
         </svg>
       </div>
