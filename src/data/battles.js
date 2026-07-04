@@ -138,26 +138,81 @@ export function rawPathPool(pathKey, completed) {
   return out;
 }
 
+// Upgrade a 3-option daily-bank candidate to 4 options with a borrowed
+// wrong-answer distractor that isn't already one of this question's options.
+function upgradeTo4(c, rnd) {
+  let { options } = c;
+  if (options.length === 3 && Array.isArray(c._wrongPool)) {
+    const candidates = c._wrongPool.filter((o) => !options.includes(o));
+    if (candidates.length > 0) {
+      const extra = candidates[Math.floor(rnd() * candidates.length)];
+      options = [...options, extra];
+    }
+  }
+  return options;
+}
+
 // Deal a battle: `count` normalized 4-option questions, deterministic in
 // (pathKey, stage, attempt). Returns [] when the path has no question bank
-// yet (fullstack/cybersec today) — callers hide the encounter in that case.
+// yet — callers hide the encounter in that case.
 export function dealBattle(pathKey, completed, stage, attempt = 0, count = BATTLE_QUESTIONS) {
   const raw = rawPathPool(pathKey, completed);
   if (raw.length === 0) return [];
   const rnd = mulberry32(hashStr(`${pathKey}:${stage}:${attempt * 17}`));
   const picked = seededShuffle(raw, rnd).slice(0, count);
   return picked.map((c) => {
-    let { options, answer } = c;
-    if (options.length === 3 && Array.isArray(c._wrongPool)) {
-      // Upgrade to 4 options with a borrowed wrong-answer distractor that
-      // isn't already one of this question's options.
-      const candidates = c._wrongPool.filter((o) => !options.includes(o));
-      if (candidates.length > 0) {
-        const extra = candidates[Math.floor(rnd() * candidates.length)];
-        options = [...options, extra];
-      }
-    }
-    return normalize({ ...c, options, answer }, rnd);
+    const options = upgradeTo4(c, rnd);
+    return normalize({ ...c, options }, rnd);
   }).filter((q) => q.opts.length >= 3 && q.answer >= 0);
+}
+
+// ── Review-mode question picker ─────────────────────────────────────────────
+// The Reviews screen quizzes a DUE lesson with a question from that lesson's
+// own material, so grading the FSRS card on the answer stays honest:
+//   1. mathQuizzes[lessonId] — per-lesson 4-option entries (best evidence);
+//   2. the path's daily bank, filtered to questions sharing title keywords
+//      with the lesson (a cheap but deterministic relevance proxy);
+//   3. the whole path bank (labeled generic — still the same province).
+// Returns null when the lesson's path has no bank at all — the caller falls
+// back to typed free recall for that card.
+export function pickReviewQuestion(lessonId, attempt = 0) {
+  let pathKey = null;
+  let lesson = null;
+  for (const k of Object.keys(PATHS)) {
+    const hit = PATHS[k].lessons.find((l) => l.id === lessonId);
+    if (hit) { pathKey = k; lesson = hit; break; }
+  }
+  if (!pathKey) return null;
+  const rnd = mulberry32(hashStr(`review:${lessonId}:${attempt * 17}`));
+
+  // 1 — the lesson's own math-quiz bank.
+  const own = mathQuizzes[lessonId]?.questions?.filter(
+    (mq) => Array.isArray(mq.options) && mq.options.length === 4
+  );
+  if (own && own.length > 0) {
+    const mq = own[Math.floor(rnd() * own.length)];
+    return normalize({
+      prompt: mq.prompt, options: mq.options, answer: mq.answer,
+      whyWrong: mq.whyWrong, whyCorrect: mq.whyCorrect,
+      explanation: mq.explanation, bestPractices: mq.bestPractices,
+      lessonId,
+    }, rnd);
+  }
+
+  // 2/3 — the path bank, preferring title-keyword matches.
+  const pool = rawPathPool(pathKey, {}).filter((c) => !c.lessonId);
+  if (pool.length === 0) return null;
+  const tokens = (lesson.title || '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+  const scored = pool
+    .map((c) => ({
+      c,
+      score: tokens.reduce((n, w) => n + (c.prompt.toLowerCase().includes(w) ? 1 : 0), 0),
+    }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const candidates = scored.length > 0 ? scored.slice(0, 5).map((s) => s.c) : pool;
+  const chosen = candidates[Math.floor(rnd() * candidates.length)];
+  const options = upgradeTo4(chosen, rnd);
+  return normalize({ ...chosen, options }, rnd);
 }
 

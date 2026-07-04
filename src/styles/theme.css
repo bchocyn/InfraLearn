@@ -5701,49 +5701,52 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .camp-sky-day   { --camp-hill-back: #44604E; --camp-hill-front: #2E443A; }
 .camp-sky-dusk  { --camp-hill-back: #3A2B3E; --camp-hill-front: #28202C; }
 .camp-sky-night { --camp-hill-back: #232033; --camp-hill-front: #181624; }
-.camp-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
-.camp-hills-back  { animation: camp-drift 80s ease-in-out infinite alternate; }
-.camp-hills-front { animation: camp-drift 50s ease-in-out infinite alternate-reverse; }
-@keyframes camp-drift {
-  from { transform: translateX(-5px); }
-  to   { transform: translateX(5px); }
+/* Pixel-art backdrop (pixellab camp-day/night). object-position keeps the
+   ground line pinned when the panel is shorter than the art's aspect. */
+.camp-scene-art {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center bottom;
+  image-rendering: pixelated;
 }
-.camp-stars rect { animation: camp-twinkle 3.5s ease-in-out infinite; }
-.camp-stars rect:nth-child(2n) { animation-delay: 1.2s; }
-.camp-stars rect:nth-child(3n) { animation-delay: 2.1s; }
+/* Breathing glow over the art's fire (~29% from the left in both scenes). */
+.camp-fire-glow {
+  position: absolute;
+  left: 29%; bottom: 14px;
+  width: 84px; height: 60px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(245, 184, 66, 0.34), transparent 72%);
+  pointer-events: none;
+  animation: camp-glow-pulse 2.4s ease-in-out infinite;
+}
 @keyframes camp-twinkle {
   0%, 100% { opacity: 0.9; }
   50%      { opacity: 0.3; }
 }
-.camp-flame {
-  transform-origin: 6px 14px;
-  animation: camp-flicker 600ms steps(3) infinite;
-}
-@keyframes camp-flicker {
-  0%   { transform: scaleY(1); }
-  50%  { transform: scaleY(0.88) scaleX(1.06); }
-  100% { transform: scaleY(1.05); }
-}
-.camp-glow { animation: camp-glow-pulse 2.4s ease-in-out infinite; }
 @keyframes camp-glow-pulse {
-  0%, 100% { opacity: 0.13; }
-  50%      { opacity: 0.2; }
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
 }
-/* Keeper + beast sprites — HTML overlays anchored to the fire. */
+/* Keeper + beast sprites — HTML overlays standing on the art's open ground
+   (right of the fire). The beast wears a firelight rim so it stays visible
+   against the night scene (the old dark-on-dark invisibility bug). */
 .camp-avatar {
   position: absolute;
-  left: 22%;
-  bottom: 22px;
+  left: 42%;
+  bottom: 20px;
   pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
 }
 .camp-beast {
   position: absolute;
-  left: 56%;
-  bottom: 24px;
+  left: 62%;
+  bottom: 22px;
   pointer-events: none;
   transform-origin: 50% 100%;
   animation: camp-breathe 3s ease-in-out infinite;
   transition: transform 120ms ease;
+  filter: drop-shadow(-2px 2px 6px rgba(245, 184, 66, 0.5));
 }
 @keyframes camp-breathe {
   0%, 100% { transform: scaleY(1) translateY(0); }
@@ -5751,7 +5754,9 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 }
 .camp-beast-sleepy {
   animation-duration: 5s;
-  filter: saturate(0.8) brightness(0.92);
+  /* Keep the firelight rim — `filter` replaces, it doesn't compose, and a
+     desaturated beast with no rim vanished against the night art. */
+  filter: drop-shadow(-2px 2px 6px rgba(245, 184, 66, 0.5)) saturate(0.8) brightness(0.92);
 }
 .camp-zzz {
   position: absolute;
@@ -5837,6 +5842,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .camp-static .camp-stars rect,
 .camp-static .camp-flame,
 .camp-static .camp-glow,
+.camp-static .camp-fire-glow,
 .camp-static .camp-beast,
 .camp-static .camp-zzz,
 .camp-static .camp-sparkle,
@@ -5847,6 +5853,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   .camp-stars rect,
   .camp-flame,
   .camp-glow,
+  .camp-fire-glow,
   .camp-beast,
   .camp-zzz,
   .camp-sparkle,

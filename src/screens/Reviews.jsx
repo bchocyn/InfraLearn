@@ -2,22 +2,30 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, getReviewsDue } from '../store/useStore.js';
 import { PATHS } from '../data/content.js';
+import { pickReviewQuestion } from '../data/battles.js';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
+import FeedbackPanel from '../components/FeedbackPanel.jsx';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 
 // Reviews — the spaced-repetition session screen.
 //
-// One concept on screen at a time, full attention. The user types a free-recall
-// attempt, hits Reveal, then self-grades on a 4-button scale. The self-grade
-// drives the FSRS-flavored scheduler in the store (markReviewed = scheduleReview
-// + recordActivity so the session also counts toward the daily streak).
+// DEFAULT MODE IS QUIZ (owner decision): each due concept asks one
+// multiple-choice question drawn from that lesson's own material — the
+// lesson's math-quiz bank first, then title-matched questions from its
+// path's daily bank — exactly like daily practice. Right = grade 3 (good),
+// wrong = grade 1 (miss) + a weak-spot entry, so the FSRS card is still
+// graded honestly. With 90 cards due, typed recall is a wall; recognition
+// reviews that HAPPEN beat production reviews that don't.
+//
+// The typed free-recall flow survives behind a header toggle ("Recall
+// mode") for the harder workout — production retrieval is still the
+// stronger rep when the user opts in — and as the automatic per-card
+// fallback when a lesson has no quizzable material.
 //
 // Concept-flow rationale (ADHD-friendly):
 //   - One question per screen → no choice overload.
-//   - Big serif title → the concept IS the focal point.
 //   - Progress chip top-right → visible progress, no scroll surprises.
-//   - 4 grade buttons in a row at ≥375px, stack 2×2 below that (CSS handles it).
-//   - Auto-advance after grade selection so flow stays smooth.
+//   - Auto-grade on answer + explicit Continue so feedback gets READ.
 //
 // We snapshot the due list on mount. If the user grades a concept and the
 // scheduler pushes its next due-date to tomorrow, we don't want it to vanish
@@ -59,6 +67,11 @@ export default function Reviews() {
   const nav = useNavigate();
   const reviewQueue = useStore((s) => s.reviewQueue);
   const markReviewed = useStore((s) => s.markReviewed);
+  const recordQuizMiss = useStore((s) => s.recordQuizMiss);
+  const clearQuizMiss = useStore((s) => s.clearQuizMiss);
+  const quizMisses = useStore((s) => s.quizMisses);
+  const reviewMode = useStore((s) => s.settings?.reviewMode) || 'quiz';
+  const setSetting = useStore((s) => s.setSetting);
 
   // Snapshot due IDs at mount so grading doesn't shuffle the deck mid-session
   // (reviewQueue is deliberately NOT a dep). `today` IS a dep: getReviewsDue
@@ -77,52 +90,75 @@ export default function Reviews() {
   const [idx, setIdx] = useState(0);
   const [typed, setTyped] = useState('');
   const [revealed, setRevealed] = useState(false);
+  const [picked, setPicked] = useState(null); // quiz mode: chosen option index
 
   const total = dueIds.length;
   const done = idx >= total;
-
-  // Keyboard shortcuts: Enter / Space reveal; 1-4 grade the recall. The
-  // hook ignores keystrokes while focus is in the textarea, so Enter still
-  // adds newlines while the user types — they reveal by blurring (Tab) and
-  // pressing Enter, or by clicking the Reveal button. After reveal the
-  // textarea is disabled so 1-4 fire cleanly. All handlers are no-ops when
-  // the session is done or the lesson catalog is out of sync (conceptId
-  // missing) — we MUST call the hook unconditionally to keep hook order
-  // stable across the empty-deck / catalog-skew early returns below.
   const conceptIdNow = !done ? dueIds[idx] : null;
+
+  // Quiz-mode question for the current card, deterministic per concept.
+  // Null (no bank material) drops this card to the recall flow.
+  const q = useMemo(
+    () => (reviewMode === 'quiz' && conceptIdNow ? pickReviewQuestion(conceptIdNow, 0) : null),
+    [reviewMode, conceptIdNow],
+  );
+  const quizActive = reviewMode === 'quiz' && !!q;
+
+  const advance = () => {
+    setTyped(''); setRevealed(false); setPicked(null); setIdx((i) => i + 1);
+  };
+
+  // Answer a quiz option: grade the FSRS card immediately (right=good,
+  // wrong=miss + weak spot), then hold for Continue so the why gets read.
+  const pick = (i) => {
+    if (!quizActive || picked !== null || done) return;
+    setPicked(i);
+    const correct = i === q.answer;
+    if (correct) {
+      markReviewed(conceptIdNow, 3);
+      if (q.lessonId && quizMisses?.[q.lessonId]?.[q.q]) clearQuizMiss(q.lessonId, q.q);
+    } else {
+      markReviewed(conceptIdNow, 1);
+      const canonical = q.origIndex?.[i];
+      recordQuizMiss(
+        q.lessonId || '__daily_practice__',
+        q.q,
+        q.lessonId && Number.isInteger(canonical) && canonical <= 3 ? canonical : null,
+      );
+    }
+  };
+
   const canGrade = revealed && !done && !!conceptIdNow;
   useKeyboardShortcuts(
     {
       Enter: () => {
         if (done) return;
+        if (quizActive) { if (picked !== null) advance(); return; }
         if (!revealed && typed.trim().length > 0) setRevealed(true);
       },
       ' ': () => {
         if (done) return;
+        if (quizActive) { if (picked !== null) advance(); return; }
         if (!revealed && typed.trim().length > 0) setRevealed(true);
       },
       1: () => {
-        if (!canGrade) return;
-        markReviewed(conceptIdNow, 1);
-        setTyped(''); setRevealed(false); setIdx(idx + 1);
+        if (quizActive) { pick(0); return; }
+        if (!canGrade) return; markReviewed(conceptIdNow, 1); advance();
       },
       2: () => {
-        if (!canGrade) return;
-        markReviewed(conceptIdNow, 2);
-        setTyped(''); setRevealed(false); setIdx(idx + 1);
+        if (quizActive) { pick(1); return; }
+        if (!canGrade) return; markReviewed(conceptIdNow, 2); advance();
       },
       3: () => {
-        if (!canGrade) return;
-        markReviewed(conceptIdNow, 3);
-        setTyped(''); setRevealed(false); setIdx(idx + 1);
+        if (quizActive) { pick(2); return; }
+        if (!canGrade) return; markReviewed(conceptIdNow, 3); advance();
       },
       4: () => {
-        if (!canGrade) return;
-        markReviewed(conceptIdNow, 4);
-        setTyped(''); setRevealed(false); setIdx(idx + 1);
+        if (quizActive) { pick(3); return; }
+        if (!canGrade) return; markReviewed(conceptIdNow, 4); advance();
       },
     },
-    [idx, typed, revealed, done, conceptIdNow, canGrade, markReviewed],
+    [idx, typed, revealed, done, conceptIdNow, canGrade, markReviewed, quizActive, picked, q],
   );
 
   // Empty-deck state: render the "all reviewed" card immediately.
@@ -176,11 +212,7 @@ export default function Reviews() {
       <div className="screen fade-in">
         <div className="card">
           <p className="caption">Lesson catalog out of sync — skipping.</p>
-          <button
-            type="button"
-            className="btn btn-block"
-            onClick={() => { setTyped(''); setRevealed(false); setIdx(idx + 1); }}
-          >
+          <button type="button" className="btn btn-block" onClick={advance}>
             Next →
           </button>
         </div>
@@ -190,30 +222,82 @@ export default function Reviews() {
   const { lesson, pathName } = meta;
   const tagline = lesson.tagline || lesson.title;
 
-  const reveal = () => {
-    if (revealed) return;
-    setRevealed(true);
-  };
-  const grade = (g) => {
-    markReviewed(conceptId, g);
-    // Auto-advance: reset typed + revealed and walk the snapshot index forward.
-    setTyped('');
-    setRevealed(false);
-    setIdx(idx + 1);
-  };
+  const header = (
+    <div className="reviews-header row">
+      <span className="kicker">REVIEW · {idx + 1}/{total}</span>
+      <span className="spacer" />
+      <button
+        type="button"
+        className="pill"
+        style={{
+          background: 'var(--accent-amber-bg)', color: 'var(--accent-amber)',
+          fontSize: 10, padding: '4px 10px', border: 'none', cursor: 'pointer',
+          marginRight: 6, font: 'inherit',
+        }}
+        onClick={() => setSetting('reviewMode', reviewMode === 'quiz' ? 'recall' : 'quiz')}
+        title={reviewMode === 'quiz'
+          ? 'Switch to typed free recall (the harder, stronger rep)'
+          : 'Switch to quiz questions (like daily practice)'}
+      >
+        {reviewMode === 'quiz' ? '🖊 Recall mode' : '☑ Quiz mode'}
+      </button>
+      <span className="reviews-progress-chip mono">
+        {total - idx} left
+      </span>
+    </div>
+  );
+
+  // ── Quiz mode (default): one MCQ from the due lesson's material ────────
+  if (quizActive) {
+    return (
+      <div className="screen fade-in">
+        <CelebrationMoment />
+        {header}
+        <div className="card reviews-card">
+          <div
+            className="mono"
+            style={{
+              fontSize: 9, color: 'var(--text-tertiary)',
+              letterSpacing: '.16em', textTransform: 'uppercase', marginBottom: 8,
+            }}
+          >
+            {pathName} · {lesson.title}
+          </div>
+          <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>{q.q}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {q.opts.map((o, i) => {
+              let cls = 'btn dp-option';
+              if (picked !== null && i === q.answer) cls += ' dp-correct';
+              else if (picked !== null && i === picked) cls += ' dp-wrong';
+              return (
+                <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
+                  <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
+                  <span className="dp-text">{o}</span>
+                </button>
+              );
+            })}
+          </div>
+          {picked !== null && <FeedbackPanel question={q} picked={picked} />}
+        </div>
+        {picked !== null && (
+          <button type="button" className="btn btn-primary btn-block" onClick={advance}>
+            {picked === q.answer ? 'Held — next →' : 'Noted for weak spots — next →'}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // ── Recall mode (toggle, or per-card fallback when no quiz exists) ─────
+  const reveal = () => { if (!revealed) setRevealed(true); };
+  const grade = (g) => { markReviewed(conceptId, g); advance(); };
 
   return (
     <div className="screen fade-in">
       {/* XP / level / badge celebration overlay. Fires when markReviewed
           awards XP (+3 hard, +6 good/easy) or crosses a level boundary. */}
       <CelebrationMoment />
-      <div className="reviews-header row">
-        <span className="kicker">REVIEW · {idx + 1}/{total}</span>
-        <span className="spacer" />
-        <span className="reviews-progress-chip mono">
-          {total - idx} left
-        </span>
-      </div>
+      {header}
 
       <div className="card reviews-card">
         <div

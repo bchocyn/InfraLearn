@@ -57,7 +57,11 @@ function key(file) {
   console.log(`${file}: bg=rgb(${r | 0},${g | 0},${b | 0}) cleared ${cleared}px (${((cleared / (W * H)) * 100).toFixed(0)}%)`);
 }
 
-const files = readdirSync(DIR).filter((f) => f.endsWith('.png') && (all || f.startsWith('island-')));
+// camp-*.png are FULL-BLEED scene backdrops (CampHero) — flood-filling from
+// their border would eat the sky. Never key them, even in `all` mode.
+const files = readdirSync(DIR).filter((f) => f.endsWith('.png')
+  && !f.startsWith('camp-')
+  && (all || f.startsWith('island-')));
 if (!files.length) { console.log('no matching pngs in', DIR); process.exit(0); }
 for (const f of files) key(f);
 console.log(`\nkeyed ${files.length} file(s).`);

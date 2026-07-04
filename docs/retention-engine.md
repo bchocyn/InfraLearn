@@ -132,11 +132,23 @@ Notes:
 
 ### The `/reviews` screen
 
-- Lists every concept with `dueAt <= today`, joined to `PATHS[*].lessons`
-  for the title + tagline.
-- Each row has four self-grade buttons. Picking one calls
-  `markReviewed(conceptId, grade)` which runs `scheduleReview` plus
-  `recordActivity` (so reviewing counts toward the streak).
+- One due concept at a time, from a mount-time snapshot of every entry
+  with `dueAt <= today`.
+- **Default mode is QUIZ** (owner decision): each card asks one
+  multiple-choice question from the due lesson's own material — the
+  lesson's math-quiz bank first, then title-matched questions from its
+  path's daily bank (`pickReviewQuestion` in battles.js). Right answer →
+  `markReviewed(id, 3)`; wrong → `markReviewed(id, 1)` **plus** a
+  weak-spot entry, so the card is still graded honestly and misses stay
+  actionable. The trade-off is acknowledged: recognition is weaker
+  evidence than production recall, but reviews that happen beat reviews
+  that don't — at 90 due cards, typed recall was a wall.
+- **Recall mode** survives behind a header toggle (persisted as
+  `settings.reviewMode`) — typed free recall + 4-button self-grade — and
+  is the automatic per-card fallback when a lesson has no quizzable
+  material.
+- `markReviewed` = `scheduleReview` + `recordActivity` (reviews count
+  toward the streak) either way.
 - 10 reviews in one calendar day grants `reviewer:10`.
 
 ## XP system

@@ -153,44 +153,21 @@ export default function CampHero() {
         onClick={() => nav('/beast')}
         aria-label={`Open Byte Beast: ${formName}, tier ${beastTier}. ${dueCount > 0 ? `${dueCount} reviews due.` : ''}`}
       >
-        {/* Scene scaffolding — stars, hills, watchfire. Pure SVG, pixel-style. */}
-        <svg
-          className="camp-scene"
-          viewBox="0 0 400 170"
-          preserveAspectRatio="xMidYMax slice"
-          shapeRendering="crispEdges"
+        {/* Pixel-art camp backdrop (pixellab, public/worldmap/camp-*.png) over
+            the sky-gradient fallback. Dawn/day share the day scene, dusk/night
+            the night one — tent left, fire at ~29%, open ground on the right
+            where the Keeper and beast stand. NOTE for the keyer script: these
+            are FULL-BLEED scenes, excluded from key-worldmap.mjs by name. */}
+        <img
+          className="camp-scene-art"
+          src={`${import.meta.env.BASE_URL}worldmap/camp-${tod === 'night' || tod === 'dusk' ? 'night' : 'day'}.png`}
+          alt=""
           aria-hidden="true"
-        >
-          {(tod === 'night' || tod === 'dusk') && (
-            <g className="camp-stars" fill="#F4EFE3">
-              <rect x="48" y="22" width="2" height="2" />
-              <rect x="120" y="38" width="2" height="2" />
-              <rect x="208" y="16" width="2" height="2" />
-              <rect x="300" y="30" width="3" height="3" />
-              <rect x="356" y="52" width="2" height="2" />
-            </g>
-          )}
-          {tod === 'day' && <circle cx="330" cy="34" r="14" fill="#F5D87A" opacity="0.9" />}
-          {tod === 'night' && <circle cx="330" cy="34" r="11" fill="#D8D4C8" opacity="0.85" />}
-          {/* Back hills drift slower than front — two-layer parallax. */}
-          <g className="camp-hills-back">
-            <polygon points="0,170 0,118 70,92 150,122 240,86 330,118 400,98 400,170" fill="var(--camp-hill-back, #2E2A36)" />
-          </g>
-          <g className="camp-hills-front">
-            <polygon points="0,170 0,140 90,116 190,142 290,112 400,136 400,170" fill="var(--camp-hill-front, #211E28)" />
-          </g>
-          {/* Watchfire — logs, layered flame, amber glow. */}
-          <g transform="translate(196, 128)">
-            <circle className="camp-glow" cx="6" cy="6" r="34" fill="#F5B842" opacity="0.13" />
-            <rect x="-8" y="16" width="28" height="4" fill="#4A3520" />
-            <rect x="-2" y="13" width="18" height="4" fill="#6B4226" />
-            <g className="camp-flame">
-              <rect x="0" y="-2" width="12" height="16" fill="#E07856" />
-              <rect x="2" y="-8" width="8" height="10" fill="#F5B842" />
-              <rect x="4" y="-12" width="4" height="6" fill="#F5D87A" />
-            </g>
-          </g>
-        </svg>
+          draggable={false}
+        />
+        {/* Watchfire glow — breathes over the art's fire (static under
+            reduced motion via .camp-static). */}
+        <span className="camp-fire-glow" aria-hidden="true" />
 
         {/* Keeper at the fire, beast beside it. HTML overlay > foreignObject. */}
         <div className="camp-avatar" aria-hidden="true">
@@ -202,13 +179,14 @@ export default function CampHero() {
           {badgeToday && !sleepy && <span className="camp-sparkle">✦</span>}
         </div>
 
-        {/* Province + beast identity strip. */}
+        {/* Identity strip — ONE line (the old two-row kicker+meta stack was
+            the panel's biggest noise source; the epithet lives on the
+            Roadmap's province banner where it belongs). */}
         <div className="camp-info">
-          <div className="camp-kicker">{prov.name.toUpperCase()} · {prov.epithet.toUpperCase()}</div>
           <div className="camp-form-row">
             <span className="camp-form-name">{formName}</span>
             <span className="camp-form-meta">
-              TIER {beastTier} · {ELEMENTS[beast.element].icon} {beast.name.toUpperCase()}
+              T{beastTier} {ELEMENTS[beast.element].icon} · {prov.name.toUpperCase()}
             </span>
             <span className="camp-arrow">→</span>
           </div>
