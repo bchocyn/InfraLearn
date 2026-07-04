@@ -1,162 +1,210 @@
 # InfraLearn — Session Handoff
 
-> Shareable summary of a deep maintenance + feature session. Copy/paste freely.
+> Shareable summary of a large feature + correctness session. Copy/paste freely.
 
-**What this is:** InfraLearn — an offline-first PWA learning tracker (React 18 + Vite,
-Zustand → localStorage, HashRouter, GitHub Pages). 8 career paths (~100+ lessons),
-FSRS-style spaced repetition, XP/streak/badges, a virtual "Byte Beast" companion,
-in-browser Python practice (Pyodide), and now a story/journey layer.
+**What this is:** InfraLearn — an offline-first PWA learning tracker (React 18 + Vite/rolldown,
+Zustand → localStorage, HashRouter, GitHub Pages). 8 career paths (~264 lessons), a
+gap-anchored spaced-repetition engine, XP/streak/badges, a virtual "Byte Beast" companion, a
+story/journey layer, a world-map roadmap, and **Pokémon-style quiz battles**.
 
 - **Repo:** https://github.com/bchocyn/InfraLearn · **Live:** https://bchocyn.github.io/InfraLearn/
-- **State at handoff:** everything committed + pushed to `main` (HEAD `0fac87a`; deploys via
-  GitHub Actions). Working tree is clean **except a one-line `.gitignore` change** for the new
-  MCP config (§7). 310/310 tests · ESLint clean · production build clean · SW verified live.
-- **Two parallel streams merged into `0fac87a`:** the journey/cloud/perf sweep (§1–5) **and**
-  the projects/onboarding rework + pixellab MCP (§6–7, from a separate conversation). All in.
+- **State at handoff:** everything committed + pushed to `main`. **HEAD `a52da27`**, deploy
+  verified live (compared the live `sw.js` chunk hash against the local build — byte match).
+  **386/386 tests · ESLint clean · build clean.** Working tree clean.
+- **Two companion docs are the living backlog** (read these first next session):
+  - **`IMPROVEMENTS.md`** — prioritized, evidence-backed roadmap (Tier 0–4 + "don't build" list),
+    with `file:line` citations and a Cookie-Run design-research section (R1–R7) + Fable-5
+    game-feel lessons (G1–G6). Items done this session are marked ✅.
+  - **`DEVILS-ADVOCATE.md`** — adversarial architecture critique (11 decisions steelmanned then
+    contested) + a world-map addendum (A1–A6).
 
 ---
 
-## 1 · Bug-fix sweep (~50 verified bugs, all fixed)
+## This session's commits (`36215d2` → `a52da27`)
 
-**Critical**
-- Service worker **never registered in production** (`new URL('sw.js', BASE_URL)` throws on a
-  path-only base) — the entire offline/PWA layer was dead. Fixed; verified activated + precaching.
-- SW activate-cleanup **deleted every cache on the shared github.io origin** (other projects
-  included). Now scoped to `infralearn-*`.
-- Backup import dialog treated **Cancel/Escape as "replace everything"** (full progress wipe).
-  Now an explicit two-step confirm with a real abort.
-- "Merge" import actually **replaced** badges/XP/streak/settings. Now true field-wise merge
-  (badges union, max-of counters, beast tiers cell-wise).
+```
+a52da27 Retrigger Pages deploy (deploy-pages step 500'd transiently on 6c250ae)
+6c250ae Remove free recall — every testing surface is MCQ + feedback
+b79d37c World map: single-file voyage — one continent per row, connected route
+5405098 World map goes portrait — phone-first vertical layout
+7a6a6e5 Reviews become quiz-first; CampHero gets a pixel-art scene
+145709b Evidence layer, gap-anchored scheduler, reminders, full content coverage
+a536d00 World map, quiz battles, Tier-0 fixes, skill-rank removal
+eb29c65 Add audit docs: IMPROVEMENTS backlog + DEVILS-ADVOCATE critique
+```
 
-**High value**
-- Practice editor text could leak into the **wrong lesson's saved bucket** (body not keyed by
-  route id). Re-completing a lesson **fake-graded its FSRS card** (stability inflation).
-- Python ran on the **main thread** (`while True:` froze the tab) → now a Web Worker with a
-  15s timeout + main-thread fallback; offline retry-hang fixed.
-- Streaks: Fri→Mon weekend gap now covered (2 passes), freezes cover exactly one day and are
-  **earnable again** (7/30/100-day milestones), future/garbage dates self-heal.
-- Linter rules no longer reject the app's own shipped YAML/SQL/Dockerfile starters; terminal
-  `head -n`/`cp`/`mv`/`grep` semantics fixed; quiz hooks-order crash fixed.
-- All 8 paths now show everywhere (two were missing from pickers/mastery checks); daily
-  practice is persisted + XP-farm-proof; weak spots from daily practice are visible/clearable.
-- Diagram geometry: walkthrough labels no longer overlap nodes (40+ blocks affected);
-  sequence text no longer runs off-canvas; schema tests now validate diagram references in CI.
+## 1 · World-map roadmap (the Roadmap tab is now a map)
 
-## 2 · Performance pass
+- **`src/screens/WorldMap.jsx`** — the Roadmap tab **lands on a world map** (A1 from the
+  devil's-advocate doc: one map system, not two). 8 continents as flat top-down pixel-art
+  landmasses (pixellab, backgrounds keyed transparent), each themed to its province. Fog over
+  unstarted provinces; the province's **Lapse boss stands greyed on its own continent**;
+  medallion progress rings; a live "you are here" halo on the active continent.
+- **Layout is a single-file vertical voyage** (`WORLD_W 480 × WORLD_H 2260`): one continent per
+  row in learning order, alternating L/R, threaded by a **dotted sea-route** — phone-first
+  (it scrolls down like Cookie Run's own map). Hero "Continue" CTA rides **above** the map.
+- **Tap a continent → the serpentine trail drill-in** (the existing per-province Roadmap trail,
+  with its PixelLab landscape + cutscenes). "← World map" sails back. `Roadmap` takes an
+  `initialView` prop (`'world'|'trail'`) so tests/deep-links can target the trail.
+- The old `/worldmap` dev route still exists as a standalone prototype but the shipped path is
+  the Roadmap landing.
 
-- **Eager bundle 355.8 → 306.8 KB**; CodeMirror core (353 KB) + math-quiz bank (92 KB) now
-  load only when actually used — a prose lesson skips ~455 KB raw (~159 KB gz).
-- Zustand persist writes coalesced **above** JSON.stringify (one action used to serialize the
-  full store 8–10×); transient fields excluded.
-- All whole-store subscriptions → narrow selectors (Roadmap's ~500-element SVG no longer
-  re-renders on every XP tick; scene memoized). Lesson scroll re-renders only a progress rail.
-- SW precache: non-latin font subsets excluded (~260 KB), unchanged hashed assets not
-  re-downloaded on deploy, versioned cache names rotate + prune.
-- Real PNG icons (iOS apple-touch 180 + 192/512 + maskable) generated from the SVG sources via
-  `node scripts/generate-icons.mjs` (committed script, `@resvg/resvg-js` devDep).
+## 2 · Pokémon-style quiz battles (NEW)
 
-## 3 · UX changes
+- **`src/screens/Battle.jsx`** + **`src/data/battles.js`** (heavy, lazy) + **`src/data/battleMeta.js`**
+  (light, eager — the Roadmap reads it). Route `/battle/:pathKey/:stage`, stage `1..5` | `'boss'`.
+- Per path: **5 minion encounters + 1 boss.** Each battle is **5 questions (boss: 7), 4 options,
+  one per turn.** Pokémon layout: enemy card + HP bar top-left, animated minion top-right, your
+  Byte Beast (flipped) bottom-left, hearts bottom-right, question in the dialogue box, the 4
+  answers as the 4 colored menu buttons. Keys 1–4 answer, Enter advances.
+- **Honest under the costume:** questions come from the due path's own material
+  (`mathQuizzes[lessonId]` for completed lessons first, then title-matched daily-bank
+  questions). Right = `markReviewed(id, 3)`, wrong = `markReviewed(id, 1)` + a weak-spot entry.
+  XP is **watermark-latched** (`recordBattleWin` in the store; minion +15, boss +40) so replays
+  are free practice, unfarmable. Wins count toward the streak.
+- **Minions bar the road** (Pokémon-trainer style): an unbeaten encounter at trail-fraction k/6
+  blocks NEW lessons past it — enforced on the trail **and** at the `/lesson/:id` route via a
+  `BattleGate` wrapper in `main.jsx`. Completed lessons stay freely reviewable; the tap routes
+  to the due fight, never a dead end. Gate math lives in `battleMeta.battleGateForLesson` /
+  `battleBlockForLessonId`.
+- **Sprites** (pixellab, in `public/worldmap/`): 8 continent islands (`island-{key}.png`), 4
+  Lapse bosses (`beasts/null_*.png`), 4 minion base sprites + **animated idle loops**
+  (`anim/minion-{lapse}-{0..4}.png`, played via `AnimatedSprite`). Minions are "descendants" of
+  their boss (Bitling/Cinderling/Driftling/Letheling).
+- **Store:** new `battles: {[pathKey]:{minions,boss}}` field, **persist version bumped to 18**,
+  scrub + merge + migration + tests (`tests/store-battles.test.js`). A CI drift-guard
+  (`BATTLE_BANKED_PATHS`) fails if the eager path list disagrees with what the banks can deal.
 
-- **Spanish locale removed** (picker + catalog); i18n plumbing kept for future locales; stale
-  `es` preference falls back to English cleanly.
-- **Companion switcher** now opens the same full-screen picker as onboarding (shared
-  `BeastPicker` component), shows the earned tier per species, two-phase pick→confirm.
+## 3 · Engine correctness (the core loop, made honest)
 
-## 4 · NEW: Journey / story layer (design + first build)
+- **Gap-anchored scheduler** (`scheduleReview` in `useStore.js`): stability growth now scales by
+  `sqrt(elapsed/expected)` clamped `[0.25, 1.5]` — same-day massing earns a quarter increment,
+  on-time the full, overdue-but-recalled a bonus. Previously intervals depended only on review
+  *count* (ignored elapsed time). **Difficulty now responds to every grade**; Hard is floored
+  strictly sooner than Good. Tests updated (`tests/store-retention.test.js`).
+- **XP economy gradient fixed.** Recognition now pays strictly below graded recall: daily
+  practice `+4`, daily challenge `+5`, math-quiz first-sight `+6` (was `+8`), all ≤ `review:good
+  +6`. `docs/retention-engine.md` rewritten to match the code (the old doc over-claimed FSRS-6
+  and had an inverted table).
 
-Design doc: **`docs/journey-design.md`** (world bible, mechanics mapping, phasing).
-Canonical lore data: **`src/data/lore.js`** — all narrative UI reads from here.
+## 4 · Free recall REMOVED (owner decision)
 
-- **Premise:** the enemy is *forgetting* — "the Null" un-remembers the world; players are
-  **Keepers**; the 8 paths are provinces (The Foundry, The Underlibrary, The Wallmarch…).
-- **The Five Lapses** (villains = corrupted study-virtues; "lapse" is the FSRS failure term):
-  **Hollow Ink** the Unteacher (Deceit) · **Bitrot** Devourer of Pages (Rote) · **Drift** the
-  Unfinisher (Distraction) · **Cindercrown** the Gilded Hollow (Hubris) · **Lethe** the
-  Hushtide (Stagnation). Each has codex text, voice lines, and a planned boss mechanic.
-- **Shipped now:**
-  - **Path Ascension cinematic** — full-screen 4-phase awakening (Cookie-Run-trailer energy)
-    when a path first hits its gold seal; tier-4 beast reveal, province title card, lapse
-    foreshadow; skippable; reduced-motion static card; lazy chunk; once-per-path guaranteed
-    by the store (`pendingAscension`/`ascensionsSeen`, persist v13, import-safe, tested).
-  - **Roadmap story layer** — province banner (name/epithet/intro), **fog of the Null** that
-    recedes with progress, the province's Lapse watching from the fog ("CINDERCROWN WAITS AT
-    THE END" → "HAS FLED — FOR NOW" at 100%).
-  - **Startup art v2** — onboarding scene: living aurora, the Five stirring on the horizon,
-    shooting star, awakening emblem, campfire + waiting companion (SMIL, reduced-motion safe).
-- **Planned next** (per design doc §13): ember economy + Home camp-hero panel → bestiary →
-  Watchfire Defense mini-game (reviews-as-battles) → Null Beast boss fights → tamer gear.
+- Every type-what-you-remember flow is gone: **Daily Practice** (MCQ-only now; wrong answers
+  feed weak spots, which used to be recall-only), **Reviews** (`src/screens/Reviews.jsx` is
+  quiz-per-due-card), **Watchfire** (quiz patrol — correct strikes + auto-advance, wrong costs a
+  heart and holds on the why-wrong feedback). No textareas / self-grade anywhere.
+- Retired: `recall:first` badge (earned copies survive, no longer displayed), `recall:got-it`
+  +12 XP path; legacy `settings.practiceMode` / `settings.reviewMode` keys are ignored.
+- **Known trade-off:** the scheduler now only ever hears grade 3 (right) or 1 (miss) — no
+  Hard/Easy. The gap anchor handles nuance, but a "that was close" secondary tap is a cheap
+  future add if shaky-but-correct cards feel like they return too slowly.
 
-## 5 · NEW: Optional cloud login/sync (dormant)
+## 5 · Evidence layer + re-engagement (NEW)
 
-- Google sign-in + Firestore snapshot sync, built provider-agnostic (`src/cloud/`), using the
-  hardened merge-import as conflict resolution. **Completely inert** until you create a
-  Firebase project and fill `src/cloud/cloudConfig.js` — instructions in **`docs/SETUP-CLOUD.md`**.
-- Zero bytes in the eager bundle; the firebase chunk is lazy AND excluded from the SW precache.
-- Settings → REVIEW tab shows the card (muted "not configured" state today).
+- **`src/data/evidenceLog.js`** — append-only IndexedDB review log `{t, concept, grade, elapsed-gap}`
+  (own quota bucket, survives localStorage pressure). `scheduleReview` logs each graded review.
+  **ProgressPanel draws a personal forgetting curve** (recall held, by gap band) — the north-star
+  claim made falsifiable for the user. The same DB carries a tiny KV "notify-state" bridge for
+  the service worker (the SW can't read localStorage).
+- **Daily reminder** (`public/sw.js` `periodicsync` + `notificationclick` handlers + a
+  `ReminderCard` in Settings): one nudge on no-activity days ("N reviews due · streak holds"),
+  via Periodic Background Sync + Notifications. Honest about support (needs an installed PWA on
+  Chrome/Android; the card says so elsewhere). No server, no account.
 
-## 6 · NEW: Projects ramp + onboarding rework
+## 6 · Tier-0 durability + quality fixes
 
-- **Onboarding dropped the skill-level pick.** Step 2 used to be "career path **+ self-assessed
-  rank** (novice→distinguished)"; it's now **path only** (`PathStep`: name → beast → path).
-  Everyone starts `novice` and **earns** the rank (it still gates beast evolution + the rank
-  ladder). The orphaned `.ob-tier-cell` CSS is harmless.
-- **Projects are now a guidance RAMP, not a flat list:** 🪜 **Guided — start here** → 🔨 **Build
-  it yourself** → 📐 **Architect challenges**, sorted within each by tier (junior→staff). Driven
-  by a `guidance` field (`'guided'|'semi'|'open'`) on the lab/sd entries in `content.js`; default
-  is kind-based (lab=semi, sd=open) with **4 explicit overrides** (3 FAANG `sd` lessons that are
-  really teaching → guided; `lab-realtime-chat` → open). A `project-guidance-classify` workflow
-  read all 26 projects' bodies: **3 guided / 5 semi / 18 open**.
-- **"What you'll build" outcome diagrams — PILOT, needs owner sign-off.** Each project should
-  open with an animated architecture diagram of the *finished* system (reusing the existing
-  data-flow **packet** animation), exactly like concept lessons lead with a diagram. Piloted on
-  **`lab-realtime-chat`** (new: Client → WS Gateway → Chat Service → {Redis, Message Store}) and
-  **`compose-stack`** (existing diagram reframed to "What you'll build"). **NEXT:** get the
-  owner's read on the look, then **fan out** a diagram to every project missing one, and
-  **animate the guided build-alongs** (the build-along block already steps — make the new chunk
-  animate in / optionally auto-advance).
+- **ESLint installed + wired into CI** (`.github/workflows/deploy.yml` now lints before test +
+  build). The prior handoff's "ESLint clean" was false — it was never installed. First run
+  caught a real crash bug (undefined `embers` prop in the shipped `Journey.jsx`).
+- **Persist durability:** `.bak` rotation before every write + corrupt-read recovery in the
+  custom storage (`useStore.js`); a **`persistFailed` banner** (`PersistWarning.jsx`) on
+  quota/private-mode failures; ErrorBoundary now offers "Download backup first" before its nuke,
+  and nukes both keys.
+- **Reduced-motion toggle actually works** — `main.jsx` stamps `data-reduced-motion` on `<html>`
+  from the setting; CSS snaps animations to their end state (was media-query-only, so the
+  in-app toggle did nothing).
+- **`@vitejs/plugin-react` 4 → 6** — kills the rolldown "Invalid input options: jsx" dev warnings.
+- **Skill ranks removed** (novice/junior/senior/distinguished): the picker, rank ladder, and
+  displays are gone; **beast evolution re-based onto lessons-completed** (same 4/10 thresholds
+  the rank used, so evolution pacing is unchanged).
 
-## 7 · NEW: pixellab MCP server (pixel-art generation)
+## 7 · Content coverage + a11y + Home
 
-- Added the **pixellab** HTTP MCP server (`api.pixellab.ai` — pixel-art generator) to make new
-  Byte Beast sprites / game art on demand. Config lives in **`.mcp.json`** (Claude Code
-  `mcpServers` format, Bearer token).
-- **`.mcp.json` is gitignored** (`.mcp.json` + `.env*` added to `.gitignore`) so the token can
-  NEVER reach the public repo — that `.gitignore` line is the only uncommitted change in the tree.
-- **To use it:** the `claude` CLI isn't on PATH here (config was written directly). **Restart
-  Claude Code / reload the VS Code window** to connect, then **approve "pixellab"** on first use
-  (project MCP servers require approval). The token is in local `.mcp.json` + this transcript —
-  rotate it at pixellab if the transcript is shared.
+- **All 8 paths now have question banks** — authored `fullstack` + `cybersec` daily-question
+  banks (55 grounded questions) via a content fan-out workflow, so daily practice, journey
+  encounters, and **battles work on every path**.
+- **All 16 broken `bash` practice blocks converted to `build-along`** (the blessed pattern) — no
+  more in-app terminal returning "command not found" for `curl`/`node`/`npm`.
+- **A11y:** route-change scroll reset + focus-to-`<main>` + a skip link (`main.jsx`, WCAG 2.4.1).
+- **Home:** a Projects teaser card (gated on ≥3 completed lessons) surfaces the capstone ramp
+  that was buried two taps deep in Library.
 
-## 8 · How to run / verify
+## 8 · CampHero pixel-art scene
+
+- `src/components/CampHero.jsx` — replaced the hand-drawn SVG sky/hills/fire with two pixel-art
+  camp backdrops (`public/worldmap/camp-day.png` / `camp-night.png`, chosen by time of day) +
+  a breathing glow. **The beast is visible at night now** (firelight rim; the old sleepy filter
+  was erasing it). Identity strip collapsed to one line. `scripts/key-worldmap.mjs` hard-excludes
+  `camp-*.png` (they're full-bleed scenes; keying would eat the sky).
+
+---
+
+## How to run / verify
 
 ```bash
 npm install --legacy-peer-deps   # peer tree requires the flag (CI uses it too)
-npm run dev                      # http://localhost:5173/InfraLearn/
-npm test                         # 310 tests
-npx eslint src                   # clean
+npm run dev                      # http://localhost:5173/InfraLearn/  (Roadmap → world map)
+npm run lint                     # ESLint — now real, wired into CI
+npm test                         # 386 tests (10 files)
 npm run build && npm run preview # production at http://localhost:4173/InfraLearn/
 ```
-Dev-only trick: in the dev console, `window.__ascend('devops')` triggers the Ascension
-cinematic without completing a path.
 
-## 9 · Known follow-ups / not done
+Dev tricks: `window.__ascend('devops')` triggers the Ascension cinematic; jump straight to a
+battle at `#/battle/devops/1`.
 
-- Cloud sync needs the owner's Firebase config to go live (see `docs/SETUP-CLOUD.md`).
-- Journey phases P0+ (embers, camp hero, bestiary, mini-games) are designed, not yet built.
-- Lore is English-only by design; the i18n layer exists if that ever changes.
-- Deploys run via GitHub Actions on push to `main` (the old `npm run deploy` path was removed).
-- **Projects:** finish the "What you'll build" outcome-diagram fan-out (pilot is in — awaiting
-  visual sign-off) and animate the guided build-alongs (§6).
-- **OPEN design question, unanswered:** should each project list **prerequisites** the learner
-  should know first before starting? (Owner asked; not yet decided.)
-- **Path-to-path learning rework — DEFERRED.** Deleting the skill-level pick was step 1; the
-  "guided journey" (recommended starting path + `buildsOn`/`nextUp` path metadata + a "you're
-  ready for X next" nudge at path-end) and the richer **visual skill-map** were NOT built —
-  owner chose "just delete skill level for now." The 8 paths are still independent silos.
-- **Deferred deep-dive bugs** (low/med, verified but not yet fixed): walkthrough edge-label
-  vertical fallback; `mlops-ab-testing` sequence drops its 5th actor lane; import `xpLevel`
-  re-derive; `reviewer:10` per-day counter; daily midnight-rollover false-success guard;
-  walkthrough row-grouping running-mean drift.
-- Correctness was swept twice this session (a spillage/overlap audit and a lesson-code audit):
-  ~22 verified app bugs + 6 factual lesson-code bugs fixed (e.g. the FAANG url-shortener
-  collision quiz was off by 1000×). Further *full* audits are likely low-yield.
+**Art pipeline (pixellab MCP):** async + credit-based; generated map objects auto-delete after
+8h (download promptly). All map art is background-keyed transparent via
+`node scripts/key-worldmap.mjs [all]` (idempotent; `island-*` by default, `camp-*` always
+excluded). pixellab sometimes returns isometric vs flat inconsistently — re-roll outliers.
+Frame-URL animations come from `get_object` (not `get_map_object`).
+
+**Deploy gotcha (bit us this session):** GitHub's `actions/deploy-pages` step occasionally 500s
+transiently even when build is green — retrigger with an empty commit. **Always verify a deploy
+by comparing a local `dist/sw.js` chunk hash against the live `sw.js`** (don't trust the run
+status alone; a stale poll once reported the wrong run's result).
+
+---
+
+## Known follow-ups / not done
+
+**Immediate (owner was mid-decision):**
+- **Projects catalog is thin — expansion recommended, NOT built.** Of 26 "projects", only **6
+  are real builds**; the other 20 are `sd` design-*reading* lessons. **Fundamentals and Cybersec
+  have ZERO projects**; Fullstack has 1; swe/mlops/mleng have no *labs* (only design readings).
+  A per-path capstone ladder (~17 new: one guided build / one build-yourself / one architect
+  challenge each, incl. an ML-Eng **RAG** project, a Fundamentals CLI tool, a Cybersec vault) was
+  scoped and offered — run the same content fan-out to author it. This also finally answers the
+  long-open "should projects have prerequisites?" question (labs already support `unlockAfter`).
+  Also: label the 20 `sd` entries as "Design challenges" so builds vs readings are distinguishable.
+
+**From IMPROVEMENTS.md, still open (see that doc for detail):**
+- Dialog **focus traps** on Trophies / Codex / KeyboardHelp / CoachTour (aria-modal without a
+  trap) — §3.3.
+- **Concept-dedup tags** (SQL ×4, caching ×3 taught cold across paths → uncoordinated review
+  cards) — §3.5.
+- **G1 juice pass** — layered feedback on answer taps (the highest-frequency interaction) — G1.
+- **Self-host Pyodide** (Python practice is CDN-only → dead offline) — §3.7.
+- A **"that was close" grade** to restore Hard/Easy signal to the scheduler (see §4 above).
+
+**Standing / lower urgency:**
+- **Cloud sync** (`src/cloud/`) is built but **dormant** — needs the owner's Firebase config
+  (`docs/SETUP-CLOUD.md`). DEVILS-ADVOCATE §8 recommends moving `firebase` to an optional dep and
+  env-gating its CSP while it ships dark.
+- **Journey design doc** (`docs/journey-design.md`) still reads as a committed backlog; the ember
+  economy is partially built upstream. Treat further RPG expansion as gated on a retention signal.
+- The prior handoff's "deferred deep-dive bugs" list (walkthrough edge-label fallback,
+  `mlops-ab-testing` 5th actor lane, etc.) was not revisited — likely still open.
+
+**Docs to trust:** `IMPROVEMENTS.md` and `DEVILS-ADVOCATE.md` are current as of this session and
+are the source of truth for what's worth doing next and why. `docs/retention-engine.md` was
+rewritten to match the shipped scheduler + economy. This file summarizes; those go deep.
