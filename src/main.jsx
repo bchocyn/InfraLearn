@@ -57,6 +57,9 @@ const Journey          = lazy(() => import('./screens/Journey.jsx'));
 // Watchfire Defense — reviews in battle costume (markReviewed underneath,
 // scheduler honest). Its own chunk like every mini-game.
 const Watchfire        = lazy(() => import('./screens/Watchfire.jsx'));
+// Prototype: the world-map roadmap (World → continent → lessons). Dev route
+// /worldmap so it can be clicked through before it replaces the Roadmap tab.
+const WorldMap         = lazy(() => import('./screens/WorldMap.jsx'));
 
 // Suspense fallback — deliberately NOT a spinner. A serif "Loading…" in the
 // app's own font fades in after a short delay so we don't strobe on fast
@@ -249,6 +252,7 @@ function App() {
             <Route path="/codex" element={<Codex />} />
             <Route path="/journey" element={<Journey />} />
             <Route path="/watchfire" element={<Watchfire />} />
+            <Route path="/worldmap" element={<WorldMap />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

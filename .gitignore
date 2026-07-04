@@ -5,3 +5,7 @@ dist
 .tmp_*
 # assistant/IDE session tooling — not part of the app
 .claude/
+# local secrets — MCP server config carries an API token, never commit it
+.mcp.json
+.env
+.env.local

@@ -8,8 +8,11 @@ FSRS-style spaced repetition, XP/streak/badges, a virtual "Byte Beast" companion
 in-browser Python practice (Pyodide), and now a story/journey layer.
 
 - **Repo:** https://github.com/bchocyn/InfraLearn · **Live:** https://bchocyn.github.io/InfraLearn/
-- **State at handoff:** 310/310 tests passing · ESLint: 0 errors / 0 warnings across `src` ·
-  production build clean · service worker verified live in a production preview.
+- **State at handoff:** everything committed + pushed to `main` (HEAD `0fac87a`; deploys via
+  GitHub Actions). Working tree is clean **except a one-line `.gitignore` change** for the new
+  MCP config (§7). 310/310 tests · ESLint clean · production build clean · SW verified live.
+- **Two parallel streams merged into `0fac87a`:** the journey/cloud/perf sweep (§1–5) **and**
+  the projects/onboarding rework + pixellab MCP (§6–7, from a separate conversation). All in.
 
 ---
 
@@ -91,7 +94,40 @@ Canonical lore data: **`src/data/lore.js`** — all narrative UI reads from here
 - Zero bytes in the eager bundle; the firebase chunk is lazy AND excluded from the SW precache.
 - Settings → REVIEW tab shows the card (muted "not configured" state today).
 
-## 6 · How to run / verify
+## 6 · NEW: Projects ramp + onboarding rework
+
+- **Onboarding dropped the skill-level pick.** Step 2 used to be "career path **+ self-assessed
+  rank** (novice→distinguished)"; it's now **path only** (`PathStep`: name → beast → path).
+  Everyone starts `novice` and **earns** the rank (it still gates beast evolution + the rank
+  ladder). The orphaned `.ob-tier-cell` CSS is harmless.
+- **Projects are now a guidance RAMP, not a flat list:** 🪜 **Guided — start here** → 🔨 **Build
+  it yourself** → 📐 **Architect challenges**, sorted within each by tier (junior→staff). Driven
+  by a `guidance` field (`'guided'|'semi'|'open'`) on the lab/sd entries in `content.js`; default
+  is kind-based (lab=semi, sd=open) with **4 explicit overrides** (3 FAANG `sd` lessons that are
+  really teaching → guided; `lab-realtime-chat` → open). A `project-guidance-classify` workflow
+  read all 26 projects' bodies: **3 guided / 5 semi / 18 open**.
+- **"What you'll build" outcome diagrams — PILOT, needs owner sign-off.** Each project should
+  open with an animated architecture diagram of the *finished* system (reusing the existing
+  data-flow **packet** animation), exactly like concept lessons lead with a diagram. Piloted on
+  **`lab-realtime-chat`** (new: Client → WS Gateway → Chat Service → {Redis, Message Store}) and
+  **`compose-stack`** (existing diagram reframed to "What you'll build"). **NEXT:** get the
+  owner's read on the look, then **fan out** a diagram to every project missing one, and
+  **animate the guided build-alongs** (the build-along block already steps — make the new chunk
+  animate in / optionally auto-advance).
+
+## 7 · NEW: pixellab MCP server (pixel-art generation)
+
+- Added the **pixellab** HTTP MCP server (`api.pixellab.ai` — pixel-art generator) to make new
+  Byte Beast sprites / game art on demand. Config lives in **`.mcp.json`** (Claude Code
+  `mcpServers` format, Bearer token).
+- **`.mcp.json` is gitignored** (`.mcp.json` + `.env*` added to `.gitignore`) so the token can
+  NEVER reach the public repo — that `.gitignore` line is the only uncommitted change in the tree.
+- **To use it:** the `claude` CLI isn't on PATH here (config was written directly). **Restart
+  Claude Code / reload the VS Code window** to connect, then **approve "pixellab"** on first use
+  (project MCP servers require approval). The token is in local `.mcp.json` + this transcript —
+  rotate it at pixellab if the transcript is shared.
+
+## 8 · How to run / verify
 
 ```bash
 npm install --legacy-peer-deps   # peer tree requires the flag (CI uses it too)
@@ -103,9 +139,24 @@ npm run build && npm run preview # production at http://localhost:4173/InfraLear
 Dev-only trick: in the dev console, `window.__ascend('devops')` triggers the Ascension
 cinematic without completing a path.
 
-## 7 · Known follow-ups / not done
+## 9 · Known follow-ups / not done
 
 - Cloud sync needs the owner's Firebase config to go live (see `docs/SETUP-CLOUD.md`).
 - Journey phases P0+ (embers, camp hero, bestiary, mini-games) are designed, not yet built.
 - Lore is English-only by design; the i18n layer exists if that ever changes.
 - Deploys run via GitHub Actions on push to `main` (the old `npm run deploy` path was removed).
+- **Projects:** finish the "What you'll build" outcome-diagram fan-out (pilot is in — awaiting
+  visual sign-off) and animate the guided build-alongs (§6).
+- **OPEN design question, unanswered:** should each project list **prerequisites** the learner
+  should know first before starting? (Owner asked; not yet decided.)
+- **Path-to-path learning rework — DEFERRED.** Deleting the skill-level pick was step 1; the
+  "guided journey" (recommended starting path + `buildsOn`/`nextUp` path metadata + a "you're
+  ready for X next" nudge at path-end) and the richer **visual skill-map** were NOT built —
+  owner chose "just delete skill level for now." The 8 paths are still independent silos.
+- **Deferred deep-dive bugs** (low/med, verified but not yet fixed): walkthrough edge-label
+  vertical fallback; `mlops-ab-testing` sequence drops its 5th actor lane; import `xpLevel`
+  re-derive; `reviewer:10` per-day counter; daily midnight-rollover false-success guard;
+  walkthrough row-grouping running-mean drift.
+- Correctness was swept twice this session (a spillage/overlap audit and a lesson-code audit):
+  ~22 verified app bugs + 6 factual lesson-code bugs fixed (e.g. the FAANG url-shortener
+  collision quiz was off by 1000×). Further *full* audits are likely low-yield.
