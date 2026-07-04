@@ -144,7 +144,11 @@ export default function WorldMap() {
 }
 
 // ─── World view — all continents, one medallion each ─────────────────────────
-function WorldView({ completed, reduced, onOpen }) {
+// Exported: the Roadmap uses this as its landing (A1 — one map system; the
+// serpentine trail is the drill-in). `activePath` pulses the current
+// continent; `footer` is the landing's hero CTA slot (R5: one magnetic
+// next action on top of the world).
+export function WorldView({ completed, reduced, onOpen, activePath = null, footer = null }) {
   const continents = useMemo(
     () => CONTINENTS.map((c) => ({ ...c, ...pathStats(c.key, completed) })),
     [completed]
@@ -179,6 +183,7 @@ function WorldView({ completed, reduced, onOpen }) {
 
           {continents.map((c) => (
             <ContinentBlob key={c.key} c={c} reduced={reduced} onOpen={onOpen}
+              isActive={c.key === activePath}
               showStartHere={c.key === 'fundamentals' && !fundStarted} />
           ))}
 
@@ -192,11 +197,12 @@ function WorldView({ completed, reduced, onOpen }) {
       <p className="caption" style={{ marginTop: 10, fontSize: 12.5, textAlign: 'center' }}>
         Tap a continent to sail in. Fog hides provinces the Null still holds.
       </p>
+      {footer}
     </div>
   );
 }
 
-const ContinentBlob = memo(function ContinentBlob({ c, reduced, onOpen, showStartHere }) {
+const ContinentBlob = memo(function ContinentBlob({ c, reduced, onOpen, showStartHere, isActive = false }) {
   const prov = PROVINCES[c.key] || {};
   const lapse = prov.lapse ? FIVE_LAPSES[prov.lapse] : null;
   const fogged = c.done === 0;
@@ -248,6 +254,14 @@ const ContinentBlob = memo(function ContinentBlob({ c, reduced, onOpen, showStar
       {/* Progress medallion (the one circle per continent) — sits low on the isle
           so it doesn't cover the centerpiece building. */}
       <g transform={`translate(${c.x}, ${c.y + h * 0.04})`}>
+        {/* "You are here" — the active continent's medallion wears a live
+            accent halo so the current path is the most magnetic mark on
+            the map (POI-magnetism, R7). */}
+        {isActive && (
+          <circle r={ringR + 9} fill="none" stroke={c.accent} strokeWidth="2.5"
+            strokeDasharray="4 5" opacity="0.95"
+            className={reduced ? undefined : 'wm-ring-live'} />
+        )}
         <circle r={ringR + 4} fill="#13202e" opacity={fogged ? 0.5 : 0.46} stroke="#0a141d" strokeWidth="1" />
         <circle r={ringR} fill="none" stroke="#6b563a" strokeWidth="4" />
         {!fogged && (

@@ -260,13 +260,14 @@ describe('scheduleReview', () => {
     useStore.getState().scheduleReview(LESSON_A, 3);
     const e = useStore.getState().reviewQueue[LESSON_A];
     expect(e).toBeDefined();
-    // After first "good": stability = 1 * 2.5 = 2.5, difficulty stays at 5.
+    // First entry has no history → full growth: stability = 1 * 2.5 = 2.5.
     expect(e.stability).toBeCloseTo(2.5, 5);
-    expect(e.difficulty).toBeCloseTo(5, 5);
+    // Difficulty now responds to EVERY grade: good eases it down a hair.
+    expect(e.difficulty).toBeCloseTo(4.95, 5); // 5 - 0.05
     expect(e.reps).toBe(1);
     expect(e.lapses).toBe(0);
     expect(e.lastSeen).toBe(TODAY);
-    // interval = ceil(2.5 * 5^-0.5) = ceil(2.5 / 2.236...) = ceil(1.118) = 2
+    // interval = ceil(2.5 * 4.95^-0.5) = ceil(1.124) = 2
     expect(e.dueAt).toBe(addDays(TODAY, 2));
   });
 
@@ -294,14 +295,45 @@ describe('scheduleReview', () => {
     expect(e.dueAt).toBe(addDays(TODAY, 1));
   });
 
-  it('grade=3 on a second review compounds stability multiplicatively', () => {
-    // First "good" → stability=2.5
+  it('gap anchor: same-day re-grade earns damped growth (massing buys little)', () => {
+    // First "good" → stability=2.5, dueAt = today+2.
     useStore.getState().scheduleReview(LESSON_A, 3);
-    // Second "good" → stability = 2.5 * 2.5 = 6.25
+    // Second "good" the SAME DAY: elapsed=0 vs expected=2 → timeFactor
+    // clamps to 0.25 → stability = 2.5 * (1 + 1.5·0.25) = 3.4375, NOT 6.25.
     useStore.getState().scheduleReview(LESSON_A, 3);
     const e = useStore.getState().reviewQueue[LESSON_A];
-    expect(e.stability).toBeCloseTo(6.25, 5);
+    expect(e.stability).toBeCloseTo(3.4375, 4);
     expect(e.reps).toBe(2);
+  });
+
+  it('gap anchor: an on-time review earns the full increment', () => {
+    useStore.getState().scheduleReview(LESSON_A, 3);   // stability 2.5, due +2
+    vi.setSystemTime(new Date(2026, 5, 5, 12, 0, 0));  // exactly the 2-day gap
+    useStore.getState().scheduleReview(LESSON_A, 3);
+    // elapsed=2, expected=2 → timeFactor=1 → 2.5 * 2.5 = 6.25.
+    expect(useStore.getState().reviewQueue[LESSON_A].stability).toBeCloseTo(6.25, 4);
+  });
+
+  it('gap anchor: an overdue-but-recalled review earns a bonus (capped 1.5x)', () => {
+    useStore.getState().scheduleReview(LESSON_A, 3);   // stability 2.5, due +2
+    vi.setSystemTime(new Date(2026, 5, 13, 12, 0, 0)); // 10 days later (5x overdue)
+    useStore.getState().scheduleReview(LESSON_A, 3);
+    // timeFactor = min(1.5, sqrt(10/2)) = 1.5 → 2.5 * (1 + 1.5·1.5) = 8.125.
+    expect(useStore.getState().reviewQueue[LESSON_A].stability).toBeCloseTo(8.125, 4);
+  });
+
+  it('four buttons, four schedules: Hard lands strictly sooner than Good', () => {
+    // Seed two cards identically (lesson-completion state: stability 2.5).
+    useStore.getState().scheduleReview(LESSON_A, 3);
+    useStore.getState().scheduleReview(LESSON_B, 3);
+    vi.setSystemTime(new Date(2026, 5, 5, 12, 0, 0));
+    useStore.getState().scheduleReview(LESSON_A, 2);   // hard
+    useStore.getState().scheduleReview(LESSON_B, 3);   // good
+    const hard = useStore.getState().reviewQueue[LESSON_A];
+    const good = useStore.getState().reviewQueue[LESSON_B];
+    expect(hard.dueAt < good.dueAt).toBe(true);
+    // Hard also marks the card harder; good eases it.
+    expect(hard.difficulty).toBeGreaterThan(good.difficulty);
   });
 
   it('silently no-ops on unknown concept IDs (allow-list scrub)', () => {

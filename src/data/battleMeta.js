@@ -19,6 +19,8 @@ export const MINIONS = {
 // dailyQuestions gains (or loses) a path.
 export const BATTLE_BANKED_PATHS = new Set([
   'fundamentals', 'devops', 'mlops', 'swe', 'mleng', 'faang',
+  // Authored 2026-07 (content fan-out) — every path battles now.
+  'fullstack', 'cybersec',
 ]);
 
 // Encounter gating, shared by the trail markers and the battle screen.

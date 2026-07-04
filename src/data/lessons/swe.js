@@ -3017,11 +3017,33 @@ export default {
             "text": "// Express route table — one file should tell the whole story\napp.get   ('/users',           listUsers);       //  collection read\napp.post  ('/users',           createUser);      //  collection write — returns 201 + Location\napp.get   ('/users/:id',       getUser);         //  item read — 404 if missing\napp.patch ('/users/:id',       patchUser);       //  partial update — safer than PUT\napp.delete('/users/:id',       deleteUser);      //  204 No Content on success\n\napp.get   ('/users/:id/orders', listUserOrders); //  nested — but keep nesting <= 2 levels"
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Curl the API, verb by verb",
+            "goal": "Two REST-shaped requests — a GET that reads a resource and a PATCH that sends only the field that changed. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Try a few REST-shaped curls against a fake API.",
-            "starter": "curl -i https://api.example.com/users/42\ncurl -i -X PATCH https://api.example.com/users/42 \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"new@example.com\"}'\n",
-            "hint": "Notice GET has no body and PATCH only sends the fields that change — PUT would require the full resource."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Read one resource",
+                "say": "GET /users/:id is the item read — no body, just the path. The -i flag prints the response headers too, so you see the status code and cache headers instead of just JSON.",
+                "add": "curl -i https://api.example.com/users/42"
+              },
+              {
+                "title": "Switch the verb to PATCH",
+                "say": "curl defaults to GET, so -X PATCH overrides the method on the same URL. The trailing backslash continues the command onto the next line — nothing is sent yet.",
+                "add": "curl -i -X PATCH https://api.example.com/users/42 \\"
+              },
+              {
+                "title": "Declare what you're sending",
+                "say": "-H sets a request header. Without Content-Type: application/json most servers refuse to parse the body at all.",
+                "add": "  -H 'Content-Type: application/json' \\"
+              },
+              {
+                "title": "Send only the field that changed",
+                "say": "-d attaches the body — and PATCH only sends the fields that change. PUT would require the full resource, where a forgotten field silently wipes data.",
+                "add": "  -d '{\"email\":\"new@example.com\"}'"
+              }
+            ]
           }
         ]
       },
@@ -3285,11 +3307,28 @@ export default {
             "text": "// Express middleware — token bucket backed by Redis\nimport { rateLimit } from 'express-rate-limit';\n\nconst limiter = rateLimit({\n  windowMs: 60_000,                       //  1-minute window\n  max: 100,                               //  100 req per key per window\n  standardHeaders: true,                  //  emit RateLimit-* (IETF draft)\n  legacyHeaders: true,                    //  emit X-RateLimit-* (widely used)\n  keyGenerator: (req) => req.user?.id ?? req.ip,  //  prefer user, fall back to IP\n  handler: (req, res) => {\n    res.set('Retry-After', '30');         //  seconds until the bucket has tokens\n    res.status(429).json({                //  429 Too Many Requests — never 503\n      error: 'rate_limited',\n      retry_after_seconds: 30,            //  same value in the body for SDKs\n    });\n  },\n});\n\napp.use('/api', limiter);"
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Hammer the endpoint, watch the quota drain",
+            "goal": "A five-shot loop that greps the rate-limit headers out of every response, so you can watch the counter tick down. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Hammer an endpoint and inspect the rate-limit headers.",
-            "starter": "for i in $(seq 1 5); do\n  curl -i -s https://api.example.com/v1/ping | grep -iE 'ratelimit|retry-after'\ndone\n",
-            "hint": "Look for `X-RateLimit-Remaining` decrementing each call and `Retry-After` appearing only on the 429 response — that pair is what makes a limiter usable."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Open a five-shot loop",
+                "say": "seq 1 5 fires five requests back to back — enough repetition to watch the counter move without hand-typing the same curl.",
+                "add": "for i in $(seq 1 5); do"
+              },
+              {
+                "title": "Fire and filter each response",
+                "say": "-i includes the response headers and -s silences the progress noise so grep sees clean lines. The -iE match is case-insensitive because header casing varies between servers.",
+                "add": "  curl -i -s https://api.example.com/v1/ping | grep -iE 'ratelimit|retry-after'"
+              },
+              {
+                "title": "Close the loop and read the pattern",
+                "say": "Watch X-RateLimit-Remaining decrement on each pass, and Retry-After appear only on the 429 response — that pair is what makes a limiter usable.",
+                "add": "done"
+              }
+            ]
           },
           {
             "type": "quote",

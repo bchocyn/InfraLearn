@@ -3226,11 +3226,38 @@ export default {
             "text": "Two subtleties worth internalizing. `set -euo pipefail` turns silent failures loud — without it, a typo'd path just produces zero matches and you ship a bad report. Quoting `\"$log\"` matters the moment a filename contains a space; unquoted, the shell splits it into two arguments and `grep` complains about a missing file."
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Poke around a filesystem, command by command",
+            "goal": "The core navigation loop — know where you are, see what's there, move, and read a file — that you'll run in every unfamiliar directory for the rest of your career. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Poke around the virtual filesystem. Try `cd src` then `ls`.",
-            "starter": "ls -la\npwd\n",
-            "hint": "Useful commands here: `ls`, `cd`, `cat`, `pwd`, `tree`-style `ls -la`. Type `help` to see the full list."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Find out where you are",
+                "say": "pwd prints your working directory — the anchor every relative path resolves against. When a command says 'no such file', this is the first thing to check.",
+                "add": "pwd"
+              },
+              {
+                "title": "List everything, hidden files included",
+                "say": "-l is the long view (permissions, owner, size, mtime); -a adds dotfiles like .gitignore that a bare ls silently hides.",
+                "add": "ls -la"
+              },
+              {
+                "title": "Step into a directory",
+                "say": "cd moves your working directory, so relative paths now resolve from inside src. No output on success — in the shell, silence means it worked.",
+                "add": "cd src"
+              },
+              {
+                "title": "Look around the new spot",
+                "say": "Same command, different answer: ls lists wherever you're standing, so what it shows changes every time you cd.",
+                "add": "ls"
+              },
+              {
+                "title": "Read a file without an editor",
+                "say": "cat dumps a file's contents straight to the terminal — swap in any name from the listing. Fastest way to peek at a config or a README.",
+                "add": "cat README.md"
+              }
+            ]
           }
         ]
       },

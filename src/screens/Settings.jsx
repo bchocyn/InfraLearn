@@ -199,7 +199,86 @@ function DisplayTab() {
         <Toggle label="Reduced motion" v={settings.reducedMotion} onChange={(v) => setSetting('reducedMotion', v)} />
         <Toggle label="Hide companion on home" v={settings.hideCompanion} onChange={(v) => setSetting('hideCompanion', v)} />
       </div>
+
+      <ReminderCard />
     </>
+  );
+}
+
+// ── Daily reminder (Periodic Background Sync + Notifications) ─────────────
+// The one outbound channel a serverless PWA has. Honest about support: it
+// needs an installed PWA on Chrome/Android; everywhere else the card says
+// "not supported here" instead of pretending. State is derived live from
+// permission + registration, never mirrored into the store (a persisted
+// mirror would lie after the user revokes permission in browser settings).
+const REMINDER_TAG = 'infralearn-daily-reminder';
+
+function ReminderCard() {
+  const [status, setStatus] = useState('checking'); // checking|unsupported|off|on|denied
+
+  const detect = async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) return setStatus('unsupported');
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg || !('periodicSync' in reg)) return setStatus('unsupported');
+      if (Notification.permission === 'denied') return setStatus('denied');
+      const tags = await reg.periodicSync.getTags();
+      setStatus(tags.includes(REMINDER_TAG) && Notification.permission === 'granted' ? 'on' : 'off');
+    } catch { setStatus('unsupported'); }
+  };
+  useEffect(() => { detect(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const enable = async () => {
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return detect();
+      const reg = await navigator.serviceWorker.getRegistration();
+      // ~20h min interval → the browser fires it roughly daily at its own
+      // discretion (engagement-based). Registration can throw when the PWA
+      // isn't installed; detect() reports the resulting truth either way.
+      await reg.periodicSync.register(REMINDER_TAG, { minInterval: 20 * 60 * 60 * 1000 });
+    } catch { /* fall through to detect */ }
+    detect();
+  };
+  const disable = async () => {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      await reg.periodicSync.unregister(REMINDER_TAG);
+    } catch { /* fall through */ }
+    detect();
+  };
+
+  return (
+    <div className="card">
+      <div className="kicker" style={{ marginBottom: 6 }}>Daily reminder</div>
+      {status === 'checking' ? (
+        <p className="caption" style={{ fontSize: 12.5 }}>Checking support…</p>
+      ) : status === 'unsupported' ? (
+        <p className="caption" style={{ fontSize: 12.5 }}>
+          Not supported in this browser. Reminders need the app installed to your
+          home screen on Chrome or Android — the streak nudges on the Home screen
+          still cover you here.
+        </p>
+      ) : status === 'denied' ? (
+        <p className="caption" style={{ fontSize: 12.5 }}>
+          Notifications are blocked for this site — re-allow them in your browser's
+          site settings, then come back.
+        </p>
+      ) : (
+        <>
+          <p className="caption" style={{ fontSize: 12.5, marginBottom: 10 }}>
+            One quiet nudge a day, only when you haven't shown up yet — reviews due
+            and your streak, nothing else. No account, no server; it's scheduled on
+            this device.
+          </p>
+          {status === 'on' ? (
+            <button type="button" className="btn btn-block" onClick={disable}>🔕 Turn off the daily reminder</button>
+          ) : (
+            <button type="button" className="btn btn-primary btn-block" onClick={enable}>🔔 Remind me once a day</button>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

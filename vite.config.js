@@ -39,6 +39,8 @@ function precacheManifest() {
       const PRECACHE_SKIP = /-(cyrillic(?:-ext)?|greek(?:-ext)?|vietnamese)-|^firebaseAdapter-/;
       collect('assets', /\.(js|css|woff2?)$/, PRECACHE_SKIP); // chunks + latin fonts
       collect('beasts', /\.(png|json)$/);      // sprite art + manifest.json (BeastSprite fetches it at runtime)
+      collect('worldmap', /\.png$/);           // continent/boss/minion art (world map + battles)
+      collect('worldmap/anim', /\.png$/);      // minion idle-loop frames (Battle screen)
       const json = JSON.stringify(list.sort());
       const sw = fs.readFileSync(swPath, 'utf8').replace(
         /\/\*__PRECACHE_MANIFEST_START__\*\/[\s\S]*?\/\*__PRECACHE_MANIFEST_END__\*\//,

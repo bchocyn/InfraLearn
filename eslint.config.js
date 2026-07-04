@@ -78,6 +78,8 @@ export default [
         TouchEvent: 'readonly',
         AbortController: 'readonly',
         Promise: 'readonly',
+        indexedDB: 'readonly',
+        Notification: 'readonly',
       },
     },
     rules: {

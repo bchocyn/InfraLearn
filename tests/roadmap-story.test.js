@@ -22,18 +22,21 @@ import { LAPSE_KEYS } from '../src/data/lore.js';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-function render(Screen) {
+// props: the Roadmap now lands on the world map (A1); the trail tests pass
+// { initialView: 'trail' } to render the province drill-in directly.
+function render(Screen, props = null) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
   act(() => {
-    root.render(createElement(MemoryRouter, null, createElement(Screen)));
+    root.render(createElement(MemoryRouter, null, createElement(Screen, props)));
   });
   const html = container.innerHTML;
   act(() => root.unmount());
   container.remove();
   return html;
 }
+const TRAIL = { initialView: 'trail' };
 
 beforeEach(() => {
   localStorage.clear();
@@ -43,7 +46,7 @@ beforeEach(() => {
 
 describe('Roadmap v5 story layers', () => {
   it('fresh path: stage numbers, waiting Lapse behind the fog gate, current-stage bubble', () => {
-    const html = render(Roadmap);
+    const html = render(Roadmap, TRAIL);
     // World-map stage plates (section 1, stages 1 and 2 always exist).
     expect(html).toContain('1-1');
     expect(html).toContain('1-2');
@@ -64,21 +67,21 @@ describe('Roadmap v5 story layers', () => {
     const first = PATHS.devops.lessons[0];
     // Clean run → 3 gold star sprites, no dim sockets.
     useStore.setState({ completed: { [first.id]: true } });
-    let html = render(Roadmap);
+    let html = render(Roadmap, TRAIL);
     expect(html).toContain('ui_star.png');
     expect(html).not.toContain('roadmap-star-socket');
     // Two missed prompts → 2 stars; the dim third socket appears.
     useStore.setState({
       quizMisses: { [first.id]: { 'q one': { picked: 0 }, 'q two': { picked: 1 } } },
     });
-    html = render(Roadmap);
+    html = render(Roadmap, TRAIL);
     expect(html).toContain('roadmap-star-socket');
   });
 
   it('grace sites ignite once a section has progress', () => {
     const lessons = PATHS.devops.lessons;
     // Fresh: no lit grace anywhere (the lantern-glow class is grace-only now).
-    expect(render(Roadmap)).not.toContain('roadmap-lantern-glow');
+    expect(render(Roadmap, TRAIL)).not.toContain('roadmap-lantern-glow');
     // Complete the SECOND section's first lesson — its grace lights.
     // (Section 1 has no grace marker; boundaries start at section 2.)
     const secondSectionStart = lessons.findIndex(
@@ -86,14 +89,14 @@ describe('Roadmap v5 story layers', () => {
     );
     expect(secondSectionStart).toBeGreaterThan(0);
     useStore.setState({ completed: { [lessons[secondSectionStart].id]: true } });
-    expect(render(Roadmap)).toContain('roadmap-lantern-glow');
+    expect(render(Roadmap, TRAIL)).toContain('roadmap-lantern-glow');
   });
 
   it('fog gate shatters when the province is fully reclaimed', () => {
     const all = {};
     for (const l of PATHS.devops.lessons) all[l.id] = true;
     useStore.setState({ completed: all });
-    const html = render(Roadmap);
+    const html = render(Roadmap, TRAIL);
     expect(html).toContain('HAS FLED — FOR NOW');
     expect(html).not.toContain('WAITS BEYOND THE FOG');
     // Battle-era canon: at 100% the Lapse makes its stand — the boss-encounter
@@ -101,7 +104,7 @@ describe('Roadmap v5 story layers', () => {
     // vanishes from the trail once BEATEN.
     expect(html).toMatch(/beasts\/null_[a-z_]+\.png/);
     useStore.setState({ battles: { devops: { minions: 5, boss: true } } });
-    const after = render(Roadmap);
+    const after = render(Roadmap, TRAIL);
     expect(after).not.toMatch(/beasts\/null_[a-z_]+\.png/);
   });
 });

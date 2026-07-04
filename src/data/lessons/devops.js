@@ -4674,11 +4674,33 @@ export default {
             "text": "Resources:\n  ProcessUploads:\n    Type: AWS::Serverless::Function\n    Properties:\n      Runtime: python3.12\n      Handler: app.handler   # one entry point — function.module.func\n      MemorySize: 512  # CPU scales with memory — bump for speed, not just RAM\n      Timeout: 60  # well below the 900s ceiling — fail fast\n      ReservedConcurrentExecutions: 50  # cap blast radius on downstream DB\n      ProvisionedConcurrencyConfig:\n        ProvisionedConcurrentExecutions: 5  # 5 warm instances — kills cold start\n      Events:\n        S3Upload:\n          Type: S3\n          Properties:\n            Bucket: !Ref UploadBucket\n            Events: s3:ObjectCreated:*  # any new key triggers — filter inside\n      Environment:\n        Variables:\n          TABLE_NAME: !Ref ResultsTable  # never hardcode ARNs — wire by ref"
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Invoke a Lambda from the CLI",
+            "goal": "A synchronous invoke of process-uploads with a JSON payload, plus the response check that catches the runtime errors the exit code hides. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Invoke a Lambda from the CLI with a JSON payload and read its response.",
-            "starter": "aws lambda invoke \\\n  --function-name process-uploads \\\n  --payload '{\"key\":\"test.txt\"}' \\\n  --cli-binary-format raw-in-base64-out \\\n  response.json  # response body lands here, exit code 0 even on app errors\n\ncat response.json  # check for { \"errorMessage\": ... } — that's a runtime error\n",
-            "hint": "Lambda CLI exit code only reflects API-level success. Always read the response body — a 200 from the API can still contain an application error."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Call the function by name",
+                "say": "aws lambda invoke runs the function synchronously and waits for the result — no server, no URL, you address it by name.",
+                "add": "aws lambda invoke \\\n  --function-name process-uploads \\"
+              },
+              {
+                "title": "Attach the JSON payload",
+                "say": "The payload becomes the event your handler receives. raw-in-base64-out tells CLI v2 to take literal JSON — leave it off and you get a cryptic base64 decode error.",
+                "add": "\n  --payload '{\"key\":\"test.txt\"}' \\\n  --cli-binary-format raw-in-base64-out \\"
+              },
+              {
+                "title": "Land the response in a file",
+                "say": "The last argument is where the response body gets written. Gotcha: exit code 0 only means the API accepted the call — your code can still have crashed inside.",
+                "add": "\n  response.json  # response body lands here, exit code 0 even on app errors"
+              },
+              {
+                "title": "Read the body — the real success check",
+                "say": "Always read the response body. A 200 from the API can still contain an application error — errorMessage in the JSON is your handler throwing, not Lambda failing.",
+                "add": "\n\ncat response.json  # check for { \"errorMessage\": ... } — that's a runtime error"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -4867,11 +4889,38 @@ export default {
             ]
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Hunt the last hour of 5xx errors, grouped by path",
+            "goal": "A Logs Insights query that surfaces which endpoints threw 5xx in the last hour — the first command of an incident. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Query CloudWatch Logs Insights for the last hour of 5xx errors grouped by path.",
-            "starter": "aws logs start-query \\\n  --log-group-name /aws/payments-api \\\n  --start-time $(date -d '1 hour ago' +%s) \\\n  --end-time $(date +%s) \\\n  --query-string 'fields @timestamp, path, status\n    | filter status >= 500\n    | stats count(*) by path\n    | sort count desc'  # top offenders bubble up\n",
-            "hint": "Insights queries are async — capture the query-id from the response and poll `get-query-results` until status is Complete."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Start the query on the right log group",
+                "say": "start-query is async — it kicks off the search and hands back a query-id instead of results. The log group scopes it to one service's logs.",
+                "add": "aws logs start-query \\\n  --log-group-name /aws/payments-api \\"
+              },
+              {
+                "title": "Bound the time window",
+                "say": "Insights wants epoch seconds, so $(date +%s) computes them inline. Always bound the window — Insights bills per GB scanned, and an open-ended query over old logs is slow and expensive.",
+                "add": "\n  --start-time $(date -d '1 hour ago' +%s) \\\n  --end-time $(date +%s) \\"
+              },
+              {
+                "title": "Keep only the 5xx lines",
+                "say": "fields picks the columns, then the filter drops everything below 500. Filtering early keeps the rest of the pipe cheap.",
+                "add": "\n  --query-string 'fields @timestamp, path, status\n    | filter status >= 500"
+              },
+              {
+                "title": "Group and rank the damage",
+                "say": "stats count(*) by path turns raw log lines into a leaderboard, and the sort bubbles the worst endpoint to the top — that's your first suspect.",
+                "add": "\n    | stats count(*) by path\n    | sort count desc'  # top offenders bubble up"
+              },
+              {
+                "title": "Poll for the results",
+                "say": "Because the query is async, the rows live behind the query-id. Poll get-query-results until status flips to Complete — that's where the actual results come out.",
+                "add": "\n\naws logs get-query-results \\\n  --query-id <id-from-start-query>  # repeat until status: Complete"
+              }
+            ]
           },
           {
             "type": "quote",

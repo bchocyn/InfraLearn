@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS, groupedSections, labUnlockStatus, pathProgress } from '../data/content.js';
@@ -7,6 +7,9 @@ import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
 // must never enter this eager chunk.
 import { encounterStatus, battleGateForLesson, MINIONS, BATTLE_BANKED_PATHS } from '../data/battleMeta.js';
 import BeastSprite, { nullBeastSrc } from '../components/BeastSprite.jsx';
+// A1 (one map system): the world map is the Roadmap's landing view; the
+// serpentine trail below is the continent drill-in.
+import { WorldView } from './WorldMap.jsx';
 
 // ─── The Adventure Map (v5) ───────────────────────────────────────────────────
 // Serpentine SVG trail, now styled as a stage-road through province ruins
@@ -448,7 +451,9 @@ function quadTangent(seg, t) {
 }
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
-export default function Roadmap() {
+// initialView: 'world' (default landing) | 'trail' — the prop exists so
+// tests (and future deep links) can target the trail directly.
+export default function Roadmap({ initialView = 'world' }) {
   const nav = useNavigate();
   // Narrowed subscriptions — primitives + stable references only, so store
   // writes that don't touch these fields (XP ticks, celebration set+clear
@@ -465,6 +470,8 @@ export default function Roadmap() {
   const quizMisses = useStore((st) => st.quizMisses);
   // Minion/boss battle watermarks — drives the encounter markers on the trail.
   const battlesMap = useStore((st) => st.battles);
+  // A1: 'world' (landing — the whole archipelago) | 'trail' (one province).
+  const [view, setView] = useState(initialView);
   const hideCompanion = useStore((st) => st.settings?.hideCompanion);
   const companion = useStore((st) => st.companion);
   const beastTier = useStore((st) => st.beastTier);
@@ -619,8 +626,48 @@ export default function Roadmap() {
     nav(`/lesson/${n.lesson.id}`);
   };
 
+  // ── A1: the world map IS the Roadmap landing ─────────────────────────
+  // Tapping a continent sails into that province's trail; "← World" in the
+  // trail header sails back. One hero CTA rides the map (R5) — and it
+  // respects the minion road-block, pointing at the due fight instead.
+  if (view === 'world') {
+    const heroGate = currentLesson && !completed[currentLesson.id]
+      ? battleGateForLesson(pathKey, currentIdx, lessons.length, battlesMap)
+      : { blocked: false, stage: 0 };
+    const minionName = MINIONS[PROVINCES[pathKey]?.lapse]?.name || 'minion';
+    return (
+      <WorldView
+        completed={completed}
+        reduced={reduced}
+        activePath={pathKey}
+        onOpen={(k) => { setActivePath(k); setView('trail'); }}
+        footer={currentLesson ? (
+          <button
+            className="btn btn-primary btn-block"
+            style={{ marginTop: 12 }}
+            onClick={() => (heroGate.blocked
+              ? nav(`/battle/${pathKey}/${heroGate.stage}`)
+              : nav(`/lesson/${currentLesson.id}`))}
+          >
+            {heroGate.blocked
+              ? `⚔ A ${minionName} blocks the road — face it →`
+              : `${allDone ? 'Review' : 'Continue'}: ${truncate(currentLesson.title, 30)} →`}
+          </button>
+        ) : null}
+      />
+    );
+  }
+
   return (
     <div className="screen fade-in">
+      <button
+        className="wm-back"
+        style={{ marginBottom: 8 }}
+        onClick={() => setView('world')}
+        aria-label="Back to the world map"
+      >
+        ← World map
+      </button>
       <div className="kicker" style={{ marginBottom: 4 }}>
         {pathLabel}
       </div>
@@ -657,14 +704,6 @@ export default function Roadmap() {
       <p className="caption" style={{ marginBottom: 10, fontSize: 13 }}>
         {path.icon} {path.name} — {allDone ? 'complete' : `${lessons.length - doneCount} lessons to go`}
       </p>
-
-      <button
-        className="btn"
-        style={{ width: '100%', marginBottom: 10, fontSize: 13 }}
-        onClick={() => nav('/worldmap')}
-      >
-        🗺 See the world map (preview)
-      </button>
 
       <RoadmapPickers setActivePath={setActivePath} pathKey={pathKey} completed={completed} />
 

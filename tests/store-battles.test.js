@@ -132,8 +132,10 @@ describe('battle deck + gating', () => {
     // Deep in the path with 4/5 beaten: the 5th (next due) fight is demanded.
     expect(battleGateForLesson(P, 35, 36, { [P]: { minions: 4, boss: false } })).toEqual({ blocked: true, stage: 5 });
     expect(battleGateForLesson(P, 35, 36, { [P]: { minions: 5, boss: false } }).blocked).toBe(false);
-    // Paths without question banks never block.
-    expect(battleGateForLesson('cybersec', 30, 36, {}).blocked).toBe(false);
+    // Paths without question banks never block. (As of the 2026-07 content
+    // fan-out EVERY real path is banked, so exercise the bypass branch with
+    // an unknown key — it must fail open, never trap a lesson.)
+    expect(battleGateForLesson('not-a-real-path', 30, 36, {}).blocked).toBe(false);
   });
 
   it('battleBlockForLessonId resolves a lesson to its path gate (route-level guard)', () => {

@@ -710,11 +710,28 @@ export default {
             ]
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Hit the Express server with curl",
+            "goal": "A GET and a JSON POST against your local Express server, with the status codes and headers on screen. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Hit a local Express server with curl — try GET, then a POST with a JSON body.",
-            "starter": "# Start the server first:  node server.js\n\n# Health check — expect { ok: true }\ncurl -i http://localhost:3000/health\n\n# Echo with a JSON body — expect 201 + { youSent: ... }\ncurl -i -X POST http://localhost:3000/echo \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"ada\",\"role\":\"engineer\"}'\n",
-            "hint": "Forget the `Content-Type` header and `req.body` will be `undefined` — `express.json()` only parses when the header matches. The `-i` flag shows status + headers."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Start the server",
+                "say": "curl needs something listening. Run this in its own terminal and leave it running — every request below lands on port 3000.",
+                "add": "node server.js  # leave this running in a second terminal"
+              },
+              {
+                "title": "Health check with GET",
+                "say": "The -i flag prints the status line + headers, not just the body — that's where half the story lives. Expect 200 and { ok: true }.",
+                "add": "\ncurl -i http://localhost:3000/health  # expect 200 + { ok: true }"
+              },
+              {
+                "title": "POST a JSON body",
+                "say": "The Content-Type header is the gotcha: forget it and req.body is undefined — express.json() only parses when the header matches. Expect 201 + { youSent: ... }.",
+                "add": "\ncurl -i -X POST http://localhost:3000/echo \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"ada\",\"role\":\"engineer\"}'  # expect 201 + { youSent: ... }"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -832,11 +849,38 @@ export default {
             ]
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Drive the user router with curl",
+            "goal": "The full CRUD loop — create, read, replace, delete — with the status code doing the talking at every step. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Drive the user router with curl. Watch the status codes.",
-            "starter": "# Create — expect 201 + Location header\ncurl -i -X POST http://localhost:3000/users \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"ada\"}'\n\n# Read it back — expect 200 + body\ncurl -i http://localhost:3000/users/1\n\n# Replace — expect 200 + new body\ncurl -i -X PUT http://localhost:3000/users/1 \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"grace\",\"role\":\"admiral\"}'\n\n# Delete — expect 204 No Content, empty body\ncurl -i -X DELETE http://localhost:3000/users/1\n\n# Read again — expect 404 not_found\ncurl -i http://localhost:3000/users/1\n",
-            "hint": "Run the DELETE twice — both calls return 204. That's idempotency in action."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Create — POST",
+                "say": "A successful create is 201, not 200, and the Location header tells the client where the new resource lives — no body-parsing guesswork.",
+                "add": "curl -i -X POST http://localhost:3000/users \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"ada\"}'  # expect 201 + Location header"
+              },
+              {
+                "title": "Read it back — GET",
+                "say": "GET is safe — it changes nothing, so you can run it as many times as you like. Expect 200 with the user you just created.",
+                "add": "\ncurl -i http://localhost:3000/users/1  # expect 200 + body"
+              },
+              {
+                "title": "Replace — PUT",
+                "say": "PUT means the whole new state of the resource — any field you leave out is gone, not kept. Expect 200 with the replaced body.",
+                "add": "\ncurl -i -X PUT http://localhost:3000/users/1 \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"grace\",\"role\":\"admiral\"}'  # expect 200 + new body"
+              },
+              {
+                "title": "Delete — 204, empty body",
+                "say": "204 No Content says 'done, nothing to show you'. Run it twice — both calls return 204. That's idempotency in action.",
+                "add": "\ncurl -i -X DELETE http://localhost:3000/users/1  # expect 204 No Content, empty body"
+              },
+              {
+                "title": "Read again — 404",
+                "say": "The same GET now returns 404 not_found — proof the delete stuck, and a distinct code clients can branch on instead of parsing error strings.",
+                "add": "\ncurl -i http://localhost:3000/users/1  # expect 404 not_found"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -2241,11 +2285,28 @@ export default {
             ]
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Prove SameSite=Lax with curl",
+            "goal": "Three requests that show a session cookie riding a same-site POST — and vanishing on the cross-site one. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Use curl to demonstrate a session cookie on a same-site POST. Then try the cross-site version (Origin: https://evil.com) — show that SameSite=Lax causes the cookie to be dropped from the request.",
-            "starter": "# 1. login  server sets sid as HttpOnly; Secure; SameSite=Lax\ncurl -i -c cookies.txt \\\n  -X POST https://api.example.com/login \\\n  -d 'email=me@example.com&password=hunter2'\n\n# 2. same-site request  cookie attaches, returns 200\ncurl -i -b cookies.txt \\\n  -H 'Origin: https://app.example.com' \\\n  -X POST https://api.example.com/transfer \\\n  -d 'amount=100'\n\n# 3. cross-site request  browser would drop the cookie under SameSite=Lax\n#    curl ignores SameSite (it is a browser rule)  this simulates the EXPECTED browser behavior\ncurl -i \\\n  -H 'Origin: https://evil.com' \\\n  -X POST https://api.example.com/transfer \\\n  -d 'amount=100'\n# expect 401  no cookie means no session\n",
-            "hint": "SameSite is enforced by the browser, not by curl. The third request mimics what the browser would actually send when a cookie has SameSite=Lax and the request originates from another site — no cookie at all."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Log in — capture the cookie",
+                "say": "The server sets sid as HttpOnly; Secure; SameSite=Lax. The -c flag writes the Set-Cookie response into cookies.txt so later requests can replay it.",
+                "add": "curl -i -c cookies.txt \\\n  -X POST https://api.example.com/login \\\n  -d 'email=me@example.com&password=hunter2'"
+              },
+              {
+                "title": "Same-site POST — cookie attaches",
+                "say": "-b replays the stored cookie, and the Origin is the cookie's own site — so the session rides along and the transfer returns 200.",
+                "add": "\ncurl -i -b cookies.txt \\\n  -H 'Origin: https://app.example.com' \\\n  -X POST https://api.example.com/transfer \\\n  -d 'amount=100'  # expect 200 — cookie attached"
+              },
+              {
+                "title": "Cross-site POST — cookie dropped",
+                "say": "SameSite is enforced by the browser, not by curl — so we simulate the browser by sending no cookie at all, which is exactly what SameSite=Lax does to a cross-site POST. Expect 401: no cookie means no session.",
+                "add": "\ncurl -i \\\n  -H 'Origin: https://evil.com' \\\n  -X POST https://api.example.com/transfer \\\n  -d 'amount=100'  # expect 401 — no cookie means no session"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -2350,11 +2411,43 @@ export default {
             ]
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Ship a Vite app to Vercel from the CLI",
+            "goal": "A live preview URL, one env var, a prod promotion, and an instant rollback — no Dockerfile, no server, no nginx. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Deploy a Vite app to Vercel from the CLI, set one env var, and promote a preview to prod.",
-            "starter": "# 1. install + log in  one time per machine\nnpm i -g vercel\nvercel login\n\n# 2. from your project root  link to a new or existing Vercel project\nvercel\n# answers: scope=personal, link=no, name=my-app, framework=Vite, output=dist\n\n# 3. set a build-time env var  rebuilds bundle to bake the new value\nvercel env add VITE_API_URL production\n# paste value when prompted, e.g. https://api.example.com\n\n# 4. push a preview deploy  shows up at https://<project>-<hash>.vercel.app\nvercel\n\n# 5. promote that build to prod  same artifact, no rebuild\nvercel --prod\n\n# 6. roll back instantly if it breaks  point prod alias at the previous deploy\nvercel rollback\n",
-            "hint": "Notice you never wrote a Dockerfile, never touched a server, and never installed nginx. The preview URL is the entire QA story — share it, get feedback, then `--prod` flips the alias atomically. If prod misbehaves, `vercel rollback` re-points the alias at the previous immutable build."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Install the CLI + log in",
+                "say": "One-time setup per machine — logging in ties your terminal to your Vercel account so every later command knows who is deploying.",
+                "add": "npm i -g vercel\nvercel login"
+              },
+              {
+                "title": "Link the project",
+                "say": "Run bare `vercel` from your project root — it walks you through linking to a new or existing project, detects Vite, and knows the build output lands in dist.",
+                "add": "\nvercel\n# answers: scope=personal, link=no, name=my-app, framework=Vite, output=dist"
+              },
+              {
+                "title": "Set a build-time env var",
+                "say": "VITE_ vars get baked into the bundle at build time — changing one means a rebuild, which is why the value lives on the platform, not hardcoded in source.",
+                "add": "\nvercel env add VITE_API_URL production\n# paste value when prompted, e.g. https://api.example.com"
+              },
+              {
+                "title": "Push a preview deploy",
+                "say": "Every plain deploy gets its own immutable URL — that preview is the entire QA story. Share it, get feedback, break nothing.",
+                "add": "\nvercel  # shows up at https://<project>-<hash>.vercel.app"
+              },
+              {
+                "title": "Promote to prod",
+                "say": "--prod flips the prod alias to the build you already tested — same artifact, no rebuild, so what you previewed is exactly what ships.",
+                "add": "\nvercel --prod  # same artifact, no rebuild"
+              },
+              {
+                "title": "Roll back instantly",
+                "say": "If prod misbehaves, rollback re-points the alias at the previous immutable build — recovery is an alias flip, not a redeploy.",
+                "add": "\nvercel rollback  # point prod alias at the previous deploy"
+              }
+            ]
           },
           {
             "type": "quote",

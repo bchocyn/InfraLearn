@@ -241,3 +241,69 @@ self.addEventListener('fetch', (event) => {
     }
   })());
 });
+
+// ── Daily reminder (Periodic Background Sync) ────────────────────────────
+// Registered from Settings → "Daily reminder" (requires an installed PWA on
+// a supporting browser — Chrome/Android today; elsewhere the Settings card
+// says so honestly). The app writes {streak, lastActivityDate, dueCount}
+// into IndexedDB (the SW can't read localStorage); this handler wakes ~daily
+// and nudges ONLY if there's been no activity today. Never throws — a
+// reminder must not be able to break the SW.
+function readNotifyState() {
+  return new Promise((resolve) => {
+    try {
+      const open = indexedDB.open('infralearn-evidence', 1);
+      open.onupgradeneeded = () => {
+        // First open from the SW side — create the stores the app expects.
+        const db = open.result;
+        if (!db.objectStoreNames.contains('events')) db.createObjectStore('events', { autoIncrement: true });
+        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+      };
+      open.onsuccess = () => {
+        try {
+          const tx = open.result.transaction('kv', 'readonly');
+          const req = tx.objectStore('kv').get('notify-state');
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        } catch (_) { resolve(null); }
+      };
+      open.onerror = () => resolve(null);
+    } catch (_) { resolve(null); }
+  });
+}
+
+async function showDailyReminder() {
+  const state = await readNotifyState();
+  if (!state) return;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (state.lastActivityDate === today) return; // already showed up today
+  const due = state.dueCount || 0;
+  const streak = state.streak || 0;
+  const body = due > 0
+    ? `${due} review${due === 1 ? '' : 's'} ready — the ${streak}-day watch holds until midnight.`
+    : `One small lesson keeps the ${streak}-day watch alight.`;
+  await self.registration.showNotification('The watchfire dims…', {
+    body,
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: 'infralearn-daily-reminder', // replaces, never stacks
+    data: { url: './' },
+  });
+}
+
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'infralearn-daily-reminder') {
+    event.waitUntil(showDailyReminder().catch(() => {}));
+  }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if ('focus' in c) return c.focus(); }
+      return self.clients.openWindow('./');
+    })
+  );
+});

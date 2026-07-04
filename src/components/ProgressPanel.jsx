@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../store/useStore.js';
+import { readReviewEvents, retentionCurve } from '../data/evidenceLog.js';
 
 // Home "Your progress" card: a GitHub-style consistency heatmap. Reads the
 // existing store — the heatmap unions the new activityDays log with xpHistory
@@ -100,11 +101,46 @@ function CalibrationReadout() {
   );
 }
 
+// Personal forgetting curve — the north-star made visible. For each gap
+// band, the share of graded recalls that held (grade >= 3), read from the
+// append-only evidence log. This is what makes "users retain long-term"
+// FALSIFIABLE for the user themself: if the 15-30d bar is strong, the
+// spacing engine is doing its job; if it sags, the schedule needs work.
+function RetentionCurveReadout() {
+  const [curve, setCurve] = useState(null);
+  useEffect(() => {
+    let live = true;
+    readReviewEvents().then((events) => {
+      if (live) setCurve(retentionCurve(events));
+    });
+    return () => { live = false; };
+  }, []);
+  const bands = (curve || []).filter((b) => b.total > 0);
+  // Needs a little real evidence before it says anything.
+  const totalEvents = bands.reduce((n, b) => n + b.total, 0);
+  if (totalEvents < 5) return null;
+  return (
+    <div className="calib-readout">
+      <div className="calib-title">Your forgetting curve <span className="calib-sub">· recall held, by gap</span></div>
+      {bands.map((b) => (
+        <div className="calib-row" key={b.label}>
+          <span className="calib-label mono">{b.label}</span>
+          <div className="calib-bar">
+            <span className="calib-bar-fill" style={{ width: `${Math.round((b.pct || 0) * 100)}%` }} />
+          </div>
+          <span className="calib-val mono">{Math.round((b.pct || 0) * 100)}% · {b.total}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ProgressPanel() {
   return (
     <div className="card progress-panel">
       <div className="kicker" style={{ marginBottom: 8 }}>Your progress</div>
       <StreakHeatmap />
+      <RetentionCurveReadout />
       <CalibrationReadout />
     </div>
   );

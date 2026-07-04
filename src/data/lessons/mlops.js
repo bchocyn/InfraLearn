@@ -5233,11 +5233,33 @@ export default {
         "heading": "Try it: promote via the MLflow CLI",
         "body": [
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Walk the registry CLI: stage, promote, roll back",
+            "goal": "The full promotion ladder for the churn model — list versions, stage v7 for shadow traffic, promote to Production, then roll back with the same command. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Walk the model-registry CLI flow. The transition is what makes it real to the serving layer.",
-            "starter": "#  1. list the latest versions of a registered model\nmlflow models search-versions --filter \"name='churn'\" --order-by 'version_number DESC' \\\n  | head -n 5  # most recent five — sanity check\n\n#  2. transition version 7 into Staging — serving layer picks this up for shadow\nmlflow models transition-version \\\n  --name churn \\\n  --version 7 \\\n  --to-stage Staging \\\n  --archive-existing-versions  # archive any prior Staging — only one at a time\n\n#  3. after the canary passes, promote Staging → Production (humans approve!)\nmlflow models transition-version \\\n  --name churn --version 7 \\\n  --to-stage Production \\\n  --archive-existing-versions  # demotes the old prod model to Archived\n\n#  4. rollback is symmetric — re-promote the previous version, no redeploy needed\nmlflow models transition-version --name churn --version 6 --to-stage Production\n",
-            "hint": "Notice that --archive-existing-versions makes the registry the source of truth. The serving layer just polls for 'who is in Production?' — promotion and rollback are the same operation."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "List the latest versions",
+                "say": "Start by asking the registry what exists — every command that follows needs a version number. head keeps it to the five most recent, a quick sanity check.",
+                "add": "mlflow models search-versions --filter \"name='churn'\" --order-by 'version_number DESC' \\\n  | head -n 5"
+              },
+              {
+                "title": "Transition v7 into Staging",
+                "say": "The transition is what makes it real — the serving layer watches Staging and starts sending shadow traffic. --archive-existing-versions evicts any prior Staging model, so only one holds the stage at a time.",
+                "add": "mlflow models transition-version \\\n  --name churn \\\n  --version 7 \\\n  --to-stage Staging \\\n  --archive-existing-versions"
+              },
+              {
+                "title": "Promote to Production — humans approve",
+                "say": "Same command, new stage. After the canary passes, a person runs this — never auto-promote to Production from CI. The old prod model gets demoted to Archived, not deleted.",
+                "add": "mlflow models transition-version \\\n  --name churn --version 7 \\\n  --to-stage Production \\\n  --archive-existing-versions"
+              },
+              {
+                "title": "Roll back — the same operation in reverse",
+                "say": "Rollback is symmetric: re-promote the previous version and the serving layer, which just polls 'who is in Production?', flips over — no redeploy needed. That symmetry is why the registry is the source of truth.",
+                "add": "mlflow models transition-version --name churn --version 6 --to-stage Production"
+              }
+            ]
           },
           {
             "type": "quote",

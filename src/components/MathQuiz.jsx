@@ -73,11 +73,12 @@ export default function MathQuiz({ lessonId, title, questions, onSkip, onComplet
     if (q && typeof q.prompt === 'string') {
       if (choice === q.answer) {
         // Was this prompt previously missed? If so, it's a recovered miss —
-        // award the heftier +10 XP per Engagement Tier B's testing-effect
-        // rules. Otherwise standard +8 for a correct answer on first sight.
+        // heftier +10 (relearning a known weak spot IS retrieval evidence).
+        // First-sight correct is recognition: +6, capped at review:good so
+        // the recall > recognition gradient stays strict.
         const wasMissed = !!quizMissesMap?.[lessonId]?.[q.prompt];
         clearQuizMiss(lessonId, q.prompt);
-        addXp?.(wasMissed ? 10 : 8, wasMissed ? 'quiz:recovered' : 'quiz:correct');
+        addXp?.(wasMissed ? 10 : 6, wasMissed ? 'quiz:recovered' : 'quiz:correct');
       } else {
         recordQuizMiss(lessonId, q.prompt, choice);
       }

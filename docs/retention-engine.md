@@ -91,9 +91,19 @@ grade = 1 (miss):
 
 grade ∈ {2, 3, 4}:
   mult = { 2: 1.2, 3: 2.5, 4: 3.5 }[grade]
-  stability = min(36500, stability * mult)
+  # Gap anchor — growth scales with the interval actually achieved:
+  timeFactor = 1                                  # first entry (no history)
+  if the card has history:
+    expected   = max(1, days(lastSeen → dueAt))
+    elapsed    = max(0, days(lastSeen → today))
+    timeFactor = clamp(sqrt(elapsed / expected), 0.25, 1.5)
+  stability = min(36500, stability * (1 + (mult - 1) * timeFactor))
+  if grade === 2: difficulty = min(10, difficulty + 0.25)
+  if grade === 3: difficulty = max(1, difficulty - 0.05)
   if grade === 4: difficulty = max(1, difficulty - 0.15)
   interval = max(1, ceil(stability * difficulty^-0.5))
+  if grade === 2: interval is floored strictly BELOW what grade 3
+                  would have produced (four buttons = four schedules)
 
 dueAt = today + interval days
 ```
@@ -101,15 +111,24 @@ dueAt = today + interval days
 Notes:
 
 - Initial values are `stability = 1`, `difficulty = 5`.
-- The `difficulty^-0.5` term is the inverse of FSRS-6's relationship —
-  harder cards come back sooner. Easies push them further out via the
-  difficulty decay.
-- Misses always re-schedule for tomorrow, not today — Cepeda 2006's
-  optimal-gap inverted-U is flat near zero, so massing the retry on
-  the same day buys nothing.
+- **The gap anchor is the load-bearing part.** Recalling a card after a
+  longer gap is stronger evidence of stability than an immediate re-look
+  (the spacing effect's core mechanism — Cepeda 2006). A same-day
+  re-grade earns a quarter of the growth increment; on-time earns the
+  full increment; overdue-but-recalled earns up to 1.5×. Without this
+  term, intervals depend only on review *count* — the one variable
+  spaced repetition exists to optimize would be ignored.
+- This is an honest *simple* scheduler, not FSRS. It shares FSRS's shape
+  (stability, difficulty, gap-sensitive growth) but does not model
+  retrievability curves or fitted weights. Citations here are scoped to
+  the mechanisms this code actually implements.
+- Difficulty responds to every grade: Hard (+0.25) pulls a card back
+  sooner; Good (−0.05) and Easy (−0.15) ease it out. A learner who
+  keeps honestly grading "Hard" sees the schedule tighten.
+- Misses always re-schedule for tomorrow, not today — massing the retry
+  on the same day buys nothing.
 - Lesson completion auto-enters the queue with grade 3 (a "good" review)
-  so the user sees it again at the FSRS-good interval before they would
-  otherwise forget it.
+  so the user sees it again before they would otherwise forget it.
 
 ### The `/reviews` screen
 
@@ -133,18 +152,33 @@ thresholds:
 (so xp = 0 → level 1, xp = 100 → level 2, …, xp >= 20000 → level 10).
 
 Gain rules (call sites use short namespaced `reason` tokens so they're
-greppable):
+greppable). **The economy's one law: production recall pays strictly
+more than recognition.** The gradient, top to bottom:
 
-| Event                       | XP   | Reason token       |
-|-----------------------------|------|--------------------|
-| Lesson complete             | +5   | `lesson:complete`  |
-| Daily-practice correct      | +4   | `daily:correct`    |
-| Free-recall ✓ Got it / ★    | +8   | `recall:good`      |
-| Free-recall ⚠ Hard          | +4   | `recall:hard`      |
-| Review ✓ Good / ★ Easy      | +6   | `review:good`      |
-| Review ⚠ Hard               | +3   | `review:hard`      |
-| Streak day (any activity)   | +2   | `streak:day`       |
-| Streak milestone 3 / 7 / 14 / 30 / 100 | +25 / 50 / 100 / 200 / 500 | `streak:milestone` |
+| Event                          | XP   | Reason token             | Kind |
+|--------------------------------|------|--------------------------|------|
+| Lab completed                  | +100 | `lab:{id}`               | production |
+| Boss battle won (first time)   | +40  | `battle:boss:{path}`     | retrieval (7Q) |
+| Daily practice 5/5 session     | +20  | `daily:perfect`          | session bonus |
+| Minion battle won (first time) | +15  | `battle:minion:{path}:{k}` | retrieval (5Q) |
+| Fill-blank completed           | +15  | `fill-blank:complete`    | production* |
+| Free-recall ✓ Got it           | +12  | `recall:got-it`          | production recall |
+| Fix-it solved                  | +10  | `fix-it:fix`             | production* |
+| Quiz miss recovered            | +10  | `quiz:recovered`         | relearning |
+| Review ✓ Good / ★ Easy         | +6   | `review:good`            | graded recall |
+| Math-quiz correct (first sight)| +6   | `quiz:correct`           | recognition |
+| Lesson complete                | +5   | `lesson:complete`        | encoding |
+| Daily challenge correct        | +5   | `daily-challenge:correct`| recognition + calibration |
+| Predict correct                | +5   | `predict:correct`        | recognition |
+| Synthesis revealed             | +5   | `synthesis:reveal`       | encoding |
+| Journey chapter                | +5   | `journey:{path}:{n}`     | story |
+| Daily-practice correct         | +4   | `daily:correct`          | recognition |
+| Review ⚠ Hard                  | +3   | `review:hard`            | graded recall |
+| Streak day (any activity)      | +2   | `streak:day`             | showing up |
+| Streak milestone 3/7/14/30/100 | +25/50/100/200/500 | `streak:milestone:{n}` | milestone |
+
+\* combo-eligible (in-lesson interactive prefixes scale 1.0–2.0× with the
+practice combo). Battle rewards are watermark-latched — replays mint 0.
 
 The `xpHistory` array keeps the last 20 gains for the recent-XP strip on
 the Home screen. Bounded so persisted state stays small.

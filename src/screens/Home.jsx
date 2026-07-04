@@ -182,6 +182,8 @@ export default function Home() {
 
       <WeakSpotsTeaser />
 
+      <ProjectsTeaser />
+
       <div className="row" style={{ gap: 8 }}>
         <button className="btn btn-block" onClick={() => nav('/roadmap')}>◇ ROADMAP</button>
         <button className="btn btn-block" onClick={() => nav('/library')}>▤ LIBRARY</button>
@@ -487,6 +489,40 @@ function ReviewsDueTeaser() {
 
 // Compact teaser surfacing missed math-quiz questions. Hidden when there
 // are zero misses so the Home screen doesn't grow noise the user can't act on.
+// Projects teaser — the capstone ramp used to be reachable ONLY via a card
+// two taps deep inside Library, yet projects are the closest activity to the
+// north-star end-state ("architect systems without AI"). Gated on a little
+// momentum (≥3 completed lessons) so a brand-new user's Home stays calm.
+function ProjectsTeaser() {
+  const nav = useNavigate();
+  const completed = useStore((s) => s.completed) || {};
+  if (Object.keys(completed).length < 3) return null;
+  return (
+    <button
+      type="button"
+      className="card"
+      onClick={() => nav('/projects')}
+      aria-label="Open projects — guided builds and architect challenges"
+      style={{
+        borderLeft: '3px solid var(--accent-amber)',
+        cursor: 'pointer', width: '100%', textAlign: 'left',
+        font: 'inherit', color: 'inherit', minHeight: 44, display: 'block',
+      }}
+    >
+      <div className="kicker" style={{ color: 'var(--accent-amber)' }}>🔨 BUILD · PROJECTS</div>
+      <div className="row" style={{ marginTop: 6 }}>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>Ship something real</span>
+        <span className="spacer" />
+        <span style={{ color: 'var(--accent-amber)' }}>→</span>
+      </div>
+      <div className="caption" style={{ marginTop: 4 }}>
+        Guided builds first, open architect challenges at the end — the skill that
+        outlasts any single lesson.
+      </div>
+    </button>
+  );
+}
+
 function WeakSpotsTeaser() {
   const nav = useNavigate();
   const quizMisses = useStore((s) => s.quizMisses) || {};
@@ -703,10 +739,11 @@ function DailyPractice() {
     setPicks((p) => ({ ...p, [idx]: i }));
     const verdict = Q && i === Q.answer ? 'right' : 'wrong';
     // recordDailyAnswer returns true only the FIRST time this question index
-    // is answered today — +8 XP (testing-effect rule) is gated on that edge
-    // so a remount can't farm it. Wrong answers earn 0 as before.
+    // is answered today — XP is gated on that edge so a remount can't farm
+    // it. +4 (below review:good's +6): a multiple-choice tap is RECOGNITION,
+    // and the economy's core rule is recall > recognition, strictly.
     const first = recordDailyAnswer?.(idx, verdict) === true;
-    if (first && verdict === 'right') addXp?.(8, 'daily:correct');
+    if (first && verdict === 'right') addXp?.(4, 'daily:correct');
   };
 
   // --- Recall handlers -----------------------------------------------------

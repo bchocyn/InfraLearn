@@ -4,6 +4,7 @@ import { resolveTier, BEASTS, SPECIES_KEYS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as labProgressFromContent } from '../data/content.js';
 import { PROVINCES, LAPSE_KEYS, JOURNEY_CHAPTERS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
+import { logReviewEvent, setNotifyState } from '../data/evidenceLog.js';
 import { TAMER_KEYS } from '../data/tamers.js';
 import { ARMOR_KEYS } from '../data/armorSets.js';
 
@@ -919,7 +920,9 @@ export const useStore = create(
           return next;
         });
         get().recordActivity();
-        if (isCorrect) get().addXp(8, 'daily-challenge:correct');
+        // +5 (= lesson:complete, below review:good): the challenge is a
+        // recognition tap; its extra value is the calibration data, not XP.
+        if (isCorrect) get().addXp(5, 'daily-challenge:correct');
       },
 
       // ── Daily Practice persistence ───────────────────────────────────
@@ -1124,18 +1127,32 @@ export const useStore = create(
         get().recordActivity();
       },
 
-      // ── Spaced-repetition scheduler (FSRS-flavored) ──────────────────
+      // ── Spaced-repetition scheduler (gap-anchored) ───────────────────
       // grade: 1=miss, 2=hard, 3=good, 4=easy.
-      // Stability grows multiplicatively with grade; difficulty (1..10) creeps
-      // up on misses and clamps. Interval = ceil(stability * difficulty^-0.5)
-      // — higher difficulty pulls the next review CLOSER, which is the inverse
-      // relationship FSRS uses (a hard card should come back sooner). For miss,
-      // we hard-reset stability to 1 and force a 1-day re-look (Cepeda's
-      // optimal-gap inverted-U at the short end).
+      // Stability growth is ANCHORED TO THE GAP ACTUALLY ACHIEVED: recalling
+      // a card after a longer interval is stronger evidence of stability
+      // than an immediate re-look (the spacing effect's core mechanism —
+      // Cepeda 2006; FSRS grows stability as a function of elapsed time for
+      // the same reason). The growth increment scales by sqrt(elapsed /
+      // expected), clamped to [0.25, 1.5]: a same-day re-grade earns a
+      // quarter increment, an on-time review the full one, an overdue-but-
+      // recalled review up to 1.5×. Difficulty (1..10) responds to EVERY
+      // grade — Hard pulls the card back sooner, Good/Easy ease it out —
+      // so honest self-grading is a live scheduling signal, not decoration.
       scheduleReview: (conceptId, grade) => {
         if (!VALID_LESSON_IDS.has(conceptId)) return;
         const g = Number.isInteger(grade) && grade >= 1 && grade <= 4 ? grade : 3;
         const today = isoDay();
+        // Evidence: record the gap this recall survived (or failed after).
+        // Seed entries (lesson completion, no history) log elapsed=null and
+        // are excluded from the forgetting curve automatically.
+        {
+          const prevEntry = get().reviewQueue[conceptId];
+          const elapsedForLog = prevEntry?.lastSeen
+            ? Math.max(0, daysBetween(prevEntry.lastSeen, today))
+            : null;
+          logReviewEvent(conceptId, g, elapsedForLog);
+        }
         set((s) => {
           const prev = s.reviewQueue[conceptId] || {
             lastSeen: null, dueAt: null,
@@ -1154,16 +1171,27 @@ export const useStore = create(
             lapses = lapses + 1;
             interval = 1;
           } else {
-            // Hard / good / easy — multiplicatively grow stability, then schedule
-            // by stability scaled down by sqrt(difficulty). Constants chosen so a
-            // first "good" review lands ~1 day out, a second ~3 days, a third
-            // ~7-8 days (Cepeda inverted-U: ~20-40% of a 1-week horizon).
             const mult = g === 2 ? 1.2 : g === 3 ? 2.5 : 3.5;
-            stability = Math.min(36500, stability * mult);
-            // "Easy" nudges difficulty down slightly so a streak of easies pushes
-            // the card further out, matching FSRS-6's difficulty-decay behavior.
+            // Gap anchor. First entry (no history — a lesson completion
+            // seeding the card) keeps the full increment, same as before.
+            let timeFactor = 1;
+            if (prev.lastSeen && prev.dueAt) {
+              const expected = Math.max(1, daysBetween(prev.lastSeen, prev.dueAt));
+              const elapsed = Math.max(0, daysBetween(prev.lastSeen, today));
+              timeFactor = Math.min(1.5, Math.max(0.25, Math.sqrt(elapsed / expected)));
+            }
+            stability = Math.min(36500, stability * (1 + (mult - 1) * timeFactor));
+            if (g === 2) difficulty = Math.min(10, difficulty + 0.25);
+            if (g === 3) difficulty = Math.max(1, difficulty - 0.05);
             if (g === 4) difficulty = Math.max(1, difficulty - 0.15);
             interval = Math.max(1, Math.ceil(stability * Math.pow(difficulty, -0.5)));
+            // Four buttons must mean four schedules: at low stability ceil()
+            // can collapse Hard onto Good — force Hard strictly sooner.
+            if (g === 2) {
+              const goodStab = Math.min(36500, prev.stability * (1 + 1.5 * timeFactor));
+              const goodIv = Math.max(1, Math.ceil(goodStab * Math.pow(difficulty, -0.5)));
+              if (interval >= goodIv) interval = Math.max(1, goodIv - 1);
+            }
           }
 
           const next = {
@@ -1317,6 +1345,17 @@ export const useStore = create(
               set((s) => ({ streakFreezes: Math.min(2, (s.streakFreezes || 0) + 1) }));
             }
           }
+        }
+        // Refresh the service-worker reminder bridge (IndexedDB — the SW
+        // can't read localStorage). Fire-and-forget; called at most a few
+        // times per day because of the same-day no-op above.
+        {
+          const s2 = get();
+          setNotifyState({
+            streak: s2.streak,
+            lastActivityDate: s2.lastActivityDate,
+            dueCount: getReviewsDue({ reviewQueue: s2.reviewQueue }).length,
+          });
         }
       },
 

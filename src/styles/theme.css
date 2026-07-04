@@ -7662,6 +7662,18 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   .wm-walker-bob, .wm-ring-live, .wm-node-pulse, .wm-starthere { animation: none !important; }
 }
 
+/* ─── Skip link + focusable main landmark ───────────────────────────────── */
+.skip-link {
+  position: fixed; left: -9999px; top: 0; z-index: 300;
+  padding: 10px 16px;
+  background: var(--accent-amber, #F5B842); color: #0B0A08;
+  border-radius: 0 0 12px 0;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  text-decoration: none;
+}
+.skip-link:focus { left: 0; }
+#main:focus { outline: none; }
+
 /* ─── Quiz battles (/battle/:pathKey/:stage — Battle.jsx) ───────────────────
    Pokémon-style arena: enemy card top-left / sprite top-right, player beast
    bottom-left / card bottom-right, question in a dialogue box, the 4 answers

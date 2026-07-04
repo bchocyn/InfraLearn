@@ -589,11 +589,28 @@ export default {
             "text": "# 3) flip CI to v2 and run a canary build  # if green, we proceed; if red, roll back\ngh workflow run rotate-canary.yml --field key_id=\"$NEW_ID\"\n\n# 4) wait, observe, THEN deactivate v1  # never delete instantly — leave forensic trail\nOLD_ID=$(aws iam list-access-keys --user-name \"$IAM_USER\" \\\n  --query \"AccessKeyMetadata[?AccessKeyId!='$NEW_ID'].AccessKeyId\" --output text)\naws iam update-access-key --user-name \"$IAM_USER\" \\\n  --access-key-id \"$OLD_ID\" --status Inactive  # reversible — flips to Active if needed\n\n# 5) after a 24h cooling-off, actually delete  # by now v1 has zero successful uses\n# aws iam delete-access-key --user-name \"$IAM_USER\" --access-key-id \"$OLD_ID\"\n"
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Generate strong random secrets with openssl",
+            "goal": "CSPRNG-backed tokens in different lengths and encodings — never roll your own RNG. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Generate a strong random secret with openssl. Try different lengths and encodings.",
-            "starter": "# A URL-safe 32-byte token (good for API keys)\nopenssl rand -base64 32\n\n# A hex token (good for HMAC keys / nonces)\nopenssl rand -hex 32\n",
-            "hint": "openssl rand pulls from the OS CSPRNG. `-base64` is friendlier for headers/env vars; `-hex` is friendlier for logs and DB columns. Never roll your own RNG — random.random() is NOT cryptographically secure."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Pull a URL-safe token from the OS CSPRNG",
+                "say": "openssl rand pulls from the OS CSPRNG — random.random() is NOT cryptographically secure. -base64 output is friendlier for headers and env vars.",
+                "add": "# A URL-safe 32-byte token (good for API keys)\nopenssl rand -base64 32"
+              },
+              {
+                "title": "Same entropy, hex encoding",
+                "say": "-hex is friendlier for logs and DB columns — no +, / or = to escape. Same 32 bytes of randomness, just encoded differently.",
+                "add": "\n# A hex token (good for HMAC keys / nonces)\nopenssl rand -hex 32"
+              },
+              {
+                "title": "Vary the length",
+                "say": "The number is bytes of entropy, not output characters — base64 and hex both inflate it. 32 bytes is the safe default for long-lived keys; go shorter only for throwaway nonces.",
+                "add": "\n# Shorter (16 bytes) — fine for a one-shot nonce, not for an API key\nopenssl rand -base64 16"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -1145,11 +1162,33 @@ export default {
             ]
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Test whether an EC2 instance enforces IMDSv2",
+            "goal": "A probe that proves the unauthenticated v1 call fails and only token-first v2 works — plus the fix if it doesn't. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Test whether an EC2 instance enforces IMDSv2. The unauthenticated v1 call should fail; v2 requires a session token first.",
-            "starter": "# IMDSv1 — should return 401 if v2 is enforced\ncurl -sS -o /dev/null -w '%{http_code}\\n' \\\n  http://169.254.169.254/latest/meta-data/\n\n# IMDSv2 — PUT to get a token, then GET with it\nTOKEN=$(curl -sS -X PUT \\\n  -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' \\\n  http://169.254.169.254/latest/api/token)\n\ncurl -sS -H \"X-aws-ec2-metadata-token: $TOKEN\" \\\n  http://169.254.169.254/latest/meta-data/iam/security-credentials/\n",
-            "hint": "If the first curl returns 200, IMDSv1 is still on — fix it via `aws ec2 modify-instance-metadata-options --http-tokens required --http-put-response-hop-limit 1`. A code-level SSRF can no longer steal creds even if it reaches the metadata IP."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Probe IMDSv1 — it should fail",
+                "say": "This unauthenticated GET is exactly what a code-level SSRF would fire. If v2 is enforced it prints 401; a 200 means one forged request can steal credentials.",
+                "add": "# IMDSv1 — should return 401 if v2 is enforced\ncurl -sS -o /dev/null -w '%{http_code}\\n' \\\n  http://169.254.169.254/latest/meta-data/"
+              },
+              {
+                "title": "Get a v2 session token",
+                "say": "v2 makes you PUT for a short-TTL token first — the PUT is the whole defense, because naive SSRF gadgets can only GET.",
+                "add": "\n# IMDSv2 — PUT to get a token, then GET with it\nTOKEN=$(curl -sS -X PUT \\\n  -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' \\\n  http://169.254.169.254/latest/api/token)"
+              },
+              {
+                "title": "Read metadata with the token",
+                "say": "Same endpoint, now with the session token in the header — the only path v2 answers on. This is where the instance role's credentials live.",
+                "add": "\ncurl -sS -H \"X-aws-ec2-metadata-token: $TOKEN\" \\\n  http://169.254.169.254/latest/meta-data/iam/security-credentials/"
+              },
+              {
+                "title": "If step 1 returned 200 — enforce v2",
+                "say": "http-tokens required kills v1 outright; hop-limit 1 stops containers from proxying the call. A code-level SSRF can no longer steal creds even if it reaches the metadata IP.",
+                "add": "\n# Fix: require the token, cap forwarding to one hop\naws ec2 modify-instance-metadata-options \\\n  --http-tokens required --http-put-response-hop-limit 1"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -1372,11 +1411,33 @@ export default {
             ]
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Audit a Node project and trace a transitive CVE",
+            "goal": "A clean lockfile install, a high/critical-only audit, and the exact dependency path that pulls in the offender. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Audit a Node project for known vulnerabilities, see only high/critical, and find which top-level dep brings in a transitive offender.",
-            "starter": "# 1. Install exactly what the lockfile says — fails on hash mismatch\nnpm ci\n\n# 2. Audit and gate CI on anything high/critical\nnpm audit --audit-level=high --omit=dev\n\n# 3. When a CVE hits a transitive dep, find the path:\nnpm ls vulnerable-package-name\n# example output:\n# my-app@1.0.0\n# └─┬ express@4.18.0\n#   └─┬ body-parser@1.20.0\n#     └── vulnerable-package-name@1.2.3\n\n# 4. Force-bump just the transitive via overrides in package.json:\n#   \"overrides\": { \"vulnerable-package-name\": \"^1.2.4\" }\n",
-            "hint": "`npm ls <pkg>` is the missing manual for transitive triage — it prints the dependency path so you know whether to bump express, body-parser, or pin via the `overrides` field. `pip` users get the same answer from `pipdeptree --reverse --packages <pkg>`."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Install exactly what the lockfile says",
+                "say": "npm ci installs from the lockfile and fails on any hash mismatch — that is your tamper check. Never audit a tree that drifted from the contract.",
+                "add": "# Install exactly what the lockfile says — fails on hash mismatch\nnpm ci"
+              },
+              {
+                "title": "Audit — high/critical only",
+                "say": "--audit-level=high is the CI gate: low/moderate noise doesn't block the build. --omit=dev skips dev-only deps that never ship to prod.",
+                "add": "\n# Audit and gate CI on anything high/critical\nnpm audit --audit-level=high --omit=dev"
+              },
+              {
+                "title": "Trace the transitive path",
+                "say": "npm ls is the missing manual for transitive triage — it prints the dependency path so you know whether to bump express, body-parser, or pin the offender directly. pip users get the same answer from pipdeptree --reverse --packages <pkg>.",
+                "add": "\n# When a CVE hits a transitive dep, find the path:\nnpm ls vulnerable-package-name\n# example output:\n# my-app@1.0.0\n# └─┬ express@4.18.0\n#   └─┬ body-parser@1.20.0\n#     └── vulnerable-package-name@1.2.3"
+              },
+              {
+                "title": "Force-bump just the transitive",
+                "say": "When the top-level dep hasn't shipped a fix yet, the overrides field in package.json pins the transitive to a patched version without forking anything.",
+                "add": "\n# Force-bump just the transitive via overrides in package.json:\n#   \"overrides\": { \"vulnerable-package-name\": \"^1.2.4\" }"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -1580,11 +1641,33 @@ export default {
             ]
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Create a customer-managed key and round-trip a secret",
+            "goal": "A rotating CMK, a payload encrypted and decrypted through it, and the CloudTrail entry proving the decrypt was logged. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Create a customer-managed key, encrypt a small payload, decrypt it back — and verify the audit log.",
-            "starter": "# 1. Create a KMS key with rotation enabled\naws kms create-key \\\n  --description \"demo CMK\" \\\n  --key-usage ENCRYPT_DECRYPT \\\n  --origin AWS_KMS\n# capture KeyId from the output\n\naws kms enable-key-rotation --key-id <KeyId>\n\n# 2. Encrypt a secret — KMS returns ciphertext you can store anywhere\naws kms encrypt \\\n  --key-id alias/reports-prod \\\n  --plaintext fileb://payload.txt \\\n  --output text --query CiphertextBlob | base64 -d > payload.enc\n\n# 3. Decrypt — IAM + key policy must both allow\naws kms decrypt \\\n  --ciphertext-blob fileb://payload.enc \\\n  --output text --query Plaintext | base64 -d\n\n# 4. Verify the decrypt was logged — CloudTrail records the principal, key, time\naws cloudtrail lookup-events \\\n  --lookup-attributes AttributeKey=EventName,AttributeValue=Decrypt\n",
-            "hint": "If decrypt fails with `AccessDenied`, the loop is: IAM role allows `kms:Decrypt`? Key policy lists the role? `kms:ViaService` condition matched? All three are AND-gated. CloudTrail is where you debug the third one."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Create the key + turn on rotation",
+                "say": "origin AWS_KMS means AWS holds the key material — it never leaves the HSM. Enabling rotation now means yearly re-keying without ever re-encrypting your data.",
+                "add": "# 1. Create a KMS key with rotation enabled\naws kms create-key \\\n  --description \"demo CMK\" \\\n  --key-usage ENCRYPT_DECRYPT \\\n  --origin AWS_KMS\n# capture KeyId from the output\n\naws kms enable-key-rotation --key-id <KeyId>"
+              },
+              {
+                "title": "Encrypt a payload",
+                "say": "KMS hands back ciphertext you can store anywhere — the plaintext went in, the key never came out.",
+                "add": "\n# 2. Encrypt a secret — KMS returns ciphertext you can store anywhere\naws kms encrypt \\\n  --key-id alias/reports-prod \\\n  --plaintext fileb://payload.txt \\\n  --output text --query CiphertextBlob | base64 -d > payload.enc"
+              },
+              {
+                "title": "Decrypt it back",
+                "say": "If this fails with AccessDenied, the loop is: IAM role allows kms:Decrypt? Key policy lists the role? kms:ViaService condition matched? All three are AND-gated.",
+                "add": "\n# 3. Decrypt — IAM + key policy must both allow\naws kms decrypt \\\n  --ciphertext-blob fileb://payload.enc \\\n  --output text --query Plaintext | base64 -d"
+              },
+              {
+                "title": "Prove the decrypt was logged",
+                "say": "CloudTrail records the principal, key, and time of every Decrypt — it is where you debug the ViaService condition and where auditors verify who touched what.",
+                "add": "\n# 4. Verify the decrypt was logged — CloudTrail records the principal, key, time\naws cloudtrail lookup-events \\\n  --lookup-attributes AttributeKey=EventName,AttributeValue=Decrypt"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -2027,11 +2110,28 @@ export default {
             "text": "# Inspecting a live TLS handshake from Python — what the server actually negotiated\nimport socket, ssl\n\nctx = ssl.create_default_context()  # uses the OS trust store + sane defaults\nctx.minimum_version = ssl.TLSVersion.TLSv1_3  # refuse anything older\n\nwith socket.create_connection((\"example.com\", 443)) as raw:\n    with ctx.wrap_socket(raw, server_hostname=\"example.com\") as tls:  # SNI here\n        print(\"version :\", tls.version())          # 'TLSv1.3' if it worked\n        print(\"cipher  :\", tls.cipher()[0])        # e.g. TLS_AES_128_GCM_SHA256\n        cert = tls.getpeercert()                   # already verified by ctx\n        print(\"subject :\", dict(x[0] for x in cert['subject']))\n        print(\"issuer  :\", dict(x[0] for x in cert['issuer']))\n        print(\"expires :\", cert['notAfter'])       # rotate well before this date\n        tls.sendall(b\"GET / HTTP/1.1\\r\\nHost: example.com\\r\\nConnection: close\\r\\n\\r\\n\")\n        print(tls.recv(256).decode(errors=\"replace\")[:120])  # encrypted on the wire\n"
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Inspect a real TLS handshake with openssl s_client",
+            "goal": "One command that reveals the negotiated version, the cipher, and the cert chain — then a rerun on TLS 1.2 to compare. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Use openssl s_client to inspect a real TLS handshake. Look for the negotiated version, the cipher, and the cert chain.",
-            "starter": "# Hit a host on 443, force TLS 1.3, print and quit\nopenssl s_client -connect example.com:443 -tls1_3 -servername example.com </dev/null \\\n  | grep -E 'Protocol|Cipher|subject=|issuer=|Verify return code'\n",
-            "hint": "The -servername flag sets SNI — without it, multi-tenant servers return the wrong cert. 'Verify return code: 0 (ok)' means the chain validated against your local trust store. Try -tls1_2 to see how the cipher list differs."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Open the handshake",
+                "say": "-servername sets SNI — without it, multi-tenant servers return the wrong cert. </dev/null closes stdin so the command prints and quits instead of hanging.",
+                "add": "# Hit a host on 443, force TLS 1.3, print and quit\nopenssl s_client -connect example.com:443 -tls1_3 -servername example.com </dev/null \\"
+              },
+              {
+                "title": "Filter for what matters",
+                "say": "The full dump is noisy — grep keeps the negotiated protocol, cipher, and chain. 'Verify return code: 0 (ok)' means the chain validated against your local trust store.",
+                "add": "  | grep -E 'Protocol|Cipher|subject=|issuer=|Verify return code'"
+              },
+              {
+                "title": "Rerun on TLS 1.2 and compare",
+                "say": "Force -tls1_2 and watch the Cipher line change — 1.3 trimmed the negotiable list down to a handful of safe AEAD suites, which is exactly why you prefer it.",
+                "add": "\n# Same host, older protocol — see how the cipher list differs\nopenssl s_client -connect example.com:443 -tls1_2 -servername example.com </dev/null \\\n  | grep -E 'Protocol|Cipher'"
+              }
+            ]
           },
           {
             "type": "quote",
@@ -2559,11 +2659,33 @@ export default {
             "text": "// Splunk SPL — find brute-force auth followed by a successful login from the same IP\nindex=auth sourcetype=linux_secure  // narrow the haystack first; never bare-search\n| bin _time span=5m  // 5-min buckets so we count attempts per window\n| stats count(eval(action=\"failure\")) as fails,  // how many fails in the window\n        count(eval(action=\"success\")) as wins,   // and how many wins\n        values(user) as users by src_ip, _time   // group by source IP + time bucket\n| where fails >= 10 AND wins >= 1  // classic spray-then-hit pattern\n| sort -fails  // worst offenders first\n| eval risk = case(  // simple risk score so the analyst sorts by impact\n    wins > 0 AND fails > 50, \"CRITICAL\",  // many fails AND a success = pwned\n    wins > 0, \"HIGH\",\n    true(), \"MEDIUM\")\n| table _time src_ip users fails wins risk  // SOC-friendly output\n"
           },
           {
-            "type": "practice",
+            "type": "build-along",
+            "title": "Query CloudTrail for failed console logins from the CLI",
+            "goal": "A Logs Insights query that ranks the last 24h of failed console logins by source IP, plus the poll that fetches the results. Click through, then run it for real in your terminal.",
             "lang": "bash",
-            "prompt": "Run a CloudWatch Logs Insights query from the CLI to find failed console logins by source IP in the last 24h.",
-            "starter": "# Find failed AWS console logins grouped by source IP\naws logs start-query \\\n  --log-group-name aws-cloudtrail-logs \\\n  --start-time $(date -d '24 hours ago' +%s) \\\n  --end-time   $(date +%s) \\\n  --query-string 'fields @timestamp, sourceIPAddress, userIdentity.userName\n                   | filter eventName = \"ConsoleLogin\" and errorMessage = \"Failed authentication\"\n                   | stats count(*) as fails by sourceIPAddress\n                   | sort fails desc\n                   | limit 20'\n",
-            "hint": "start-query returns a queryId; poll with `aws logs get-query-results --query-id <id>` until status is Complete. The same query works against any CloudTrail log group — substitute your account's name."
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Start the query with a 24h window",
+                "say": "Logs Insights wants epoch seconds, so date does the window math. The same query works against any CloudTrail log group — substitute your account's name.",
+                "add": "# Find failed AWS console logins grouped by source IP\naws logs start-query \\\n  --log-group-name aws-cloudtrail-logs \\\n  --start-time $(date -d '24 hours ago' +%s) \\\n  --end-time   $(date +%s) \\"
+              },
+              {
+                "title": "Filter to failed console logins",
+                "say": "Filter before you aggregate — narrowing the haystack first is what keeps the scan (and the bill) small.",
+                "add": "  --query-string 'fields @timestamp, sourceIPAddress, userIdentity.userName\n                   | filter eventName = \"ConsoleLogin\" and errorMessage = \"Failed authentication\""
+              },
+              {
+                "title": "Group by source IP, worst first",
+                "say": "stats collapses thousands of events into one row per attacking IP; sort + limit puts the worst offenders on top of a SOC-sized list.",
+                "add": "                   | stats count(*) as fails by sourceIPAddress\n                   | sort fails desc\n                   | limit 20'"
+              },
+              {
+                "title": "Poll for the results",
+                "say": "start-query is async — it returns a queryId immediately. Poll get-query-results until the status flips to Complete.",
+                "add": "\n# start-query returns a queryId — poll until status is Complete\naws logs get-query-results --query-id <id>"
+              }
+            ]
           },
           {
             "type": "quote",

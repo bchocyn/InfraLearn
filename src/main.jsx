@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import { HashRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 // Self-hosted fonts (bundled into the build — no third-party requests).
 import '@fontsource-variable/fraunces';
 import '@fontsource-variable/inter-tight';
@@ -22,6 +22,8 @@ import { ACCENT_PRESETS, BG_THEMES } from './screens/settingsThemes.js';
 import EvolutionNotice from './components/EvolutionNotice.jsx';
 import PersistWarning from './components/PersistWarning.jsx';
 import { battleBlockForLessonId } from './data/battleMeta.js';
+import { setNotifyState } from './data/evidenceLog.js';
+import { getReviewsDue } from './store/useStore.js';
 import CoachTour from './components/CoachTour.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import KeyboardHelp from './components/KeyboardHelp.jsx';
@@ -65,6 +67,41 @@ const WorldMap         = lazy(() => import('./screens/WorldMap.jsx'));
 // Minion/boss quiz battles (Pokémon-style retrieval practice). Its question
 // banks ride the chunk — keep it lazy like every mini-game.
 const Battle           = lazy(() => import('./screens/Battle.jsx'));
+
+// Route chrome — on every navigation: reset scroll and move focus to the
+// main landmark. Fixes the two audit findings in one: keyboard/SR users no
+// longer land mid-page with focus stranded on an unmounted element, and
+// sighted users no longer arrive pre-scrolled on long screens. Initial load
+// is exempt so we never steal focus from the first paint.
+function RouteChrome() {
+  const { pathname } = useLocation();
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    window.scrollTo(0, 0);
+    const el = document.getElementById('main');
+    if (el) el.focus({ preventScroll: true });
+  }, [pathname]);
+  return null;
+}
+
+// Skip link (WCAG 2.4.1). NOTE: a plain href="#main" would NAVIGATE under
+// HashRouter (the hash IS the route), so the jump is done imperatively.
+function SkipLink() {
+  return (
+    <a
+      className="skip-link"
+      href="#main"
+      onClick={(e) => {
+        e.preventDefault();
+        const el = document.getElementById('main');
+        if (el) { el.focus({ preventScroll: false }); el.scrollIntoView(); }
+      }}
+    >
+      Skip to content
+    </a>
+  );
+}
 
 // Route-level encounter gate for /lesson/:id — a minion standing earlier on
 // the trail bars NEW lessons no matter how you arrive (Roadmap, Library,
@@ -257,6 +294,18 @@ function App() {
     else delete root.dataset.reducedMotion;
   }, [reducedMotion]);
 
+  // Refresh the SW reminder bridge on app open: reviews come due overnight
+  // with no store write, so dueCount would otherwise go stale in IndexedDB
+  // and the daily notification would under-report.
+  useEffect(() => {
+    const s = useStore.getState();
+    setNotifyState({
+      streak: s.streak,
+      lastActivityDate: s.lastActivityDate,
+      dueCount: getReviewsDue({ reviewQueue: s.reviewQueue }).length,
+    });
+  }, []);
+
   if (!onboarded) return (
     <div className={shellClass}>
       <Suspense fallback={<RouteFallback />}>
@@ -269,8 +318,12 @@ function App() {
   );
   return (
     <div className={shellClass}>
+      <SkipLink />
+      <RouteChrome />
       <TabBar />
-      <main className="app-main">
+      {/* tabIndex=-1 makes the landmark programmatically focusable for the
+          skip link + route-change focus without joining the tab order. */}
+      <main className="app-main" id="main" tabIndex={-1}>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Home />} />
