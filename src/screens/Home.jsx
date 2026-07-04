@@ -606,18 +606,11 @@ function QuickPickers() {
 
 // Daily Practice — 5-question random session sampled deterministically
 // across ALL paths/levels by day index. The user answers one question at a
-// time and clicks Next to advance; on the last question Next closes the
-// session and shows a "today's practice complete" card.
-// Two modes, toggled at the top of the card:
-//   mcq    — pick A/B/C; auto-graded on click (the original behavior).
-//   recall — type a free-form answer, reveal the correct one, self-grade
-//            ✓ Got it / ✗ Missed. Higher retention per Rowland 2014
-//            (free recall g≈0.79 vs MCQ recognition g≈0.32, ~2× larger with
-//            feedback). Self-grade is the Anki paradigm: these questions are
-//            conceptual, so exact-string match would punish correct-meaning-
-//            different-words answers.
-// Mode persists as settings.practiceMode via the existing setSetting action,
-// so the choice survives reloads.
+// time (pick A/B/C, auto-graded on click) and clicks Next to advance; on
+// the last question Next closes the session and shows a "today's practice
+// complete" card. (The old typed free-recall mode was removed by owner
+// decision — every testing surface is MCQ + immediate feedback now; a
+// legacy settings.practiceMode key may linger in old persists, ignored.)
 //
 // Session progress (verdicts + done flag) is persisted in the store's
 // dailyPractice slot — see useStore.js. The question list is deterministic
@@ -661,18 +654,12 @@ function DailyPractice() {
   }, []);
   // Pull recordActivity off the store directly to keep finalization stable.
   const recordActivity = useStore((st) => st.recordActivity);
-  // recordQuizMiss feeds Review Weak Spots — wired in for recall ✗ Missed.
+  // recordQuizMiss feeds Review Weak Spots on wrong MCQ answers.
   const recordQuizMiss = useStore((st) => st.recordQuizMiss);
   // XP / badge wiring for Engagement Tier B.
   const addXp = useStore((st) => st.addXp);
   const grantBadge = useStore((st) => st.grantBadge);
   const badges = useStore((st) => st.badges) || {};
-  // Per-user practice mode. Default 'mcq' for backward compat.
-  const practiceMode = useStore(
-    (st) => (st.settings?.practiceMode === 'recall' ? 'recall' : 'mcq'),
-  );
-  const setSetting = useStore((st) => st.setSetting);
-  const setMode = (next) => setSetting?.('practiceMode', next);
 
   // Persisted session progress. The whole session used to live in component
   // state, so navigating away and back reset to question 1 and re-awarded
@@ -694,12 +681,6 @@ function DailyPractice() {
   // it drives the "which option did I click" highlight within this mount;
   // the verdict itself lives in the store.
   const [picks, setPicks] = useState({});
-  // Recall state, keyed by question index:
-  //   typed[i]    — the user's typed answer (string)
-  //   revealed[i] — true once they hit "Reveal answer"
-  // (the self-grade verdict lives in the store's answered map)
-  const [typed, setTyped] = useState({});
-  const [revealed, setRevealed] = useState({});
 
   // Resume at the first unanswered question of today's session; when every
   // question is answered but Finish wasn't clicked, park on the last one so
@@ -717,57 +698,30 @@ function DailyPractice() {
   const total = (session && session.length) || 5;
   const Q = session ? session[idx] : null;
 
-  // "answered" gates the feedback panel and Next button. In MCQ that means an
-  // option was clicked; in recall it means the user self-graded — we
-  // deliberately hold feedback back until self-grade so they get an honest
-  // "did I really know that?" moment first.
+  // "answered" gates the feedback panel and Next button — an option was
+  // clicked this mount, or a verdict hydrated from an earlier mount today.
   const picked = picks[idx];
-  // Store verdict for the current question — set when it was answered during
-  // this mount (write-through) OR on an earlier mount today (hydration).
   const storeVerdict = storeAnswered[idx];
-  const mcqAnswered = (picked !== undefined && picked !== null) || storeVerdict !== undefined;
-  const recallGrade = storeVerdict;
-  const answered = practiceMode === 'mcq' ? mcqAnswered : recallGrade !== undefined;
+  const answered = (picked !== undefined && picked !== null) || storeVerdict !== undefined;
 
-  // One verdict per question per day, mode-agnostic — answering in MCQ then
-  // flipping to recall can no longer double-count (or double-earn).
+  // One verdict per question per day.
   const correctCount = Object.values(storeAnswered).filter((g) => g === 'right').length;
 
   // --- MCQ handlers --------------------------------------------------------
   const submit = (i) => {
-    if (mcqAnswered) return;
+    if (answered) return;
     setPicks((p) => ({ ...p, [idx]: i }));
     const verdict = Q && i === Q.answer ? 'right' : 'wrong';
     // recordDailyAnswer returns true only the FIRST time this question index
     // is answered today — XP is gated on that edge so a remount can't farm
-    // it. +4 (below review:good's +6): a multiple-choice tap is RECOGNITION,
-    // and the economy's core rule is recall > recognition, strictly.
+    // it. +4 keeps a light daily tap below review:good's +6 (the economy's
+    // law: doing > answering > reading).
     const first = recordDailyAnswer?.(idx, verdict) === true;
     if (first && verdict === 'right') addXp?.(4, 'daily:correct');
-  };
-
-  // --- Recall handlers -----------------------------------------------------
-  const setTypedAt = (text) => setTyped((t) => ({ ...t, [idx]: text }));
-  const reveal = () => {
-    if (revealed[idx]) return;
-    setRevealed((r) => ({ ...r, [idx]: true }));
-  };
-  const selfGrade = (verdict) => {
-    if (recallGrade) return;
-    // recordDailyAnswer returns true only the FIRST time this question index
-    // is answered today — XP and the recall:first badge gate on that edge.
-    const first = recordDailyAnswer?.(idx, verdict) === true;
-    // Wrong answers feed Review Weak Spots, identical to MathQuiz behavior.
-    // Synthetic lessonId because daily-practice questions aren't anchored to
-    // a single lesson; WeakSpots keys off prompt text.
-    if (verdict === 'wrong' && Q?.q) {
+    // Wrong answers feed Review Weak Spots (synthetic lessonId — daily
+    // questions aren't anchored to one lesson; WeakSpots keys off prompt).
+    if (first && verdict === 'wrong' && Q?.q) {
       recordQuizMiss?.('__daily_practice__', Q.q, null);
-    }
-    // Free-recall "Got it" earns +12 (recall > recognition per evidence) +
-    // grants the recall:first collection badge on the very first one.
-    if (verdict === 'right' && first) {
-      addXp?.(12, 'recall:got-it');
-      if (!badges['recall:first']) grantBadge?.('recall:first');
     }
   };
 
@@ -820,27 +774,19 @@ function DailyPractice() {
       // BUTTON is ignored too: Enter on a focused button (mode pill, streak
       // toggle) already activates it, so advancing as well double-fired.
       if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT' || tag === 'BUTTON') return;
-      if (practiceMode === 'mcq') {
-        if (!answered) {
-          if (e.key === '1' || e.key === '2' || e.key === '3') {
-            const i = parseInt(e.key, 10) - 1;
-            if (Q && i < (Q.opts || []).length) submit(i);
-          }
-        } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-          advance();
+      if (!answered) {
+        if (e.key === '1' || e.key === '2' || e.key === '3') {
+          const i = parseInt(e.key, 10) - 1;
+          if (Q && i < (Q.opts || []).length) submit(i);
         }
-      } else {
-        if (!revealed[idx] && storeVerdict === undefined) {
-          if (e.key === 'Enter') reveal();
-        } else if (answered && (e.key === 'ArrowRight' || e.key === 'Enter')) {
-          advance();
-        }
+      } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+        advance();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answered, idx, done, practiceMode, revealed, session]);
+  }, [answered, idx, done, session]);
 
   if (done) {
     return (
@@ -891,12 +837,6 @@ function DailyPractice() {
     return { wasAnswered: g !== undefined, isCorrect: g === 'right' };
   };
 
-  const correctText = Q.opts?.[Q.answer] ?? '';
-  const userTyped = (typed[idx] || '').trim();
-  // A hydrated verdict implies the reveal already happened on an earlier
-  // mount (you can't self-grade without revealing first).
-  const isRevealed = !!revealed[idx] || recallGrade !== undefined;
-
   return (
     <div className="card">
       <div className="row" style={{ marginBottom: 10 }}>
@@ -907,30 +847,6 @@ function DailyPractice() {
           <span>·</span>
           <span className="dp-counter-correct">{correctCount} ✓</span>
         </span>
-      </div>
-
-      {/* Mode toggle. Sits at the top so the user sees the choice before
-          committing. Reuses .lib-pill / .lib-pill.is-active styling for
-          consistency with the Library filters. */}
-      <div className="row" style={{ gap: 6, marginBottom: 12 }}>
-        <button
-          type="button"
-          className={`lib-pill${practiceMode === 'mcq' ? ' is-active' : ''}`}
-          onClick={() => setMode('mcq')}
-          aria-pressed={practiceMode === 'mcq'}
-          title="Multiple choice — auto-graded"
-        >
-          MCQ
-        </button>
-        <button
-          type="button"
-          className={`lib-pill${practiceMode === 'recall' ? ' is-active' : ''}`}
-          onClick={() => setMode('recall')}
-          aria-pressed={practiceMode === 'recall'}
-          title="Type your answer from memory — higher retention"
-        >
-          FREE RECALL
-        </button>
       </div>
 
       {/* Progress chips: 1 ✓ 2 ✓ 3 4 5 — done get ✓/✗, current gets amber outline. */}
@@ -951,178 +867,38 @@ function DailyPractice() {
 
       <p style={{ fontSize: 14, margin: '0 0 12px', fontWeight: 500 }}>{Q.q}</p>
 
-      {/* ---- MCQ branch (unchanged behavior) -------------------------------- */}
-      {practiceMode === 'mcq' && (
-        <>
-          {!mcqAnswered && (
-            <div className="caption mono" style={{ fontSize: 11, opacity: 0.6, marginBottom: 8 }}>
-              Press 1 / 2 / 3 or click to answer.
-            </div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {Q.opts.map((o, i) => {
-              const correct = i === Q.answer;
-              const wasPicked = picked === i;
-              let cls = 'btn dp-option';
-              if (mcqAnswered && correct) cls += ' dp-correct';
-              else if (mcqAnswered && wasPicked) cls += ' dp-wrong';
-              return (
-                <button key={i} className={cls} disabled={mcqAnswered} onClick={() => submit(i)}>
-                  <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
-                  <span className="dp-text">{o}</span>
-                  {mcqAnswered && correct  && <span className="dp-mark">✓</span>}
-                  {mcqAnswered && wasPicked && !correct && <span className="dp-mark">✗</span>}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* ---- Free-recall branch -------------------------------------------- */}
-      {practiceMode === 'recall' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* Typing surface. Mono font + tall box = "this is a real recall
-              attempt." Disabled after reveal so the user can't quietly edit
-              their answer to match what was revealed. */}
-          <textarea
-            value={typed[idx] || ''}
-            onChange={(e) => setTypedAt(e.target.value)}
-            disabled={isRevealed}
-            placeholder="Type your answer…"
-            aria-label="Your answer"
-            rows={3}
-            style={{
-              width: '100%',
-              minHeight: 80,
-              padding: '10px 12px',
-              background: 'var(--bg-elevated)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 8,
-              fontFamily: 'var(--font-mono, ui-monospace, monospace)',
-              fontSize: 14,
-              lineHeight: 1.45,
-              resize: 'vertical',
-              boxSizing: 'border-box',
-            }}
-          />
-
-          {!isRevealed && (
-            <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={reveal}
-                disabled={userTyped.length === 0}
-                title={userTyped.length === 0 ? 'Type something first' : 'Reveal the correct answer'}
-              >
-                Reveal answer
-              </button>
-            </div>
-          )}
-
-          {isRevealed && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                padding: 10,
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-default)',
-                borderRadius: 8,
-              }}
-            >
-              {/* Side-by-side comparison (stacked on narrow screens — Home is
-                  mobile-first). Their words on top, canonical answer below. */}
-              <div>
-                <div className="kicker" style={{ marginBottom: 4, color: 'var(--text-tertiary)' }}>
-                  YOU TYPED
-                </div>
-                <div
-                  className="mono"
-                  style={{
-                    fontSize: 13,
-                    color: 'var(--text-secondary)',
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {userTyped || <em style={{ opacity: 0.5 }}>(blank)</em>}
-                </div>
-              </div>
-              <div style={{ borderTop: '1px dashed var(--border-default)', paddingTop: 8 }}>
-                <div className="kicker" style={{ marginBottom: 4, color: 'var(--status-success)' }}>
-                  CORRECT ANSWER
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4 }}>
-                  {correctText}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Self-grade gate. Green/amber = "this is honest, not punitive."
-              These are the only path forward once revealed; the feedback
-              panel and Next button stay hidden until they commit. */}
-          {isRevealed && !recallGrade && (
-            <div className="row" style={{ gap: 8 }}>
-              <button
-                type="button"
-                className="btn btn-block"
-                onClick={() => selfGrade('right')}
-                style={{
-                  borderColor: 'var(--status-success)',
-                  color: 'var(--status-success)',
-                  fontWeight: 600,
-                }}
-              >
-                ✓ Got it
-              </button>
-              <button
-                type="button"
-                className="btn btn-block"
-                onClick={() => selfGrade('wrong')}
-                style={{
-                  borderColor: 'var(--accent-amber)',
-                  color: 'var(--accent-amber)',
-                  fontWeight: 600,
-                }}
-              >
-                ✗ Missed
-              </button>
-            </div>
-          )}
-          {isRevealed && recallGrade && (
-            <div
-              className="mono"
-              style={{
-                fontSize: 11,
-                letterSpacing: '.08em',
-                color: recallGrade === 'right' ? 'var(--status-success)' : 'var(--accent-amber)',
-              }}
-            >
-              {recallGrade === 'right' ? '✓ MARKED CORRECT' : '✗ MARKED MISSED — ADDED TO WEAK SPOTS'}
-            </div>
-          )}
+      {!answered && (
+        <div className="caption mono" style={{ fontSize: 11, opacity: 0.6, marginBottom: 8 }}>
+          Press 1 / 2 / 3 or click to answer.
         </div>
       )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {Q.opts.map((o, i) => {
+          const correct = i === Q.answer;
+          const wasPicked = picked === i;
+          let cls = 'btn dp-option';
+          if (answered && correct) cls += ' dp-correct';
+          else if (answered && wasPicked) cls += ' dp-wrong';
+          return (
+            <button key={i} className={cls} disabled={answered} onClick={() => submit(i)}>
+              <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
+              <span className="dp-text">{o}</span>
+              {answered && correct  && <span className="dp-mark">✓</span>}
+              {answered && wasPicked && !correct && <span className="dp-mark">✗</span>}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Feedback reveals only after the user is "locked in" — clicked an
-          MCQ option, or self-graded a recall attempt. Keeps the recall
-          honesty window intact. For recall we synthesize `picked` so the
-          existing panel renders the appropriate whyCorrect / whyWrong copy. */}
+      {/* Feedback reveals only after an option is clicked. */}
       {answered && (
         <FeedbackPanel
           question={Q}
-          picked={practiceMode === 'mcq'
-            ? (picked !== undefined && picked !== null
-              ? picked
-              // Hydrated MCQ answer — the chosen option index isn't persisted,
-              // only the verdict, so synthesize like the recall branch does.
-              : (storeVerdict === 'right' ? Q.answer : -1))
-            : (recallGrade === 'right' ? Q.answer : -1)}
+          picked={picked !== undefined && picked !== null
+            ? picked
+            // Hydrated answer — the chosen option index isn't persisted,
+            // only the verdict, so synthesize a matching index.
+            : (storeVerdict === 'right' ? Q.answer : -1)}
         />
       )}
 

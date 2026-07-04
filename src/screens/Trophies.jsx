@@ -104,14 +104,9 @@ function buildCatalog() {
     hint: 'Score 5/5 on a Daily Practice session',
     howEarned: 'Five-for-five on one Daily Practice. Recall + recognition both rewarded — keep stacking these.',
   });
-  catalog.push({
-    id: 'recall:first',
-    group: 'special',
-    icon: '🧠',
-    name: 'First Recall',
-    hint: 'Type your first free-recall answer + self-grade "Got it"',
-    howEarned: 'Free recall is the highest-retention tool we ship. This badge marks the moment you started using it.',
-  });
+  // NOTE: 'recall:first' (the old free-recall badge) is retired — free
+  // recall was removed by owner decision. Already-earned copies survive in
+  // user stores harmlessly; they just no longer display here.
   catalog.push({
     id: 'reviewer:10',
     group: 'special',

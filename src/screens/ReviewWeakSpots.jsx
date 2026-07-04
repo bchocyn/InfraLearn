@@ -10,10 +10,11 @@ import FeedbackPanel from '../components/FeedbackPanel.jsx';
 // Entries clear automatically when the user retakes that quiz and gets the
 // question right (handled in MathQuiz's submit() via clearQuizMiss).
 //
-// Daily-practice recall misses live under the synthetic '__daily_practice__'
-// key (written by Home's free-recall self-grade). They have no options bank —
-// the prompt string IS the question — so they render in their own group as
-// prompt-only cards with a manual "Got it now" clear action.
+// Misses on questions that aren't anchored to one lesson (daily practice,
+// path-bank review/battle questions) live under the synthetic
+// '__daily_practice__' key. They have no options bank — the prompt string IS
+// the question — so they render in their own group as prompt-only cards
+// with a manual "Got it now" clear action.
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 const DAILY_KEY = '__daily_practice__';
@@ -250,8 +251,8 @@ export default function ReviewWeakSpots() {
                 {prompt}
               </div>
               <p className="caption" style={{ marginTop: 6 }}>
-                Missed during a free-recall session. When you can answer it from
-                memory, clear it below.
+                Missed during practice, a review, or a battle. When you can
+                answer it from memory, clear it below.
               </p>
               <button
                 className="btn btn-block"

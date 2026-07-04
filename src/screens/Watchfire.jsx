@@ -2,13 +2,14 @@
 //
 // THE design rule: the game is presentation, the scheduler stays honest.
 // Under the hood this is exactly the Reviews screen's loop — snapshot
-// getReviewsDue() at mount, free-recall → reveal → self-grade →
-// markReviewed(id, grade) — wearing a battle skin: due cards are Null-
-// wraiths drifting toward the watchfire, good/easy sends the beast to
-// strike, a miss costs the fire one heart (the card returns tomorrow via
-// FSRS, exactly as it always did). No XP or embers are minted here beyond
-// what markReviewed itself awards — patrols can't be farmed any harder
-// than reviews can.
+// getReviewsDue() at mount, one QUIZ QUESTION per due card (same
+// pickReviewQuestion the Reviews screen uses) → markReviewed(id, grade) —
+// wearing a battle skin: due cards are Null-wraiths drifting toward the
+// watchfire. A correct answer sends the beast to strike (auto-advance,
+// patrols stay brisk); a wrong answer costs the fire one heart AND holds
+// on the why-wrong feedback until dismissed — the card returns tomorrow
+// via FSRS, exactly as it always did, plus a weak-spot entry. No XP or
+// embers are minted here beyond what markReviewed itself awards.
 //
 // The fire never "dies" punitively: at zero hearts it gutters but holds.
 // Failure costs theater, never progress — the forgiveness stance the
@@ -19,8 +20,10 @@ import { useNavigate } from 'react-router-dom';
 import { useStore, getReviewsDue } from '../store/useStore.js';
 import { PATHS } from '../data/content.js';
 import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
+import { pickReviewQuestion } from '../data/battles.js';
 import BeastSprite from '../components/BeastSprite.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
+import FeedbackPanel from '../components/FeedbackPanel.jsx';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 
 function isoDayString(d = new Date()) {
@@ -44,18 +47,14 @@ function buildLessonIndex() {
 }
 
 const FIRE_HP = 3;
-// Same grades + semantics as Reviews — only the hints wear the costume.
-const GRADES = [
-  { g: 1, label: '✗ Miss',  tone: 'var(--el-fire)',        hint: 'The fire takes the hit' },
-  { g: 2, label: 'Hard',    tone: 'var(--accent-amber)',   hint: 'A glancing blow'        },
-  { g: 3, label: 'Good',    tone: 'var(--status-success)', hint: 'Clean strike'           },
-  { g: 4, label: 'Easy',    tone: 'var(--el-water)',       hint: 'Banished outright'      },
-];
 
 export default function Watchfire() {
   const nav = useNavigate();
   const reviewQueue = useStore((s) => s.reviewQueue);
   const markReviewed = useStore((s) => s.markReviewed);
+  const recordQuizMiss = useStore((s) => s.recordQuizMiss);
+  const clearQuizMiss = useStore((s) => s.clearQuizMiss);
+  const quizMisses = useStore((s) => s.quizMisses);
   const companion = useStore((s) => s.companion);
   const beastTier = useStore((s) => s.beastTier);
   const reducedMotion = useStore((s) => s.settings?.reducedMotion);
@@ -71,11 +70,10 @@ export default function Watchfire() {
   const lessonIndex = useMemo(() => buildLessonIndex(), []);
 
   const [idx, setIdx] = useState(0);
-  const [typed, setTyped] = useState('');
-  const [revealed, setRevealed] = useState(false);
+  const [picked, setPicked] = useState(null); // chosen option index this wraith
   const [fireHp, setFireHp] = useState(FIRE_HP);
   const [banished, setBanished] = useState(0);
-  // 'strike' | 'stagger' | 'hit' — one-shot animation class on the stage.
+  // 'strike' | 'hit' — one-shot animation class on the stage.
   const [fx, setFx] = useState(null);
   const fxTimer = useRef(null);
   useEffect(() => () => { if (fxTimer.current) clearTimeout(fxTimer.current); }, []);
@@ -83,34 +81,55 @@ export default function Watchfire() {
   const total = dueIds.length;
   const done = idx >= total;
   const conceptIdNow = !done ? dueIds[idx] : null;
-  const canGrade = revealed && !done && !!conceptIdNow;
 
-  const grade = (g) => {
-    if (!canGrade) return;
-    // The honest part: the real scheduler call, identical to Reviews.
-    markReviewed(conceptIdNow, g);
-    // The theater: strike/stagger/hit flash before the next wraith drifts in.
-    if (g >= 3) setBanished((n) => n + 1);
-    if (g === 1) setFireHp((hp) => Math.max(0, hp - 1));
-    const kind = g >= 3 ? 'strike' : g === 2 ? 'stagger' : 'hit';
-    const advance = () => {
-      setTyped(''); setRevealed(false); setFx(null); setIdx((i) => i + 1);
-    };
-    if (reducedMotion) { advance(); return; }
-    setFx(kind);
-    fxTimer.current = setTimeout(advance, 450);
+  // The wraith's question — same per-lesson picker the Reviews screen uses.
+  const q = useMemo(
+    () => (conceptIdNow ? pickReviewQuestion(conceptIdNow, 0) : null),
+    [conceptIdNow],
+  );
+
+  const advance = () => { setPicked(null); setFx(null); setIdx((i) => i + 1); };
+
+  const pick = (i) => {
+    if (!q || picked !== null || done) return;
+    setPicked(i);
+    const correct = i === q.answer;
+    if (correct) {
+      // The honest part: the real scheduler call, identical to Reviews.
+      markReviewed(conceptIdNow, 3);
+      if (q.lessonId && quizMisses?.[q.lessonId]?.[q.q]) clearQuizMiss(q.lessonId, q.q);
+      setBanished((n) => n + 1);
+      // The theater: the beast strikes, then the next wraith drifts in.
+      if (reducedMotion) { advance(); return; }
+      setFx('strike');
+      fxTimer.current = setTimeout(advance, 550);
+    } else {
+      markReviewed(conceptIdNow, 1);
+      const canonical = q.origIndex?.[i];
+      recordQuizMiss(
+        q.lessonId || '__daily_practice__',
+        q.q,
+        q.lessonId && Number.isInteger(canonical) && canonical <= 3 ? canonical : null,
+      );
+      setFireHp((hp) => Math.max(0, hp - 1));
+      // Hold on the feedback — the why is the learning; Next dismisses.
+      if (!reducedMotion) {
+        setFx('hit');
+        fxTimer.current = setTimeout(() => setFx(null), 450);
+      }
+    }
   };
 
   useKeyboardShortcuts(
     {
-      Enter: () => { if (!done && !revealed && typed.trim().length > 0) setRevealed(true); },
-      ' ':   () => { if (!done && !revealed && typed.trim().length > 0) setRevealed(true); },
-      1: () => grade(1),
-      2: () => grade(2),
-      3: () => grade(3),
-      4: () => grade(4),
+      Enter: () => { if (!done && picked !== null) advance(); },
+      ' ':   () => { if (!done && picked !== null) advance(); },
+      1: () => pick(0),
+      2: () => pick(1),
+      3: () => pick(2),
+      4: () => pick(3),
     },
-    [idx, typed, revealed, done, conceptIdNow, canGrade, reducedMotion],
+    [idx, done, conceptIdNow, picked, q, reducedMotion],
   );
 
   const hearts = '♥'.repeat(fireHp) + '♡'.repeat(FIRE_HP - fireHp);
@@ -150,12 +169,12 @@ export default function Watchfire() {
   }
 
   const meta = lessonIndex[conceptIdNow];
-  if (!meta) {
+  if (!meta || !q) {
     return (
       <div className="screen fade-in">
         <div className="card">
           <p className="caption">This wraith is a ghost of a removed lesson — let it pass.</p>
-          <button type="button" className="btn btn-block" onClick={() => { setTyped(''); setRevealed(false); setIdx(idx + 1); }}>
+          <button type="button" className="btn btn-block" onClick={advance}>
             Next →
           </button>
         </div>
@@ -163,7 +182,6 @@ export default function Watchfire() {
     );
   }
   const { lesson, pathKey, pathName } = meta;
-  const tagline = lesson.tagline || lesson.title;
   const prov = PROVINCES[pathKey];
   const lapse = prov ? FIVE_LAPSES[prov.lapse] : null;
 
@@ -214,62 +232,30 @@ export default function Watchfire() {
 
       <div className="card reviews-card">
         <div className="mono" style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '.16em', textTransform: 'uppercase', marginBottom: 8 }}>
-          {pathName}
+          {pathName} · {lesson.title}
         </div>
-        <div className="reviews-title">{lesson.title}</div>
-        <div className="reviews-prompt">
-          Hold the memory: what is <em>{lesson.title}</em>?
+        <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>{q.q}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {q.opts.map((o, i) => {
+            let cls = 'btn dp-option';
+            if (picked !== null && i === q.answer) cls += ' dp-correct';
+            else if (picked !== null && i === picked) cls += ' dp-wrong';
+            return (
+              <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
+                <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
+                <span className="dp-text">{o}</span>
+              </button>
+            );
+          })}
         </div>
-
-        <textarea
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          disabled={revealed}
-          placeholder="Type what you remember…"
-          aria-label="Your recall attempt"
-          rows={4}
-          className="reviews-textarea"
-        />
-
-        {!revealed && (
-          <button
-            type="button"
-            className="btn btn-primary btn-block"
-            style={{ marginTop: 10 }}
-            onClick={() => setRevealed(true)}
-            disabled={typed.trim().length === 0}
-            title={typed.trim().length === 0 ? 'Type something first' : 'Reveal the answer'}
-          >
-            Reveal
-          </button>
-        )}
-
-        {revealed && (
-          <div className="reviews-reveal">
-            <div className="kicker" style={{ color: 'var(--status-success)', marginBottom: 4 }}>
-              THE MEMORY, WHOLE
-            </div>
-            <div className="reviews-answer">{tagline}</div>
-          </div>
-        )}
+        {/* Wrong answers hold here so the why gets read; correct answers
+            auto-advance after the strike. */}
+        {picked !== null && picked !== q.answer && <FeedbackPanel question={q} picked={picked} />}
       </div>
-
-      {revealed && (
-        <div className="reviews-grades" role="group" aria-label="Self-grade your recall">
-          {GRADES.map((G) => (
-            <button
-              key={G.g}
-              type="button"
-              className="reviews-grade-btn"
-              style={{ borderColor: G.tone, color: G.tone }}
-              onClick={() => grade(G.g)}
-              title={G.hint}
-            >
-              <span className="reviews-grade-label">{G.label}</span>
-              <span className="reviews-grade-hint">{G.hint}</span>
-            </button>
-          ))}
-        </div>
+      {picked !== null && picked !== q.answer && (
+        <button type="button" className="btn btn-primary btn-block" onClick={advance}>
+          The fire holds — next wraith →
+        </button>
       )}
     </div>
   );

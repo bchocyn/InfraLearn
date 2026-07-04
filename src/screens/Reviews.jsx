@@ -9,18 +9,14 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 
 // Reviews — the spaced-repetition session screen.
 //
-// DEFAULT MODE IS QUIZ (owner decision): each due concept asks one
-// multiple-choice question drawn from that lesson's own material — the
-// lesson's math-quiz bank first, then title-matched questions from its
-// path's daily bank — exactly like daily practice. Right = grade 3 (good),
-// wrong = grade 1 (miss) + a weak-spot entry, so the FSRS card is still
-// graded honestly. With 90 cards due, typed recall is a wall; recognition
-// reviews that HAPPEN beat production reviews that don't.
-//
-// The typed free-recall flow survives behind a header toggle ("Recall
-// mode") for the harder workout — production retrieval is still the
-// stronger rep when the user opts in — and as the automatic per-card
-// fallback when a lesson has no quizzable material.
+// Every due concept asks ONE multiple-choice question drawn from that
+// lesson's own material — the lesson's math-quiz bank first, then
+// title-matched questions from its path's daily bank — exactly like daily
+// practice. Right = grade 3 (good), wrong = grade 1 (miss) + a weak-spot
+// entry, so the FSRS card is graded honestly and misses stay actionable.
+// (Typed free-recall was removed by owner decision: reviews that HAPPEN
+// beat production reviews that don't. The whyWrong/whyCorrect feedback
+// after every answer carries the learning.)
 //
 // Concept-flow rationale (ADHD-friendly):
 //   - One question per screen → no choice overload.
@@ -56,13 +52,6 @@ function buildLessonIndex() {
   return idx;
 }
 
-const GRADES = [
-  { g: 1, label: '✗ Miss',  tone: 'var(--el-fire)',         hint: 'Forgot it'          },
-  { g: 2, label: 'Hard',    tone: 'var(--accent-amber)',    hint: 'Slow / partial'     },
-  { g: 3, label: 'Good',    tone: 'var(--status-success)',  hint: 'Came back to me'    },
-  { g: 4, label: 'Easy',    tone: 'var(--el-water)',        hint: 'Knew it instantly'  },
-];
-
 export default function Reviews() {
   const nav = useNavigate();
   const reviewQueue = useStore((s) => s.reviewQueue);
@@ -70,8 +59,6 @@ export default function Reviews() {
   const recordQuizMiss = useStore((s) => s.recordQuizMiss);
   const clearQuizMiss = useStore((s) => s.clearQuizMiss);
   const quizMisses = useStore((s) => s.quizMisses);
-  const reviewMode = useStore((s) => s.settings?.reviewMode) || 'quiz';
-  const setSetting = useStore((s) => s.setSetting);
 
   // Snapshot due IDs at mount so grading doesn't shuffle the deck mid-session
   // (reviewQueue is deliberately NOT a dep). `today` IS a dep: getReviewsDue
@@ -88,30 +75,26 @@ export default function Reviews() {
   const lessonIndex = useMemo(() => buildLessonIndex(), []);
 
   const [idx, setIdx] = useState(0);
-  const [typed, setTyped] = useState('');
-  const [revealed, setRevealed] = useState(false);
-  const [picked, setPicked] = useState(null); // quiz mode: chosen option index
+  const [picked, setPicked] = useState(null); // chosen option index this card
 
   const total = dueIds.length;
   const done = idx >= total;
   const conceptIdNow = !done ? dueIds[idx] : null;
 
-  // Quiz-mode question for the current card, deterministic per concept.
-  // Null (no bank material) drops this card to the recall flow.
+  // The question for the current card, deterministic per concept. Null only
+  // when the lesson can't be resolved (catalog skew) — handled by the skip
+  // card below; every real path has a question bank (drift-tested).
   const q = useMemo(
-    () => (reviewMode === 'quiz' && conceptIdNow ? pickReviewQuestion(conceptIdNow, 0) : null),
-    [reviewMode, conceptIdNow],
+    () => (conceptIdNow ? pickReviewQuestion(conceptIdNow, 0) : null),
+    [conceptIdNow],
   );
-  const quizActive = reviewMode === 'quiz' && !!q;
 
-  const advance = () => {
-    setTyped(''); setRevealed(false); setPicked(null); setIdx((i) => i + 1);
-  };
+  const advance = () => { setPicked(null); setIdx((i) => i + 1); };
 
-  // Answer a quiz option: grade the FSRS card immediately (right=good,
+  // Answer an option: grade the FSRS card immediately (right=good,
   // wrong=miss + weak spot), then hold for Continue so the why gets read.
   const pick = (i) => {
-    if (!quizActive || picked !== null || done) return;
+    if (!q || picked !== null || done) return;
     setPicked(i);
     const correct = i === q.answer;
     if (correct) {
@@ -128,37 +111,16 @@ export default function Reviews() {
     }
   };
 
-  const canGrade = revealed && !done && !!conceptIdNow;
   useKeyboardShortcuts(
     {
-      Enter: () => {
-        if (done) return;
-        if (quizActive) { if (picked !== null) advance(); return; }
-        if (!revealed && typed.trim().length > 0) setRevealed(true);
-      },
-      ' ': () => {
-        if (done) return;
-        if (quizActive) { if (picked !== null) advance(); return; }
-        if (!revealed && typed.trim().length > 0) setRevealed(true);
-      },
-      1: () => {
-        if (quizActive) { pick(0); return; }
-        if (!canGrade) return; markReviewed(conceptIdNow, 1); advance();
-      },
-      2: () => {
-        if (quizActive) { pick(1); return; }
-        if (!canGrade) return; markReviewed(conceptIdNow, 2); advance();
-      },
-      3: () => {
-        if (quizActive) { pick(2); return; }
-        if (!canGrade) return; markReviewed(conceptIdNow, 3); advance();
-      },
-      4: () => {
-        if (quizActive) { pick(3); return; }
-        if (!canGrade) return; markReviewed(conceptIdNow, 4); advance();
-      },
+      Enter: () => { if (!done && picked !== null) advance(); },
+      ' ': () => { if (!done && picked !== null) advance(); },
+      1: () => pick(0),
+      2: () => pick(1),
+      3: () => pick(2),
+      4: () => pick(3),
     },
-    [idx, typed, revealed, done, conceptIdNow, canGrade, markReviewed, quizActive, picked, q],
+    [idx, done, conceptIdNow, picked, q],
   );
 
   // Empty-deck state: render the "all reviewed" card immediately.
@@ -206,8 +168,8 @@ export default function Reviews() {
   const conceptId = dueIds[idx];
   const meta = lessonIndex[conceptId];
   // Defensive: a concept could be missing if the lesson catalog changed
-  // between persist and load. Skip it cleanly.
-  if (!meta) {
+  // between persist and load (q is null for the same reason). Skip cleanly.
+  if (!meta || !q) {
     return (
       <div className="screen fade-in">
         <div className="card">
@@ -220,152 +182,48 @@ export default function Reviews() {
     );
   }
   const { lesson, pathName } = meta;
-  const tagline = lesson.tagline || lesson.title;
-
-  const header = (
-    <div className="reviews-header row">
-      <span className="kicker">REVIEW · {idx + 1}/{total}</span>
-      <span className="spacer" />
-      <button
-        type="button"
-        className="pill"
-        style={{
-          background: 'var(--accent-amber-bg)', color: 'var(--accent-amber)',
-          fontSize: 10, padding: '4px 10px', border: 'none', cursor: 'pointer',
-          marginRight: 6, font: 'inherit',
-        }}
-        onClick={() => setSetting('reviewMode', reviewMode === 'quiz' ? 'recall' : 'quiz')}
-        title={reviewMode === 'quiz'
-          ? 'Switch to typed free recall (the harder, stronger rep)'
-          : 'Switch to quiz questions (like daily practice)'}
-      >
-        {reviewMode === 'quiz' ? '🖊 Recall mode' : '☑ Quiz mode'}
-      </button>
-      <span className="reviews-progress-chip mono">
-        {total - idx} left
-      </span>
-    </div>
-  );
-
-  // ── Quiz mode (default): one MCQ from the due lesson's material ────────
-  if (quizActive) {
-    return (
-      <div className="screen fade-in">
-        <CelebrationMoment />
-        {header}
-        <div className="card reviews-card">
-          <div
-            className="mono"
-            style={{
-              fontSize: 9, color: 'var(--text-tertiary)',
-              letterSpacing: '.16em', textTransform: 'uppercase', marginBottom: 8,
-            }}
-          >
-            {pathName} · {lesson.title}
-          </div>
-          <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>{q.q}</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {q.opts.map((o, i) => {
-              let cls = 'btn dp-option';
-              if (picked !== null && i === q.answer) cls += ' dp-correct';
-              else if (picked !== null && i === picked) cls += ' dp-wrong';
-              return (
-                <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
-                  <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
-                  <span className="dp-text">{o}</span>
-                </button>
-              );
-            })}
-          </div>
-          {picked !== null && <FeedbackPanel question={q} picked={picked} />}
-        </div>
-        {picked !== null && (
-          <button type="button" className="btn btn-primary btn-block" onClick={advance}>
-            {picked === q.answer ? 'Held — next →' : 'Noted for weak spots — next →'}
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  // ── Recall mode (toggle, or per-card fallback when no quiz exists) ─────
-  const reveal = () => { if (!revealed) setRevealed(true); };
-  const grade = (g) => { markReviewed(conceptId, g); advance(); };
 
   return (
     <div className="screen fade-in">
-      {/* XP / level / badge celebration overlay. Fires when markReviewed
-          awards XP (+3 hard, +6 good/easy) or crosses a level boundary. */}
       <CelebrationMoment />
-      {header}
+      <div className="reviews-header row">
+        <span className="kicker">REVIEW · {idx + 1}/{total}</span>
+        <span className="spacer" />
+        <span className="reviews-progress-chip mono">
+          {total - idx} left
+        </span>
+      </div>
 
       <div className="card reviews-card">
         <div
           className="mono"
           style={{
-            fontSize: 9,
-            color: 'var(--text-tertiary)',
-            letterSpacing: '.16em',
-            textTransform: 'uppercase',
-            marginBottom: 8,
+            fontSize: 9, color: 'var(--text-tertiary)',
+            letterSpacing: '.16em', textTransform: 'uppercase', marginBottom: 8,
           }}
         >
-          {pathName}
+          {pathName} · {lesson.title}
         </div>
-        <div className="reviews-title">{lesson.title}</div>
-        <div className="reviews-prompt">
-          Recall: what is <em>{lesson.title}</em>?
+        <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>{q.q}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {q.opts.map((o, i) => {
+            let cls = 'btn dp-option';
+            if (picked !== null && i === q.answer) cls += ' dp-correct';
+            else if (picked !== null && i === picked) cls += ' dp-wrong';
+            return (
+              <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
+                <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
+                <span className="dp-text">{o}</span>
+              </button>
+            );
+          })}
         </div>
-
-        <textarea
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          disabled={revealed}
-          placeholder="Type what you remember…"
-          aria-label="Your recall attempt"
-          rows={4}
-          className="reviews-textarea"
-        />
-
-        {!revealed && (
-          <button
-            type="button"
-            className="btn btn-primary btn-block"
-            style={{ marginTop: 10 }}
-            onClick={reveal}
-            disabled={typed.trim().length === 0}
-            title={typed.trim().length === 0 ? 'Type something first' : 'Reveal the answer'}
-          >
-            Reveal
-          </button>
-        )}
-
-        {revealed && (
-          <div className="reviews-reveal">
-            <div className="kicker" style={{ color: 'var(--status-success)', marginBottom: 4 }}>
-              ANSWER
-            </div>
-            <div className="reviews-answer">{tagline}</div>
-          </div>
-        )}
+        {picked !== null && <FeedbackPanel question={q} picked={picked} />}
       </div>
-
-      {revealed && (
-        <div className="reviews-grades" role="group" aria-label="Self-grade your recall">
-          {GRADES.map((G) => (
-            <button
-              key={G.g}
-              type="button"
-              className="reviews-grade-btn"
-              style={{ borderColor: G.tone, color: G.tone }}
-              onClick={() => grade(G.g)}
-              title={G.hint}
-            >
-              <span className="reviews-grade-label">{G.label}</span>
-              <span className="reviews-grade-hint">{G.hint}</span>
-            </button>
-          ))}
-        </div>
+      {picked !== null && (
+        <button type="button" className="btn btn-primary btn-block" onClick={advance}>
+          {picked === q.answer ? 'Held — next →' : 'Noted for weak spots — next →'}
+        </button>
       )}
     </div>
   );

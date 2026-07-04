@@ -327,7 +327,8 @@ function shouldReplaceCelebrate(cur, nextKind) {
 //   streak:{N}                          — 3 / 7 / 14 / 30 / 100
 //   path:{pathKey}:bronze|silver|gold   — path completion tiers
 //   daily:perfect                       — Daily Practice 5/5
-//   recall:first                        — first free-recall ✓ Got it
+//   recall:first                        — RETIRED (free recall removed); old
+//                                         copies survive in stores harmlessly
 //   reviewer:10                         — 10 reviews completed in one session
 function normalizeSectionName(s) {
   return String(s || '')
@@ -536,9 +537,9 @@ function comboMultiplier(combo) {
   return 1.0;
 }
 // Reason prefixes that count as "tested item" — these are what scale by the
-// combo multiplier. Lesson-completion ack, streak day bonuses, daily-challenge
-// and free-recall already-distinct flows are intentionally excluded so the
-// multiplier stays anchored to consecutive-correct learning events.
+// combo multiplier. Lesson-completion ack, streak day bonuses, and the
+// daily-challenge flow are intentionally excluded so the multiplier stays
+// anchored to consecutive-correct learning events.
 const COMBO_REASON_PREFIXES = [
   'predict:',
   'practice:',
@@ -707,9 +708,9 @@ export const useStore = create(
         const reasonStr = String(reason || 'unknown');
         set((s) => {
           // Combo multiplier scales only tested-item reasons; everything else
-          // (lesson:complete, streak:*, daily-challenge:*, recall:got-it,
-          // daily:correct/perfect) stays at 1.0x so reading/streak rewards
-          // can't compound the multiplier off-anchor.
+          // (lesson:complete, streak:*, daily-challenge:*, daily:correct/
+          // perfect) stays at 1.0x so reading/streak rewards can't compound
+          // the multiplier off-anchor.
           const mult = reasonCountsForCombo(reasonStr)
             ? comboMultiplier(s.practiceCombo || 0)
             : 1.0;

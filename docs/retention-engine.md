@@ -2,9 +2,10 @@
 
 This is the technical reference for the layer that keeps learners coming
 back and keeps lessons from evaporating after the read. The design
-principle is that engagement attaches to **tested** items (recall, review,
-quiz) rather than to recognition (passively re-reading). Reading a lesson
-gets a lightweight +5 XP acknowledgment; the real XP lives in recall.
+principle is that engagement attaches to **tested** items (reviews,
+quizzes, battles — every one answered, never just re-read) rather than to
+passive exposure. Reading a lesson gets a lightweight +5 XP
+acknowledgment; the real XP lives in being tested and in building.
 
 All state is in `src/store/useStore.js` (Zustand + `persist` to
 `localStorage`).
@@ -59,20 +60,21 @@ call with `gap > 1` burns it instead of resetting. There is no automatic
 freeze — the forgiveness here is opt-in to keep the streak number
 trustworthy.
 
-## Free-recall mode
+## Free recall — REMOVED (owner decision, 2026-07)
 
-Toggle in Daily Practice. The standard daily-practice card shows a
-multiple-choice question; free-recall mode shows only the prompt and a
-"reveal answer" button, and the user self-grades with `✗ Miss / ⚠ Hard /
-✓ Got it / ★ Easy`.
+The app previously offered typed free-recall flows (a Daily Practice
+toggle, a Reviews recall mode, Watchfire's type-then-self-grade loop).
+All were removed: every testing surface is now multiple-choice with
+immediate whyWrong/whyCorrect feedback. The honest trade-off, on record:
+production retrieval beats recognition for durable retention (Dunlosky
+2013, Rowland 2014), but typed recall at real queue sizes was a wall
+that stopped sessions from happening at all — and reviews that happen
+beat reviews that don't. Wrong answers grade the card as a miss AND land
+in Review Weak Spots, so recognition failures still get remediation.
 
-The four grades feed straight into `scheduleReview(conceptId, grade)`
-with grade `1 / 2 / 3 / 4`. The XP gain on a successful free-recall is
-weighted heavier than the equivalent multiple-choice correct, because
-the evidence (Dunlosky 2013, Rowland 2014) is that production retrieval
-outperforms recognition for durable retention.
-
-First successful free-recall grants `recall:first`.
+Legacy artifacts: the `recall:first` badge is retired (earned copies
+survive in stores, no longer displayed); `settings.reviewMode` and
+`settings.practiceMode` keys may linger in old persists, ignored.
 
 ## Spaced repetition (FSRS-flavored)
 
@@ -143,12 +145,11 @@ Notes:
   actionable. The trade-off is acknowledged: recognition is weaker
   evidence than production recall, but reviews that happen beat reviews
   that don't — at 90 due cards, typed recall was a wall.
-- **Recall mode** survives behind a header toggle (persisted as
-  `settings.reviewMode`) — typed free recall + 4-button self-grade — and
-  is the automatic per-card fallback when a lesson has no quizzable
-  material.
+- Cards whose lesson can't be resolved (catalog skew) show a skip card;
+  every real path has a question bank (drift-tested), so a quiz question
+  always exists otherwise.
 - `markReviewed` = `scheduleReview` + `recordActivity` (reviews count
-  toward the streak) either way.
+  toward the streak).
 - 10 reviews in one calendar day grants `reviewer:10`.
 
 ## XP system
@@ -164,8 +165,10 @@ thresholds:
 (so xp = 0 → level 1, xp = 100 → level 2, …, xp >= 20000 → level 10).
 
 Gain rules (call sites use short namespaced `reason` tokens so they're
-greppable). **The economy's one law: production recall pays strictly
-more than recognition.** The gradient, top to bottom:
+greppable). **The economy's one law: doing pays more than answering,
+answering pays more than reading.** Production (labs, fix-its,
+fill-blanks) tops the table; tested answers sit in the middle; encoding
+and showing-up earn token acknowledgments. The gradient, top to bottom:
 
 | Event                          | XP   | Reason token             | Kind |
 |--------------------------------|------|--------------------------|------|
@@ -174,7 +177,6 @@ more than recognition.** The gradient, top to bottom:
 | Daily practice 5/5 session     | +20  | `daily:perfect`          | session bonus |
 | Minion battle won (first time) | +15  | `battle:minion:{path}:{k}` | retrieval (5Q) |
 | Fill-blank completed           | +15  | `fill-blank:complete`    | production* |
-| Free-recall ✓ Got it           | +12  | `recall:got-it`          | production recall |
 | Fix-it solved                  | +10  | `fix-it:fix`             | production* |
 | Quiz miss recovered            | +10  | `quiz:recovered`         | relearning |
 | Review ✓ Good / ★ Easy         | +6   | `review:good`            | graded recall |
@@ -210,7 +212,7 @@ ID schema:
 - `path:{pathKey}:bronze|silver|gold` — path progress crosses 33% / 66%
   / 100%.
 - `daily:perfect` — Daily Practice 5/5 in one session.
-- `recall:first` — first successful free-recall.
+- `recall:first` — RETIRED (free recall removed); legacy copies survive.
 - `reviewer:10` — 10 reviews completed in one calendar day.
 
 ## CelebrationMoment
