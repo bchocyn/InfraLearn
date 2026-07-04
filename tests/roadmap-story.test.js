@@ -96,7 +96,13 @@ describe('Roadmap v5 story layers', () => {
     const html = render(Roadmap);
     expect(html).toContain('HAS FLED — FOR NOW');
     expect(html).not.toContain('WAITS BEYOND THE FOG');
-    expect(html).not.toMatch(/beasts\/null_[a-z_]+\.png/);
+    // Battle-era canon: at 100% the Lapse makes its stand — the boss-encounter
+    // marker (its null_ sprite) appears for the showdown, and only truly
+    // vanishes from the trail once BEATEN.
+    expect(html).toMatch(/beasts\/null_[a-z_]+\.png/);
+    useStore.setState({ battles: { devops: { minions: 5, boss: true } } });
+    const after = render(Roadmap);
+    expect(after).not.toMatch(/beasts\/null_[a-z_]+\.png/);
   });
 });
 

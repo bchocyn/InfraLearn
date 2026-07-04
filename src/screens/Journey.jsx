@@ -109,7 +109,7 @@ function ChapterRoad({ province, prov, lapse }) {
                 </button>
               </>
             )}
-            {paidOpen && <Encounter province={province} chapter={ch} prov={prov} lapse={lapse} embers={embers} />}
+            {paidOpen && <Encounter province={province} chapter={ch} prov={prov} lapse={lapse} />}
             {isNext && (
               gate.met ? (
                 <EnterButton province={province} ch={ch} enterChapter={enterChapter} />

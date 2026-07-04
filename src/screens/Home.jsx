@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, getReviewsDue } from '../store/useStore.js';
-import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, pathProgress } from '../data/content.js';
 
 // Career-path display order — derived from PATH_KEYS so content.js stays the
@@ -526,8 +525,6 @@ function WeakSpotsTeaser() {
 function QuickPickers() {
   // Narrow selectors — the old whole-store subscription re-rendered the
   // pickers on EVERY store write (XP, streak ticks, review grades…).
-  const level = useStore((st) => st.level);
-  const setLevel = useStore((st) => st.setLevel);
   const activePath = useStore((st) => st.activePath);
   const setActivePath = useStore((st) => st.setActivePath);
   const completed = useStore((st) => st.completed);
@@ -551,39 +548,22 @@ function QuickPickers() {
   };
   return (
     <div className="card">
-      <div className="row" style={{ gap: 10, alignItems: 'stretch' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="kicker" style={{ marginBottom: 6 }}>Skill level</div>
-          <select
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-            style={selectStyle}
-            aria-label="Skill level"
-          >
-            {LEVELS.map((lvl) => (
-              <option key={lvl} value={lvl}>{LEVEL_LABEL[lvl]}</option>
-            ))}
-          </select>
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="kicker" style={{ marginBottom: 6 }}>Career path</div>
-          <select
-            value={activePath}
-            onChange={(e) => setActivePath(e.target.value)}
-            style={selectStyle}
-            aria-label="Career path"
-          >
-            {PATH_ORDER.map((k) => {
-              const p = PATHS[k];
-              if (!p) return null;
-              const pp = pathProgress(k, completed);
-              return (
-                <option key={k} value={k}>{p.icon} {p.name} · {Math.round(pp.pct * 100)}%</option>
-              );
-            })}
-          </select>
-        </div>
-      </div>
+      <div className="kicker" style={{ marginBottom: 6 }}>Career path</div>
+      <select
+        value={activePath}
+        onChange={(e) => setActivePath(e.target.value)}
+        style={selectStyle}
+        aria-label="Career path"
+      >
+        {PATH_ORDER.map((k) => {
+          const p = PATHS[k];
+          if (!p) return null;
+          const pp = pathProgress(k, completed);
+          return (
+            <option key={k} value={k}>{p.icon} {p.name} · {Math.round(pp.pct * 100)}%</option>
+          );
+        })}
+      </select>
     </div>
   );
 }

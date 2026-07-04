@@ -2980,25 +2980,6 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 }
 .heatmap-meta .spacer { flex: 1; }
 
-.rank-ladder-wrap { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border-subtle); }
-.rank-ladder { display: flex; align-items: flex-start; }
-.rank-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
-.rank-step::before {
-  content: ''; position: absolute; top: 5.5px; left: -50%; width: 100%; height: 2px;
-  background: var(--border-default); z-index: 0;
-}
-.rank-step:first-child::before { display: none; }
-.rank-step.done::before { background: var(--accent-amber); }
-.rank-dot {
-  width: 13px; height: 13px; border-radius: 50%; z-index: 1;
-  background: var(--bg-elevated); border: 2px solid var(--border-default);
-}
-.rank-step.done .rank-dot { background: var(--accent-amber); border-color: var(--accent-amber); }
-.rank-step.current .rank-dot { box-shadow: 0 0 0 3px var(--accent-amber-bg); }
-.rank-name { font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
-.rank-step.current .rank-name { color: var(--accent-amber); }
-.rank-caption { text-align: center; font-size: 11px; color: var(--text-tertiary); margin-top: 9px; }
-
 /* ───────── Weekly recap ───────── */
 .week-recap-kicker { color: var(--accent-amber); margin-bottom: 8px; }
 .week-recap-stats { display: flex; gap: 8px; }
@@ -7631,7 +7612,7 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 
 .wm-banner-text {
   font-family: 'Fraunces Variable', Fraunces, Georgia, serif;
-  font-size: 26px; font-weight: 700; letter-spacing: 4px;
+  font-size: 20px; font-weight: 700; letter-spacing: 2px;
   fill: #3a2c16;
 }
 .wm-cont-name {
@@ -7679,4 +7660,147 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 
 @media (prefers-reduced-motion: reduce) {
   .wm-walker-bob, .wm-ring-live, .wm-node-pulse, .wm-starthere { animation: none !important; }
+}
+
+/* ─── Quiz battles (/battle/:pathKey/:stage — Battle.jsx) ───────────────────
+   Pokémon-style arena: enemy card top-left / sprite top-right, player beast
+   bottom-left / card bottom-right, question in a dialogue box, the 4 answers
+   as the 4 colored menu buttons. */
+.btl-stage {
+  position: relative;
+  height: 172px;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  background: linear-gradient(180deg, #7EC8D8 0%, #A8D8B8 55%, #6FA84E 56%, #4E7A38 100%);
+  border: 2px solid #2a3a26;
+}
+.btl-fx-strike { animation: btl-shake-enemy .45s ease; }
+.btl-fx-hit    { animation: btl-shake-player .45s ease; }
+@keyframes btl-shake-enemy  { 20% { transform: translateX(3px); } 40% { transform: translateX(-3px); } 60% { transform: translateX(2px); } }
+@keyframes btl-shake-player { 20% { transform: translateX(-3px); } 40% { transform: translateX(3px); } 60% { transform: translateX(-2px); } }
+.btl-static, .btl-static * { animation: none !important; }
+
+.btl-platform {
+  position: absolute; right: 8%; top: 96px;
+  width: 128px; height: 34px; border-radius: 50%;
+  background: rgba(46, 84, 38, .55);
+}
+.btl-platform-near {
+  right: auto; left: 4%; top: auto; bottom: 2px;
+  width: 150px; height: 38px;
+  background: rgba(30, 58, 26, .6);
+}
+.btl-enemy { position: absolute; right: 10%; top: 26px; animation: btl-float 2.6s ease-in-out infinite; }
+.btl-enemy-sprite { width: 84px; height: 84px; filter: drop-shadow(0 4px 4px rgba(0,0,0,.3)); }
+@keyframes btl-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.btl-player { position: absolute; left: 7%; bottom: 8px; }
+.btl-player-sprite { transform: scaleX(-1); filter: drop-shadow(0 4px 4px rgba(0,0,0,.35)); }
+
+.btl-card {
+  position: absolute;
+  min-width: 138px;
+  padding: 6px 10px;
+  background: #F7F3E3;
+  border: 2px solid #3a342c;
+  border-radius: 10px;
+  box-shadow: 2px 2px 0 rgba(0,0,0,.25);
+}
+.btl-card-enemy { left: 10px; top: 10px; }
+.btl-card-player { right: 10px; bottom: 12px; text-align: right; }
+.btl-name { font-family: var(--font-serif); font-weight: 700; font-size: 13px; color: #26211a; margin-right: 6px; }
+.btl-lv { font-family: var(--font-mono); font-size: 10px; color: #7a5a2a; }
+.btl-hpbar { display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+.btl-hplabel { font-family: var(--font-mono); font-size: 8px; font-weight: 700; color: #d88a2a; letter-spacing: .1em; }
+.btl-hptrack { flex: 1; height: 7px; border-radius: 4px; background: #4a4438; overflow: hidden; }
+.btl-hpfill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #58c84e, #8fe07a); transition: width .35s ease; }
+.btl-hearts { font-size: 13px; color: #E0706A; letter-spacing: 2px; }
+
+.btl-dialog { position: relative; padding: 12px 14px; margin-bottom: 10px; }
+.btl-turn {
+  position: absolute; right: 10px; top: 8px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary);
+}
+.btl-question { margin: 0; padding-right: 34px; font-size: 14.5px; line-height: 1.45; }
+
+.btl-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btl-opt {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 52px; padding: 8px 10px;
+  border-radius: 12px;
+  border: 2px solid rgba(0,0,0,.35);
+  box-shadow: 0 2px 0 rgba(0,0,0,.3);
+  color: #fff; font-size: 12.5px; line-height: 1.3; text-align: left;
+  cursor: pointer;
+}
+.btl-opt:disabled { cursor: default; }
+/* The four Pokémon menu tones: pink / orange / green / blue. */
+.btl-opt-0 { background: #E86A8A; }
+.btl-opt-1 { background: #E8963A; }
+.btl-opt-2 { background: #58A848; }
+.btl-opt-3 { background: #4A8AC8; }
+.btl-opt-key {
+  flex-shrink: 0;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(0,0,0,.28);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.btl-opt-text { flex: 1; overflow-wrap: anywhere; }
+.btl-opt-correct { outline: 3px solid #F4EFE3; filter: saturate(1.15); }
+.btl-opt-wrong { filter: grayscale(.4) brightness(.7); outline: 3px solid #E0706A; }
+.btl-opt-dim { opacity: .45; }
+
+.btl-end { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 14px; }
+.btl-end-win { border-color: var(--accent-amber); }
+.btl-end-sprite { margin-bottom: 10px; }
+.btl-end-copy { margin: 0 0 6px; font-size: 13.5px; line-height: 1.5; }
+.btl-end-xp { margin: 0; font-family: var(--font-mono); font-weight: 700; color: var(--accent-amber); }
+
+@media (prefers-reduced-motion: reduce) {
+  .btl-stage, .btl-stage * { animation: none !important; }
+  .btl-hpfill { transition: none; }
+}
+
+/* ─── In-app "Reduced motion" toggle (Settings) ─────────────────────────────
+   main.jsx stamps data-reduced-motion on <html> from settings.reducedMotion.
+   Near-zero durations (NOT animation:none) so every animation snaps to its
+   END state — reveal animations whose base style is opacity:0 land visible
+   instead of stranded. Mirrors the OS prefers-reduced-motion path, which the
+   scattered per-component @media blocks already handle. */
+:root[data-reduced-motion] *,
+:root[data-reduced-motion] *::before,
+:root[data-reduced-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ─── Persist-failure banner (PersistWarning.jsx) ───────────────────────────
+   Shown only while localStorage writes are throwing (quota/privacy mode).
+   Sits above the TabBar, below modals; must stay readable in every theme. */
+.persist-warning {
+  position: fixed;
+  left: 12px; right: 12px; bottom: 76px;   /* clears the 64px TabBar */
+  z-index: 90;                              /* under EvolutionNotice (100) */
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: #3a2410;
+  border: 1px solid #E07856;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
+}
+.persist-warning-text {
+  flex: 1;
+  font-size: 12.5px; line-height: 1.35;
+  color: #F4EFE3;
+}
+.persist-warning-btn {
+  flex-shrink: 0;
+  min-height: 36px; padding: 6px 12px;
+  background: #E07856; color: #0B0A08;
+  border: none; border-radius: 8px;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+  cursor: pointer;
 }

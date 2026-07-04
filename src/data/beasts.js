@@ -30,24 +30,24 @@ export const SPECIES_KEYS = Object.keys(BEASTS);
 // T1->T2: Junior + 40% path. T2->T3: Senior + Silver (66%). T3->T4: 100% path.
 // (T2->T3 used to gate on Gold/100%, which made T3 unreachable — beasts jumped
 // 2->4 at 100%. Silver gives T3 a distinct resting state; gold still qualifies.)
+// Gated on lessons-completed + path progress + medal (the old novice/junior/
+// senior rank system was removed; these thresholds match what used to derive
+// "junior" at 4 lessons and "senior" at 10, so evolution pacing is unchanged).
 export const EVO_RULES = [
-  { from: 1, to: 2, needLevel: 'junior', needPathPct: 0.40, label: 'Junior + 40% of path' },
-  { from: 2, to: 3, needLevel: 'senior', needBadge: 'silver', label: 'Senior + Silver medal' },
-  { from: 3, to: 4, needLevel: 'senior', needPathPct: 1.0, label: '100% the entire path' },
+  { from: 1, to: 2, needLessons: 4,  needPathPct: 0.40, label: '4 lessons + 40% of path' },
+  { from: 2, to: 3, needLessons: 10, needBadge: 'silver', label: '10 lessons + Silver medal' },
+  { from: 3, to: 4, needLessons: 10, needPathPct: 1.0, label: '100% the entire path' },
 ];
 
-export const LEVELS = ['novice', 'junior', 'senior', 'distinguished'];
-export const LEVEL_LABEL = { novice: 'Novice', junior: 'Junior', senior: 'Senior', distinguished: 'Distinguished' };
-
 // Given current tier + state, return the tier the beast should be at.
-export function resolveTier(currentTier, { level, pathPct, badge }) {
+export function resolveTier(currentTier, { lessons, pathPct, badge }) {
   let tier = currentTier;
   for (const rule of EVO_RULES) {
     if (rule.from !== tier) continue;
-    const levelOk = LEVELS.indexOf(level) >= LEVELS.indexOf(rule.needLevel);
+    const lessonsOk = rule.needLessons == null || (lessons || 0) >= rule.needLessons;
     const pctOk = rule.needPathPct == null || pathPct >= rule.needPathPct;
     const badgeOk = !rule.needBadge || badge === rule.needBadge || badge === 'gold';
-    if (levelOk && pctOk && badgeOk) tier = rule.to;
+    if (lessonsOk && pctOk && badgeOk) tier = rule.to;
   }
   return tier;
 }

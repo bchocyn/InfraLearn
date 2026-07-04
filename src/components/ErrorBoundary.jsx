@@ -30,10 +30,31 @@ export default class ErrorBoundary extends React.Component {
     this.setState({ error: null, info: null });
   };
 
+  // Download the raw persisted blob as a file BEFORE any destructive action.
+  // Reads localStorage directly — the store itself may be what crashed, so
+  // this path must have zero dependencies on it.
+  downloadBackup = () => {
+    try {
+      const raw = localStorage.getItem('infralearn-store')
+        || localStorage.getItem('infralearn-store.bak');
+      if (!raw) return;
+      const blob = new Blob([raw], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `infralearn-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* ignore — button is best-effort */ }
+  };
+
   nukeStorage = () => {
     try {
-      // Persist key from useStore.js's persist config name.
+      // Persist key from useStore.js's persist config name — and its .bak
+      // rotation, or the wipe silently resurrects on the next load (which
+      // would trap a user whose crash comes FROM the persisted state).
       localStorage.removeItem('infralearn-store');
+      localStorage.removeItem('infralearn-store.bak');
     } catch { /* ignore */ }
     // Hard reload so the next mount starts from initial state.
     if (typeof window !== 'undefined') window.location.reload();
@@ -123,6 +144,20 @@ export default class ErrorBoundary extends React.Component {
             }}
           >
             {t('error.tryAgain')}
+          </button>
+          <button
+            type="button"
+            onClick={this.downloadBackup}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 8,
+              border: '1px solid #8FA876',
+              background: '#17140F',
+              color: '#8FA876',
+              cursor: 'pointer',
+            }}
+          >
+            ⬇ Download backup first
           </button>
           <button
             type="button"

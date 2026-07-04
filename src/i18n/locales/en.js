@@ -20,7 +20,6 @@ export const en = {
   'home.weak.kicker': 'REVIEW · WEAK SPOTS',
   'home.daily.kicker': '⚡ DAILY PRACTICE',
   'home.daily.done': "Today's practice complete — see you tomorrow.",
-  'home.level.kicker': 'Your level',
 
   // Lesson nav
   'lesson.back': 'BACK',

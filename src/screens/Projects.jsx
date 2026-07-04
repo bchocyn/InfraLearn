@@ -37,7 +37,6 @@ function ProjectCard({ l, done, onOpen }) {
         </span>
         <span className="spacer" />
         {done && <span className="project-done">✓ DONE</span>}
-        {l.tierLevel && <span className="project-tier">{l.tierLevel}</span>}
       </div>
       <div className="project-title">{l.title}</div>
       {(l.tagline || l.section) && (

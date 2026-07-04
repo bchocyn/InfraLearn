@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 // Self-hosted fonts (bundled into the build — no third-party requests).
 import '@fontsource-variable/fraunces';
 import '@fontsource-variable/inter-tight';
@@ -20,6 +20,8 @@ import Roadmap from './screens/Roadmap.jsx';
 // still lazy-load while the theme tables stay eager.
 import { ACCENT_PRESETS, BG_THEMES } from './screens/settingsThemes.js';
 import EvolutionNotice from './components/EvolutionNotice.jsx';
+import PersistWarning from './components/PersistWarning.jsx';
+import { battleBlockForLessonId } from './data/battleMeta.js';
 import CoachTour from './components/CoachTour.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import KeyboardHelp from './components/KeyboardHelp.jsx';
@@ -60,6 +62,25 @@ const Watchfire        = lazy(() => import('./screens/Watchfire.jsx'));
 // Prototype: the world-map roadmap (World → continent → lessons). Dev route
 // /worldmap so it can be clicked through before it replaces the Roadmap tab.
 const WorldMap         = lazy(() => import('./screens/WorldMap.jsx'));
+// Minion/boss quiz battles (Pokémon-style retrieval practice). Its question
+// banks ride the chunk — keep it lazy like every mini-game.
+const Battle           = lazy(() => import('./screens/Battle.jsx'));
+
+// Route-level encounter gate for /lesson/:id — a minion standing earlier on
+// the trail bars NEW lessons no matter how you arrive (Roadmap, Library,
+// Home continue, deep link). Completed lessons stay freely reviewable. The
+// redirect lands ON the due battle, never a dead end.
+function BattleGate({ children }) {
+  const { id } = useParams();
+  const completed = useStore((s) => s.completed);
+  const battles = useStore((s) => s.battles);
+  if (completed?.[id]) return children;
+  const gate = battleBlockForLessonId(id, battles);
+  if (gate.blocked && gate.pathKey) {
+    return <Navigate to={`/battle/${gate.pathKey}/${gate.stage}`} replace />;
+  }
+  return children;
+}
 
 // Suspense fallback — deliberately NOT a spinner. A serif "Loading…" in the
 // app's own font fades in after a short delay so we don't strobe on fast
@@ -225,12 +246,24 @@ function App() {
     setOrClear('--text-quaternary', t.textQuaternary);
   }, [bgTheme]);
 
+  // Reduced motion — unify the in-app toggle with the OS preference. CSS can
+  // only see the OS media query; this stamps the user's Settings choice onto
+  // the root so theme.css can neutralize animations for it too (the toggle
+  // used to be JS-components-only, i.e. mostly decorative).
+  const reducedMotion = useStore((s) => s.settings.reducedMotion);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (reducedMotion) root.dataset.reducedMotion = '1';
+    else delete root.dataset.reducedMotion;
+  }, [reducedMotion]);
+
   if (!onboarded) return (
     <div className={shellClass}>
       <Suspense fallback={<RouteFallback />}>
         <Onboarding />
       </Suspense>
       <EvolutionNotice />
+      <PersistWarning />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
@@ -246,18 +279,20 @@ function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/beast" element={<ByteBeast />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/lesson/:id" element={<Lesson />} />
+            <Route path="/lesson/:id" element={<BattleGate><Lesson /></BattleGate>} />
             <Route path="/weak-spots" element={<ReviewWeakSpots />} />
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/codex" element={<Codex />} />
             <Route path="/journey" element={<Journey />} />
             <Route path="/watchfire" element={<Watchfire />} />
             <Route path="/worldmap" element={<WorldMap />} />
+            <Route path="/battle/:pathKey/:stage" element={<Battle />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </main>
       <EvolutionNotice />
+      <PersistWarning />
       {/* Onboarded branch only — a gold seal can't be earned pre-onboarding. */}
       <Suspense fallback={null}>
         <PathAscension />

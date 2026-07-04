@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
 import { useStore } from '../store/useStore.js';
-import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
 
-// Home "Your progress" card: a GitHub-style consistency heatmap + the named
-// rank ladder (the four tiers that gate Byte Beast evolution). Both read the
+// Home "Your progress" card: a GitHub-style consistency heatmap. Reads the
 // existing store — the heatmap unions the new activityDays log with xpHistory
 // dates so it shows data even before activityDays has filled in.
 
@@ -71,36 +69,6 @@ function StreakHeatmap() {
   );
 }
 
-// Lesson-count thresholds for each tier — must match recomputeLevel() in the store.
-const TIER_THRESHOLD = { novice: 0, junior: 4, senior: 10, distinguished: 20 };
-
-function RankLadder() {
-  const completed = useStore((s) => s.completed);
-  const level = useStore((s) => s.level);
-  const done = useMemo(() => Object.keys(completed || {}).length, [completed]);
-  const idx = Math.max(0, LEVELS.indexOf(level));
-  const nextLevel = LEVELS[idx + 1];
-  const remaining = nextLevel ? Math.max(0, TIER_THRESHOLD[nextLevel] - done) : 0;
-
-  return (
-    <div className="rank-ladder-wrap">
-      <div className="rank-ladder">
-        {LEVELS.map((lv, i) => (
-          <div key={lv} className={`rank-step${i <= idx ? ' done' : ''}${i === idx ? ' current' : ''}`}>
-            <span className="rank-dot" />
-            <span className="rank-name">{LEVEL_LABEL[lv]}</span>
-          </div>
-        ))}
-      </div>
-      <div className="rank-caption">
-        {nextLevel
-          ? `${remaining} more lesson${remaining === 1 ? '' : 's'} → ${LEVEL_LABEL[nextLevel]}`
-          : 'Top rank — Distinguished. Your beast can reach its final form.'}
-      </div>
-    </div>
-  );
-}
-
 // Confidence calibration — per stated confidence level (from daily challenges),
 // the share you got right. Surfaces over/under-confidence over time.
 function CalibrationReadout() {
@@ -137,7 +105,6 @@ export default function ProgressPanel() {
     <div className="card progress-panel">
       <div className="kicker" style={{ marginBottom: 8 }}>Your progress</div>
       <StreakHeatmap />
-      <RankLadder />
       <CalibrationReadout />
     </div>
   );

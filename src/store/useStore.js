@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { resolveTier, BEASTS, SPECIES_KEYS, LEVELS } from '../data/beasts.js';
+import { resolveTier, BEASTS, SPECIES_KEYS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as labProgressFromContent } from '../data/content.js';
 import { PROVINCES, LAPSE_KEYS, JOURNEY_CHAPTERS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
@@ -358,7 +358,6 @@ const initial = {
   // default Beast Tamer. The legacy part fields stay in the shape for backup
   // migration safety but are no longer edited or rendered.
   avatar: { hair: 0, hairColor: '#6B4226', top: 0, topColor: '#7B9FB5', bottom: 0, shoes: 0, hat: 0, held: 0, tamer: 'ember_warden', armor: null },
-  level: 'novice',           // novice | junior | senior | distinguished
   activePath: 'devops',
   companion: 'dragon',       // chosen species
   // Live evolution tier for the active (species, activePath) cell. Kept as a
@@ -420,6 +419,13 @@ const initial = {
   // encounter performance (≤3 per chapter, 15 max). Entering needs BOTH the
   // hard gate (journeyGate) and the ember fee — gates can't be bought.
   journey: {},
+  // ── Minion/boss battle progress (Pokémon-style quiz battles) ─────────────
+  // { [pathKey]: { minions, boss } } — minions = highest DEFEATED encounter
+  // stage (0..5, a watermark like journey.chapter), boss = the province's
+  // Lapse has been beaten. Encounters gate on path progress + the previous
+  // stage; rewards mint only when the watermark advances (retries are free
+  // practice, never XP farms).
+  battles: {},
   onboarded: false,
   // First-run app tour ("how to use the app"). false until completed or skipped;
   // resetTour() flips it back so Settings → "How it works" can replay it.
@@ -655,8 +661,6 @@ export const useStore = create(
       completeTour: () => set({ tourSeen: true }),
       resetTour: () => set({ tourSeen: false }),
       setSetting: (k, v) => set((s) => ({ settings: { ...s.settings, [k]: v } })),
-      // User-selected level. Floor behavior: recomputeLevel can promote but never demote.
-      setLevel: (level) => { if (LEVELS.includes(level)) set({ level }); },
       clearPendingEvolution: () => set({ pendingEvolution: null }),
 
       completeLesson: (lessonId) => {
@@ -674,7 +678,6 @@ export const useStore = create(
           completed: { ...s.completed, [lessonId]: true },
           dailyStats: bumpStat(s.dailyStats, isoDay(), 'lessons', 1),
         }));
-        get().recomputeLevel();
         get().recomputeEvolution();
         get().recomputeBackgrounds();
         get().recordActivity();
@@ -1099,6 +1102,28 @@ export const useStore = create(
         get().queueCutscene(`chapter:${pathKey}:${n}`);
       },
 
+      // recordBattleWin: a minion encounter (stage 1..5) or the province boss
+      // was defeated in a quiz battle. Watermark semantics like completeChapter:
+      // XP mints only when the watermark actually advances, so replaying a
+      // beaten stage is free practice, not a farm. Boss needs all 5 minions.
+      recordBattleWin: (pathKey, stage) => {
+        if (!PATH_KEYS.includes(pathKey)) return;
+        const cur = get().battles?.[pathKey] || { minions: 0, boss: false };
+        if (stage === 'boss') {
+          if (cur.boss || cur.minions < 5) return;
+          set((s) => ({ battles: { ...(s.battles || {}), [pathKey]: { ...cur, boss: true } } }));
+          get().addXp(40, `battle:boss:${pathKey}`);
+          get().recordActivity();
+          return;
+        }
+        if (!Number.isInteger(stage) || stage < 1 || stage > 5) return;
+        // Sequential: can only advance the watermark by exactly one.
+        if (stage !== cur.minions + 1) return;
+        set((s) => ({ battles: { ...(s.battles || {}), [pathKey]: { ...cur, minions: stage } } }));
+        get().addXp(15, `battle:minion:${pathKey}:${stage}`);
+        get().recordActivity();
+      },
+
       // ── Spaced-repetition scheduler (FSRS-flavored) ──────────────────
       // grade: 1=miss, 2=hard, 3=good, 4=easy.
       // Stability grows multiplicatively with grade; difficulty (1..10) creeps
@@ -1411,14 +1436,6 @@ export const useStore = create(
         get().recordActivity();
       },
 
-      // Earned floor: lessons completed promote level, but never demote a user-selected tier.
-      recomputeLevel: () => {
-        const n = Object.keys(get().completed).length;
-        const derived = n >= 20 ? 'distinguished' : n >= 10 ? 'senior' : n >= 4 ? 'junior' : 'novice';
-        const cur = get().level;
-        if (LEVELS.indexOf(derived) > LEVELS.indexOf(cur)) set({ level: derived });
-      },
-
       // Evolve the companion if thresholds are met for the active path.
       // Per-pet per-path: writes into beastTiers[species][pathKey], then
       // re-syncs the mirror beastTier value if the active cell moved up.
@@ -1429,7 +1446,7 @@ export const useStore = create(
         const { pct } = pathProgress(s.activePath, s.completed);
         const badge = badgeFor(pct);
         const current = s.beastTiers?.[s.companion]?.[s.activePath] || 1;
-        const nextTier = resolveTier(current, { level: s.level, pathPct: pct, badge });
+        const nextTier = resolveTier(current, { lessons: Object.keys(s.completed).length, pathPct: pct, badge });
         if (nextTier > current) {
           const nextTiers = {
             ...s.beastTiers,
@@ -1519,7 +1536,6 @@ export const useStore = create(
           // enough (e.g. wouldn't catch companion: "ghost").
           const clean = {
             displayName: scrubString(raw.displayName, 'Learner'),
-            level:       scrubEnum(raw.level, LEVELS, 'novice'),
             activePath:  scrubEnum(raw.activePath, PATH_KEYS, 'devops'),
             companion:   scrubEnum(raw.companion, SPECIES_KEYS, 'dragon'),
             beastTier:   scrubInt(raw.beastTier, 1, 4, 1),
@@ -1596,6 +1612,21 @@ export const useStore = create(
                   paid: Math.max(paid, chapter),
                   stars: scrubInt(e.stars, 0, 15, 0),
                 };
+              }
+              return out;
+            })(),
+            // Battle watermarks — same threat model as journey: clamp the
+            // minion stage, boss only survives if all five minions did.
+            battles: (() => {
+              const out = {};
+              const m = raw.battles;
+              if (!m || typeof m !== 'object') return out;
+              for (const k of Object.keys(m)) {
+                if (!PATH_KEYS.includes(k)) continue;
+                const e = m[k];
+                if (!e || typeof e !== 'object') continue;
+                const minions = scrubInt(e.minions, 0, 5, 0);
+                out[k] = { minions, boss: e.boss === true && minions === 5 };
               }
               return out;
             })(),
@@ -1861,6 +1892,19 @@ export const useStore = create(
                   }
                   return merged;
                 })(),
+                // Battle union — watermark max, boss survives from either side.
+                battles: (() => {
+                  const merged = { ...(s.battles || {}) };
+                  for (const k of Object.keys(clean.battles || {})) {
+                    const a = merged[k] || { minions: 0, boss: false };
+                    const b = clean.battles[k];
+                    merged[k] = {
+                      minions: Math.max(a.minions || 0, b.minions),
+                      boss: a.boss === true || b.boss === true,
+                    };
+                  }
+                  return merged;
+                })(),
                 // Codex union — earliest unlock date wins, like badges.
                 loreUnlocked: (() => {
                   const merged = { ...(clean.loreUnlocked || {}) };
@@ -1873,14 +1917,13 @@ export const useStore = create(
                 })(),
                 pendingCliffhanger: s.pendingCliffhanger?.lessonId ? s.pendingCliffhanger : clean.pendingCliffhanger,
                 // NOT merged on purpose (local wins): displayName, avatar,
-                // settings, level, activePath, companion, pendingEvolution,
+                // settings, activePath, companion, pendingEvolution,
                 // practiceCombo, pendingFreeze, xpHistory, dailyStats.
               };
             });
           } else {
             set({ ...initial, ...clean });
           }
-          get().recomputeLevel();
           get().recomputeEvolution();
           // A merged `completed` union can newly satisfy section/path badges
           // and background reqs — grant them now, not on the next organic
@@ -1951,13 +1994,14 @@ export const useStore = create(
       //      CONTENT to play, not a record: existing users keep their met
       //      gates (instant access) but still walk the road and pay the
       //      ember pacing like everyone else.
-      version: 17,
+      version: 18,
       // Drop the transient celebrate signal from the persisted payload —
       // it's a one-shot UI flag (migrate also clears it defensively for
       // blobs written before this existed).
       partialize: (s) => {
         const out = { ...s };
         delete out.celebrate;
+        delete out.persistFailed;   // transient — a persisted "not saving" flag would lie on reload
         return out;
       },
       // Custom PersistStorage (NOT createJSONStorage) for two reasons:
@@ -1979,14 +2023,41 @@ export const useStore = create(
           if (!pending) return;
           const { name, value } = pending;
           pending = null;
-          try { localStorage.setItem(name, JSON.stringify(value)); }
-          catch (e) { console.warn('[InfraLearn] saving progress failed (storage full?):', e); }
+          try {
+            // Rotate the last known-good blob to a .bak sibling BEFORE the
+            // primary write. A truncated/corrupt primary (browser killed
+            // mid-write, quota race) then recovers from .bak on next load
+            // instead of resetting the account to defaults. Best-effort: a
+            // .bak quota failure must never block the primary save.
+            const prev = localStorage.getItem(name);
+            if (prev) { try { localStorage.setItem(`${name}.bak`, prev); } catch { /* best-effort */ } }
+            localStorage.setItem(name, JSON.stringify(value));
+            // Recovered? Clear the banner (guarded — no set() churn on the hot path).
+            if (useStore.getState().persistFailed) useStore.setState({ persistFailed: false });
+          } catch (e) {
+            console.warn('[InfraLearn] saving progress failed (storage full?):', e);
+            // Surface it — the in-memory session keeps earning XP that will
+            // evaporate on reload; the user must be told, not the console.
+            try { useStore.setState({ persistFailed: true }); } catch { /* store mid-init */ }
+          }
         };
         return {
           getItem: (name) => {
             try {
               const str = localStorage.getItem(name);
-              return str ? JSON.parse(str) : null;
+              if (str) {
+                try { return JSON.parse(str); }
+                catch { /* corrupt primary — fall through to the backup */ }
+              }
+              // Primary missing or unparseable: try the .bak rotation before
+              // surrendering to a fresh-account reset.
+              const bak = localStorage.getItem(`${name}.bak`);
+              if (bak) {
+                const parsed = JSON.parse(bak); // throws → outer catch → null
+                console.warn('[InfraLearn] primary save unreadable — recovered from backup copy.');
+                return parsed;
+              }
+              return null;
             } catch { return null; }
           },
           setItem: (name, value) => {
@@ -2000,7 +2071,10 @@ export const useStore = create(
           },
           removeItem: (name) => {
             pending = null;
+            // A persist-level remove is a full-wipe intent — the backup goes
+            // too, or a deliberate reset would silently resurrect on reload.
             try { localStorage.removeItem(name); } catch { /* ignore */ }
+            try { localStorage.removeItem(`${name}.bak`); } catch { /* ignore */ }
           },
         };
       })(),
@@ -2195,6 +2269,11 @@ export const useStore = create(
         }
         if (prevVersion < 17 || persisted.pendingCutscene === undefined) {
           persisted.pendingCutscene = null;
+        }
+        // v18 — minion/boss quiz battles. Empty default; encounters are
+        // fought, not backfilled (a 100% path still has to beat its Lapse).
+        if (prevVersion < 18 || !persisted.battles || typeof persisted.battles !== 'object') {
+          persisted.battles = {};
         }
         // Always clear the ephemeral celebrate flag on rehydrate — it's a
         // transient UI signal, persisting it would replay celebrations on

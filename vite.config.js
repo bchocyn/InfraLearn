@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from 'vite';
+// NOTE: needs @vitejs/plugin-react v5+ — older (Babel-era) versions inject
+// esbuild-style options (incl. a `jsx` key) that rolldown-vite's option
+// validator rejects ("Invalid input options … received 'jsx'" dev warnings).
+// v5+ detects rolldown-vite and uses the oxc transform natively.
 import react from '@vitejs/plugin-react';
 
 // After the build emits dist/, substitute the service worker's

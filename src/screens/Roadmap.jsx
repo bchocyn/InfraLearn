@@ -2,8 +2,10 @@ import { memo, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS, groupedSections, labUnlockStatus, pathProgress } from '../data/content.js';
-import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
 import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
+// Light battle meta ONLY — battles.js proper drags the question banks and
+// must never enter this eager chunk.
+import { encounterStatus, battleGateForLesson, MINIONS, BATTLE_BANKED_PATHS } from '../data/battleMeta.js';
 import BeastSprite, { nullBeastSrc } from '../components/BeastSprite.jsx';
 
 // ─── The Adventure Map (v5) ───────────────────────────────────────────────────
@@ -461,11 +463,11 @@ export default function Roadmap() {
   // Per-lesson quiz misses → per-stage star ratings (CRK-style). Writes only
   // happen inside lessons, so this never re-renders the map mid-browse.
   const quizMisses = useStore((st) => st.quizMisses);
-  const level = useStore((st) => st.level);
+  // Minion/boss battle watermarks — drives the encounter markers on the trail.
+  const battlesMap = useStore((st) => st.battles);
   const hideCompanion = useStore((st) => st.settings?.hideCompanion);
   const companion = useStore((st) => st.companion);
   const beastTier = useStore((st) => st.beastTier);
-  const setLevel = useStore((st) => st.setLevel);
   const setActivePath = useStore((st) => st.setActivePath);
   // Reduced motion: in-app setting OR the OS preference (same pattern as
   // AnimatedDiagram). Gates the SMIL story animations (fog drift, eye blink,
@@ -490,7 +492,6 @@ export default function Roadmap() {
   const allDone = lessons.length > 0 && doneCount === lessons.length;
   const pct = lessons.length ? doneCount / lessons.length : 0;
 
-  const levelLabel = (level || 'novice').toUpperCase();
   const pathLabel = (path.name || pathKey).toUpperCase();
 
   // Compute the node layout + canvas height.
@@ -605,13 +606,23 @@ export default function Roadmap() {
       // Already-finished labs stay openable; otherwise gate on unlock.
       if (!unlocked && !done) return;
     }
+    // A minion earlier on the trail bars NEW lessons — the tap goes to the
+    // fight instead of a dead end. (Route-level BattleGate backs this up for
+    // Library/deep-link entry.)
+    if (!completed[n.lesson.id]) {
+      const gate = battleGateForLesson(pathKey, lessons.indexOf(n.lesson), lessons.length, battlesMap);
+      if (gate.blocked) {
+        nav(`/battle/${pathKey}/${gate.stage}`);
+        return;
+      }
+    }
     nav(`/lesson/${n.lesson.id}`);
   };
 
   return (
     <div className="screen fade-in">
       <div className="kicker" style={{ marginBottom: 4 }}>
-        {pathLabel} · {levelLabel}
+        {pathLabel}
       </div>
       <div className="row" style={{ marginBottom: 4 }}>
         <h1 className="h1" style={{ margin: 0 }}>The journey<span className="dot">.</span></h1>
@@ -647,7 +658,15 @@ export default function Roadmap() {
         {path.icon} {path.name} — {allDone ? 'complete' : `${lessons.length - doneCount} lessons to go`}
       </p>
 
-      <RoadmapPickers level={level} setLevel={setLevel} setActivePath={setActivePath} pathKey={pathKey} completed={completed} />
+      <button
+        className="btn"
+        style={{ width: '100%', marginBottom: 10, fontSize: 13 }}
+        onClick={() => nav('/worldmap')}
+      >
+        🗺 See the world map (preview)
+      </button>
+
+      <RoadmapPickers setActivePath={setActivePath} pathKey={pathKey} completed={completed} />
 
       <ProvinceBanner province={province} pathLabel={pathLabel} />
 
@@ -680,6 +699,10 @@ export default function Roadmap() {
             if (kind === 'lab') {
               unlocked = !!labUnlocks[lesson.id]?.unlocked || done;
             }
+            // Barred by an unbeaten minion earlier on the trail? Still
+            // tappable — the tap routes to the fight (handleNodeClick).
+            const battleBarred = !done
+              && battleGateForLesson(pathKey, i, lessons.length, battlesMap).blocked;
 
             const clickable = !(kind === 'lab' && !unlocked);
             const cursor = clickable ? 'pointer' : 'not-allowed';
@@ -773,6 +796,18 @@ export default function Roadmap() {
                   >
                     🔒
                   </text>
+                ) : battleBarred ? (
+                  <text
+                    x={n.x}
+                    y={n.y + 4}
+                    fontFamily="JetBrains Mono, ui-monospace, monospace"
+                    fontSize="10"
+                    textAnchor="middle"
+                    fill="#F4EFE3"
+                    opacity="0.85"
+                  >
+                    ⚔
+                  </text>
                 ) : null}
               </g>
             );
@@ -780,6 +815,24 @@ export default function Roadmap() {
 
           {/* Medal at end of trail */}
           <Medal x={W / 2} y={H - 30} active={allDone} pathKey={pathKey} />
+
+          {/* ── Minion encounters + boss (Pokémon-style quiz battles) ────
+              Overlay layer, deliberately NOT part of `nodes` — the walker,
+              currentIdx, and stars all index nodes by lesson position, so
+              encounters render independently at trail fractions 1/6..5/6
+              with the boss just above the medal. Hidden entirely for paths
+              whose question banks can't deal a hand yet. */}
+          {BATTLE_BANKED_PATHS.has(pathKey) ? (
+            <EncounterMarks
+              pathKey={pathKey}
+              lessonCount={lessons.length}
+              pct={pct}
+              battles={battlesMap}
+              H={H}
+              reduced={reduced}
+              onOpen={(stage) => nav(`/battle/${pathKey}/${stage}`)}
+            />
+          ) : null}
 
           {/* ── Story layer (dynamic — progress-dependent, so it lives OUT-
               side the memoized static scene). Fog of the Null over the
@@ -1833,7 +1886,7 @@ function truncate(str, n) {
   return str.slice(0, n - 1) + '…';
 }
 
-function RoadmapPickers({ level, setLevel, setActivePath, pathKey, completed }) {
+function RoadmapPickers({ setActivePath, pathKey, completed }) {
   const selectStyle = {
     width: '100%',
     background: 'var(--bg-elevated)',
@@ -1856,39 +1909,101 @@ function RoadmapPickers({ level, setLevel, setActivePath, pathKey, completed }) 
   };
   return (
     <div className="card" style={{ marginBottom: 14 }}>
-      <div className="row" style={{ gap: 10, alignItems: 'stretch' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="kicker" style={{ marginBottom: 6 }}>Skill level</div>
-          <select
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-            style={selectStyle}
-            aria-label="Skill level"
-          >
-            {LEVELS.map((lvl) => (
-              <option key={lvl} value={lvl}>{LEVEL_LABEL[lvl]}</option>
-            ))}
-          </select>
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="kicker" style={{ marginBottom: 6 }}>Career path</div>
-          <select
-            value={pathKey}
-            onChange={(e) => setActivePath(e.target.value)}
-            style={selectStyle}
-            aria-label="Career path"
-          >
-            {PATH_KEYS.map((k) => {
-              const p = PATHS[k];
-              if (!p) return null;
-              const pp = pathProgress(k, completed);
-              return (
-                <option key={k} value={k}>{p.icon} {p.name} · {Math.round(pp.pct * 100)}%</option>
-              );
-            })}
-          </select>
-        </div>
-      </div>
+      <div className="kicker" style={{ marginBottom: 6 }}>Career path</div>
+      <select
+        value={pathKey}
+        onChange={(e) => setActivePath(e.target.value)}
+        style={selectStyle}
+        aria-label="Career path"
+      >
+        {PATH_KEYS.map((k) => {
+          const p = PATHS[k];
+          if (!p) return null;
+          const pp = pathProgress(k, completed);
+          return (
+            <option key={k} value={k}>{p.icon} {p.name} · {Math.round(pp.pct * 100)}%</option>
+          );
+        })}
+      </select>
     </div>
+  );
+}
+
+// ── Minion-encounter markers (Pokémon-style quiz battles) ────────────────────
+// Five minion stages at trail fractions 1/6..5/6, the province's Lapse boss
+// just above the medal. States: locked (grey + padlock), unlocked (full colour
+// + pulse ring), beaten (green seal — still tappable for practice replays).
+// Gating math lives in battleMeta.encounterStatus so the Battle screen agrees.
+function EncounterMarks({ pathKey, lessonCount, pct, battles, H, reduced, onOpen }) {
+  const lapseId = PROVINCES[pathKey]?.lapse;
+  if (!lapseId) return null;
+  const minion = MINIONS[lapseId];
+  const base = `${import.meta.env.BASE_URL}worldmap/`;
+  const marks = [];
+  for (let k = 1; k <= 5; k++) {
+    marks.push({
+      stage: k,
+      x: W / 2 + (k % 2 === 0 ? 26 : -26),
+      y: TOP + (k / 6) * lessonCount * STEP_Y,
+      sprite: `${base}minion-${lapseId}.png`,
+      size: 30,
+    });
+  }
+  marks.push({ stage: 'boss', x: W / 2, y: H - 74, sprite: nullBeastSrc(lapseId), size: 40 });
+  return (
+    <g>
+      {marks.map((m) => {
+        const st = encounterStatus(pathKey, m.stage, pct, battles);
+        const tappable = st.unlocked || st.beaten;
+        const bright = st.unlocked || st.beaten;
+        const label = m.stage === 'boss'
+          ? `Boss battle — ${FIVE_LAPSES[lapseId]?.name || 'the Lapse'}${st.beaten ? ' (defeated)' : st.unlocked ? '' : ' — beat all five minions and reclaim the province first'}`
+          : `${minion?.name || 'Minion'} encounter ${m.stage} of 5${st.beaten ? ' (beaten — replay for practice)' : st.unlocked ? '' : ' — locked'}`;
+        return (
+          <g
+            key={String(m.stage)}
+            role="button"
+            tabIndex={tappable ? 0 : -1}
+            aria-label={label}
+            aria-disabled={!tappable}
+            style={{ cursor: tappable ? 'pointer' : 'not-allowed' }}
+            onClick={() => tappable && onOpen(m.stage)}
+            onKeyDown={(e) => { if (tappable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(m.stage); } }}
+          >
+            {st.unlocked && !st.beaten && !reduced ? (
+              <circle cx={m.x} cy={m.y} r={m.size * 0.66} fill="rgba(224,112,106,.30)" className="roadmap-current-pulse" />
+            ) : null}
+            <circle
+              cx={m.x} cy={m.y} r={m.size * 0.58}
+              fill="#1a1410"
+              stroke={st.beaten ? '#8FA876' : st.unlocked ? '#E0706A' : '#3a342c'}
+              strokeWidth="2"
+              opacity={bright ? 0.92 : 0.6}
+            />
+            {/* A BEATEN boss has fled — its marker keeps only the seal, no
+                sprite (minions linger for practice replays). */}
+            {!(m.stage === 'boss' && st.beaten) && (
+              <image
+                href={m.sprite}
+                x={m.x - m.size / 2} y={m.y - m.size / 2}
+                width={m.size} height={m.size}
+                preserveAspectRatio="xMidYMid meet"
+                style={{
+                  imageRendering: 'pixelated',
+                  filter: bright ? 'none' : 'grayscale(1) brightness(0.55)',
+                  opacity: bright ? 1 : 0.7,
+                }}
+              />
+            )}
+            {st.beaten ? (
+              <text x={m.x + m.size * 0.44} y={m.y - m.size * 0.3} fontSize="10" fill="#8FA876"
+                style={{ paintOrder: 'stroke', stroke: '#0B0A08', strokeWidth: 2 }}>✓</text>
+            ) : !st.unlocked ? (
+              <text x={m.x} y={m.y + m.size * 0.72 + 8} fontSize="9" textAnchor="middle" fill="#F4EFE3" opacity="0.75">🔒</text>
+            ) : null}
+          </g>
+        );
+      })}
+    </g>
   );
 }

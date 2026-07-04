@@ -13,7 +13,7 @@
 // Defers to PathAscension: if an Ascension cinematic is queued at the same
 // time, the bigger moment plays first and the cutscene waits its turn.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore.js';
 import { getCutscene, parseCutsceneId } from '../data/cutscenes.js';
 import { BEASTS } from '../data/beasts.js';

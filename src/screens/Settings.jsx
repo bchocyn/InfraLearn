@@ -8,7 +8,6 @@ import { isCloudConfigured, getCloud, syncNow, LAST_SYNC_KEY, ENABLED_KEY } from
 import ProgressPanel from '../components/ProgressPanel.jsx';
 import WeekRecap from '../components/WeekRecap.jsx';
 import { PATHS, PATH_KEYS } from '../data/content.js';
-import { LEVELS, LEVEL_LABEL } from '../data/beasts.js';
 // Theme tables live in their own tiny module so main.jsx can read them
 // SYNCHRONOUSLY without dragging in the whole Settings screen. We re-export
 // them here so any code that already imports from '../screens/Settings.jsx'
@@ -28,14 +27,13 @@ const TABS = [
 ];
 
 export default function Settings() {
-  // Narrow subscriptions — only the two fields the header actually renders.
+  // Narrow subscription — only the field the header actually renders.
   const displayName = useStore((st) => st.displayName);
-  const level = useStore((st) => st.level);
   const [tab, setTab] = useState('profile');
   return (
     <div className="screen fade-in">
       <h1 className="h1">Settings<span className="dot">.</span></h1>
-      <p className="caption" style={{ marginBottom: 12 }}>{displayName} · {LEVEL_LABEL[level]}</p>
+      <p className="caption" style={{ marginBottom: 12 }}>{displayName}</p>
 
       <div className="row" style={{ gap: 6, marginBottom: 14 }}>
         {TABS.map((t) => {
@@ -57,13 +55,11 @@ export default function Settings() {
 }
 
 function ProfileTab() {
-  // Per-field selectors: three data fields + four actions (stable refs).
+  // Per-field selectors: two data fields + three actions (stable refs).
   const displayName = useStore((st) => st.displayName);
-  const level = useStore((st) => st.level);
   const activePath = useStore((st) => st.activePath);
   const setName = useStore((st) => st.setName);
   const resetTour = useStore((st) => st.resetTour);
-  const setLevel = useStore((st) => st.setLevel);
   const setActivePath = useStore((st) => st.setActivePath);
   const nav = useNavigate();
   // Draft buffer for the display name. Writing every keystroke through
@@ -101,32 +97,6 @@ function ProfileTab() {
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
           style={inputStyle}
         />
-      </div>
-
-      <div className="card">
-        <div className="kicker" style={{ marginBottom: 8 }}>Self-assessed tier</div>
-        <div className="row" style={{ gap: 6 }}>
-          {LEVELS.map((lvl) => {
-            const active = lvl === level;
-            return (
-              <button key={lvl} type="button" onClick={() => setLevel(lvl)}
-                style={{ flex: 1, minWidth: 0, minHeight: 44, padding: '10px 2px', borderRadius: 8,
-                  border: `1.5px solid ${active ? 'var(--accent-amber)' : 'var(--border-subtle)'}`,
-                  background: active ? 'var(--accent-amber-bg)' : 'var(--bg-card)',
-                  color: active ? 'var(--accent-amber)' : 'var(--text-secondary)',
-                  fontFamily: 'var(--font-mono)',
-                  // Fluid: 9px at 375px iPhone (where "DISTINGUISHED" risks overflow),
-                  // back to 10px on roomier screens.
-                  fontSize: 'clamp(9px, 2.4vw, 10px)',
-                  letterSpacing: '.04em', cursor: 'pointer', textAlign: 'center' }}>
-                {LEVEL_LABEL[lvl]}
-              </button>
-            );
-          })}
-        </div>
-        <p className="caption" style={{ marginTop: 8, fontSize: 12 }}>
-          Daily Practice and Library adapt to this tier. Completing lessons can promote you but never demote.
-        </p>
       </div>
 
       <div className="card">

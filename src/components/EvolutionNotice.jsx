@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, activePathProgress, beastForm } from '../store/useStore.js';
-import { BEASTS, LEVEL_LABEL, ELEMENTS } from '../data/beasts.js';
+import { BEASTS, ELEMENTS } from '../data/beasts.js';
 import { PATHS } from '../data/content.js';
 import BeastSprite from './BeastSprite.jsx';
 
@@ -17,7 +17,6 @@ export default function EvolutionNotice() {
     pendingEvolution: st.pendingEvolution,
     companion: st.companion,
     activePath: st.activePath,
-    level: st.level,
     beastTier: st.beastTier,
     completed: st.completed,
   })));
@@ -51,7 +50,7 @@ export default function EvolutionNotice() {
           <BeastSprite species={s.companion} tier={s.beastTier} size={96} />
         </div>
         <p className="evo-notice-meta">
-          {LEVEL_LABEL[s.level]} reached · {Math.round(prog.pct * 100)}% through {path.name} {elementIcon}
+          {Math.round(prog.pct * 100)}% through {path.name} {elementIcon}
         </p>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0 14px', textAlign: 'center' }}>
           Head to the Byte Beast tab to watch the transformation.
