@@ -348,7 +348,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've now seen the CI→Delivery→Deployment gates, a real GitHub Actions workflow, and two release strategies (**blue-green** and **canary**). Design the end-to-end path a single commit takes from `git push` to live traffic — say which strategy you'd default to for a payments service and the one trade-off you'd watch most closely.",
             "modelAnswer": "A commit hits a branch and CI runs the gauntlet on the **exact artifact** that will ship: lint → tests → build one immutable image tagged by SHA (never `latest`). That's the **CI** half. **Delivery** means that green artifact is now *deployable* — promoted, not rebuilt, across staging and prod. **Deployment** is the act of putting it in front of users, and that's where the strategy choice lives. For a payments service I'd default to **canary**: route 1–5% of real traffic to the new version, watch error rate and latency for a few minutes, and ramp only if the SLOs hold — because a bad payments deploy that hits 100% of users instantly is unrecoverable. Blue-green is simpler and gives an *atomic* flip with an instant rollback, but it sends all traffic at once, so a subtle bug is fully exposed the moment you switch. The trade-off I'd watch hardest is the **database migration**: both strategies assume old and new code can run against the *same* schema simultaneously, so every migration has to be backward-compatible (expand, then contract) or the canary/flip silently corrupts data while looking healthy.",
-            "hint": "Trace the artifact: is it rebuilt per environment or promoted? Then ask what each strategy does to *the blast radius of a bad version*, and what shared resource both strategies quietly depend on."
+            "hint": "Trace the artifact: is it rebuilt per environment or promoted? Then ask what each strategy does to *the blast radius of a bad version*, and what shared resource both strategies quietly depend on.",
+            "commit": {
+              "q": "A bad build of the payments service is about to go live. Which release strategy keeps the blast radius smallest at the moment of release?",
+              "opts": [
+                "Blue-green — the atomic flip means you can roll back instantly",
+                "Canary — only 1–5% of real traffic sees the new version while you watch SLOs",
+                "Rebuild the image per environment so prod gets a fresh, clean artifact"
+              ],
+              "answer": 1,
+              "why": "Blue-green rolls back fast, but the flip exposes 100% of users the instant you switch. Canary caps how many users a bad payments version can ever touch before you catch it."
+            }
           }
         ]
       }
@@ -565,7 +575,17 @@ export default {
             "type": "explain-back",
             "prompt": "A teammate's Kubernetes Deployment won't apply — `kubectl` returns a vague \"error converting YAML\" message with no useful line. From *this* lesson, name the **three most likely YAML-level causes** and, for each, how you'd catch it **before** pushing.",
             "modelAnswer": "First, **a tab character in the indentation.** YAML forbids tabs and rejects the whole file, but the error rarely points at the tab. Catch it before pushing by configuring the editor to insert spaces for Tab and to render whitespace, plus running a linter (`yamllint`) which flags tabs explicitly. Second, **inconsistent indentation** — a key indented 2 spaces in one block and 4 in another, which silently re-parents a field under the wrong block or breaks the structure entirely. Catch it by sticking to a strict 2-space convention and running `yamllint`, whose indentation rule fails on the mismatch. Third, **a type-coercion surprise from an unquoted scalar** — a value like `version: 1.10` collapsing to the float `1.1`, or a name like `no`/`NO`/`off` flipping to a boolean (the Norway problem), so the manifest is valid YAML but the wrong shape for Kubernetes. Catch it by quoting any value that must stay text (versions, codes, yes/no-ish words) and by validating against the schema with `kubectl apply --dry-run=client` (or `kubeval`), which surfaces a field that came out the wrong type. The through-line: indentation is structure, and unquoted scalars are guesses — lint locally and dry-run before every push.",
-            "hint": "Three buckets from this lesson: how YAML reads whitespace, how consistent that whitespace must be, and what happens to a value you didn't quote. For each, name a local check (editor setting, `yamllint`, or a `--dry-run`) that catches it before the push."
+            "hint": "Three buckets from this lesson: how YAML reads whitespace, how consistent that whitespace must be, and what happens to a value you didn't quote. For each, name a local check (editor setting, `yamllint`, or a `--dry-run`) that catches it before the push.",
+            "commit": {
+              "q": "One of these mistakes produces a file that is *valid YAML* but the wrong shape for Kubernetes — the sneakiest failure. Which?",
+              "opts": [
+                "An unquoted value like `version: 1.10` that the parser coerces to a float",
+                "A tab character hiding in the indentation of one line",
+                "A key indented 2 spaces in one block and 3 in another"
+              ],
+              "answer": 0,
+              "why": "Tabs and broken indentation make YAML reject the file loudly. An unquoted scalar parses fine — the file loads, but the value silently comes out as the wrong type."
+            }
           }
         ]
       }
@@ -3730,7 +3750,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen **namespaces** (what a process can see), **cgroups** (what a process can take), and the fact that containers share **one host kernel**. Explain how those three combine to make a container, then make the judgment call: is a container a safe boundary to run *untrusted* code on? Defend your answer with the specific failure you're most worried about.",
             "modelAnswer": "A container is just an ordinary host process wearing two costumes: **namespaces** give it a private view — its own PID tree, mount table, and network stack, so it *believes* it's alone on the machine — while a **cgroup** caps the resources it can actually consume, so it can't starve its neighbors of CPU or memory. Compose those and you get the illusion of a private VM at the cost of a normal process: microsecond startup, no second kernel. But that last fact is the catch — all of this is enforced by the **single shared host kernel**. So for untrusted code I'd say a plain container is **not** a safe boundary. Isolation (the illusion) is not the same as security (a real wall). The failure I'd worry about most is a **kernel exploit or container breakout**: one bug in a syscall escapes *every* namespace at once, and if I forgot the **user** namespace, root-in-the-container is root-on-the-host. The trade-off to weigh is isolation strength vs. overhead: if the workload is genuinely untrusted, you pay for a real kernel boundary — gVisor, Firecracker microVMs, or Kata — accepting slower start and some performance loss to stop a single kernel CVE from owning the whole box.",
-            "hint": "One of the three is an *illusion* and one is a *budget* — which one is the actual security boundary, and which one do they all secretly share?"
+            "hint": "One of the three is an *illusion* and one is a *budget* — which one is the actual security boundary, and which one do they all secretly share?",
+            "commit": {
+              "q": "You must run untrusted customer code in a plain container. Which single failure breaks isolation for EVERY container on the box at once?",
+              "opts": [
+                "One container maxing out its cgroup CPU budget and starving neighbors",
+                "A process filling its own private mount namespace with junk files",
+                "A kernel exploit in one syscall — every namespace is enforced by the same kernel"
+              ],
+              "answer": 2,
+              "why": "cgroups and namespaces are per-container guardrails, but all of them are enforced by the one shared host kernel — a single kernel bug walks through every boundary at once."
+            }
           }
         ]
       }
@@ -3833,7 +3863,17 @@ export default {
             "type": "explain-back",
             "prompt": "Trace a packet from a container on host A to a container on host B in a Kubernetes cluster, naming each piece you've learned — **veth pair**, **bridge**, **iptables/port publish**, **embedded DNS**, and the **VXLAN overlay**. Then make a call: where would you enforce that the two containers are *allowed* to talk at all, and what's the trade-off of enforcing it there?",
             "modelAnswer": "The sending container has a **veth pair**: one end inside its network namespace, the other plugged into a **bridge** on host A. It resolves the destination by name through the cluster's **embedded DNS**, which hands back a pod (or Service) IP. The packet leaves the bridge and, because the destination lives on host B, the CNI wraps it in a **VXLAN overlay** — encapsulating the original frame inside a UDP packet addressed to host B's real NIC. Host B de-encapsulates it, **iptables** rules (the same machinery `-p` uses to publish a port) DNAT it to the right pod, and it pops out of the veth into the destination container. On the *whether they're allowed* question: by default every pod can reach every other pod, which is fine in dev and dangerous in prod, so I'd enforce it with a **NetworkPolicy** — an east-west firewall expressed as YAML and applied by the CNI right at the veth/bridge layer, closest to the workload. The trade-off is that NetworkPolicy is **only as real as the CNI behind it**: a plugin that ignores it (Flannel's default) leaves you with rules that look enforced but aren't, so the security choice is really a CNI choice (Calico/Cilium), and you pay for it in operational complexity.",
-            "hint": "Same-host traffic never leaves the bridge; cross-host traffic is the *only* reason the VXLAN overlay exists. For the policy question, ask which layer sits closest to the pod — and whether the thing enforcing it actually honors the rule."
+            "hint": "Same-host traffic never leaves the bridge; cross-host traffic is the *only* reason the VXLAN overlay exists. For the policy question, ask which layer sits closest to the pod — and whether the thing enforcing it actually honors the rule.",
+            "commit": {
+              "q": "Two pods sit on *different* hosts in the cluster. Which piece of the path exists purely to make that cross-host hop work?",
+              "opts": [
+                "The VXLAN overlay wrapping the frame in a UDP packet aimed at the other host's NIC",
+                "The veth pair connecting each pod to its bridge",
+                "The embedded DNS that resolves the service name to an IP"
+              ],
+              "answer": 0,
+              "why": "veth pairs and DNS are in play even when both pods share a host — same-host traffic never leaves the bridge. Encapsulation only earns its keep when the packet has to cross machines."
+            }
           }
         ]
       }
@@ -4253,7 +4293,17 @@ export default {
             "type": "explain-back",
             "prompt": "In your own words: explain idempotency to a teammate, and why it changes how you design deploy pipelines.",
             "modelAnswer": "An operation is **idempotent** if applying it N times has the same observable effect as applying it once — like `UPDATE x SET status='paid'` vs the non-idempotent `count = count + 1`. You care about this in deploys because every CI job *will* be retried (flaky tests, runner restarts, manual reruns), so any step that allocates resources or sends side effects on each run will silently double-create or double-charge. The design move is to lean on declarative tools (Terraform, Kubernetes) that diff desired vs actual state, and to attach **idempotency keys** to anything that's intrinsically non-idempotent — charges, emails, queue posts. Once your steps are safely re-runnable, retries become boring instead of dangerous.",
-            "hint": "Walk through what happens when a CI job that creates a load balancer gets retried three times — first without idempotency, then with."
+            "hint": "Walk through what happens when a CI job that creates a load balancer gets retried three times — first without idempotency, then with.",
+            "commit": {
+              "q": "A CI deploy step that creates a load balancer gets retried 3 times after runner flakes. With a naive (non-idempotent) script, what do you end up with?",
+              "opts": [
+                "One load balancer — the cloud API deduplicates identical create requests",
+                "Three load balancers — each retry re-executes the side effect with no memory of the last run",
+                "Zero load balancers — the failed runs roll back the earlier creates"
+              ],
+              "answer": 1,
+              "why": "Nothing in a naive create call checks whether the resource already exists, and cloud APIs don't dedupe for you. Every rerun allocates fresh — that's the failure idempotent design exists to prevent."
+            }
           }
         ]
       }
@@ -4931,7 +4981,17 @@ export default {
             "type": "explain-back",
             "prompt": "A user reports the checkout page is slow. Walk through how the **three pillars** (logs, metrics, traces), the split between **dashboards and alarms**, and **OpenTelemetry** instrumentation work together to take you from 'something feels off' to a fixed root cause. Then name the trade-off you'd watch to keep this observable system from becoming a liability.",
             "modelAnswer": "The chain only works because each pillar answers a different question. An **SLO-based alarm** fires first — checkout latency breached its budget — telling me *that* something is wrong without me staring at a screen. I open a **dashboard** built on **metrics** to see scope and trend: is it all users or one region, spiking now or creeping for an hour? Metrics localize but can't explain, so I pull a **trace** of a slow checkout request and watch it fan out across services until one span — say, the payments DB call — dominates the latency: that's *where*. Finally I read the **structured logs** for that exact service and trace ID to get *what* actually happened (a slow query, a retry storm). None of this is portable unless the producers emit **OpenTelemetry** — one vendor-neutral pipeline for all three signals — so I can correlate by trace ID and swap backends without re-instrumenting. The trade-off I'd watch is **cost vs. signal**: verbose `DEBUG` logs in prod and high-**cardinality** metric labels (`user_id` as a label) quietly turn into a four-figure bill and slow queries, while over-alerting breeds fatigue until the one real page gets ignored. So you tune for *fewer, higher-quality signals* — page on user pain, not CPU — even though that means accepting you won't have a metric pre-built for every question.",
-            "hint": "Order them by the question each answers: *that* it's broken → *where* → *what*. Then ask what makes all three correlate-able, and what the same firehose costs you if you leave every knob wide open."
+            "hint": "Order them by the question each answers: *that* it's broken → *where* → *what*. Then ask what makes all three correlate-able, and what the same firehose costs you if you leave every knob wide open.",
+            "commit": {
+              "q": "The latency alarm fired and the metrics dashboard confirms checkout really is slow, cluster-wide. Which signal do you reach for NEXT to find which service is at fault?",
+              "opts": [
+                "More metrics — build a per-service latency dashboard and compare",
+                "The structured logs of every downstream service, grepped in parallel",
+                "A distributed trace of one slow checkout request, span by span"
+              ],
+              "answer": 2,
+              "why": "Metrics told you *that* it's broken; the trace follows a single request across services and shows *where* the time went. Logs come after, once the trace names the suspect."
+            }
           }
         ]
       }

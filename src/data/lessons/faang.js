@@ -250,7 +250,17 @@ export default {
             "type": "explain-back",
             "prompt": "Synthesis: you're ordering events across a fleet that has **monotonic vs wall clocks**, **NTP step/leap-smear drift**, and **Lamport vs vector/HLC** logical clocks. Design how you'd timestamp and order events so that (a) timeouts never misfire and (b) you can tell *causally ordered* from *truly concurrent* — then name the one trade-off you'd watch as the cluster grows.",
             "modelAnswer": "Split the job by what each clock is *for*. Use the **monotonic** clock for every duration/timeout/budget so an NTP step (or leap-second smear) can't make a timer fire twice or never — wall clock is only for human-facing display. For *ordering*, never trust raw wall-clock comparisons across nodes; attach a **logical clock**. A **Lamport** clock gives a single total order but loses the distinction between causal and concurrent. **Vector clocks** recover that distinction — if neither vector dominates, the writes are genuinely concurrent and you must surface a conflict (or merge). **HLC** is the pragmatic middle: it stays close to wall time (so timestamps are readable and roughly sortable) while still encoding happens-before. The trade-off to watch: **vector clocks grow O(nodes)** — in a 10k-node cluster the metadata dwarfs the payload, so you cap participants, prune dead entries, or switch to HLC and accept that it tells you order but not full concurrency.",
-            "hint": "Three jobs, three clocks: monotonic = durations, wall = display, logical = ordering. What does a vector tell you that Lamport can't — and what does it cost at scale?"
+            "hint": "Three jobs, three clocks: monotonic = durations, wall = display, logical = ordering. What does a vector tell you that Lamport can't — and what does it cost at scale?",
+            "commit": {
+              "q": "Two replicas stamp writes with vector clocks and neither vector dominates the other. What has actually happened?",
+              "opts": [
+                "The write with the later wall-clock time happened first — trust NTP to break the tie",
+                "The writes are truly concurrent — no causal order exists, so you must surface or merge the conflict",
+                "The Lamport counters attached to each write will recover the causal order"
+              ],
+              "answer": 1,
+              "why": "Non-dominating vectors are the one signal that says \"no happens-before either way.\" Wall clocks drift across nodes, and Lamport's single total order can't tell causal from concurrent."
+            }
           }
         ]
       }
@@ -529,7 +539,17 @@ export default {
             "type": "explain-back",
             "prompt": "Synthesis: you've seen the **strong → causal → eventual** spectrum, what each level **costs** (latency, availability under partition), and **read-your-writes** as the cheap upgrade. Design the consistency for a single product that has an **account balance**, a **like count**, and a **'your post is live' confirmation** — assign a level to each, justify it, and name the trade-off you accept on the one you weaken the most.",
             "modelAnswer": "Pick the *weakest* level that still keeps each field correct, because every step toward strong costs latency and availability during a partition. **Balance → linearizable (strong):** it's a constraint where two readers disagreeing is real money lost, so you read from the primary (or a fenced quorum) and pay the cross-region round-trip. **Like count → eventual:** reads vastly outnumber writes, staleness of a few seconds is invisible, and conflicts have a sane merge (it's a commutative counter / CRDT), so you serve it from the nearest replica and scale reads globally. **'Post is live' confirmation → read-your-writes (causal, session-scoped):** the user must see *their own* write immediately or it feels broken, but they don't need everyone else's writes — so you pin their session to the primary or carry a write token, which is far cheaper than making the whole feed linearizable. The trade-off I accept on the like count: under a partition it can briefly show different totals to different users and can drift before convergence — fine for a vanity metric, unacceptable for the balance. The architecture falls out of routing each field to the right replica at the right freshness.",
-            "hint": "Don't pick one level for the whole DB. Per field: is disagreement *money* (strong), *vanity* (eventual), or *'did MY action stick'* (read-your-writes)? Then name what the eventual field can show wrong."
+            "hint": "Don't pick one level for the whole DB. Per field: is disagreement *money* (strong), *vanity* (eventual), or *'did MY action stick'* (read-your-writes)? Then name what the eventual field can show wrong.",
+            "commit": {
+              "q": "Same Postgres, three fields. Which one genuinely justifies paying the full linearizable price?",
+              "opts": [
+                "The like count — users notice a wrong number instantly, so it must never disagree",
+                "The 'your post is live' confirmation — it has to be globally fresh for everyone at once",
+                "The account balance — two readers disagreeing here is real money lost"
+              ],
+              "answer": 2,
+              "why": "Only the balance is a hard constraint where disagreement costs money. The other two fields have cheaper consistency levels that still feel correct to the user."
+            }
           }
         ]
       }
@@ -740,7 +760,17 @@ export default {
             "type": "explain-back",
             "prompt": "Synthesis: design a 'place order' flow that debits a wallet, reserves inventory, and emails a receipt across three services. You have **2PC**, **sagas with compensations**, and **idempotency keys + the outbox pattern** in your toolbox. Decide which to use (and where), explain how they combine, and name the trade-off that drives the choice.",
             "modelAnswer": "Don't reach for one mechanism for the whole flow — combine them by failure mode. **Sagas, not 2PC, for the cross-service workflow:** 2PC holds locks and *blocks every participant indefinitely if the coordinator dies mid-protocol*, which kills availability at scale, so the order is a saga of local transactions (debit → reserve → email) each with a compensation (refund → release → no-op). **Sequence irreversible steps last:** the email can't be un-sent, so it runs only after the debit and reservation have both committed — compensations only need to undo the reversible steps. **Idempotency keys on every step** so a retry storm doesn't double-charge or double-reserve; the key is the order ID, and each service no-ops on a key it has already applied. **The outbox pattern** makes the 'committed locally *and* event published' pair atomic: each service writes its state change and the next event in the *same* DB transaction, then a poller (or CDC) ships the event — so you never lose a step or publish one you didn't commit. The trade-off: you give up the clean all-or-nothing *isolation* of 2PC and accept temporary partial states (money debited, inventory not yet reserved) plus the work of writing correct compensations — in exchange for liveness: no service blocks on a dead coordinator, and the system makes forward progress under failure.",
-            "hint": "2PC = atomic but blocks on a dead coordinator. Saga = liveness but you write the undo. Idempotency keys + outbox are the glue that makes the saga's retries safe and its events not-lost. What are you trading for forward progress?"
+            "hint": "2PC = atomic but blocks on a dead coordinator. Saga = liveness but you write the undo. Idempotency keys + outbox are the glue that makes the saga's retries safe and its events not-lost. What are you trading for forward progress?",
+            "commit": {
+              "q": "Debit wallet, reserve inventory, email receipt — which step must the saga sequence LAST?",
+              "opts": [
+                "The receipt email — it's the one step with no compensation; you can't un-send it",
+                "The wallet debit — money movements should always settle after everything else",
+                "The inventory reserve — stock is the scarcest resource, so hold it as briefly as possible"
+              ],
+              "answer": 0,
+              "why": "A compensation can refund a debit or release a reservation, but nothing un-sends an email. Irreversible steps run only after every reversible step has committed."
+            }
           }
         ]
       }
@@ -3006,7 +3036,17 @@ export default {
             "type": "explain-back",
             "prompt": "In your own words: walk through the three steps a safe webhook handler does, in order, and why the order matters.",
             "modelAnswer": "First you **verify** the HMAC signature against your shared secret, with a 5-minute timestamp window — this rejects forged or replayed events before you spend any DB cycles on them. Second you **dedupe** by atomically inserting the sender's `evt_…` ID into a `processed_events` table with a unique constraint; if the insert fails on the constraint, you've seen this event before, so you no-op and return `200`. Third you **apply** the business logic, knowing you'll only get here once per event ID. The order is non-negotiable: verify before dedupe means attackers can't poison your dedupe store with junk IDs, and dedupe before apply means the at-least-once retries from Stripe or GitHub can't double-charge or double-email. Always return `200` on duplicates — anything else triggers a retry storm.",
-            "hint": "Three words, in order: verify, dedupe, apply. What breaks if you flip any two of them?"
+            "hint": "Three words, in order: verify, dedupe, apply. What breaks if you flip any two of them?",
+            "commit": {
+              "q": "You flip the order and dedupe BEFORE verifying the signature. What's the new failure mode?",
+              "opts": [
+                "Attackers can stuff forged event IDs into your dedupe store, so the real events later no-op as duplicates",
+                "Duplicate events get processed twice because the unique constraint stops firing",
+                "Nothing — verify and dedupe are independent; only apply has to come last"
+              ],
+              "answer": 0,
+              "why": "Once unverified requests can write to your dedupe table, a forged evt_ ID gets \"seen first\" — and the genuine event that arrives later is silently dropped as a duplicate."
+            }
           },
           {
             "type": "quote",
@@ -3187,7 +3227,17 @@ export default {
             "type": "explain-back",
             "prompt": "Synthesis: a payment service calls a flaky charge API. Compose **idempotency keys**, **jittered exponential backoff with a budget**, and a **circuit breaker** into one safe call path. Walk through the order they fire when a request comes in, explain *why that order* is the only correct one, and name the trade-off the circuit breaker forces you to accept.",
             "modelAnswer": "The order is **breaker check → idempotency key → retry-with-backoff**, and it can't be reshuffled. **Breaker first:** if the downstream is already known-dead the open breaker short-circuits instantly — no point attaching keys or burning a retry budget on a call that will only time out and add load to a struggling service. **Idempotency key before the first attempt:** generate it once (e.g. the order ID) and send it on *every* attempt, so when a retry duplicates a request that actually succeeded server-side, the downstream no-ops instead of double-charging — without this, retries make the problem worse, so it has to wrap the retry loop, not live inside it. **Retry with full-jitter exponential backoff under a bounded budget (max attempts AND max wall-clock, measured on the monotonic clock):** jitter so a thundering herd doesn't all retry in lockstep, exponential so you back off as the downstream struggles, budget so you fail fast instead of hanging the caller. Each failed attempt feeds the breaker's failure count; once it trips, subsequent calls skip straight to the fallback. The trade-off the breaker forces: **it deliberately fails *some* requests that might have succeeded** — while open it rejects everything, including the call that would have gone through — trading a few false rejections for protecting the downstream from a retry storm and giving it room to recover. Idempotency makes retries safe, backoff makes them kind, the breaker makes them optional.",
-            "hint": "Order: check the breaker, attach the key, *then* retry. Why can't the key come after the retries start, and what does an open breaker cost you in exchange for protecting the downstream?"
+            "hint": "Order: check the breaker, attach the key, *then* retry. Why can't the key come after the retries start, and what does an open breaker cost you in exchange for protecting the downstream?",
+            "commit": {
+              "q": "A retry fires for a charge that actually succeeded server-side on the first attempt. What stops the customer from being billed twice?",
+              "opts": [
+                "The jittered backoff — the delay gives the downstream time to reconcile the duplicate",
+                "The circuit breaker — it opens before the duplicate request can land",
+                "The same idempotency key sent on every attempt — the downstream recognizes it and no-ops"
+              ],
+              "answer": 2,
+              "why": "Backoff and the breaker only shape WHEN calls happen; neither can tell the downstream \"you already did this one.\" Only a key generated once, outside the retry loop, makes duplicates safe."
+            }
           }
         ]
       }
@@ -3372,7 +3422,17 @@ export default {
                     "type": "explain-back",
                     "prompt": "In your own words: why does naming a **non-goal** in the first 60 seconds save you time later in this interview?",
                     "modelAnswer": "Stating non-goals (e.g., \"I'm not designing custom vanity URLs, branded domains, or A/B-routing in v1\") forces the interviewer to either accept your scope or correct it **before** you've already built the wrong system on the whiteboard. It's a forcing function for alignment — and shows you know that ambiguous specs are the #1 reason interview designs collapse at minute 35.",
-                    "hint": "Think about whose time it costs when you build the wrong thing for 20 minutes."
+                    "hint": "Think about whose time it costs when you build the wrong thing for 20 minutes.",
+                    "commit": {
+                      "q": "You skip non-goals and spend 20 minutes designing vanity URLs the interviewer never asked for. What would stating a non-goal up front have bought you?",
+                      "opts": [
+                        "Breadth points — interviewers reward candidates who list features they chose not to build",
+                        "A scope correction at minute 1 instead of minute 35 — the interviewer must accept or fix your boundaries before you build",
+                        "More whiteboard time for the scaling phase, which is weighted heaviest in scoring"
+                      ],
+                      "answer": 1,
+                      "why": "A non-goal is a forcing function for alignment, not a flex. Its whole value is that any correction arrives BEFORE you've built the wrong system."
+                    }
                   }
                 ],
                 "reference": "**Functional:** (1) shorten long URL → return 7-char code; (2) GET /<code> → 301 redirect; (3) capture click event (async, not on hot path). **Non-functional:** 10M writes/day = ~115 writes/sec avg, ~350/sec peak; 1B reads/day = ~12K reads/sec avg, ~35K/sec peak; p95 redirect < 100ms; 5-year retention = 18B rows total. **Non-goals (v1):** custom vanity URLs, per-user analytics dashboards, link previews, edit-after-creation. **Auth:** API-key for creation, redirect path is anonymous and globally cached."
@@ -3459,7 +3519,17 @@ export default {
                     "type": "explain-back",
                     "prompt": "You're explaining to a junior why you chose **counter-based + base62 encoding** over **hash(long_url)** for code generation. Give the two strongest arguments.",
                     "modelAnswer": "(1) **Determinism is a liability here, not an asset.** If `hash(long_url) → code` is deterministic, anyone shortening the same URL gets the same code — which leaks information (you can probe whether someone else already shortened a private URL) and breaks idempotency-per-user (two users want two different codes for the same target). (2) **Length control.** Hashes are fixed-length (MD5 = 32 hex chars, truncated MD5 risks more collisions); counter+base62 lets you start at 6 chars and grow to 7 only when the counter overflows, optimizing UX for early links. Counter also gives you a **monotonic ordering** you can use for sharding and pagination essentially for free.",
-                    "hint": "Think about privacy and length, not raw speed."
+                    "hint": "Think about privacy and length, not raw speed.",
+                    "commit": {
+                      "q": "With hash(long_url) as the code generator, two different users shorten the same private URL. What goes wrong?",
+                      "opts": [
+                        "Hash collisions spike, because the URL input space is smaller than the code space",
+                        "They both get the SAME code — anyone can probe whether a private URL was already shortened",
+                        "The hashes come out too long to truncate safely into 7 base62 characters"
+                      ],
+                      "answer": 1,
+                      "why": "Determinism is the liability: identical input always yields an identical code. That leaks the existence of the URL and breaks per-user idempotency."
+                    }
                   }
                 ],
                 "reference": "**Choice: counter-based + base62 encoding.** A central counter service (or pre-allocated 1M-block ranges per app server) hands out 64-bit integers. Encode to base62 → 7 chars covers up to 62^7 ≈ 3.5T. **Why not hash:** deterministic = privacy leak + same-URL-collision; also fixed length. **Why not pure random:** 1-in-200 collision at scale → needs retries anyway. **Schema (DynamoDB / Cassandra):** PK = `code` (string, 7 chars), attrs = `long_url`, `created_at`, `expires_at`, `owner_id`. Optional GSI on `owner_id` for the \"my links\" dashboard. Counter persisted in a single Postgres row with row-level lock, or use **Twitter Snowflake** if you want decentralized counter allocation without a coordination tax."
@@ -3577,7 +3647,17 @@ export default {
                     "type": "explain-back",
                     "prompt": "Why is **per-API-key** rate limiting fundamentally different (architecturally) from **per-IP** rate limiting? Give the specific architectural consequence.",
                     "modelAnswer": "Per-IP buckets are **uniformly distributed** by IP hash — you can shard by IP and every edge's local view is roughly equivalent. Per-API-key is **wildly skewed**: one enterprise customer's key might do 90% of traffic while 10,000 hobbyist keys share the other 10%. That means (1) sharding by key produces hotspots — one Redis shard burns at 100% CPU while others sit at 5%; and (2) you can't get away with edge-local approximation for the big keys — they'll abuse the per-edge fragmentation. Architectural consequence: you need a **hot-key detector** that promotes high-volume keys to a dedicated tracking strategy (their own Redis shard, or a centralized atomic counter), while low-volume keys can use cheap edge-local approximation.",
-                    "hint": "Think about the shape of the traffic distribution."
+                    "hint": "Think about the shape of the traffic distribution.",
+                    "commit": {
+                      "q": "You shard rate-limit counters by API key exactly the way you'd shard by IP. What bites you first?",
+                      "opts": [
+                        "A hotspot — one enterprise key doing 90% of traffic pins its Redis shard at 100% CPU while others idle",
+                        "Hash collisions — API keys are longer strings than IPs, so they collide more in the hash ring",
+                        "Undercounting — per-key counters expire and reset more often than per-IP ones do"
+                      ],
+                      "answer": 0,
+                      "why": "IP traffic is roughly uniform under an IP hash; key traffic is wildly skewed. It's the skew — not key length or expiry — that breaks the sharding assumption."
+                    }
                   }
                 ],
                 "reference": "**Functional:** enforce 1,000 req/min per API key; reject with 429 + Retry-After header on overage; return remaining budget in response headers (`X-RateLimit-Remaining`, `X-RateLimit-Reset`). **Non-functional:** add < 5ms p99 to the request path (rate limit check is on every request); survive single-region Redis outage; correctness target is **soft** — overshooting the budget by ~5% during an edge sync window is acceptable, undershooting (false positives) is not. **Fail mode:** fail open globally with a circuit breaker that closes the limiter when Redis error rate > 50% for 30s. **Non-goals (v1):** dynamic per-customer budgets, burst pricing, tiered SLAs."
@@ -3664,7 +3744,17 @@ export default {
                     "type": "explain-back",
                     "prompt": "You decide on **central Redis + small edge-local fast path for hot keys**. Explain in one paragraph why this is more accurate than pure edge-local AND faster than pure centralized.",
                     "modelAnswer": "Pure edge-local is fast (no network) but inaccurate because each edge holds 1/50th of the budget — a client routed across edges can overshoot by up to 50x in pathological cases. Pure centralized is accurate (single counter) but every request pays the network round trip (~1-2ms). The hybrid wins because (a) **the long tail of API keys are low-volume** (most keys send <1 req/sec), so even if each edge holds the full budget locally, they almost never trip the limit — accuracy is fine in practice. (b) **The small set of hot keys** is where errors compound, so for those (auto-detected by request rate) we route through central Redis and pay the latency tax only where it matters. Net result: 90%+ of requests skip the network call, and the overshoot risk is bounded to hot-key territory which is exactly where centralized counting is cheap (few keys, fits easily in one Redis shard).",
-                    "hint": "Two-tier — long tail vs hot keys."
+                    "hint": "Two-tier — long tail vs hot keys.",
+                    "commit": {
+                      "q": "In the hybrid design, which keys pay the central-Redis round trip on every request?",
+                      "opts": [
+                        "All of them — the edge cache is only a read-through layer in front of Redis",
+                        "The long tail of low-volume keys — there are too many of them to track at the edge",
+                        "The hot keys, auto-detected by request rate — that's where overshoot actually compounds"
+                      ],
+                      "answer": 2,
+                      "why": "Low-volume keys almost never trip a limit, so cheap edge-local checks are accurate enough for them. Errors compound only on hot keys — and \"few keys\" is exactly where centralized counting is cheap."
+                    }
                   }
                 ],
                 "reference": "**Choice: hybrid — central Redis for the hot path, edge-local for the long tail.** Each edge keeps a small LRU of \"keys I've seen recently\" with a local token bucket. On every request: check if the key is in the local hot-set → if yes, do the local check + async sync to Redis every 500ms; if no, do a centralized Lua-script check on Redis. **Hot-key promotion:** a key crosses 50 req/sec sustained → promote to centralized-only (kick out of edge-local cache) so accuracy dominates. **The triangle:** fast (most requests skip Redis) + accurate-enough (hot keys are exact, long tail might overshoot 1-5% which is invisible to the customer) + decoupled (single Redis cluster outage degrades, doesn't fail — edges fall back to local-only with circuit breaker)."

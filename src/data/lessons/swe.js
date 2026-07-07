@@ -557,7 +557,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen the **clause pipeline** (`WHERE` before `GROUP BY`, `HAVING` after), how a **JOIN multiplies rows** per match, and that **indexes silently decide speed**. Walk through writing a query for *\"the 10 countries with the most paying signups since January, average order value each.\"* Explain how the three ideas fit together — which clause does each job, where the JOIN's row-multiplication would corrupt your `COUNT`, and which column you'd want indexed. Then name the one trade-off you'd watch.",
             "modelAnswer": "Shape: `FROM users JOIN orders ON orders.user_id = users.id` to pull only users who paid (an inner join drops the rest). `WHERE created_at >= '2026-01-01'` filters *rows* first — it must run before grouping, and it can't reference an aggregate. `GROUP BY country` buckets per country; `COUNT(*)` and `AVG(orders.total)` summarize each bucket. The JOIN trap: a user with 3 orders becomes 3 rows, so `COUNT(*)` counts order-rows, not people — use `COUNT(DISTINCT users.id)` if you mean signups. `HAVING COUNT(DISTINCT users.id) >= 10` filters the *buckets* (an aggregate, so it can't live in WHERE). Then `ORDER BY signups DESC LIMIT 10`. Index: `orders.user_id` (the join key) and `users.created_at` (the range filter) — without them the planner scans every row. The trade-off I'd watch: those indexes speed reads but slow every write and cost storage, so I'd only add them if this query is hot, and confirm the planner actually uses them with `EXPLAIN ANALYZE` rather than guessing.",
-            "hint": "Map each requirement to exactly one clause, then ask: at what point in the pipeline does a user's multiple orders become multiple rows?"
+            "hint": "Map each requirement to exactly one clause, then ask: at what point in the pipeline does a user's multiple orders become multiple rows?",
+            "commit": {
+              "q": "A user placed 3 orders since January. After the JOIN, what does a plain `COUNT(*)` per country count that user as?",
+              "opts": [
+                "One signup — the JOIN matches each user to their orders only once",
+                "Three rows — you're counting order-rows, not people",
+                "Zero — GROUP BY drops users that appear more than once"
+              ],
+              "answer": 1,
+              "why": "A JOIN produces one row per match, so a 3-order user shows up 3 times before grouping. That inflation is exactly what your COUNT has to be defended against."
+            }
           }
         ]
       }
@@ -2720,7 +2730,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen the **cache-aside read path** (check fast layer, fall back to DB, lazy-fill), the **invalidation strategies** (TTL, write-through, write-around, write-behind), and the **three layers ranked by latency** (in-process LRU → Redis → CDN). Design the caching for a user-profile read that's hammered on every page but updated rarely. Explain how the read path, an invalidation choice, and the layer ranking fit together, then name the one staleness trade-off you're knowingly accepting and how you'd keep it bounded.",
             "modelAnswer": "Reads are hot and writes are rare, so I stack layers cheapest-and-fastest first: an **in-process LRU** (~60s TTL, 50 ns) absorbs most repeats per instance, then **Redis** (~5 min TTL, sub-ms) shared across the fleet, then **Postgres** as the source of truth. The read path is cache-aside: check LRU → check Redis → on a miss fetch from the DB and lazily backfill both upper layers so the next read is fast. For writes I use **write-around + explicit invalidation**: write to the DB, then `DEL` the Redis key so the next read refreshes it (write-around fits because writes are rare, so there's no point paying write-through's double hop on every read-heavy key). The trade-off I'm knowingly accepting: the *other* instances' in-process LRUs still hold the old profile for up to their 60s TTL — I can't cheaply broadcast an invalidation to every process. I bound it by keeping that L1 TTL short (60s, not 10 min) so the worst-case staleness is small and predictable, and I document the window rather than pretend reads are instantly consistent. If a field ever needed read-your-writes (e.g. the user just changed their own email), I'd bypass L1 for that one path or use write-through there. I'd also guard the shared Redis key against a thundering herd on expiry with stale-while-revalidate or singleflight.",
-            "hint": "Put the fastest, most local layer first and ask: when a write happens, which layers can you invalidate cheaply, and which one is stuck stale until its TTL?"
+            "hint": "Put the fastest, most local layer first and ask: when a write happens, which layers can you invalidate cheaply, and which one is stuck stale until its TTL?",
+            "commit": {
+              "q": "You write a profile update to the DB and `DEL` the Redis key. Which layer is still serving the old profile, and until when?",
+              "opts": [
+                "Every other instance's in-process LRU, until its TTL expires",
+                "Redis itself, until the next write-through refreshes the key",
+                "The CDN edge, until you purge the entire cached path"
+              ],
+              "answer": 0,
+              "why": "One shared Redis key is cheap to delete, but you can't reach into every app process's local cache. That leftover window is the staleness trade-off the design has to bound."
+            }
           }
         ]
       }
@@ -3088,7 +3108,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen **resources-as-nouns** (`/users/42/orders`, not `/getUserOrders`), **plural-collection / singular-item** conventions, and the line **where REST stops being the right tool** (gRPC, GraphQL, WebSockets). Design the public surface for a food-delivery app's *orders* feature — list, read, place, cancel, and live driver-location tracking. Explain how the resource-modeling rules give you the first four endpoints, then justify which one piece you'd pull *out* of REST and what you'd reach for instead. Name the trade-off that decision costs you.",
             "modelAnswer": "Model orders as a resource collection: `GET /orders` (list, with `?status=` and pagination), `GET /orders/{id}` (read one), `POST /orders` (place — returns 201 + a `Location` header to the new item), and cancel as either `DELETE /orders/{id}` or, since cancellation is a state transition with side effects, `POST /orders/{id}/cancel`. Plural for the collection, singular item under it, nesting kept shallow (`/users/{id}/orders` at most two levels). Those four are clean CRUD, cacheable, and any HTTP client can hit them — REST's sweet spot. Live driver location is the piece I'd pull out: polling `GET /orders/{id}/location` every second is wasteful and laggy, so I'd push it over **WebSockets** (or SSE) for a real-time duplex stream. The trade-off: I've now got two protocols and two infrastructures to operate, authenticate, and monitor instead of one uniform REST surface — worth it only because the latency and request-volume win on live tracking is large, and I'd keep everything else on plain REST rather than rewrite the whole API in gRPC.",
-            "hint": "Four of the five operations are textbook CRUD nouns; one is a continuous low-latency stream. Which rule from the lesson tells you the stream doesn't belong in REST?"
+            "hint": "Four of the five operations are textbook CRUD nouns; one is a continuous low-latency stream. Which rule from the lesson tells you the stream doesn't belong in REST?",
+            "commit": {
+              "q": "Which of the five orders operations is the one you'd pull OUT of plain REST?",
+              "opts": [
+                "Cancel — a state transition with side effects breaks resource semantics",
+                "Place order — POST responses aren't cacheable, so it's outside REST's sweet spot",
+                "Live driver-location tracking — a continuous low-latency stream, not CRUD"
+              ],
+              "answer": 2,
+              "why": "Four operations map cleanly onto nouns + HTTP verbs. A per-second location feed is the traffic shape REST handles worst — polling it is wasteful and laggy."
+            }
           }
         ]
       }
@@ -3339,7 +3369,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen the **three algorithms** (token / leaky / sliding window), how to **choose the limiting key** (API key vs user vs raw IP), and the **429 + Retry-After contract**. Design the rate limiter for a multi-tenant SaaS whose customers each run mobile apps that *burst* at launch. Explain how the three choices combine — which algorithm fits bursty traffic, which key keeps tenants from punishing each other, and what the deny response must carry so clients back off cleanly. Then name the trade-off your key choice creates.",
             "modelAnswer": "Algorithm: **token bucket**, because real mobile launches are bursty — a bucket lets a client spend its tokens in an instant spike, then refills at the average rate, which feels fair instead of choking legitimate fan-out. Key: limit per **tenant ID** (or `tenant + endpoint` compound for expensive routes), *not* raw IP — IP buckets an entire office or NAT into one counter and punishes innocent corporate users, and tenant-keying stops one noisy customer from eating another's quota in a shared system. The deny path returns **429 Too Many Requests** (never 503) with a **Retry-After** header *and* the same value in the JSON body, plus `RateLimit-Remaining` headers so a well-behaved SDK backs off with jitter instead of hammering. The trade-off: per-tenant counters mean shared state every instance must read/write, so I push them into **Redis** (atomic `INCR`) — that's a network hop and a new dependency on the hot path, and if Redis is down I have to decide fail-open (let traffic through, risk overload) vs fail-closed (block everyone). I'd fail open with a tight local fallback, because a limiter that takes the whole API down is worse than a brief lapse in limiting.",
-            "hint": "Match each requirement to one decision: bursty → which algorithm; multi-tenant fairness → which key; 'clients back off cleanly' → which response fields?"
+            "hint": "Match each requirement to one decision: bursty → which algorithm; multi-tenant fairness → which key; 'clients back off cleanly' → which response fields?",
+            "commit": {
+              "q": "Customers' mobile apps spike hard at app launch. Which algorithm lets that burst through without punishing legitimate traffic?",
+              "opts": [
+                "Token bucket — spend banked tokens in a spike, refill at the average rate",
+                "Leaky bucket — smooth the spike into a steady drip so nothing gets dropped",
+                "Sliding window — it forgets old requests fast enough to absorb the burst"
+              ],
+              "answer": 0,
+              "why": "A bucket that's been idle has tokens saved up, so a real launch spike passes instantly while the refill rate still enforces the long-term average. Smoothing does the opposite — it chokes exactly the burst you want to allow."
+            }
           }
         ]
       }
@@ -3436,12 +3476,774 @@ export default {
             "type": "explain-back",
             "prompt": "In your own words: how does an `Idempotency-Key` make a `POST /charges` endpoint safe to retry, and where exactly does the dedupe happen?",
             "modelAnswer": "You generate a UUID once on the client per logical operation — say, one checkout attempt — and send it as the `Idempotency-Key` header on every retry of that POST. The server, before doing any work, does a `SETNX` (set-if-not-exists) in Redis keyed by that UUID. First request through wins the lock, executes the charge, and stores `(key → response)` for ~24 hours. Every retry with the same key finds the cached response and replays it — no second charge to Stripe, no second row in your DB. The dedupe lives *in front of* the side effect, not after it, which is why an idempotency middleware is the standard pattern instead of bolting checks into every handler.",
-            "hint": "Trace what happens on the second retry — what does Redis return, and what does the server skip?"
+            "hint": "Trace what happens on the second retry — what does Redis return, and what does the server skip?",
+            "commit": {
+              "q": "A retry of `POST /charges` arrives carrying the same `Idempotency-Key`. What does the server do?",
+              "opts": [
+                "Re-runs the charge, then diffs the result against the stored response",
+                "Skips the work entirely and replays the stored response for that key",
+                "Rejects it with 409 Conflict so the client generates a fresh key"
+              ],
+              "answer": 1,
+              "why": "The retry gets answered without the payment ever being touched a second time — the dedupe check runs before the side effect, not after. Where exactly that check lives is the part worth explaining."
+            }
           },
           {
             "type": "quote",
             "text": "Every mutation should survive a double-tap. If it can't, you don't have an API — you have a landmine.",
             "cite": "the idempotency rule"
+          }
+        ]
+      }
+    ]
+  },
+  "swe-cap-retrykit": {
+    "sections": [
+      {
+        "heading": "What you're shipping",
+        "body": [
+          {
+            "type": "p",
+            "text": "You've read how Stripe retries and how idempotency survives a double-tap. Now you **build the tool that does the retrying** — a pip-installable Python library called `retrykit`, small enough to finish today, real enough to sit on your GitHub with a green CI badge."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "A **pip-installable package** — src-layout, `pyproject.toml`, installs with `pip install -e .`",
+              "A **`@retry(...)` decorator** with exponential backoff and jitter — the pattern behind every serious API client",
+              "**Three pytest tests** that prove the behavior without ever really sleeping",
+              "**GitHub Actions** running that suite on every push — your first personal CI gate"
+            ]
+          },
+          {
+            "type": "diagram",
+            "title": "What retry() adds around a call",
+            "subtitle": "BACKOFF LOOP",
+            "nodes": [
+              {
+                "id": "caller",
+                "label": "Caller",
+                "subtitle": "YOUR APP",
+                "x": 0.07,
+                "y": 0.5,
+                "accent": "water"
+              },
+              {
+                "id": "wrap",
+                "label": "retry()",
+                "subtitle": "WRAPPER",
+                "x": 0.35,
+                "y": 0.5,
+                "accent": "amber"
+              },
+              {
+                "id": "fn",
+                "label": "func()",
+                "subtitle": "FLAKY CALL",
+                "x": 0.65,
+                "y": 0.22,
+                "accent": "sky"
+              },
+              {
+                "id": "back",
+                "label": "Backoff",
+                "subtitle": "SLEEP + JITTER",
+                "x": 0.65,
+                "y": 0.78,
+                "accent": "fire"
+              },
+              {
+                "id": "ok",
+                "label": "Return",
+                "subtitle": "VALUE OUT",
+                "x": 0.92,
+                "y": 0.22,
+                "accent": "earth"
+              }
+            ],
+            "edges": [
+              {
+                "from": "caller",
+                "to": "wrap",
+                "kind": "dashed",
+                "accent": "water",
+                "label": "call"
+              },
+              {
+                "from": "wrap",
+                "to": "fn",
+                "kind": "dashed",
+                "accent": "amber",
+                "label": "attempt"
+              },
+              {
+                "from": "fn",
+                "to": "ok",
+                "kind": "dashed",
+                "accent": "earth",
+                "label": "success"
+              },
+              {
+                "from": "fn",
+                "to": "back",
+                "kind": "dashed",
+                "accent": "fire",
+                "label": "raise"
+              },
+              {
+                "from": "back",
+                "to": "wrap",
+                "kind": "dashed",
+                "accent": "fire",
+                "label": "retry"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "You need **Python 3.10+**, **git**, a **GitHub account**, and **VS Code**. Everything happens in *your* terminal and *your* editor — the app only walks the route. Budget ~75 minutes of actual typing and one push."
+          }
+        ]
+      },
+      {
+        "heading": "Set up the skeleton",
+        "body": [
+          {
+            "type": "build-along",
+            "title": "Scaffold the project",
+            "goal": "An empty-but-correct package skeleton: git repo, isolated venv, pytest installed, src-layout carved out. Click through, then run each command for real.",
+            "lang": "bash",
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Make the project root",
+                "say": "One folder holds everything. git init from minute zero — every green step later becomes a commit you can retreat to.",
+                "add": "mkdir retrykit && cd retrykit  # project root — everything lives under here\ngit init  # version control from minute zero; commits are save points"
+              },
+              {
+                "title": "Isolate your Python",
+                "say": "A venv keeps this project's packages out of your system Python. Forgetting this is how 'works on my machine' starts.",
+                "add": "python -m venv .venv  # project-local Python — the system install stays clean\nsource .venv/bin/activate  # Windows PowerShell: .venv\\Scripts\\Activate.ps1"
+              },
+              {
+                "title": "Install the test runner first",
+                "say": "pytest goes in before any library code exists. 'I'll add tests later' is the most-broken promise in software.",
+                "add": "python -m pip install --upgrade pip pytest  # test runner now, not 'later' — later never comes"
+              },
+              {
+                "title": "Carve the src layout",
+                "say": "src-layout means your tests can only import the INSTALLED package — they can never accidentally pass against a stray local copy.",
+                "add": "mkdir -p src/retrykit tests  # package under src/, tests beside it\ntouch src/retrykit/__init__.py tests/test_retry.py  # empty files you'll fill next"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Now the packaging metadata. `pyproject.toml` is the one file that turns a folder of code into something `pip` understands. Create it at the project root in VS Code:"
+          },
+          {
+            "type": "code",
+            "lang": "toml",
+            "text": "[build-system]\nrequires = [\"setuptools>=68\"]  # the tool that turns your folder into an installable wheel\nbuild-backend = \"setuptools.build_meta\"  # standard backend — zero extra config\n\n[project]\nname = \"retrykit\"  # the pip-install name\nversion = \"0.1.0\"  # semver — bump it on every release\ndescription = \"Retry flaky calls with exponential backoff and jitter.\"\nrequires-python = \">=3.10\"  # an honest floor, enforced at install time\n\n[tool.setuptools.packages.find]\nwhere = [\"src\"]  # src-layout: tests import the INSTALLED package, never a stray copy"
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "pip install -e .  # editable install — 'import retrykit' now resolves live to your src/\npytest -q  # collects nothing yet — but the harness is proven before the code exists"
+          }
+        ]
+      },
+      {
+        "heading": "Build the decorator, layer by layer",
+        "body": [
+          {
+            "type": "p",
+            "text": "A decorator that takes arguments is **three nested functions**: `retry()` holds the config, `decorator()` receives your function, `wrapper()` is what callers actually run. Build it one layer at a time in `src/retrykit/__init__.py`."
+          },
+          {
+            "type": "build-along",
+            "title": "The retry decorator, seven moves",
+            "goal": "The whole library in ~20 lines: config layer, wrapper layer, attempt loop, and exponential backoff with jitter. Click through, then type it into VS Code yourself.",
+            "lang": "python",
+            "file": "src/retrykit/__init__.py",
+            "steps": [
+              {
+                "title": "Docstring and imports",
+                "say": "functools preserves the wrapped function's identity, random powers the jitter, time does the actual waiting. Tests will fake the last two — which is exactly why they're imported at module level.",
+                "add": "\"\"\"retrykit — retry flaky calls with exponential backoff.\"\"\"\nimport functools  # keeps the wrapped function's name and docstring intact\nimport random  # jitter — spreads retries out so parallel clients don't stampede\nimport time  # real sleep between attempts (the tests will fake this)"
+              },
+              {
+                "title": "Layer 1: the config",
+                "say": "This outer function only exists to capture the settings. Defaults are deliberate: 3 attempts and a 100ms base is polite; catching bare Exception is the caller's choice to narrow.",
+                "add": "\n\ndef retry(times=3, base_delay=0.1, exceptions=(Exception,)):  # config is per call-site, with safe defaults"
+              },
+              {
+                "title": "Layers 2 and 3: decorator and wrapper",
+                "say": "decorator() receives the real function. functools.wraps copies its name and docstring onto wrapper — skip it and every traceback says 'wrapper', which makes debugging miserable.",
+                "add": "    def decorator(func):  # layer 2: receives the function being decorated\n        @functools.wraps(func)  # without this, tracebacks and logs all say 'wrapper'\n        def wrapper(*args, **kwargs):  # layer 3: what callers actually invoke"
+              },
+              {
+                "title": "The attempt loop",
+                "say": "Count attempts from 1 so 'attempt == times' reads like English. The happy path is one line: call the function, return the value, done.",
+                "add": "            for attempt in range(1, times + 1):  # 1-based so 'attempt == times' reads naturally\n                try:\n                    return func(*args, **kwargs)  # success — hand the value straight back"
+              },
+              {
+                "title": "Catch narrowly, fail loudly",
+                "say": "Only catch what the caller opted into — a retry on KeyError would hide a real bug. And when attempts run out, re-raise the ORIGINAL error so the stack trace still points at the true failure.",
+                "add": "                except exceptions:  # only catch what the caller opted into — never bare except\n                    if attempt == times:  # attempts exhausted —\n                        raise  # — surface the ORIGINAL error; swallowing it hides real bugs"
+              },
+              {
+                "title": "Backoff with jitter",
+                "say": "Double the delay each round so a struggling service gets breathing room. The jitter matters more than it looks: without it, a thousand clients that failed together all retry together — forever.",
+                "add": "                    delay = base_delay * (2 ** (attempt - 1))  # 0.1s → 0.2s → 0.4s — doubles each round\n                    delay += random.uniform(0, delay)  # full jitter — desyncs a herd of retriers\n                    time.sleep(delay)  # wait it out, then loop into the next attempt"
+              },
+              {
+                "title": "Close the layers",
+                "say": "Each layer hands back the one inside it. That's the whole library — small enough to hold in your head, real enough to ship.",
+                "add": "        return wrapper  # decorator() hands back the armored version of func\n    return decorator  # retry() hands back the decorator — three layers, closed"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "This is what a caller's code looks like once your library exists — notice the call site stays clean:"
+          },
+          {
+            "type": "code",
+            "lang": "python",
+            "text": "from retrykit import retry  # your library — imported like any other package\n\n@retry(times=5, base_delay=0.5, exceptions=(TimeoutError, ConnectionError))  # opt in per failure type\ndef fetch_profile(user_id):\n    return http_get(f\"/users/{user_id}\")  # any flaky network call\n\nprofile = fetch_profile(42)  # up to 5 attempts with backoff — the call site stays clean"
+          }
+        ]
+      },
+      {
+        "heading": "Test it like you mean it",
+        "body": [
+          {
+            "type": "p",
+            "text": "The trap in testing retry logic: real `time.sleep` calls. Three tests with real backoff would take seconds and get slower every time you add a case. The fix is **monkeypatching** — swap the sleep for a recorder, then *assert on the delays themselves*."
+          },
+          {
+            "type": "build-along",
+            "title": "Three tests, zero real sleeping",
+            "goal": "A flaky-function factory plus three tests: recovers after failures, raises when exhausted, and backs off exponentially — proven without the suite ever waiting.",
+            "lang": "python",
+            "file": "tests/test_retry.py",
+            "steps": [
+              {
+                "title": "Imports",
+                "say": "Because of the src-layout and the editable install, 'from retrykit import retry' exercises the installed package — the same import path your future users get.",
+                "add": "\"\"\"Pin retrykit's behavior: success, exhaustion, and backoff timing.\"\"\"\nimport pytest  # the runner CI will invoke\n\nfrom retrykit import retry  # the code under test — src-layout keeps this import honest"
+              },
+              {
+                "title": "A factory for flaky functions",
+                "say": "Every test needs 'a function that fails N times, then works'. Build it once. The dict-as-counter looks odd but is deliberate — a closure can mutate a dict's contents, not rebind a plain int.",
+                "add": "\n\ndef flaky(fail_times):  # factory: builds a target that fails N times, then works\n    calls = {\"n\": 0}  # dict, not int — the closure needs something mutable to bump\n\n    @retry(times=3, base_delay=0.01)  # tiny real delay — the suite must stay fast\n    def target():\n        calls[\"n\"] += 1  # count every attempt, including failures\n        if calls[\"n\"] <= fail_times:  # still inside the failing window?\n            raise ConnectionError(\"boom\")  # simulate the flaky network\n        return \"ok\"  # recovered\n\n    return target, calls  # hand back the counter so tests can assert on attempts"
+              },
+              {
+                "title": "Test 1 — it recovers",
+                "say": "The caller should see the value and never the two errors. Asserting the attempt count catches a subtle bug class: retrying more times than asked.",
+                "add": "\n\ndef test_succeeds_after_two_failures():\n    target, calls = flaky(fail_times=2)  # fails twice — the third attempt lands\n    assert target() == \"ok\"  # the caller sees the value, never the two errors\n    assert calls[\"n\"] == 3  # exactly three attempts — no silent extras"
+              },
+              {
+                "title": "Test 2 — it gives up loudly",
+                "say": "pytest.raises proves the ORIGINAL exception type escapes. The attempt-count assert is your proof against the nightmare failure mode: an infinite retry loop.",
+                "add": "\n\ndef test_raises_when_attempts_run_out():\n    target, calls = flaky(fail_times=99)  # never recovers\n    with pytest.raises(ConnectionError):  # the ORIGINAL error type surfaces\n        target()\n    assert calls[\"n\"] == 3  # stopped at the limit — proof there's no infinite loop"
+              },
+              {
+                "title": "Test 3 — the backoff curve, proven",
+                "say": "Swap retrykit's sleep for naps.append and its jitter for zero — now the delays are data. The final assert reads the exponential curve straight off the list.",
+                "add": "\n\ndef test_backoff_doubles(monkeypatch):\n    naps = []  # record every sleep instead of actually sleeping\n    monkeypatch.setattr(\"retrykit.time.sleep\", naps.append)  # fake clock — the suite stays instant\n    monkeypatch.setattr(\"retrykit.random.uniform\", lambda a, b: 0)  # kill jitter for determinism\n    target, _ = flaky(fail_times=2)  # two failures → two sleeps\n    target()\n    assert naps == [0.01, 0.02]  # base, then double — the exponential curve, proven"
+              }
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "$ pytest -q  # quiet mode — just the verdict\n...                                                                  [100%]\n3 passed in 0.12s"
+          },
+          {
+            "type": "p",
+            "text": "Three dots, one-tenth of a second. If your run takes noticeably longer, a real `sleep` is leaking through — check the monkeypatch target string."
+          }
+        ]
+      },
+      {
+        "heading": "Wire up CI",
+        "body": [
+          {
+            "type": "p",
+            "text": "CI turns 'the tests pass on my laptop' into 'the tests pass, period'. GitHub Actions reads one YAML file from `.github/workflows/` and runs your suite on a fresh machine for every push."
+          },
+          {
+            "type": "build-along",
+            "title": "The workflow, five moves",
+            "goal": "A CI pipeline that checks out your code, installs your package the way a user would, and blocks any push that breaks the tests.",
+            "lang": "yaml",
+            "file": ".github/workflows/ci.yml",
+            "steps": [
+              {
+                "title": "Name it and pick the triggers",
+                "say": "Two triggers: every push to main, and every pull request. That second one is the culture-setting move — no green, no merge.",
+                "add": "name: ci  # the badge name and the Actions-tab label\non:\n  push: { branches: [main] }  # every push to main runs the suite\n  pull_request: {}  # every PR too — no green, no merge"
+              },
+              {
+                "title": "One job, fresh machine",
+                "say": "Each run gets a brand-new Ubuntu VM. Nothing from your laptop sneaks in — which is exactly the point.",
+                "add": "jobs:\n  test:\n    runs-on: ubuntu-latest  # fresh VM each run — nothing from your laptop sneaks in"
+              },
+              {
+                "title": "Get the code",
+                "say": "The VM starts empty. checkout clones your repo into it — forgettable-looking, but nothing works without it.",
+                "add": "    steps:\n      - uses: actions/checkout@v4  # clone the repo into the VM"
+              },
+              {
+                "title": "Pin the Python",
+                "say": "Pin an exact version. 'Whatever is latest' is how CI breaks on a random Tuesday because a new Python shipped overnight.",
+                "add": "      - uses: actions/setup-python@v5  # install a specific interpreter\n        with: { python-version: '3.12' }  # pin it — 'latest' breaks on release day"
+              },
+              {
+                "title": "Install and test — the payoff",
+                "say": "pip install -e . makes CI consume your package exactly like a user. Then pytest runs, and a red result physically blocks the merge. That's the whole contract.",
+                "add": "      - run: python -m pip install --upgrade pip pytest  # same tools you used locally\n      - run: pip install -e .  # install YOUR package the way a user would\n      - run: pytest -q  # the payoff — red here blocks the merge"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Create an **empty repo named `retrykit`** on GitHub (no README, no license — you have local history), then wire and push:"
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "git add -A  # stage everything — skeleton, library, tests, workflow\ngit commit -m \"retrykit v0.1.0: decorator, tests, CI\"  # one honest message\ngit branch -M main  # the branch your workflow listens to\ngit remote add origin https://github.com/YOUR-USER/retrykit.git  # the empty repo you just made\ngit push -u origin main  # this push is what triggers the ci workflow"
+          }
+        ]
+      },
+      {
+        "heading": "Verify, then stretch",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "**Local green** — `pytest -q` prints `3 passed` in well under a second.",
+              "**Remote green** — GitHub → your repo → *Actions* tab → the `ci` run has a green check.",
+              "**Prove the gate works** — on a branch, change `2 **` to `3 **` in the backoff line, push, and watch CI go red. A gate you've never seen fail is a gate you can't trust. Revert.",
+              "**Prove it installs** — fresh terminal, new venv, `pip install -e .`, then run the `fetch_profile` example against any function you make fail on purpose."
+            ]
+          },
+          {
+            "type": "p",
+            "text": "All four pass? **You've shipped a library.** Not a tutorial artifact — a tested, CI-gated package with your name on it. Stretch goals, roughly in order of payoff:"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**`max_delay` cap** — without one, attempt 12 of a long retry waits 3+ minutes; add the param and a test",
+              "**`retry_on` predicate** — retry an HTTP 503 but never a 404: accept a function that inspects the exception",
+              "**Async support** — a `retry_async` variant that wraps coroutines and `await asyncio.sleep(...)`s instead",
+              "**Publish to TestPyPI** — `python -m build`, then `twine upload -r testpypi`; installing your own package from an index is a rite of passage",
+              "**README with the CI badge** — ten lines of quickstart plus the green shield; now the repo reads like a real project"
+            ]
+          },
+          {
+            "type": "quote",
+            "text": "A library isn't the code — it's the promise the tests keep.",
+            "cite": "the shipping rule"
+          }
+        ]
+      }
+    ]
+  },
+  "swe-cap-legacy-rescue": {
+    "sections": [
+      {
+        "heading": "Your mission",
+        "body": [
+          {
+            "type": "p",
+            "text": "This is the **semi round**: you get a broken-but-working script, the requirements, a success bar, and hints — **not the steps**. In the retrykit capstone you followed the route. This time you navigate. Budget ~90 minutes; if you're still 'planning' at minute 15, spend hint 1."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Pin the behavior** — characterization tests that lock today's output, written and green *before* you change a single line",
+              "**Refactor under green** — kill the global state, the magic indexes, the duplicated VAT rule, the import-time side effect, and the O(n²) loop — one smell per commit",
+              "**Change nothing observable** — `python report.py orders.csv` prints byte-identical output at every commit",
+              "**Ship with CI** — the same Actions shape you built for retrykit runs this suite on every push"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "The patient",
+        "body": [
+          {
+            "type": "p",
+            "text": "Copy this into a fresh repo as `report.py`. It *works* — that's what makes it dangerous. The smells are annotated so you know what you're hunting; the fixes are your job."
+          },
+          {
+            "type": "code",
+            "lang": "python",
+            "text": "# report.py — a \"temporary\" sales script, now three years old. Trust nothing.\nimport sys\n\nDATA = []  # smell: global mutable state — every function secretly depends on it\n\n\ndef load():\n    f = open(sys.argv[1])  # smell: argv read deep inside logic — untestable, never closed\n    for line in f.readlines()[1:]:  # skips the header — assumes there always is one\n        p = line.strip().split(\",\")  # smell: no quoting, no validation — CSV parsing by hope\n        DATA.append(p)  # rows stay as anonymous string lists\n\n\ndef total():\n    t = 0\n    for p in DATA:\n        if p[3] == \"EU\":  # smell: magic index — quick, what is column 3?\n            t = t + float(p[2]) * 1.2  # smell: magic 1.2 — VAT? markup? nobody remembers\n        else:\n            t = t + float(p[2])  # same conversion, subtly duplicated\n    return t\n\n\ndef top_customer():\n    best = None\n    best_t = 0\n    for p in DATA:\n        t = 0\n        for q in DATA:  # smell: O(n²) — rescans every row, for every row\n            if q[1] == p[1]:  # same customer?\n                if q[3] == \"EU\":\n                    t = t + float(q[2]) * 1.2  # smell: the VAT rule again — two copies WILL drift\n                else:\n                    t = t + float(q[2])\n        if t > best_t:\n            best_t = t\n            best = p[1]  # customer name by index, naturally\n    return best\n\n\nload()  # smell: import-time side effect — importing this file RUNS the program\nprint(\"total:\", round(total(), 2))  # smell: print inside logic — stdout IS the API\nprint(\"top:\", top_customer())"
+          },
+          {
+            "type": "p",
+            "text": "And the data it eats — save as `orders.csv`:"
+          },
+          {
+            "type": "code",
+            "lang": "csv",
+            "text": "order_id,customer,amount,region\n1001,ada,120.00,EU\n1002,liam,80.00,US\n1003,ada,40.00,EU\n1004,maya,200.00,US\n1005,liam,150.00,EU"
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "$ python report.py orders.csv  # run the UNTOUCHED script — capture this exact output\ntotal: 652.0\ntop: liam"
+          },
+          {
+            "type": "p",
+            "text": "Those two lines are now **sacred**. Every commit you make must reproduce them exactly — `652.0` becoming `652.00` is a break, not a cleanup."
+          }
+        ]
+      },
+      {
+        "heading": "Rules of engagement",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "**Pin before you touch.** Characterization tests must pass against the *original* file before any edit. Tests written after a refactor pin the new behavior — including any bug you just introduced.",
+              "**One smell per commit.** Each commit message names the smell it kills. Tests green before AND after, every single time.",
+              "**No rewrite.** Refactoring means the program never stops working. A shiny `report_v2.py` beside the old one is a forfeit.",
+              "**Output is the contract.** Byte-identical stdout at every commit — diff it if you're unsure.",
+              "**Finish with CI.** Reuse the workflow shape from retrykit; the last commit turns Actions green."
+            ]
+          },
+          {
+            "type": "kanban",
+            "columns": [
+              {
+                "label": "PIN IT",
+                "accent": "water",
+                "cards": [
+                  {
+                    "title": "Golden-output test",
+                    "note": "the exact two stdout lines"
+                  },
+                  {
+                    "title": "Totals pinned",
+                    "note": "against the untouched script"
+                  }
+                ]
+              },
+              {
+                "label": "MAKE SEAMS",
+                "accent": "amber",
+                "cards": [
+                  {
+                    "title": "Import becomes safe",
+                    "note": "no side effects on import"
+                  },
+                  {
+                    "title": "Rows get names",
+                    "note": "no more p[3]"
+                  }
+                ]
+              },
+              {
+                "label": "REFACTOR & SHIP",
+                "accent": "earth",
+                "cards": [
+                  {
+                    "title": "Kill the global"
+                  },
+                  {
+                    "title": "One VAT rule",
+                    "note": "single named source of truth"
+                  },
+                  {
+                    "title": "One-pass top customer"
+                  },
+                  {
+                    "title": "CI green on push"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Definition of done",
+        "body": [
+          {
+            "type": "table",
+            "headers": [
+              "Criterion",
+              "How you'll know"
+            ],
+            "rows": [
+              [
+                "**Behavior pinned first**",
+                "Tests passed against the *untouched* script before any edit — check your commit order"
+              ],
+              [
+                "**No import-time side effects**",
+                "`import report` runs nothing; a `__main__` guard owns the CLI"
+              ],
+              [
+                "**No global mutable state**",
+                "`DATA` is gone — every function takes inputs and returns outputs"
+              ],
+              [
+                "**Rows have names**",
+                "No `p[3]` anywhere; a dataclass or namedtuple names the columns"
+              ],
+              [
+                "**One VAT rule**",
+                "The `1.2` exists in exactly one named place"
+              ],
+              [
+                "**No O(n²) rescan**",
+                "`top_customer` walks the orders once with a dict accumulator"
+              ],
+              [
+                "**Output byte-identical**",
+                "`python report.py orders.csv` prints exactly the two sacred lines"
+              ],
+              [
+                "**CI green**",
+                "Every push runs pytest in Actions — same workflow shape as retrykit"
+              ]
+            ],
+            "align": [
+              "left",
+              "left"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Hints — spend them slowly",
+        "body": [
+          {
+            "type": "p",
+            "text": "Escalating, vaguest first. Read one, go back to work. Reading all five up front turns the semi round back into a guided one — and the struggle is where this project pays you."
+          },
+          {
+            "type": "ol",
+            "items": [
+              "**Hint 1 — pinning:** you can characterize a script without importing it. `subprocess.run([sys.executable, 'report.py', 'orders.csv'], capture_output=True, text=True)` hands you the golden stdout, zero code changes needed.",
+              "**Hint 2 — the first seam:** the bottom three lines run on import. Move them under `if __name__ == '__main__':` — behavior identical, and suddenly tests can `import report` to reach the functions directly.",
+              "**Hint 3 — naming the rows:** parse each CSV line into an `Order` (dataclass or namedtuple) with `order_id, customer, amount, region` — in *one* place. Every `p[3]` downstream becomes `order.region` and a whole bug class dies.",
+              "**Hint 4 — the duplication:** the `* 1.2` VAT logic lives in two functions and they *will* drift. Extract `line_total(order)`; both call sites collapse into it, and the `1.2` becomes a named constant with a comment saying what it is.",
+              "**Hint 5 — the nested loop:** one pass, one dict: accumulate `totals[order.customer] += line_total(order)`, then `max(totals, key=totals.get)`. O(n²) → O(n), and it reads like the sentence it should have been."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Am I on track?",
+        "body": [
+          {
+            "type": "pros-cons",
+            "goodLabel": "On track",
+            "watchLabel": "Drifting",
+            "good": [
+              "Every commit message names exactly one smell you removed",
+              "Tests ran green before *and* after each commit",
+              "The diff of any single commit fits on one screen",
+              "You were tempted to rewrite from scratch — and didn't"
+            ],
+            "watch": [
+              "One giant 'refactored everything' commit",
+              "Tests written after the refactor — they pin the new behavior, bugs included",
+              "Output 'improved' along the way (formatting, extra lines, nicer rounding)",
+              "A parallel rewrite in a new file while `report.py` still lurks"
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Done and green? You've just done the single most common senior-engineer task in existence: **making code safe to change without changing what it does.** Retrykit proved you can build; this proves you can be trusted with what's already built."
+          }
+        ]
+      }
+    ]
+  },
+  "swe-cap-webhook-design": {
+    "sections": [
+      {
+        "heading": "The brief",
+        "body": [
+          {
+            "type": "p",
+            "text": "Your product emits webhooks — `order.created`, `payment.failed` — to URLs your **customers** own. You control nothing past your network edge: their servers are slow, flaky, or down for six hours at a stretch. Design the delivery platform. **No code — this is the architect round.** You've built (retrykit) and rescued (legacy rescue); now you decide."
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Dimension",
+              "Number",
+              "Why it hurts"
+            ],
+            "rows": [
+              [
+                "Peak ingest",
+                "5,000 events/s",
+                "A 10x burst over steady state — Black Friday shape"
+              ],
+              [
+                "Steady state",
+                "500 events/s",
+                "Capacity math must cover both without 10x waste"
+              ],
+              [
+                "Receiver endpoints",
+                "20,000 customer URLs",
+                "You don't control them — slow, flaky, or down for hours"
+              ],
+              [
+                "Endpoint failure rate",
+                "~2% at any moment",
+                "Retries are the norm, not the exception"
+              ],
+              [
+                "Healthy delivery",
+                "p95 < 5 s end-to-end",
+                "Queues can't just silently absorb everything"
+              ],
+              [
+                "Loss budget",
+                "Zero accepted events lost",
+                "Durability must come before any 200 OK"
+              ],
+              [
+                "Replay window",
+                "7 days",
+                "Customers will demand redelivery after *their* outage"
+              ]
+            ],
+            "align": [
+              "left",
+              "left",
+              "left"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Hard constraints",
+        "body": [
+          {
+            "type": "ul",
+            "items": [
+              "**At-least-once is on the table; exactly-once to servers you don't own is not.** Design for duplicates instead of pretending they won't happen.",
+              "**Any single node can die mid-work** — a delivery worker, a broker node, a DB primary — with zero accepted events lost.",
+              "**Isolation is a requirement, not a nice-to-have.** One slow customer must never delay the other 19,999.",
+              "**Commodity cloud parts only** — queues, object storage, SQL/KV stores, containers. No exotic hardware, no research databases.",
+              "**A team of four runs this.** Every component you add is a pager they carry — spend complexity like it's your own sleep."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "What you must produce",
+        "body": [
+          {
+            "type": "p",
+            "text": "Work like it's a real design review: a diagram plus a written defense, in a fresh repo. A design that lives only in your head can't be challenged — **writing it down is the deliverable.**"
+          },
+          {
+            "type": "ol",
+            "items": [
+              "**An architecture diagram** — paper photo or Excalidraw, either is fine. Boxes for ingest, durability, delivery, retry, and replay; every arrow labeled with what flows over it.",
+              "**A `DESIGN.md`** — each component, the data store behind it, and one sentence per choice answering *why this one and not the obvious alternative*.",
+              "**Back-of-envelope math** — events/day at steady state, storage for 7 days of ~2 KB payloads, and how many delivery workers 5,000/s needs if a delivery averages 200 ms.",
+              "**Three failure walkthroughs, written:** (a) one endpoint is down for six hours, (b) a delivery worker dies mid-send, (c) ingest runs at 10x for twenty minutes.",
+              "**The trade-off defense** — half a page on each row of the table below. Pick a side and pay its price in writing; 'it depends' is a forfeit."
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Attack order that works: **numbers first** (the math exposes the shape), then the happy path, then kill each box one at a time, then write the defense."
+          }
+        ]
+      },
+      {
+        "heading": "Trade-offs you must defend",
+        "body": [
+          {
+            "type": "table",
+            "headers": [
+              "Decision",
+              "The tension you must resolve"
+            ],
+            "rows": [
+              [
+                "**Delivery semantics**",
+                "At-least-once + idempotency keys, or chase exactly-once? What do duplicates cost your customer — and who pays for dedup?"
+              ],
+              [
+                "**Fairness / isolation**",
+                "One shared queue with a fair scheduler, or per-tenant queues? Head-of-line blocking vs 20,000 queues someone must operate."
+              ],
+              [
+                "**Ordering**",
+                "Guarantee per-endpoint order, or ship unordered-and-fast? What does ordering cost at 5K/s — and does a webhook consumer even need it?"
+              ],
+              [
+                "**Retry policy**",
+                "Backoff schedule, cap, and when a dead endpoint stops burning workers. Retry forever wastes the fleet; give up early loses events."
+              ],
+              [
+                "**Visibility**",
+                "Customer-facing delivery logs and self-serve replay, or support tickets? One is a feature, the other is a whole product surface."
+              ]
+            ],
+            "align": [
+              "left",
+              "left"
+            ]
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "Strong-answer signs",
+            "watchLabel": "Weak-answer signs",
+            "good": [
+              "Durability (append to a log/queue) happens **before** the ingest API returns success",
+              "Every event carries an idempotency key — and you can say exactly what the receiver does with it",
+              "A circuit breaker parks dead endpoints out of the hot path; the other 19,999 never notice",
+              "Your math says how many workers 5K/s needs — and what the burst does to queue depth",
+              "You said **no** to something (ordering, exactly-once) and defended the cost in writing"
+            ],
+            "watch": [
+              "\"The queue handles it\" — with no named queue, no depth estimate, no consumer count",
+              "Retries hammering a dead endpoint at full speed, forever",
+              "Exactly-once promised across a network boundary you don't own",
+              "One shared worker pool where a slow tenant's timeouts starve everyone",
+              "No replay story — the 7-day requirement quietly dropped"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Defend it, then compare",
+        "body": [
+          {
+            "type": "explain-back",
+            "prompt": "You've designed it — now defend it. Trace one event's life during the **10x burst** while **400 endpoints are down**: where does it become durable, who picks it up, what happens on failure 1 vs failure 5, how do the healthy 19,600 endpoints stay under p95 < 5 s, and how does a customer replay their outage window next week? Speak your answer or write it in your `DESIGN.md`, then compare against the model on **durability, isolation, and semantics**.",
+            "modelAnswer": "**Ingest:** the API validates, stamps a unique event id (ULID — sortable by time), appends to a durable partitioned log (Kafka, or a cloud queue with payloads in object storage), and only *then* returns 202. Durability precedes acknowledgment — that's the zero-loss guarantee, and the log's the shock absorber: at 10x burst, producers append fast and consumer lag grows, which autoscaling watches to add delivery workers. **Delivery:** workers consume per partition; capacity math says 5,000/s at 200 ms per delivery means ~1,000 concurrent deliveries — a few dozen worker processes, not a mainframe. Each delivery sends the event id as an `X-Event-Id` idempotency key. Semantics are **at-least-once**: a lost ACK after a successful send is indistinguishable from a failed send, so a duplicate *will* eventually happen — the key lets receivers dedup, which is honest engineering; exactly-once across a boundary you don't own is a fiction. **Failure 1 vs failure 5:** first failure schedules a retry with exponential backoff plus jitter (30 s, 2 m, 10 m, 1 h, capped at 6 h) in a delayed-retry store — retries never block the main consumer. Around the fifth consecutive failure the endpoint's **circuit breaker** trips: its events park in a per-endpoint dead-letter set, and a low-rate probe checks for recovery. That parking is the isolation story — the 400 dead endpoints cost almost zero worker time, so the healthy 19,600 keep their p95. On recovery, the breaker half-opens and drains the backlog at a ramped rate, still keyed for dedup. **Worker death mid-send:** the log only advances the consumer offset after the delivery attempt is recorded, so another worker re-consumes — worst case a duplicate, never a loss (at-least-once again, by design). **Replay:** payloads live 7 days in object storage (steady 500/s × 2 KB ≈ 600 GB — cheap); a replay API re-enqueues a customer's time range, reusing *original* event ids so dedup still holds. **Ordering:** best-effort only. Guaranteeing per-endpoint order means one in-flight delivery per endpoint, so a single retry stalls everything behind it — a price webhook consumers shouldn't pay when they must tolerate out-of-order anyway. **The 'no':** no exactly-once, no strict ordering — traded for durability, isolation, and a system four people can actually run.",
+            "hint": "Trace ONE event end-to-end: accepted → durable → attempted → failed → retried → parked → replayed. At every arrow in your diagram, ask 'what if the box on either end dies right now?' — any arrow without an answer is the gap.",
+            "commit": {
+              "q": "An endpoint was down for six hours and 40,000 of its events are waiting. What does the strong design do when it comes back?",
+              "opts": [
+                "Deliver all 40K exactly once, in original order — that's the whole point of keeping a durable log",
+                "Drain them at-least-once with idempotency keys and backoff, ramping up via the circuit breaker's probe",
+                "Drop events older than the p95 target and alert the customer to request a replay for the rest"
+              ],
+              "answer": 1,
+              "why": "Exactly-once and strict order across a boundary you don't own are fictions — a lost ACK forces a re-send you can't distinguish from a duplicate. The breaker half-opens, probes, then drains with keys the receiver can dedup on; dropping events violates the zero-loss budget outright."
+            }
           }
         ]
       }

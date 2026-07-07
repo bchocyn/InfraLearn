@@ -552,7 +552,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've now got three pieces that interact: **threads share one address space while processes don't**, `counter += 1` is **load-add-store and therefore racy**, and the **GIL** serializes Python bytecode. You're asked to speed up a Python service that does both heavy number-crunching on in-memory arrays *and* lots of waiting on slow HTTP calls. Design how you'd split the work across threads vs processes, justify it using the GIL, and name the trade-off your choice forces you to pay.",
             "modelAnswer": "Split by **what each part is bound on**. The HTTP calls are **I/O-bound**: a thread holding the GIL releases it while blocked on the socket, so a thread pool gives real concurrency there with almost no overhead, and the threads can share the in-memory results cheaply because they live in **one address space**. The number-crunching is **CPU-bound**, and here the **GIL** is the wall — only one thread runs Python bytecode at a time, so adding threads buys nothing; I push that work to a **process pool** (or `ProcessPoolExecutor`), one worker per core, each with its own GIL, so they run truly in parallel. The two **trade-offs** I'm accepting: (1) processes don't share memory, so every array I hand a worker is **pickled and copied** — passing big payloads can blow up RAM (8 workers × a 2 GB array = 16 GB), which I'd mitigate with shared memory or memory-mapped files; and (2) in the threaded I/O half, any shared mutable counter or accumulator is exposed to the **load-add-store race**, so I either guard it with a `Lock`/`Queue` or keep per-thread state and merge at the end. The judgment call is matching the concurrency primitive to the bottleneck — threads for waiting, processes for computing — and paying either the copy cost or the locking cost accordingly.",
-            "hint": "One of the two workloads releases the GIL while it waits; the other is throttled by it. Match each to threads or processes — then ask what you give up: shared memory, or copies and locks?"
+            "hint": "One of the two workloads releases the GIL while it waits; the other is throttled by it. Match each to threads or processes — then ask what you give up: shared memory, or copies and locks?",
+            "commit": {
+              "q": "You add more threads to speed up the CPU-bound array math. What actually happens?",
+              "opts": [
+                "Throughput scales with core count — the threads run bytecode in parallel",
+                "Nothing improves — the GIL lets only one thread run Python bytecode at a time",
+                "It gets faster, but only if each thread is pinned to its own CPU core"
+              ],
+              "answer": 1,
+              "why": "CPU-bound Python threads all queue behind one GIL, so extra threads add contention, not parallelism. Where each workload spends its time (waiting vs computing) decides the split."
+            }
           }
         ]
       }
@@ -795,7 +805,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've now seen the whole illusion: the **translation path** (TLB → MMU → page walk → RAM), the gap between **VSZ and RSS**, the **page cache** sitting in 'available' memory, and the **OOM killer** that fires when real RAM runs out. A service shows 100 GiB VSZ but 800 MiB RSS, runs fine for hours, then gets OOM-killed under load — with `free -h` having shown most memory as 'available' the whole time. Explain how these mechanisms fit together to produce that outcome, and name the trade-off you'd weigh before 'fixing' it by turning off swap.",
             "modelAnswer": "The 100 GiB VSZ is virtual address space the process *reserved* — the MMU has mappings for it, but no physical frame is committed until each page is first touched, which is why **RSS** (the truth) stays tiny. As load arrives, the service touches more of those pages; each first touch is a fault that the **page walk** resolves into a freshly allocated physical frame, so RSS climbs toward real RAM. Meanwhile `free -h` looked safe because the kernel had filled 'available' with **page cache** it can evict on demand — that's reclaimable and not the problem. The OOM kill comes when *anonymous* (non-evictable) pages plus genuinely needed cache exceed RAM and there's nowhere to spill: the kernel reclaims cache, then, with no swap to push cold anonymous pages to, picks a victim by `oom_score` and kills it. So the chain is: lazy commit (VSZ ≫ RSS) → first-touch faults grow RSS → reclaim exhausts → OOM. The **trade-off** on disabling swap: `swapoff` removes the soft-failure runway — instead of degrading into slow swapping (the solid disk light), the next allocation OOMs *instantly*. You trade tail-latency spikes for abrupt kills. The usual judgment is to keep a little swap with `vm.swappiness=10` so cold pages can spill without thrashing hot ones, and to alert on **RSS** and reclaim pressure rather than on `used` — because the page cache made `used` a liar all along.",
-            "hint": "VSZ is a promise, RSS is the bill, and the page cache makes 'used' look scarier than it is. Ask what swap actually buys you before you remove it."
+            "hint": "VSZ is a promise, RSS is the bill, and the page cache makes 'used' look scarier than it is. Ask what swap actually buys you before you remove it.",
+            "commit": {
+              "q": "The service gets OOM-killed even though `free -h` showed plenty of 'available' memory. What was that 'available' mostly made of?",
+              "opts": [
+                "Reclaimable page cache — evictable, but it can't absorb growing anonymous pages",
+                "Unused swap space the kernel was holding in reserve for emergencies",
+                "The huge VSZ the process reserved up front but never actually touched"
+              ],
+              "answer": 0,
+              "why": "'Available' counts page cache the kernel can drop on demand. But anonymous pages that grow under load aren't evictable — they need swap or a victim."
+            }
           }
         ]
       }
@@ -1176,7 +1196,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've traced the full write path: `write()` lands in the **page cache**, an **inode** points at the data blocks, the **journal** records the change, and `fsync` forces the **flush** to the platter. A user reports that after a clean app restart their last few records vanished — no crash, no power loss. Walk through how these pieces conspire to lose that data, then design the durable write the app *should* have done and name the trade-off it costs.",
             "modelAnswer": "The records were written but only ever lived in the **page cache** — `write()` returns the instant the bytes are copied there, long before they hit disk. A normal `close()` does **not** flush, and the kernel's writeback can lag by seconds, so the app's idea of \"saved\" was a dirty page the kernel hadn't yet pushed through the journal to the data blocks. On the clean restart nothing replayed those pages (the journal only protects writes that reached it), so they evaporated. The durable version: after the final `write()`, call **`fsync(fd)`** to force the page cache through the journal and onto the platter, and—because a file's *name* is a directory entry, a separate inode—`fsync` the **parent directory** too so the new entry survives. For rename-based atomic saves, the order is write-temp → fsync(temp) → rename → fsync(dir). The **trade-off**: each `fsync` is a real disk round-trip that stalls the writer, so blanket fsync-per-record can cut throughput by an order of magnitude. The judgment call is *which* writes are precious — fsync those, batch the rest, and accept that the page cache's speed is exactly the durability you're choosing to risk in between.",
-            "hint": "Where do the bytes actually live the moment `write()` returns, and which call is the only thing that forces them past the journal to the platter? Then ask what that call costs if you do it on every record."
+            "hint": "Where do the bytes actually live the moment `write()` returns, and which call is the only thing that forces them past the journal to the platter? Then ask what that call costs if you do it on every record.",
+            "commit": {
+              "q": "The app called `write()` then `close()`, and the records still vanished after a clean restart. Which missing step lost the data?",
+              "opts": [
+                "A journal replay on reboot that would have restored the lost pages",
+                "Opening the file in synchronous mode so `close()` blocks until the disk confirms",
+                "An `fsync` to force the dirty pages out of the page cache onto disk"
+              ],
+              "answer": 2,
+              "why": "`write()` only copies bytes into the page cache, and `close()` does not flush — something has to explicitly push those dirty pages to storage before they're durable."
+            }
           }
         ]
       }
@@ -6114,7 +6144,17 @@ export default {
             "type": "explain-back",
             "prompt": "In your own words: walk through the TLS 1.3 handshake and explain why it only needs one round trip.",
             "modelAnswer": "In TLS 1.3, you send `ClientHello` already carrying your key share — you've guessed which key-exchange group the server supports (curve25519, usually) and pre-computed half of the Diffie-Hellman exchange. The server replies with its own key share, certificate, and `Finished`, all encrypted under the freshly-derived session key. You verify the cert chain against your trust store, send your `Finished`, and from byte 0 of the second flight, application data is flowing. The whole thing is **1-RTT** because the key exchange happens in the very first message, not after a separate \"hello, what cipher do you support?\" round like TLS 1.2 needed.",
-            "hint": "Think about what TLS 1.2 needed two round trips for — and what TLS 1.3 collapses by guessing the key exchange group up front."
+            "hint": "Think about what TLS 1.2 needed two round trips for — and what TLS 1.3 collapses by guessing the key exchange group up front.",
+            "commit": {
+              "q": "What lets a full TLS 1.3 handshake finish in one round trip where TLS 1.2 needed two?",
+              "opts": [
+                "The server caches session keys from earlier connections and skips the key exchange",
+                "The client guesses the key-exchange group and sends its key share in the very first message",
+                "TLS 1.3 skips certificate verification during the handshake to save a flight"
+              ],
+              "answer": 1,
+              "why": "The `ClientHello` already carries a pre-computed key share, so there's no separate 'what do you support?' round before the exchange can start."
+            }
           }
         ]
       }
@@ -8282,7 +8322,17 @@ export default {
             "type": "explain-back",
             "prompt": "You now have three pieces: a **tree of nodes**, the **BFS/DFS traversals** that visit them, and the **base-case + reduction** shape of a recursive function. Design a function that, given the root of a deeply-nested JSON config, returns the *depth* of the most deeply-buried key — explain which traversal you'd reach for and why, and name the one trade-off that would make you abandon recursion for an explicit stack.",
             "modelAnswer": "I'd model each object/array as a node whose children are its values, then write a recursive **DFS** because depth is naturally a property of how far down a single path you've walked — at each node I return `1 + max(depth(child) for child in children)`, with the **base case** being a scalar (or empty container) that returns 0. DFS over BFS here because I care about path length, not level order, and recursion mirrors the nesting one-to-one so the code reads like the problem. The **trade-off I'd watch**: Python caps the call stack near 1000 frames, so a pathologically deep config (or hostile input) blows up with `RecursionError`. The moment depth could exceed that — or I can't trust the input — I'd convert to an explicit stack of `(node, depth)` tuples and loop, trading the clean recursive shape for bounded, heap-backed memory I control.",
-            "hint": "Depth is about one path down, not breadth across a level — that picks your traversal. Then ask: what's the hard ceiling on the call stack, and when does it bite?"
+            "hint": "Depth is about one path down, not breadth across a level — that picks your traversal. Then ask: what's the hard ceiling on the call stack, and when does it bite?",
+            "commit": {
+              "q": "Your recursive depth function passes every test, then crashes on a 5,000-level-deep hostile config. What broke?",
+              "opts": [
+                "The heap filled up because each recursive call copies the subtree it visits",
+                "DFS was the wrong traversal — finding max depth requires visiting level by level",
+                "Python's call stack caps out near 1,000 frames, raising RecursionError"
+              ],
+              "answer": 2,
+              "why": "Every recursive call pushes a stack frame, and Python's recursion limit sits near 1,000. That hard ceiling is exactly the trigger for switching to an explicit stack."
+            }
           }
         ]
       }
@@ -8399,6 +8449,801 @@ export default {
             "type": "quote",
             "text": "Same boxes, different door. Pick the end and you've picked the algorithm.",
             "cite": "the LIFO vs FIFO rule"
+          }
+        ]
+      }
+    ]
+  },
+  "fund-capstone-tasktracker": {
+    "sections": [
+      {
+        "heading": "What you're building",
+        "body": [
+          {
+            "type": "p",
+            "text": "Everything so far was practice reps. This is the real thing: **`tasker`**, a command-line task tracker you build on your own machine, in your own VS Code, and keep forever. By the end you'll type `python tasker.py add \"water the plants\"` in a terminal and your tool will remember it — across reboots, in a file you can open and read."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**argparse** — git-style subcommands (`add`, `list`, `done`)",
+              "**JSON file I/O** — your data survives the program exiting",
+              "**Functions with one job** — the layout that makes testing possible",
+              "**pytest** — proof it works, not vibes"
+            ]
+          },
+          {
+            "type": "diagram",
+            "title": "One command, one round trip",
+            "height": 210,
+            "caption": "Every command takes the same trip: argparse reads what you typed, one function does the work, the result lands in tasks.json.",
+            "nodes": [
+              {
+                "id": "cmd",
+                "label": "Terminal",
+                "subtitle": "tasker add",
+                "accent": "water",
+                "x": 0.1,
+                "y": 0.3
+              },
+              {
+                "id": "parse",
+                "label": "argparse",
+                "subtitle": "reads argv",
+                "accent": "sky",
+                "x": 0.45,
+                "y": 0.3
+              },
+              {
+                "id": "logic",
+                "label": "Commands",
+                "subtitle": "add · list · done",
+                "accent": "amber",
+                "x": 0.8,
+                "y": 0.3
+              },
+              {
+                "id": "file",
+                "label": "tasks.json",
+                "subtitle": "load · save",
+                "accent": "earth",
+                "x": 0.8,
+                "y": 0.8
+              }
+            ],
+            "edges": [
+              {
+                "from": "cmd",
+                "to": "parse",
+                "kind": "solid",
+                "label": "argv"
+              },
+              {
+                "from": "parse",
+                "to": "logic",
+                "kind": "solid",
+                "label": "dispatch"
+              },
+              {
+                "from": "logic",
+                "to": "file",
+                "kind": "solid",
+                "label": "save"
+              },
+              {
+                "from": "file",
+                "to": "logic",
+                "kind": "dashed",
+                "label": "load"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "**Rules of engagement:** the steps below show you exactly what to type and why — but you type it in **your own editor and terminal**, not in this app. Don't copy-paste. Typing it is where it sticks."
+          }
+        ]
+      },
+      {
+        "heading": "Set up the project",
+        "body": [
+          {
+            "type": "p",
+            "text": "Two minutes of setup buys you a clean, isolated project — the same skeleton you'll use for every Python tool from now on."
+          },
+          {
+            "type": "build-along",
+            "title": "Create the project",
+            "goal": "A fresh folder with its own virtual environment, git history, and pytest installed. Run each line in your terminal as you click through.",
+            "lang": "bash",
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Make the project its own folder",
+                "say": "Every project gets its own directory — mixing projects in one folder is how dependency chaos starts.",
+                "add": "mkdir tasker && cd tasker  # && only runs cd if mkdir succeeded"
+              },
+              {
+                "title": "Create a virtual environment",
+                "say": "A venv is a private Python just for this project. Packages you install here can't break anything else on your machine.",
+                "add": "python -m venv .venv  # .venv is the conventional name — tools auto-detect it"
+              },
+              {
+                "title": "Activate it",
+                "say": "Activation points `python` and `pip` at the venv. Your prompt grows a (.venv) prefix — that's how you know it worked.",
+                "add": "source .venv/bin/activate  # Windows PowerShell: .venv\\Scripts\\Activate.ps1"
+              },
+              {
+                "title": "Install the one dependency",
+                "say": "pytest is the test runner. Everything else in this project is the standard library — zero other installs.",
+                "add": "pip install pytest  # lands inside .venv only, not system-wide"
+              },
+              {
+                "title": "Start git history + ignore the junk",
+                "say": "The venv and Python's bytecode cache are machine-local noise — they never belong in version control.",
+                "add": "git init  # version control from minute one, not after it works\nprintf '.venv/\\n__pycache__/\\n' > .gitignore  # keep generated stuff out of git"
+              },
+              {
+                "title": "Create the two files and open VS Code",
+                "say": "One file for the tool, one for its tests. That's the whole project.",
+                "add": "touch tasker.py test_tasker.py  # empty for now — you fill them next\ncode .  # opens this folder in VS Code"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "**Sanity check:** run `pytest --version`. If it prints a version number, your setup is done. If it says *command not found*, your venv isn't activated — redo the activate step."
+          }
+        ]
+      },
+      {
+        "heading": "The data layer — load and save",
+        "body": [
+          {
+            "type": "p",
+            "text": "Everything the tool remembers lives in one JSON file. Exactly **two functions** are allowed to touch that file — every other function works on plain Python lists. This split is the most important design decision in the whole project."
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Field",
+              "Type",
+              "Example"
+            ],
+            "rows": [
+              [
+                "`id`",
+                "int",
+                "`3` — auto-incremented, never reused"
+              ],
+              [
+                "`title`",
+                "str",
+                "`\"water the plants\"`"
+              ],
+              [
+                "`done`",
+                "bool",
+                "`false` — every task starts open"
+              ],
+              [
+                "`created`",
+                "str",
+                "`\"2026-07-07\"` — ISO date, sorts as text"
+              ]
+            ],
+            "align": [
+              "left",
+              "left",
+              "left"
+            ]
+          },
+          {
+            "type": "build-along",
+            "title": "tasker.py — part 1 of 3: storage",
+            "goal": "Imports, one constant, and the only two functions that ever read or write the file. Type each chunk into tasker.py as you go.",
+            "lang": "python",
+            "file": "tasker.py",
+            "steps": [
+              {
+                "title": "Imports and the file location",
+                "say": "Everything here is the standard library — a tool with zero pip dependencies is a tool that runs anywhere Python does.",
+                "add": "import argparse  # stdlib CLI parser — no install needed\nimport json  # tasks persist as human-readable JSON\nfrom datetime import date  # stamps each task with its creation day\nfrom pathlib import Path  # Path objects beat raw strings for file work\n\nTASKS_FILE = Path(\"tasks.json\")  # one constant — change storage in one place"
+              },
+              {
+                "title": "Load — and survive the very first run",
+                "say": "The first time anyone runs your tool, tasks.json doesn't exist yet. Handling 'file missing' as a normal case, not an error, is what separates tools that work from tools that crash on day one.",
+                "add": "\ndef load_tasks():\n    if not TASKS_FILE.exists():  # first run — the file isn't there yet\n        return []  # empty list, not a crash\n    return json.loads(TASKS_FILE.read_text())  # JSON text -> list of dicts"
+              },
+              {
+                "title": "Save — pretty-printed on purpose",
+                "say": "indent=2 makes the file readable by humans and diffable by git. Compact JSON saves bytes you don't care about and costs you debuggability you do.",
+                "add": "\ndef save_tasks(tasks):\n    text = json.dumps(tasks, indent=2)  # indent=2 keeps the file readable + git-diffable\n    TASKS_FILE.write_text(text)  # full rewrite — fine at personal-tool scale"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "**Why the split matters:** if you ever swap JSON for SQLite or a web API, `load_tasks` and `save_tasks` are the *only* two functions that change. Everything you write next has no idea a file exists."
+          }
+        ]
+      },
+      {
+        "heading": "The commands — add, list, done",
+        "body": [
+          {
+            "type": "p",
+            "text": "Each command is one small function that takes plain values and returns plain values. No printing inside the logic, no file access — that comes later, in `main()`. Keep typing into `tasker.py`, right below part 1."
+          },
+          {
+            "type": "build-along",
+            "title": "tasker.py — part 2 of 3: the logic",
+            "goal": "Three functions, one per command. Each is independently testable because it never touches the terminal or the disk.",
+            "lang": "python",
+            "file": "tasker.py",
+            "steps": [
+              {
+                "title": "add_task — new ids without a counter file",
+                "say": "Deriving the next id from the data itself means there's no separate counter to drift out of sync. The default=0 handles the empty-list case that would otherwise crash max().",
+                "add": "\ndef add_task(tasks, title):\n    next_id = max((t[\"id\"] for t in tasks), default=0) + 1  # default=0 covers the empty list\n    task = {\n        \"id\": next_id,\n        \"title\": title,\n        \"done\": False,  # every task starts open\n        \"created\": date.today().isoformat(),  # \"2026-07-07\" — sorts correctly as text\n    }\n    tasks.append(task)  # mutate the list in place; the caller decides when to save\n    return task  # returned so the CLI can print a confirmation"
+              },
+              {
+                "title": "list_tasks — hide the noise by default",
+                "say": "Finished tasks are clutter. Defaulting to open-only, with an opt-in flag for everything, is the ADHD-friendly default — and the pattern every good CLI uses.",
+                "add": "\ndef list_tasks(tasks, show_all=False):\n    for t in tasks:\n        if t[\"done\"] and not show_all:  # hide finished tasks unless asked\n            continue\n        mark = \"x\" if t[\"done\"] else \" \"  # checkbox-style status column\n        print(f\"[{mark}] {t['id']:>3}  {t['title']}\")  # :>3 right-aligns ids up to 999"
+              },
+              {
+                "title": "complete_task — fail soft, decide loud later",
+                "say": "The function reports 'not found' by returning None instead of crashing. Whether that's a polite message or an error exit is main()'s call — logic functions don't get to kill the program.",
+                "add": "\ndef complete_task(tasks, task_id):\n    for t in tasks:\n        if t[\"id\"] == task_id:\n            t[\"done\"] = True  # flip the flag; saving is the caller's job\n            return t  # hand back the task for the confirmation message\n    return None  # unknown id — signal it, don't crash here"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Notice what's *missing*: none of these functions open files or call `input()`. They take a list, do one thing, and hand back a result. In the test section you'll see exactly why that was worth being strict about."
+          }
+        ]
+      },
+      {
+        "heading": "Wire it to the terminal — argparse",
+        "body": [
+          {
+            "type": "p",
+            "text": "argparse turns `python tasker.py add \"buy milk\"` into a tidy object: `args.command == \"add\"`, `args.title == \"buy milk\"`. Subparsers give you the git-style `tool verb` shape — one subcommand per action."
+          },
+          {
+            "type": "build-along",
+            "title": "tasker.py — part 3 of 3: the CLI shell",
+            "goal": "Declare the interface, then route each command to its function. After this, the tool is fully usable.",
+            "lang": "python",
+            "file": "tasker.py",
+            "steps": [
+              {
+                "title": "Declare the interface",
+                "say": "This function only DESCRIBES the CLI — what commands exist and what arguments they take. It does zero work. Free bonus: argparse generates --help text from it automatically.",
+                "add": "\ndef build_parser():\n    parser = argparse.ArgumentParser(prog=\"tasker\", description=\"Tiny task tracker\")\n    sub = parser.add_subparsers(dest=\"command\", required=True)  # git-style subcommands\n\n    p_add = sub.add_parser(\"add\", help=\"add a new task\")\n    p_add.add_argument(\"title\")  # positional — quote it to include spaces\n\n    p_list = sub.add_parser(\"list\", help=\"show open tasks\")\n    p_list.add_argument(\"--all\", action=\"store_true\")  # a flag: present = True, absent = False\n\n    p_done = sub.add_parser(\"done\", help=\"mark a task complete\")\n    p_done.add_argument(\"task_id\", type=int)  # type=int converts AND validates for you\n    return parser"
+              },
+              {
+                "title": "main — the thin traffic cop",
+                "say": "main() is the ONLY function that touches the outside world: argv, the file, and printing. Parse, load, route to one function, save, confirm. Nothing clever lives here — that's the point.",
+                "add": "\ndef main():\n    args = build_parser().parse_args()  # bad input exits here with usage help\n    tasks = load_tasks()  # one read at the start\n    if args.command == \"add\":\n        task = add_task(tasks, args.title)\n        save_tasks(tasks)  # persist AFTER the mutation succeeded\n        print(f\"Added #{task['id']}: {task['title']}\")\n    elif args.command == \"list\":\n        list_tasks(tasks, show_all=args.all)  # read-only — nothing to save\n    elif args.command == \"done\":\n        task = complete_task(tasks, args.task_id)\n        if task is None:\n            raise SystemExit(f\"No task #{args.task_id}\")  # message + exit code 1, no traceback\n        save_tasks(tasks)\n        print(f\"Done: {task['title']}\")"
+              },
+              {
+                "title": "The import guard",
+                "say": "This line is why your tests can 'import tasker' without the CLI firing. Executed directly, __name__ is \"__main__\" and main() runs; imported, it isn't and main() doesn't.",
+                "add": "\nif __name__ == \"__main__\":  # run only when executed, not when imported by tests\n    main()"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "**Take it for a spin.** Run these in your terminal, in order, and compare against the expected results in the comments:"
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "python tasker.py add \"read one lesson\"  # -> Added #1: read one lesson\npython tasker.py add \"water the plants\"  # -> Added #2 — ids auto-increment\npython tasker.py list  # both tasks, both unchecked\npython tasker.py done 1  # -> Done: read one lesson\npython tasker.py list  # only #2 shows — done tasks hide by default\npython tasker.py list --all  # both again, #1 now [x]\npython tasker.py done 99  # -> No task #99, and exits with code 1\ncat tasks.json  # peek at exactly what your tool saved"
+          },
+          {
+            "type": "p",
+            "text": "If something errors, read the traceback **bottom-up**: the last line names the problem, the lines above it point at the exact file and line number. Fix, re-run, repeat — that loop *is* the job."
+          }
+        ]
+      },
+      {
+        "heading": "Prove it with tests",
+        "body": [
+          {
+            "type": "p",
+            "text": "Here's the payoff for keeping logic out of `main()`: tests just import your functions and call them with plain lists. No fake keyboard, no captured screens — for the file test, pytest even hands you a throwaway folder."
+          },
+          {
+            "type": "build-along",
+            "title": "test_tasker.py — four tests, whole tool covered",
+            "goal": "Each test tells a one-sentence story: given this input, that output. Type them into test_tasker.py.",
+            "lang": "python",
+            "file": "test_tasker.py",
+            "steps": [
+              {
+                "title": "Test that ids increment",
+                "say": "Arrange (empty list), act (add twice), assert (1 then 2). Note there's no file anywhere — add_task works on plain lists, so the test does too.",
+                "add": "import tasker  # safe: the __main__ guard stops main() from running on import\n\n\ndef test_add_assigns_incrementing_ids():\n    tasks = []  # in-memory list — no file needed for logic tests\n    first = tasker.add_task(tasks, \"one\")\n    second = tasker.add_task(tasks, \"two\")\n    assert first[\"id\"] == 1  # ids start at 1\n    assert second[\"id\"] == 2  # and increment from the data itself"
+              },
+              {
+                "title": "Test completing — the happy path and the miss",
+                "say": "Every function gets both tests: does it work, and does it fail the way we promised. The 'is True' check is stricter than '== True' — it catches accidentally-truthy returns.",
+                "add": "\ndef test_complete_flips_done_flag():\n    tasks = []\n    task = tasker.add_task(tasks, \"finish capstone\")\n    result = tasker.complete_task(tasks, task[\"id\"])\n    assert result[\"done\"] is True  # 'is True' rejects truthy-but-wrong values\n\n\ndef test_complete_unknown_id_returns_none():\n    assert tasker.complete_task([], 99) is None  # a miss must signal, never crash"
+              },
+              {
+                "title": "Test the file round trip — safely",
+                "say": "tmp_path is a fresh throwaway directory from pytest; monkeypatch redirects TASKS_FILE into it for this one test. Your real tasks.json is never touched — tests that write to real files are tests you learn to fear.",
+                "add": "\ndef test_save_then_load_round_trips(tmp_path, monkeypatch):\n    fake = tmp_path / \"tasks.json\"  # tmp_path = throwaway dir pytest creates per test\n    monkeypatch.setattr(tasker, \"TASKS_FILE\", fake)  # point storage at it, auto-undone after\n    tasks = []\n    tasker.add_task(tasks, \"persist me\")\n    tasker.save_tasks(tasks)\n    assert tasker.load_tasks() == tasks  # what you save is exactly what you load"
+              }
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "pytest -v  # -v names each test as it runs — expect 4 passed"
+          },
+          {
+            "type": "p",
+            "text": "Four green tests mean you can now change *anything* — rename a function, swap the storage format — and know in five seconds whether you broke something. That safety is what tests actually buy."
+          }
+        ]
+      },
+      {
+        "heading": "Verify, commit, stretch",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "Delete `tasks.json`, then run the whole *take it for a spin* sequence again — first-run behavior has to work too",
+              "Run `pytest -v` one last time — 4 passed",
+              "Run `python tasker.py --help` and admire the docs argparse wrote for you",
+              "Commit it — an uncommitted project doesn't exist"
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "git add tasker.py test_tasker.py .gitignore  # source + tests only — never the venv\ngit commit -m \"CLI task tracker with tests\"  # your first complete, tested tool"
+          },
+          {
+            "type": "h3",
+            "text": "Stretch goals — pick ONE and ship it"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**`delete` command** — a fourth subcommand; you now know the full recipe",
+              "**`--sort created`** on `list` — newest first",
+              "**Priorities** — `add --high`, and `list` shows high-priority tasks first",
+              "**Search** — `tasker find milk` prints tasks whose title contains the word"
+            ]
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Your `main()` is a thin traffic cop: parse, load, call one function, save, print. Why was keeping ALL the real logic **out** of `main()` the one design choice that made your tests possible?",
+            "hint": "What would a test for `add` have had to fake if the logic lived inside `main()`?",
+            "modelAnswer": "Because tests import functions, not terminals. `add_task`, `complete_task`, and `list_tasks` take plain Python values — a list, a string, an int — and return plain values, so a test calls them directly: no fake command-line arguments, no capturing printed output, no real files. `main()` is the only place that touches the messy outside world (argv, the JSON file, printing), and it's so thin there's almost nothing in it to break. This pattern has a name — **pure logic in the core, I/O at the edges** — and it scales from this 60-line tool to production services: the testable core grows, the untested shell stays thin.",
+            "commit": {
+              "q": "You add a `delete` command next week. Where does the code go?",
+              "opts": [
+                "Inside `main()` — it's only a few lines",
+                "A new `delete_task(tasks, task_id)` function that `main()` calls in one line",
+                "Inside `build_parser()` — that's where the subcommand gets declared"
+              ],
+              "answer": 1,
+              "why": "Same shape as the other three commands: logic in a small testable function, `main()` just routes to it. `build_parser()` only *declares* the interface — it never does the work."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "fund-capstone-logdigest": {
+    "sections": [
+      {
+        "heading": "Your mission",
+        "body": [
+          {
+            "type": "p",
+            "text": "The training wheels come off. Last capstone you built along; this time you get what working engineers get — **requirements and a contract** — and you write every line yourself in VS Code. Expect to get stuck. Getting unstuck is the workout."
+          },
+          {
+            "type": "p",
+            "text": "**The tool:** `logdigest.py`. Point it at a server log file and it prints a one-screen summary — line counts by level, the top error messages, and the time range covered. Ops engineers write throwaway versions of exactly this tool constantly; yours won't be throwaway, because yours will have tests."
+          },
+          {
+            "type": "diagram",
+            "title": "The whole tool in one line",
+            "height": 170,
+            "caption": "Read a log file, crunch it, print a digest. Small tool — but every requirement below is a real-world sharp edge.",
+            "nodes": [
+              {
+                "id": "log",
+                "label": "app.log",
+                "subtitle": "raw log lines",
+                "accent": "water",
+                "x": 0.12,
+                "y": 0.5
+              },
+              {
+                "id": "tool",
+                "label": "logdigest.py",
+                "subtitle": "parse · count",
+                "accent": "amber",
+                "x": 0.5,
+                "y": 0.5
+              },
+              {
+                "id": "out",
+                "label": "Digest",
+                "subtitle": "printed report",
+                "accent": "fire",
+                "x": 0.88,
+                "y": 0.5
+              }
+            ],
+            "edges": [
+              {
+                "from": "log",
+                "to": "tool",
+                "kind": "solid",
+                "label": "read"
+              },
+              {
+                "from": "tool",
+                "to": "out",
+                "kind": "solid",
+                "label": "print"
+              }
+            ]
+          },
+          {
+            "type": "h3",
+            "text": "Requirements"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "`python logdigest.py app.log` prints the digest (exact contract below)",
+              "`python logdigest.py app.log --level ERROR` prints only the matching raw lines — like grep, but level-aware",
+              "Malformed lines (no timestamp or level) **never crash the tool** — they're counted and reported in the digest",
+              "Missing file → one clear error line and **exit code 1** (verify with `echo $?`)",
+              "All parsing/counting logic lives in functions that take **lists of strings** — only `main()` opens files",
+              "At least **4 pytest tests**, all green, none of them touching the disk"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "The contract",
+        "body": [
+          {
+            "type": "p",
+            "text": "Save this as `app.log` — it's your test fixture. Line 7 is deliberately broken; your tool has to shrug it off."
+          },
+          {
+            "type": "code",
+            "lang": "text",
+            "text": "2026-07-07 09:14:02 INFO Server started on port 8080\n2026-07-07 09:14:05 INFO Health check passed\n2026-07-07 09:15:11 WARN Slow query took 1200ms\n2026-07-07 09:16:40 ERROR Database connection refused\n2026-07-07 09:17:02 INFO Retrying database connection\n2026-07-07 09:17:31 ERROR Database connection refused\nthis line is corrupted -- no timestamp, no level\n2026-07-07 09:21:09 WARN Disk usage at 85 percent\n2026-07-07 09:28:55 ERROR Timeout calling billing service\n2026-07-07 09:31:47 INFO Shutdown requested"
+          },
+          {
+            "type": "p",
+            "text": "`python logdigest.py app.log` must produce this. Exact spacing is your call — **the numbers are the contract**:"
+          },
+          {
+            "type": "code",
+            "lang": "text",
+            "text": "DIGEST  app.log\nlines   10 (1 malformed)\nrange   09:14:02 -> 09:31:47\nINFO    4\nWARN    2\nERROR   3\ntop errors\n  2x Database connection refused\n  1x Timeout calling billing service"
+          },
+          {
+            "type": "table",
+            "headers": [
+              "You run",
+              "It must do"
+            ],
+            "rows": [
+              [
+                "`python logdigest.py app.log`",
+                "Print the digest above"
+              ],
+              [
+                "`python logdigest.py app.log --level ERROR`",
+                "Print only the 3 raw ERROR lines"
+              ],
+              [
+                "`python logdigest.py missing.log`",
+                "One error line, exit code 1, no traceback"
+              ],
+              [
+                "`pytest`",
+                "All tests green"
+              ]
+            ],
+            "align": [
+              "left",
+              "left"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Success criteria",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "Digest numbers match the sample exactly: 4 INFO, 2 WARN, 3 ERROR, 1 malformed, range `09:14:02 -> 09:31:47`",
+              "Top errors ranked by count — the 2x connection-refused line prints **before** the 1x timeout",
+              "`--level` works for all three levels, not just ERROR",
+              "`missing.log` exits with code 1 and a human-readable message — a traceback is a fail",
+              "`pytest` is green, and every test feeds hand-built lists of strings to your functions — zero file I/O in tests",
+              "Cold-start proof: close everything, reopen a fresh terminal, run all four contract rows again"
+            ]
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "IN SCOPE",
+            "watchLabel": "OUT OF SCOPE",
+            "good": [
+              "Parsing with `str.split` — no regex needed",
+              "`collections.Counter` (or a plain dict) for counting",
+              "argparse with one positional arg + one `--level` option"
+            ],
+            "watch": [
+              "Regex mastery — `split` genuinely is enough here",
+              "Streaming gigantic files in chunks — read the whole file",
+              "Timezones — treat timestamps as plain sortable text",
+              "Colors, progress bars, packaging — ship the boring version first"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Hints — open only when stuck",
+        "body": [
+          {
+            "type": "p",
+            "text": "Give yourself a real 25-minute wrestle before each peek — the struggle is where the learning compounds. Hints run from gentle nudge to near-spoiler."
+          },
+          {
+            "type": "terms",
+            "items": [
+              {
+                "term": "1 · Where to start",
+                "def": "Write `parse_line(line)` first: return `(time, level, message)`, or `None` for malformed. `line.split(\" \", 3)` yields exactly four pieces — date, time, level, message. Fewer than four pieces, or a level that isn't INFO/WARN/ERROR? That's your `None`."
+              },
+              {
+                "term": "2 · Counting levels",
+                "def": "`collections.Counter` is a dict where every key starts at 0. Feed it the level from each parsed line and `counts[\"INFO\"]` just works — no key-exists checks."
+              },
+              {
+                "term": "3 · Top errors",
+                "def": "Collect the message of every ERROR line into a list, then `Counter(messages).most_common(3)` hands back `(message, count)` pairs already sorted by count."
+              },
+              {
+                "term": "4 · Time range",
+                "def": "Timestamps like `09:14:02` sort correctly as plain strings — zero-padded, fixed-width. `min()` and `max()` over the parsed times is the entire feature."
+              },
+              {
+                "term": "5 · Exit code 1",
+                "def": "`raise SystemExit(\"logdigest: app.log not found\")` prints the message to stderr and exits with code 1 — no traceback, no imports, one line."
+              },
+              {
+                "term": "6 · Tests without files",
+                "def": "Because your functions take lists of strings, a test is one line: `assert parse_line(\"2026-07-07 09:14:02 INFO hi\") == (\"09:14:02\", \"INFO\", \"hi\")`. Paste three sample lines into the test file as a Python list and assert on the counts."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Done? Prove it, then level up",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "Run all four contract rows from a fresh terminal — every one behaves as specified",
+              "Run `pytest -v` — green across the board",
+              "Commit it"
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "git add logdigest.py test_logdigest.py app.log  # the sample log ships with the tests\ngit commit -m \"log digest tool\"  # requirements-driven, zero hand-holding"
+          },
+          {
+            "type": "h3",
+            "text": "Stretch goals — pick ONE"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "`--top N` — make the top-errors count configurable (default 3)",
+              "Multiple files: `logdigest.py *.log` prints one combined digest",
+              "Cron-ready: exit code 2 when ERROR count exceeds a `--max-errors` threshold",
+              "Busiest minute: which `HH:MM` had the most lines?"
+            ]
+          },
+          {
+            "type": "explain-back",
+            "prompt": "The requirements forced one design rule on you: parsing and counting functions take **lists of strings**, and only `main()` opens files. What did that rule buy you when you wrote the tests?",
+            "hint": "What would every single test have needed to create on disk otherwise?",
+            "modelAnswer": "Every test became a two-liner: hand a small hand-written list of lines to a function, assert on the return value. No fixture files to create, no cleanup, no temp directories, no monkeypatching paths. The filesystem is the slowest and flakiest thing a test can touch — by pushing all file access to the edge (`main()`), the core became pure input → output, which is the easiest possible thing to test. It's the same **logic in the core, I/O at the edges** split from the task tracker — and it's the default shape of every CLI tool you'll ever write.",
+            "commit": {
+              "q": "Next month the logs start arriving gzipped as `app.log.gz`. With this design, what has to change?",
+              "opts": [
+                "Every parsing function — they all need to learn about gzip",
+                "Only `main()` — it decompresses into lines; the functions never know",
+                "The tests — they must regenerate gzipped fixture files"
+              ],
+              "answer": 1,
+              "why": "I/O at the edges pays off exactly here: `main()` swaps `open()` for `gzip.open()`, still hands the same list of strings down, and every function — and every test — is untouched."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "fund-capstone-backup-design": {
+    "sections": [
+      {
+        "heading": "The brief",
+        "body": [
+          {
+            "type": "p",
+            "text": "No steps. No hints. No code. This time you're the **architect**: you'll design a small backup tool on paper before a single line exists — the way real projects should start. You make the calls, write down *why*, then check yourself against a strong answer at the end."
+          },
+          {
+            "type": "p",
+            "text": "**Scenario.** Maya keeps ~40 GB of photos and documents in one folder on her laptop. She wants a CLI tool — call it `shelfback` — that backs that folder up to a 500 GB external USB drive every night. Your deliverable is the *design*: boxes, file layouts, and failure stories."
+          },
+          {
+            "type": "h3",
+            "text": "Hard constraints"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "Runs **nightly, unattended** — nobody is watching for errors at 3 AM",
+              "The drive is sometimes unplugged — a run must fail *safely* and **never corrupt past backups**",
+              "Files get renamed and moved often — a rename shouldn't cost a 4 GB re-copy",
+              "40 GB today, growing ~5 GB/year, on a 500 GB drive — do the math before picking retention",
+              "No cloud, no database servers — files, folders, and standard-library-level tools only",
+              "A backup you can't **restore** from is worthless — the restore path is part of the design"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Decisions you must make",
+        "body": [
+          {
+            "type": "p",
+            "text": "Six decisions, each with a cheap option and an expensive one. There is no universally right column — there are only trade-offs you can or can't defend against the constraints above."
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Decision",
+              "Your options",
+              "What it changes"
+            ],
+            "rows": [
+              [
+                "Full vs incremental",
+                "Copy everything nightly · copy only what changed",
+                "Runtime, drive wear, and how many nights of history fit on 500 GB"
+              ],
+              [
+                "Change detection",
+                "Modified time · file size · content hash",
+                "Speed vs correctness — mtime lies after some copies and restores"
+              ],
+              [
+                "Layout on the drive",
+                "Plain mirror · dated snapshot folders · manifest + content store",
+                "Restore simplicity vs deduplicating renamed files"
+              ],
+              [
+                "Mid-run failure",
+                "Hope · temp file + atomic rename · write the manifest last",
+                "Whether a crash can corrupt the previous good backup"
+              ],
+              [
+                "Retention",
+                "Keep 1 · keep N nights · nightly/weekly/monthly ladder",
+                "How far back \"I deleted it last week\" can reach"
+              ],
+              [
+                "Verification",
+                "Trust the copy · re-read and compare hashes",
+                "Silent corruption gets caught now — or on restore day"
+              ]
+            ],
+            "align": [
+              "left",
+              "left",
+              "left"
+            ]
+          },
+          {
+            "type": "p",
+            "text": "**Anchor number:** full snapshots cost 40 GB a night — the drive is full in about 12 nights. If you want weeks of history, something has to give: retention, dedup, or both. Let that number drive your layout decision."
+          }
+        ]
+      },
+      {
+        "heading": "Your deliverable",
+        "body": [
+          {
+            "type": "p",
+            "text": "Timebox: **45 minutes**, paper or whiteboard. Phone-photograph the result — this is portfolio material and your notes for the reveal at the end."
+          },
+          {
+            "type": "ol",
+            "items": [
+              "**One diagram** — laptop folder, the tool, the drive layout, with arrows for a normal nightly run",
+              "**The drive's folder tree after 3 nights** — write out real example paths, not hand-waves",
+              "**The failure story** — the drive unplugs at file 200 of 300; narrate what state the drive is in and exactly what the next night's run does",
+              "**Three trade-offs, defended** — for each: the option you chose, the option you rejected, and one sentence on why the constraints forced your hand"
+            ]
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "A STRONG DESIGN HAS",
+            "watchLabel": "RED FLAGS",
+            "good": [
+              "A named failure behavior for **every arrow** in the diagram",
+              "A restore path Maya could follow from your notes alone",
+              "A reason welded to every choice — \"hash, because mtime lies after restores\"",
+              "Retention that survives the 40 GB × nights arithmetic"
+            ],
+            "watch": [
+              "\"It just copies the files\" — with no manifest, night 2 can't tell what changed",
+              "Failure handling that amounts to \"re-run it and hope\"",
+              "\"Keep everything forever\" on a drive that fills in 12 nights of full copies",
+              "No restore story — the half of the tool that only matters on the worst day"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Defend it, then compare",
+        "body": [
+          {
+            "type": "p",
+            "text": "Design in hand? Commit to the checkpoint below, then put your failure story next to a strong model answer. You're not grading yourself on matching it — you're checking whether your design *answers the same questions*."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Walk your design through its worst night: 300 files changed, the drive unplugs at file 200, and tomorrow night the run fires again. What state is the drive in after the failure — and why does the second run produce a correct backup instead of a corrupted mix?",
+            "hint": "If the manifest is the LAST thing written, what does its absence tell the next run?",
+            "modelAnswer": "A strong design never lets a half-finished run *count* as a backup. One robust shape: each night, `shelfback` copies changed files into an **in-progress area** (a temp folder, or a content store keyed by file hash), and only after every copy lands does it write the night's **manifest** — the small file listing every path and its hash — as the *final* step. The manifest is the commit point: no manifest, no backup. So when the drive unplugs at file 200, the drive holds all previous nights intact plus 200 orphaned copies and **no new manifest** — messy, but nothing corrupted, because past backups were never touched. Tomorrow's run re-scans, compares hashes against the *last completed* manifest, and re-copies what's missing; files already in a hash-keyed store are skipped for free, so the crash cost is minutes, not a 40 GB do-over. That one ordering rule — **data first, manifest last, never modify old backups** — is the same write-ahead idea that makes databases and git safe, scaled down to a folder of photos.",
+            "commit": {
+              "q": "Your tool crashes halfway through a nightly run. Which design makes the NEXT run safe?",
+              "opts": [
+                "Overwrite files in place each night — simplest possible layout",
+                "Copy data first, write the manifest last, and have each run re-check against the last completed manifest",
+                "A lock file that blocks all future runs until a human investigates"
+              ],
+              "answer": 1,
+              "why": "Manifest-last makes finishing atomic: a crashed run simply never happened as far as restores are concerned, and the next run heals it by re-checking. In-place overwrites can corrupt your only copy mid-write; a human-gated lock file breaks the *unattended* constraint on night one."
+            }
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Score your own failure story:** did it leave every previous night's backup untouched?",
+              "Did your next-run behavior work *without a human* doing anything?",
+              "Could your rename-heavy constraint survive — or does moving a folder re-copy gigabytes?",
+              "If you answered yes twice and defended three trade-offs: that's an architecture review, and you just passed your first one."
+            ]
           }
         ]
       }

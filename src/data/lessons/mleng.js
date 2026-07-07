@@ -1403,7 +1403,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've now seen **prompting**, **RAG**, and **fine-tuning (LoRA)** as three different knobs. Design the adaptation strategy for a customer-support bot whose product docs change weekly, whose refund policy changes monthly, and whose tone must stay consistent across thousands of tickets. Say which knob owns each requirement, then name the one trade-off that would make you reconsider stacking all three.",
             "modelAnswer": "Split the requirements by what each knob actually changes. **Weekly-changing docs → RAG**: re-embed the index, weights untouched, answers stay fresh with citations. **Monthly-changing refund policy → prompting**: it's a rule that lives in the system message, so editing one string ships in seconds with no retrain. **Consistent tone across thousands of tickets → fine-tuning (LoRA)**: behavior/voice is what gradient updates teach, and a LoRA adapter is cheap and hot-swappable per tenant. Each knob owns the requirement that matches *its update mechanism*: index for facts, prompt for policy, weights for behavior — and stacking them keeps fast-moving things out of the slow-to-update weights. **The trade-off I'd watch is the base-model upgrade tax**: a LoRA is frozen against one base, so every time the foundation model is upgraded I must re-train and re-eval the adapter against a held-out set. If the team can't sustain that retraining cadence, I'd drop the fine-tune and push tone into a longer prompt instead — accepting weaker, costlier-per-call adaptation in exchange for zero retraining.",
-            "hint": "Match each requirement to the knob whose *update mechanism* fits its change frequency: index re-embed (facts), edit a string (policy), gradient update (behavior). Then ask what breaks the frozen knob."
+            "hint": "Match each requirement to the knob whose *update mechanism* fits its change frequency: index re-embed (facts), edit a string (policy), gradient update (behavior). Then ask what breaks the frozen knob.",
+            "commit": {
+              "q": "The product docs change every week. Which knob should own keeping answers current?",
+              "opts": [
+                "Fine-tune a fresh LoRA on the new docs each week",
+                "RAG — re-embed the doc index and retrieve at query time",
+                "Paste the full docs into the system prompt on every call"
+              ],
+              "answer": 1,
+              "why": "Fast-changing facts belong in the index, not the weights or the prompt — a re-embed ships fresh answers with no retrain and no giant per-call token bill. Now map the other two requirements the same way."
+            }
           }
         ]
       }
@@ -3513,7 +3523,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've now seen **data parallel**, **pipeline parallel**, and **tensor parallel** as three orthogonal axes. A 70B model won't fit on one GPU and won't even fit its optimizer state in a single node. Lay out a 3D-parallel plan across a cluster of 8-GPU NVLink nodes wired together with InfiniBand, mapping each parallelism axis to the right layer of the bandwidth hierarchy. Explain *why* each axis lands where it does, and name the one mismatch that would tank utilization.",
             "modelAnswer": "Map the chattiest parallelism to the fastest wire. **Tensor parallel goes *within* a node, over NVLink** (~600 GB/s): TP needs an all-reduce on every single layer, so it can only survive the highest-bandwidth interconnect — set TP=8 to use all GPUs in a node and also to split the weights/optimizer state that won't fit on one device. **Pipeline parallel goes *across* nodes within a pod, over InfiniBand**: it only passes activations at stage boundaries, so it tolerates the slower-but-still-fast IB link; use enough microbatches to keep the pipeline bubble (~`(stages−1)/microbatches`) small. **Data parallel goes *across* pods, over the slowest network**: replicas only all-reduce gradients once per step, so they survive ordinary Ethernet — and layer ZeRO on top to shard optimizer state across replicas so the 70B's ~1 TB of Adam state isn't duplicated. So total GPUs = TP · PP · DP. **The mismatch that tanks utilization is putting a chatty axis on a slow wire** — e.g. tensor-parallel *across* nodes instead of within one. Then every layer's all-reduce waits on the network and the GPUs idle ~80% of the time, leaving a $50M cluster running at ~30% utilization.",
-            "hint": "Rank the three axes by how often they communicate (TP every layer > PP every stage > DP once per step), rank the wires by bandwidth (NVLink > IB > Ethernet), and pair them off. The trap is a chatty axis on a slow wire."
+            "hint": "Rank the three axes by how often they communicate (TP every layer > PP every stage > DP once per step), rank the wires by bandwidth (NVLink > IB > Ethernet), and pair them off. The trap is a chatty axis on a slow wire.",
+            "commit": {
+              "q": "Which parallelism axis must stay INSIDE a single NVLink node, or utilization tanks?",
+              "opts": [
+                "Data parallel",
+                "Pipeline parallel",
+                "Tensor parallel"
+              ],
+              "answer": 2,
+              "why": "Tensor parallel communicates the most often of the three axes, so only the fastest wire can feed it. Rank the other two by chattiness and the rest of the mapping falls out."
+            }
           }
         ]
       }
@@ -3912,7 +3932,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've assembled a prompt from four moving parts: the **system/user split** (and its caching consequence), **few-shot examples**, **chain-of-thought**, and a **structured JSON output contract**. Design the prompt for a high-volume ticket classifier that must return parseable JSON, handle tricky edge cases, and stay cheap at scale. Explain what goes in the system message vs. the user turns and why, and name the trade-off you'd watch as volume grows.",
             "modelAnswer": "Put everything *stable* in the **system message** — the role, the rules, and the output contract (\"Return JSON only: {category, urgency}\") — because a fixed system prefix is what the provider's prompt cache can reuse across every call, so it should never carry the variable ticket text. The **few-shot examples** (2-5 alternating user/assistant turns) go right before the real input to lock the schema and cover the tricky edge cases that prose rules miss — \"show, don't tell.\" Reserve **chain-of-thought** for tickets that actually need multi-step reasoning, and even then hide it in `<thinking>` tags and strip it before parsing, because CoT roughly doubles output tokens. The **JSON contract** is what makes the result machine-readable instead of prose you'd regex. **The trade-off I'd watch as volume grows is cost vs. accuracy in the token budget**: every few-shot example and every chain-of-thought token is paid on *every* request forever, so at high volume I'd trim to the fewest examples that hold accuracy and turn CoT off for the easy majority class — and I'd freeze a graded eval set, because shaving the prompt to save tokens silently breaks downstream parsing if I'm not measuring.",
-            "hint": "Stable bytes → system message (cacheable); variable input + examples → user turns. Then weigh: every example and every reasoning token is a tax paid on *every* request."
+            "hint": "Stable bytes → system message (cacheable); variable input + examples → user turns. Then weigh: every example and every reasoning token is a tax paid on *every* request.",
+            "commit": {
+              "q": "In a high-volume ticket classifier, where should the fixed rules and JSON output contract live?",
+              "opts": [
+                "In the system message, before any variable input",
+                "Repeated at the top of every user turn with the ticket",
+                "Inside each few-shot assistant reply as a reminder"
+              ],
+              "answer": 0,
+              "why": "A stable prefix is what the provider's prompt cache can reuse across calls — mixing variable ticket text into it breaks that reuse. That's one of the four parts; place the other three next."
+            }
           }
         ]
       }
@@ -4054,7 +4084,17 @@ export default {
             "type": "explain-back",
             "prompt": "In your own words: walk through what happens between a user typing a question and the LLM returning a cited answer in a RAG pipeline.",
             "modelAnswer": "Your question gets handed to an embedding model (Voyage, OpenAI, Cohere), which turns it into a ~1536-dim float vector capturing meaning. That vector goes to a vector DB, which does approximate nearest-neighbor search (HNSW) across your pre-embedded corpus and returns the top-k chunks — usually 3 to 8, because past ~10 the LLM stops attending to the middle of the context. The orchestrator stuffs those chunks into a prompt with a system message like *\"answer using ONLY this context, cite [doc-N] inline\"* plus your original question, and sends the bundle to the LLM. The model generates an answer grounded in the retrieved text with inline citations you can audit. The model never learned your data — it just got handed the right page right before being asked.",
-            "hint": "Trace it as 5 steps: embed → search → top-k → stuff prompt → generate. What does each step take as input and produce as output?"
+            "hint": "Trace it as 5 steps: embed → search → top-k → stuff prompt → generate. What does each step take as input and produce as output?",
+            "commit": {
+              "q": "A user submits a question. What does the RAG pipeline do with it FIRST?",
+              "opts": [
+                "Search the vector DB for chunks containing the question's keywords",
+                "Run the question through an embedding model to get a vector",
+                "Stuff the question plus the whole corpus into the LLM's prompt"
+              ],
+              "answer": 1,
+              "why": "The vector DB can only compare vectors, so the raw text has to become one before any search can happen. That ordering pins down the rest of the chain — now walk the remaining steps."
+            }
           },
           {
             "type": "quote",
@@ -4256,7 +4296,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen the three pieces that turn an LLM into an agent: the **tool schema** (the contract the model reads), the **agent loop** (call → run tool → feed result back, repeat until `stop_reason != tool_use`), and **errors-as-inputs** (handing failures back so the model recovers). Design a customer-support agent that can look up orders **and** issue refunds. Explain how the three pieces fit together end-to-end, and name the trade-off you'd watch when one of those tools has a side effect.",
             "modelAnswer": "Start with the **schemas** as contracts: `search_orders` is a safe read, and its description tells the model exactly when to call it; `issue_refund` is a write, with a strict `input_schema` (order_id, amount) so the model can't fill garbage. The **agent loop** drives execution — call the model, and while `stop_reason == tool_use`, pull the requested tool block, dispatch it, append the `tool_result`, and loop again until the model stops asking for tools and emits the final answer. Cap iterations at ~5-8 so a confused model can't burn the budget chasing its tail. **Errors are just more input**: if `search_orders` raises \"no order found,\" send that string back as the tool result and the model re-asks for an email instead of crashing. **The trade-off I'd watch is autonomy vs. safety on the side-effecting tool**: `search_orders` is idempotent and safe to let the loop call freely, but `issue_refund` moves money, so I'd gate it behind a human-confirm step (or a hard policy cap, like the lesson's refuse-over-$500 rule) before executing. Letting the agent call a write tool with the same freedom as a read tool is how an unbounded loop turns one confused turn into a pile of duplicate refunds.",
-            "hint": "Walk one request through schema → loop → result, then split your tools into reads vs. writes. Which one is safe to auto-call, and what guard does the other one need?"
+            "hint": "Walk one request through schema → loop → result, then split your tools into reads vs. writes. Which one is safe to auto-call, and what guard does the other one need?",
+            "commit": {
+              "q": "Your agent has `search_orders` and `issue_refund`. Which call needs a guard before the loop executes it?",
+              "opts": [
+                "`issue_refund` — its side effect can't be undone by looping again",
+                "`search_orders` — reads fire more often, so they burn more budget",
+                "Both equally — every tool call should wait on a human confirmation"
+              ],
+              "answer": 0,
+              "why": "Reads are safe to retry; a write that moves money is not — and the loop happily repeats calls, which is exactly the danger for a non-idempotent tool. Now fit the schema and errors-as-inputs pieces around that."
+            }
           }
         ]
       }
@@ -4367,5 +4417,694 @@ export default {
         ]
       }
     ]
-  }
+  },
+  "mleng-cap-rag": {
+    "sections": [
+      {
+        "heading": "What you're **shipping**",
+        "body": [
+          {
+            "type": "p",
+            "text": "A working RAG app on your own machine: you point it at a folder of your notes, it **chunks** them, **embeds** every chunk, stores the vectors, and answers questions with an LLM — *citing which file the answer came from*. Two Python files, ~70 lines total. Every line typed by you, in **your** VS Code."
+          },
+          {
+            "type": "diagram",
+            "title": "The pipeline you're building",
+            "height": 250,
+            "caption": "Ingest runs once per docs change. Ask runs per question. The vector store is the handoff point between them.",
+            "nodes": [
+              {
+                "id": "docs",
+                "label": "docs/",
+                "subtitle": "your .md + .txt",
+                "accent": "water",
+                "x": 0.12,
+                "y": 0.26
+              },
+              {
+                "id": "chunk",
+                "label": "chunk",
+                "subtitle": "~800 chars",
+                "accent": "sky",
+                "x": 0.5,
+                "y": 0.26
+              },
+              {
+                "id": "embed",
+                "label": "embed",
+                "subtitle": "MiniLM · 384-d",
+                "accent": "sky",
+                "x": 0.88,
+                "y": 0.26
+              },
+              {
+                "id": "store",
+                "label": "Chroma",
+                "subtitle": "vector store",
+                "accent": "earth",
+                "x": 0.88,
+                "y": 0.76
+              },
+              {
+                "id": "retrieve",
+                "label": "retrieve",
+                "subtitle": "top-k cosine",
+                "accent": "amber",
+                "x": 0.5,
+                "y": 0.76
+              },
+              {
+                "id": "llm",
+                "label": "Claude",
+                "subtitle": "grounded answer",
+                "accent": "fire",
+                "x": 0.12,
+                "y": 0.76
+              }
+            ],
+            "edges": [
+              {
+                "from": "docs",
+                "to": "chunk",
+                "kind": "solid",
+                "label": "read"
+              },
+              {
+                "from": "chunk",
+                "to": "embed",
+                "kind": "solid",
+                "label": "text"
+              },
+              {
+                "from": "embed",
+                "to": "store",
+                "kind": "solid",
+                "label": "vectors"
+              },
+              {
+                "from": "store",
+                "to": "retrieve",
+                "kind": "solid",
+                "label": "top-4"
+              },
+              {
+                "from": "retrieve",
+                "to": "llm",
+                "kind": "dashed",
+                "label": "context"
+              }
+            ]
+          },
+          {
+            "type": "ul",
+            "items": [
+              "`ingest.py` — load → chunk → embed → store. Run it whenever your docs change.",
+              "`ask.py` — embed the question → retrieve top-4 chunks → one **grounded** LLM call → answer with citations.",
+              "A grounding rule that makes the app say **\"I don't know\"** instead of inventing answers."
+            ]
+          },
+          {
+            "type": "terms",
+            "items": [
+              {
+                "term": "Chunk",
+                "def": "A slice of a document small enough to embed as *one idea*. Chunk size is the biggest quality dial in RAG."
+              },
+              {
+                "term": "Embedding",
+                "def": "A vector where *similar meaning → nearby points*. We use a local model — free, offline, no API key."
+              },
+              {
+                "term": "Vector store",
+                "def": "A database indexed by vector similarity instead of exact keys. Chroma runs embedded in your process."
+              },
+              {
+                "term": "Grounding",
+                "def": "Forcing the LLM to answer only from retrieved context — the difference between RAG and vibes."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Setup — one terminal, three installs",
+        "body": [
+          {
+            "type": "p",
+            "text": "You need Python 3.10+ and an Anthropic API key (create one at `console.anthropic.com` → API keys). Embeddings run **locally** — the key is only for the final answer call, and this whole capstone costs a few cents."
+          },
+          {
+            "type": "build-along",
+            "title": "Project skeleton + dependencies",
+            "goal": "An isolated venv with the three libraries, your API key in the environment, and a docs/ folder with something to read. Click through, then run it for real.",
+            "lang": "bash",
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Make the project and the venv",
+                "say": "A fresh venv per project keeps sentence-transformers' heavy deps (torch) out of your global Python. On Windows the activate path is .venv\\Scripts\\activate instead of the source line.",
+                "add": "mkdir rag-capstone && cd rag-capstone\npython -m venv .venv  # isolate deps — torch is heavy, keep it out of global site-packages\nsource .venv/bin/activate  # Windows: .venv\\Scripts\\activate"
+              },
+              {
+                "title": "Install the three moving parts",
+                "say": "One library per pipeline stage: anthropic for the LLM call, chromadb for the vector store, sentence-transformers for local embeddings. First install pulls torch — give it a minute.",
+                "add": "pip install anthropic chromadb sentence-transformers  # LLM client · vector store · local embeddings"
+              },
+              {
+                "title": "Put the API key in the environment",
+                "say": "The SDK reads ANTHROPIC_API_KEY automatically — never paste a key into code, and never commit one. On Windows PowerShell it's $env:ANTHROPIC_API_KEY = \"sk-ant-...\".",
+                "add": "export ANTHROPIC_API_KEY=\"sk-ant-...\"  # from console.anthropic.com — env var, never hardcoded"
+              },
+              {
+                "title": "Give it something to read",
+                "say": "Real docs make this project stick — drop in lecture notes, READMEs, essays. The printf gives you a guaranteed-working starter file either way.",
+                "add": "mkdir docs  # drop 3-5 of your own .txt / .md files in here\nprintf 'Gradient checkpointing trades compute for memory.\\nIt recomputes activations during backprop instead of storing them all.\\n\\nMixed precision keeps fp32 master weights but runs matmuls in fp16.\\n' > docs/ml-notes.txt  # starter doc so the pipeline has input on day one"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Build `ingest.py` — chunk, embed, store",
+        "body": [
+          {
+            "type": "p",
+            "text": "Ingest is the *write path*. Design choice #1: **paragraph-aware chunking** at ~800 characters. Fixed-size slicing chops sentences in half and the embedding of half a thought points nowhere useful. Splitting on blank lines keeps each chunk one coherent idea."
+          },
+          {
+            "type": "build-along",
+            "title": "ingest.py — the write path, five pieces",
+            "goal": "Load every text file in docs/, chunk on paragraph boundaries, embed each chunk with a local model, and write vectors + text + source metadata into a persistent Chroma collection.",
+            "lang": "python",
+            "file": "ingest.py",
+            "steps": [
+              {
+                "title": "Load the docs",
+                "say": "A generator that yields (filename, text) pairs. The filename rides along the whole pipeline — it's what makes citations possible at the end.",
+                "add": "from pathlib import Path\n\ndef load_docs(folder=\"docs\"):\n    exts = {\".txt\", \".md\"}  # plain text only — PDFs need a parser, keep v0 simple\n    for path in sorted(Path(folder).iterdir()):\n        if path.suffix in exts:\n            yield path.name, path.read_text(encoding=\"utf-8\")  # the name becomes the citation source"
+              },
+              {
+                "title": "Chunk on paragraph boundaries",
+                "say": "Accumulate paragraphs into a buffer; flush when adding the next one would blow the budget. Chunks end on blank lines, so no thought gets cut mid-sentence. 800 chars ≈ 150-200 tokens — small enough to be one idea, big enough to carry context.",
+                "add": "\ndef chunk(text, max_chars=800):\n    parts, buf = [], \"\"\n    for para in text.split(\"\\n\\n\"):  # split on blank lines — paragraphs stay whole\n        if buf and len(buf) + len(para) > max_chars:  # next para would overflow — flush first\n            parts.append(buf.strip())\n            buf = \"\"\n        buf += para + \"\\n\\n\"\n    if buf.strip():  # gotcha: don't drop the final partial chunk\n        parts.append(buf.strip())\n    return parts"
+              },
+              {
+                "title": "Load the embedding model",
+                "say": "all-MiniLM-L6-v2 is the workhorse: 384 dimensions, fast on CPU, ~80MB one-time download. It runs entirely on your machine — embedding a thousand chunks costs nothing.",
+                "add": "\nfrom sentence_transformers import SentenceTransformer  # local model — no API key, no per-call cost\n\nembedder = SentenceTransformer(\"all-MiniLM-L6-v2\")  # 384-dim vectors, ~80MB download on first run"
+              },
+              {
+                "title": "Open the vector store",
+                "say": "PersistentClient writes to ./store on disk, so ask.py can read the index later without re-ingesting. The cosine setting must match how we normalize the vectors — mismatched metric and model is the classic silent RAG bug.",
+                "add": "\nimport chromadb  # embedded vector store — runs inside your process\n\nstore = chromadb.PersistentClient(path=\"store\")  # ./store persists across runs\ncol = store.get_or_create_collection(\n    \"notes\",\n    metadata={\"hnsw:space\": \"cosine\"},  # cosine to match normalized MiniLM vectors — mismatch = silently broken retrieval\n)"
+              },
+              {
+                "title": "Wire the main loop",
+                "say": "Chunk, embed in one batch, and write everything Chroma needs: stable ids (so re-running upserts instead of duplicating), the raw text (retrieval hands it straight to the prompt), and the source filename for citations.",
+                "add": "\nif __name__ == \"__main__\":\n    for name, text in load_docs():\n        chunks = chunk(text)\n        vecs = embedder.encode(chunks, normalize_embeddings=True)  # unit length → cosine = dot product\n        col.add(\n            ids=[f\"{name}-{i}\" for i in range(len(chunks))],  # stable ids — re-ingesting overwrites, no dupes\n            embeddings=vecs.tolist(),  # chroma wants plain lists, not numpy arrays\n            documents=chunks,  # store the text too — retrieval returns it ready for the prompt\n            metadatas=[{\"source\": name} for _ in chunks],  # the citation trail\n        )\n        print(f\"{name}: {len(chunks)} chunks\")"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Run it. First run downloads the embedding model, then you should see one line per file:"
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "python ingest.py\n# ml-notes.txt: 2 chunks  ← one line per doc; a store/ folder appears next to it"
+          }
+        ]
+      },
+      {
+        "heading": "Build `ask.py` — retrieve + **grounded** answer",
+        "body": [
+          {
+            "type": "p",
+            "text": "Ask is the *read path*: embed the question **with the same model**, pull the 4 nearest chunks, and hand them to the LLM with strict instructions. The system prompt is doing real engineering work here — it's what turns \"an LLM with some pasted text\" into a system that refuses to make things up."
+          },
+          {
+            "type": "build-along",
+            "title": "ask.py — the read path, five pieces",
+            "goal": "Take a question from the command line, retrieve the most relevant chunks from the store, and get a cited, grounded answer — or an honest \"I don't know\".",
+            "lang": "python",
+            "file": "ask.py",
+            "steps": [
+              {
+                "title": "Wire up the three clients",
+                "say": "Same embedding model as ingest — this is non-negotiable. Vectors from different models live in different spaces; mixing them gives similarity scores that are pure noise, with no error message.",
+                "add": "import sys\nimport chromadb\nfrom sentence_transformers import SentenceTransformer\nfrom anthropic import Anthropic\n\nembedder = SentenceTransformer(\"all-MiniLM-L6-v2\")  # MUST match ingest — mixed models = meaningless similarity\nstore = chromadb.PersistentClient(path=\"store\").get_collection(\"notes\")  # raises if ingest.py never ran\nllm = Anthropic()  # reads ANTHROPIC_API_KEY from the environment"
+              },
+              {
+                "title": "Embed the question, query the store",
+                "say": "The question goes through the exact same encode call as the chunks did — same model, same normalization. n_results=4 is a starting dial: too low misses context, too high stuffs the prompt with noise.",
+                "add": "\nquestion = \" \".join(sys.argv[1:]) or \"What do my notes say about memory?\"  # CLI arg, with a fallback\nqvec = embedder.encode([question], normalize_embeddings=True).tolist()  # same model + normalization as ingest\nhits = store.query(query_embeddings=qvec, n_results=4)  # top-4 nearest chunks — k is a dial, not a truth"
+              },
+              {
+                "title": "Assemble the context block",
+                "say": "Each chunk gets its [source] tag stitched on so the model can cite files by name. The [0] indexing is a chroma quirk: it returns one result list per query, and we sent one query.",
+                "add": "\ncontext = \"\\n\\n---\\n\\n\".join(\n    f\"[{meta['source']}]\\n{doc}\"  # prefix each chunk with its source — enables citations\n    for doc, meta in zip(hits[\"documents\"][0], hits[\"metadatas\"][0])  # [0]: chroma returns one list per query\n)"
+              },
+              {
+                "title": "Write the grounding rules",
+                "say": "Three rules, each load-bearing: only the context (blocks outside knowledge), cite sources (makes answers checkable), admit ignorance (the anti-hallucination escape hatch). Delete any one and watch quality drop.",
+                "add": "\nSYSTEM = (\n    \"Answer using ONLY the provided context. \"  # rule 1 — no outside knowledge allowed\n    \"Cite the [source] tags you used. \"  # rule 2 — every claim traceable to a file\n    \"If the context does not contain the answer, say you don't know.\"  # rule 3 — the escape hatch beats a guess\n)"
+              },
+              {
+                "title": "Make the LLM call",
+                "say": "Context first, question last — models weight the end of the prompt heavily, so the question lands closest to the answer. Run it: python ask.py \"what does gradient checkpointing trade?\"",
+                "add": "\nresp = llm.messages.create(\n    model=\"claude-opus-4-8\",  # current model id — one string to change when models move\n    max_tokens=1024,  # grounded answers are short — cap the spend\n    system=SYSTEM,\n    messages=[{\n        \"role\": \"user\",\n        \"content\": f\"<context>\\n{context}\\n</context>\\n\\nQuestion: {question}\",  # context first, question last\n    }],\n)\nprint(resp.content[0].text)  # first content block carries the answer text"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Verify: prove it's **grounded**, not lucky",
+        "body": [
+          {
+            "type": "p",
+            "text": "\"It printed an answer\" is not verification. Run these three tests — each one checks a different part of the pipeline:"
+          },
+          {
+            "type": "ol",
+            "items": [
+              "**The base case.** Ask something a single doc clearly answers: `python ask.py \"what does gradient checkpointing trade?\"` — the answer should be right *and* cite `[ml-notes.txt]`.",
+              "**The refusal test.** Ask something your docs *cannot* answer: `python ask.py \"who won the 1998 World Cup?\"` — a grounded app says **\"I don't know\"**. If it answers confidently, your system prompt isn't holding.",
+              "**The k experiment.** Change `n_results` from 4 to 1, re-ask a question whose answer spans two paragraphs, and watch the answer degrade. Now you *feel* why k is a dial."
+            ]
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "WHAT V0 DOES WELL",
+            "watchLabel": "WHAT V0 PUNTS ON",
+            "good": [
+              "The whole RAG pattern, end to end, with no framework magic hiding the moving parts",
+              "Citations — every answer traces back to a file you can open",
+              "Honest refusals on out-of-scope questions",
+              "Each stage is swappable: bigger embedder, different store, different LLM — one file each"
+            ],
+            "watch": [
+              "Paragraph chunking still splits long sections awkwardly — no overlap between chunks",
+              "Pure vector search misses exact-match terms (error codes, product names)",
+              "No eval — you're eyeballing quality, and eyeballs don't scale (that's the next capstone)",
+              "Single-turn only — no conversation memory"
+            ]
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Synthesis. Trace one question end-to-end through your app — every transformation from `sys.argv` to the printed answer. Along the way: why must ingest and ask use the **same embedding model**, and what specifically does each of the three grounding rules buy you?",
+            "modelAnswer": "The question comes in as text and is **embedded** by all-MiniLM-L6-v2 into a normalized 384-dim vector — the same model and the same normalization used at ingest, because retrieval is a nearest-neighbor search *in the embedding model's space*: two different models put the same sentence at unrelated coordinates, so a query embedded by model B against chunks embedded by model A returns confident-looking nonsense with no error. Chroma runs a **cosine top-4** search over the stored chunk vectors and returns the chunk *texts* plus their source metadata — this is why ingest stored the raw text and filename alongside each vector. The chunks are stitched into a context block, each prefixed with its `[source]` tag, and sent as one LLM call: context first, question last. The **system prompt** carries three separate guarantees: \"only the provided context\" blocks the model's parametric knowledge from leaking in (otherwise you can't tell if the answer came from your docs); \"cite the [source] tags\" makes every answer auditable — you can open the file and check; \"say you don't know\" converts the failure mode from *confident fabrication* to *honest refusal*, which is the difference users actually care about. The printed answer is only trustworthy because every hop — same embedding space, text carried with vectors, grounding rules — held.",
+            "hint": "Follow the data: question → vector → top-4 chunks → context block → grounded call. Then ask what breaks if the models differ, and what each system-prompt rule prevents.",
+            "commit": {
+              "q": "Your RAG app answers a question that is NOT in your docs with a confident, made-up paragraph. Which change most directly fixes it?",
+              "opts": [
+                "Swap in a bigger LLM — larger models hallucinate less",
+                "Tighten the system prompt: answer ONLY from context, and say \"I don't know\" when it isn't there",
+                "Raise n_results so more chunks come back with every query"
+              ],
+              "answer": 1,
+              "why": "Hallucination on out-of-scope questions is a grounding failure, not a model-size or retrieval-quantity problem. More chunks of irrelevant context can make it worse. The explicit only-from-context + refusal instruction is the lever that changes the failure mode."
+            }
+          }
+        ]
+      },
+      {
+        "heading": "Ship it — stretch goals",
+        "body": [
+          {
+            "type": "p",
+            "text": "The core loop works. Each stretch below is a real upgrade production RAG systems make — pick one and ship it:"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Chunk overlap** — repeat the last ~100 chars of each chunk at the start of the next, so ideas that straddle a boundary survive. Measure the difference on your k experiment.",
+              "**Better citations** — store a heading or line-range in metadata, not just the filename, and make answers cite `[ml-notes.txt § mixed precision]`.",
+              "**Streaming answers** — swap `messages.create` for `messages.stream` and print tokens as they arrive. Same call shape, much better feel.",
+              "**Hybrid retrieval** — add a plain keyword pass (even `str.contains` over chunks) and merge results with the vector hits. Watch exact-match queries (error codes!) start working.",
+              "**Serve it** — wrap `ask.py` in a FastAPI `POST /ask` endpoint. Congratulations: you've built the backbone of every \"chat with your docs\" product.",
+              "**Then build the eval harness** — the next capstone. \"It seems better\" stops being an acceptable sentence."
+            ]
+          },
+          {
+            "type": "quote",
+            "text": "RAG is four cheap parts and one expensive lesson: the system prompt is part of the architecture.",
+            "cite": "every team after their first hallucination incident"
+          }
+        ]
+      }
+    ]
+  },
+  "mleng-cap-evals": {
+    "sections": [
+      {
+        "heading": "The brief — no steps this time",
+        "body": [
+          {
+            "type": "p",
+            "text": "Your RAG app answers questions. Is it *good*? Right now you genuinely don't know — you've been eyeballing outputs, and eyeballs can't tell you whether yesterday's chunk-size change made things better or quietly broke three answers."
+          },
+          {
+            "type": "p",
+            "text": "**Your mission:** build `eval.py` — an evaluation harness for the RAG app from the last capstone. This is a *build-it-yourself* project: you get requirements, success criteria, and hints. The step-by-step is on you. Budget ~60 minutes of real VS Code time."
+          },
+          {
+            "type": "p",
+            "text": "The core idea: **layer the metrics**. Retrieval is measured *without* the LLM (deterministic, free, instant). Answer quality is measured *with* an LLM judge (slower, costs cents, catches what string-matching can't). When quality drops, the layer that moved tells you where to look."
+          }
+        ]
+      },
+      {
+        "heading": "Requirements",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "**A golden set** — `golden.jsonl`, at least **12 questions**, each line holding: the question, a one-sentence golden answer, and the source file (or chunk id) that should be retrieved. Composition below.",
+              "**Retrieval metrics, LLM-free** — for every golden question: is the expected source in the top-k results (**hit-rate@k**), and at what rank (**MRR**)? These must run without a single LLM call.",
+              "**Answer grading, LLM-as-judge** — call your app for each question, then have a judge model compare the app's answer against the *golden* answer. The judge returns strict JSON: a verdict (`correct` / `partial` / `wrong`) and one sentence of reasoning.",
+              "**The refusal check** — the not-in-docs questions must produce \"I don't know\". A fluent, confident, *wrong* answer scores zero — that's the exact failure RAG exists to prevent.",
+              "**One command, one artifact** — `python eval.py` prints a scoreboard and appends one JSON line to `runs.jsonl` (timestamp, k, hit-rate, MRR, judge tallies). Two runs in that file = your first regression test."
+            ]
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Question type",
+              "How many",
+              "Why it's in the set"
+            ],
+            "align": [
+              "left",
+              "center",
+              "left"
+            ],
+            "rows": [
+              [
+                "**Answerable** — one chunk holds it",
+                "6",
+                "The base case: retrieval and grounding both have to work"
+              ],
+              [
+                "**Multi-chunk** — spans 2+ chunks",
+                "3",
+                "Stresses your `k` and chunking choices"
+              ],
+              [
+                "**Not in docs** — unanswerable",
+                "3",
+                "Grounding under pressure — must produce a refusal"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Success criteria",
+        "body": [
+          {
+            "type": "table",
+            "headers": [
+              "Check",
+              "Done means"
+            ],
+            "align": [
+              "left",
+              "left"
+            ],
+            "rows": [
+              [
+                "Golden set",
+                "12+ questions in the 6/3/3 mix, each with a golden answer and an expected source"
+              ],
+              [
+                "Retrieval",
+                "Hit-rate@4 and MRR print every run — and you can explain any miss by opening the doc"
+              ],
+              [
+                "Judge",
+                "Verdicts are parsed as strict JSON; a parse failure counts as an **error**, never a pass"
+              ],
+              [
+                "Refusals",
+                "All 3 not-in-docs questions score as refusals; a confident answer there scores 0"
+              ],
+              [
+                "Regression",
+                "Two consecutive runs sit in `runs.jsonl` and you can say which was better, per layer"
+              ]
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Prove it end-to-end: run the eval, change `n_results` from 4 to 2 in your app, run it again, and point at which numbers moved — and *which layer* they moved in."
+          }
+        ]
+      },
+      {
+        "heading": "Hints — open one at a time, only when stuck",
+        "body": [
+          {
+            "type": "h4",
+            "text": "Golden set"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "Write questions by *opening a doc and picking a fact* — never from memory. If you can't point at the sentence that answers it, the question doesn't belong in the set.",
+              "Keep golden answers to one sentence. The judge compares against them — long golden answers make every real answer look \"partial\"."
+            ]
+          },
+          {
+            "type": "h4",
+            "text": "The judge"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "Give the judge the **golden answer**. Comparing two texts is a task LLMs do reliably; judging truth from scratch is not. That's the whole trick of golden-set judging.",
+              "Force the output shape: *\"Respond with ONLY a JSON object: {\\\"verdict\\\": \\\"correct|partial|wrong\\\", \\\"reason\\\": \\\"...\\\"}\"* — then `json.loads` inside a `try`. Treat a parse failure as an eval error, not a verdict.",
+              "The judge can be a smaller, cheaper model than the one being judged — grading against a reference is much easier than generating.",
+              "Judges drift lenient. Pin the rubric in the prompt: *\"partial = right direction but missing a key fact; wrong = contradicts or misses the golden answer\"*."
+            ]
+          },
+          {
+            "type": "h4",
+            "text": "Metrics"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "Hit-rate@k = fraction of questions whose expected source appears anywhere in the top k results.",
+              "MRR = mean of 1/rank of the first relevant result (rank 1 → 1.0, rank 3 → 0.33, missing → 0). It rewards *putting the right chunk first*, which is what the LLM actually sees most.",
+              "For multi-chunk questions, count a hit if *any* expected source lands in the top k — stricter variants can wait."
+            ]
+          },
+          {
+            "type": "h4",
+            "text": "Plumbing"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "Refactor `ask.py` so retrieval and answering are importable functions — `eval.py` should call them, not shell out.",
+              "Log the run as one `json.dumps` line appended to `runs.jsonl`. Append-only files diff beautifully and never corrupt.",
+              "Cache app answers per (question, config) if judge calls get slow — re-judging cached answers is free iteration."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Before you write a line",
+        "body": [
+          {
+            "type": "explain-back",
+            "prompt": "Design check. Why must the retrieval metrics run **without** the LLM, and what exactly does handing the judge a **golden answer** buy you compared to asking it \"is this answer correct?\" cold?",
+            "modelAnswer": "Layering is the point. Retrieval metrics (hit-rate@k, MRR) are **deterministic and free**: they compare retrieved chunk ids against expected ids — no LLM, no noise, instant to run on every change. That gives you a stable floor: if hit-rate drops, retrieval broke, full stop — no judge required to know it. Answer quality *does* need an LLM judge, but a naked \"is this correct?\" asks the judge to know the truth itself — now you're evaluating your app with another model's parametric knowledge, which is exactly the unreliability you're trying to measure. Handing the judge the **golden answer** converts the task from open-ended fact-checking into *text comparison* — \"does answer A state the same thing as reference B\" — which LLMs do far more reliably and consistently. The refusal questions complete the picture: they test the grounding rules specifically, and a fluent wrong answer there is the worst outcome, so it scores zero. With layered metrics, a regression localizes itself: hit-rate moved → retrieval/chunking; hit-rate flat but verdicts dropped → prompt/generation; refusals broke → grounding rules. Without layers, every regression is just \"the vibes got worse\".",
+            "hint": "Think about what each layer isolates — and what the judge would have to *know* if you didn't give it the reference.",
+            "commit": {
+              "q": "After a chunk-size change, judge verdicts got worse but hit-rate@4 is identical. Where is the regression?",
+              "opts": [
+                "Retrieval — the store is returning the wrong chunks now",
+                "Generation side — the right chunks come back, but their new boundaries hand the LLM worse text",
+                "The judge — verdict noise, re-run until it looks better"
+              ],
+              "answer": 1,
+              "why": "Identical hit-rate means the expected sources still arrive in the top k — retrieval is fine. What changed is the *content* of those chunks: new boundaries can chop ideas mid-thought, so the LLM answers from degraded context. That's exactly the fault-localization layered metrics exist to give you."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "mleng-cap-design": {
+    "sections": [
+      {
+        "heading": "The brief — design it on **paper**",
+        "body": [
+          {
+            "type": "p",
+            "text": "You're the first ML engineer at a company drowning in support tickets. No code this time — the deliverable is a **design**: boxes, arrows, numbers, and the reasoning behind every choice. Every decision must survive one question: *\"why not the alternative?\"*"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**50,000 tickets/day** arrive by email and in-app chat.",
+              "The knowledge lives in **2,000 help-center articles** — updated *weekly* by the support team.",
+              "Goal: **draft replies for human agents** on every ticket, and **auto-answer the easy ~30%** (password resets, shipping status, how-tos).",
+              "Auto-answers must **cite sources**. A wrong answer about **refund policy is an incident** — legal is watching.",
+              "Draft must appear in the agent console within **10 seconds** of ticket open (p95).",
+              "Inference budget ceiling: **$3,000/month**."
+            ]
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Constraint",
+              "Number",
+              "Why it bites"
+            ],
+            "align": [
+              "left",
+              "center",
+              "left"
+            ],
+            "rows": [
+              [
+                "Volume",
+                "50K/day",
+                "At this scale, tokens-per-ticket × price *is* the architecture"
+              ],
+              [
+                "Freshness",
+                "weekly",
+                "Anything baked into model weights is stale within a week"
+              ],
+              [
+                "Latency",
+                "p95 < 10s",
+                "Rules out huge contexts and long re-ranking chains on the hot path"
+              ],
+              [
+                "Risk",
+                "refunds",
+                "One category has near-zero error tolerance — design for it explicitly"
+              ],
+              [
+                "Budget",
+                "$3K/mo",
+                "A frontier model on every ticket blows this — do the arithmetic"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Deliverables",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "**One-page architecture** — every box a component, every arrow labeled with *what flows* (text? vectors? events?). Ingestion path and serving path clearly separated.",
+              "**Model plan** — which model(s), where, and the RAG vs fine-tune vs both call — with the losing option and *why it lost* written next to each choice.",
+              "**Freshness plan** — articles change weekly: how the index keeps up, and how a stale answer gets *caught* rather than assumed away.",
+              "**Eval + rollout plan** — where the golden set comes from, what the judge checks, the shadow → canary → full ramp, and the **one metric that halts the rollout**.",
+              "**Cost envelope** — tokens/ticket × tickets/day × price, shown as arithmetic. If the naive plan is over budget (it is), show the levers that bring it under."
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Format: a real doc — markdown file, whiteboard photo, anything reviewable. If a staff engineer couldn't push back on it, it's not detailed enough."
+          }
+        ]
+      },
+      {
+        "heading": "Trade-offs you must defend",
+        "body": [
+          {
+            "type": "table",
+            "headers": [
+              "Decision",
+              "Option A",
+              "Option B",
+              "What actually decides it"
+            ],
+            "align": [
+              "left",
+              "left",
+              "left",
+              "left"
+            ],
+            "rows": [
+              [
+                "Knowledge",
+                "RAG over articles",
+                "Fine-tune on past replies",
+                "Weekly-changing policy vs. baked-in weights; what fine-tuning *actually* buys (style, format) vs. what it can't (freshness)"
+              ],
+              [
+                "Model hosting",
+                "Hosted API",
+                "Self-host an 8B",
+                "At 50K/day the math can flip — do the arithmetic including the ops headcount you don't have"
+              ],
+              [
+                "Auto-answer gate",
+                "Confidence-gated",
+                "Humans draft everything",
+                "Value of 30% deflection vs. cost of one wrong refund answer — and what signal the gate keys on"
+              ],
+              [
+                "Retrieval",
+                "Vector-only",
+                "Hybrid BM25 + vector",
+                "Error codes and product names are exact-match strings — pure embeddings whiff on them"
+              ],
+              [
+                "Rollout",
+                "Ship to all agents",
+                "Shadow → canary",
+                "Drafts always look fine in demos; only agent edit-distance on real tickets tells the truth"
+              ]
+            ]
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Rules of the game:** auto-answers *cite or refuse* — no citation, no send.",
+              "Refund and legal categories route to a human **unconditionally** — the gate is category-based before it is confidence-based.",
+              "Every draft and every agent edit gets logged — that log is your future golden set *and* your fine-tuning corpus.",
+              "State your assumptions with numbers (avg tokens per ticket, articles per query). Wrong-but-explicit beats vague."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Defend your architecture",
+        "body": [
+          {
+            "type": "explain-back",
+            "prompt": "Present the full design as if to a skeptical staff engineer: architecture, model choices, freshness, the auto-answer gate, eval + rollout, and the cost arithmetic. Then defend the two trade-offs you found hardest — including the one the budget forces on you.",
+            "modelAnswer": "**Architecture.** Two paths. *Ingestion*: CMS webhook fires on article publish → chunk (heading-aware) → embed → upsert into the vector store with article id + version; a weekly full re-index backstops missed webhooks. *Serving*: ticket opens → classifier tags category (refunds/legal → human unconditionally) → hybrid retrieval (BM25 + vector, merged, then a light re-rank) → grounded LLM call drafts a reply with citations → confidence gate decides draft-for-agent vs auto-send. **Knowledge: RAG, not fine-tuning.** Policy changes weekly; weights bake in stale refund rules — the exact incident we can't have. Fine-tuning earns a place *later*, trained on agent-edited drafts, for tone and format only — facts stay in the retrieval layer, always. **The gate** is layered: category blocklist first (refunds/legal never auto-send), then retrieval score must clear a floor, then the draft must contain citations that actually resolve to retrieved chunks — cite-or-refuse. **Cost is where the design gets honest.** Naive plan: frontier-class model, ~3K input tokens (context + article chunks) + ~500 output per ticket × 50K/day ≈ 150M input tokens/day — at ~$3/MTok that's ~$450/day ≈ **$13.5K/month: 4x over budget before output tokens**. Three levers bring it under: (1) **cascade** — a small cheap model drafts everything; only tickets it flags hard (~20-30%) escalate to the big model — the dominant volume now rides at ~5x cheaper; (2) **prompt caching** — the static system prompt + few-shot examples are identical across 50K calls/day, so the cached prefix reprices at ~0.1x; (3) **lazy drafting** — generate the draft when an agent *opens* the ticket, not for the ~15-20% of tickets that get merged, deduped, or closed untouched. Together that lands roughly in the $2-3K envelope with headroom to measure. **Eval + rollout.** Golden set mined from *resolved* tickets (real question, agent's final reply as golden answer), judge grades draft vs golden, refusal set for out-of-scope. Rollout: shadow (drafts generated, invisible, diffed against what agents actually sent) → canary with 5% of agents → ramp. Watched metrics: agent edit-distance, deflection rate, false-accept rate on auto-answers. **The halting metric: any wrong auto-answer in the refund category stops the rollout** — it's the stated incident condition, so it's the tripwire. **Hardest trade-offs:** hosted vs self-host — 8B self-hosted looks cheaper per token but adds an on-call surface and a serving stack we have zero headcount for, so hosted wins *until* volume 5-10x's; and the cascade — it adds a routing failure mode (hard ticket judged easy), which is why the gate checks citations and retrieval score on *every* auto-send, not just the escalated ones.",
+            "hint": "Do the token arithmetic first — 50K/day × your tokens-per-ticket estimate × price. When it comes out over budget, the design question becomes: which levers cut cost without touching the refund-category guarantee?",
+            "commit": {
+              "q": "Your cost math says drafting every ticket with a frontier model runs ~4x over the $3K/month budget. Which lever do you pull FIRST?",
+              "opts": [
+                "Drop RAG and fine-tune a small model once — no retrieval context means far fewer input tokens",
+                "Cascade — a small model drafts everything, the frontier model only takes tickets flagged hard — plus cache the static prompt prefix",
+                "Cut max_tokens on the output until the monthly number fits"
+              ],
+              "answer": 1,
+              "why": "The bill is dominated by input tokens × model price × volume. A cascade moves ~70-80% of volume to a ~5x cheaper model while keeping frontier quality for the hard tail, and caching reprices the repeated prefix at ~0.1x. Fine-tuning bakes weekly-changing policy into weights (the incident scenario), and output tokens were never the dominant term."
+            }
+          },
+          {
+            "type": "p",
+            "text": "Done? Compare your design against the model answer above — not for a match, but for *coverage*: did you have an answer for every constraint it had to dodge? Where your design differs and you can say why, that's not a mistake — that's the job."
+          }
+        ]
+      }
+    ]
+  },
 };

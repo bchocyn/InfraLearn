@@ -93,7 +93,13 @@ export default {
             "type": "explain-back",
             "prompt": "You've met the **CIA triad**, **STRIDE**, the **attacker taxonomy** (teen → criminal → nation-state), and the **threat → asset → control** loop. Pick one real component — say a `payments-api` — and walk a teammate through how you'd threat-model it end to end using all four. Then name the one trade-off you'd consciously accept, and why.",
             "modelAnswer": "Start from the **attacker**, not the asset: a criminal wants the card data (money) and a nation-state wants persistence — that decides how much you spend. For the `payments-api` I list **assets** and tag each with the CIA leg it lives on: the PAN is Confidentiality, the transaction log is Integrity, the checkout endpoint is Availability. Then I run **STRIDE** over the component as a forcing function — Tampering on the `amount` field, Elevation of privilege via a reused JWT, DoS on checkout — and for each threat I attach a **control** that maps back to the CIA leg it restores (HMAC idempotency key for tampering, per-endpoint subject claims + server-side ownership check for privilege, rate limiting for DoS). The **trade-off** I'd consciously accept: I'd defend hard against the criminal and the bribed insider, and *under*-invest against a true nation-state zero-day — because that defense is near-infinite cost and the realistic ROI is on the controls that stop the 99% of attacks I can actually name. The judgment is that a threat model is a budget allocator, not a guarantee — and the failure mode is the model that lives in a doc nobody re-reads after the architecture changes.",
-            "hint": "The four pieces aren't a list to recite — they're a pipeline: attacker (who/why) → asset (CIA leg) → STRIDE (what breaks it) → control (what restores that leg). The trade-off lives in *which* attacker you choose to underspend on."
+            "hint": "The four pieces aren't a list to recite — they're a pipeline: attacker (who/why) → asset (CIA leg) → STRIDE (what breaks it) → control (what restores that leg). The trade-off lives in *which* attacker you choose to underspend on.",
+            "commit": {
+              "q": "You're threat-modeling the payments-api with a fixed security budget. What decides how much you spend on any given control?",
+              "opts": ["Which CIA leg the asset sits on — Confidentiality always gets funded first", "Who the realistic attacker is and what they're after", "How many STRIDE categories the component triggers"],
+              "answer": 1,
+              "why": "The model starts from the attacker, not the asset: a criminal after card data and a nation-state after persistence justify very different spend. The threat model is a budget allocator before it's anything else."
+            }
           }
         ]
       }
@@ -621,7 +627,13 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen **why a secret in git is forever**, the **KMS → vault → app → audit** storage pipeline, and the **six-step rotation playbook** (detect → issue → dual-accept → rollout → cut over → audit). Design the path a single CI access key takes from creation to safe retirement so that a leak is *survivable by default* — and name the one trade-off the dual-accept window forces on you.",
             "modelAnswer": "The key never starts as a long-lived value pasted into CI: a **KMS** root key encrypts the **vault**, the CI job pulls a **short-TTL** credential at startup (or via a sidecar), and every read leaves an **audit** trail — so even before rotation, a leaked token is already low-blast-radius because it expires in minutes and you can see who touched it. When a leak *is* suspected you don't investigate first — you run the **rotation playbook**: issue v2 *beside* v1 (never delete v1 yet), flip services to **dual-accept** both, roll clients onto v2, then cut over by marking v1 *Inactive* (reversible) and only deleting after a cooling-off window proves zero successful uses, recording the whole thing in the audit log. The **trade-off** the dual-accept window forces: for that overlap, *two* valid credentials exist, so the attacker's stolen key keeps working until you cut over — you're trading a wider attack window for a zero-downtime rollout. The judgment call is sizing that window: long enough that no client 401s mid-deploy, short enough that a compromised v1 isn't usable for hours. Shrink it with short TTLs and OIDC federation so there's rarely a static key to dual-accept at all.",
-            "hint": "Tie the storage pipeline to the rotation steps: the audit trail is what tells you v1 has zero uses left, which is what makes the 'cut over' step safe. The trade-off is purely about the dual-accept overlap — what's true about credentials *during* that window?"
+            "hint": "Tie the storage pipeline to the rotation steps: the audit trail is what tells you v1 has zero uses left, which is what makes the 'cut over' step safe. The trade-off is purely about the dual-accept overlap — what's true about credentials *during* that window?",
+            "commit": {
+              "q": "Mid-rotation, you're in the dual-accept window. What is true right now that isn't true before or after it?",
+              "opts": ["Two valid credentials exist, so the attacker's stolen key still works until you cut over", "All clients get 401s until they pick up the v2 credential", "The audit log stops recording reads of the old key"],
+              "answer": 0,
+              "why": "Dual-accept means v1 and v2 both authenticate during the overlap — that widened attack window is the price you pay for a zero-downtime rollout."
+            }
           }
         ]
       }
@@ -748,7 +760,13 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen the **four-layer onion** (network → host → app → data), the **cost of each control**, the three **deny-default NetworkPolicies** (deny-all → narrow ingress → DB-only egress), and the **anti-patterns** that only *look* like security. An attacker phishes a developer laptop and lands a shell inside your cluster. Walk through which layers slow them down and where, then name the trade-off you accept by enforcing deny-default everywhere.",
             "modelAnswer": "The point of the **onion** is that the phished laptop only breaches one layer — it doesn't hand over the cluster. At the **network** layer, segmentation means the dev laptop can't even reach prod; if the attacker pivots to a compromised pod, the **deny-default NetworkPolicy** stops it talking to any other pod, the **narrow ingress** rule means only the gateway on 8080 can reach payments, and the **DB-only egress** rule blocks both lateral movement and exfil to attacker S3 — so SSRF and data theft die at the same rule. At the **app** layer, authn/authz and input validation mean a reachable service still won't honor a forged identity; at the **data** layer, encryption + RBAC mean even a stolen connection returns ciphertext for rows the principal doesn't own. Each layer buys time and forces noise into a SIEM you actually alert on — that's the difference between '287 days undetected' and a Tuesday page. The **trade-off** of deny-default everywhere is **operational friction**: every new service-to-service call now needs an explicit allow rule, so onboarding is slower and a forgotten rule shows up as a confusing 'connection refused' instead of a security event. I accept that because the failure mode points the right way — deny-default fails *closed* (something's broken and visible) instead of *open* (everything's reachable and silent). The anti-pattern to avoid is mistaking a single strong layer ('we have a firewall', 'it's behind a VPN') for depth — perimeter alone fails the instant one box is owned, which is exactly the scenario here.",
-            "hint": "Trace the attacker's path through the layers in order and ask what each one denies. The trade-off isn't about security strength — it's the day-to-day operational cost of 'nothing is allowed until you say so', and which way that fails."
+            "hint": "Trace the attacker's path through the layers in order and ask what each one denies. The trade-off isn't about security strength — it's the day-to-day operational cost of 'nothing is allowed until you say so', and which way that fails.",
+            "commit": {
+              "q": "A compromised payments pod tries to upload the customer table to an attacker's S3 bucket. Which control kills that exfil attempt?",
+              "opts": ["The narrow ingress rule — only the gateway on 8080 can reach payments", "Data-layer encryption with row-level RBAC on the tables", "The DB-only egress NetworkPolicy on the payments pod"],
+              "answer": 2,
+              "why": "Exfil is an *outbound* connection. The egress rule only lets the pod talk to postgres on 5432, so the upload to attacker S3 never leaves the cluster — ingress rules and encryption don't touch that path."
+            }
           }
         ]
       }
@@ -1779,7 +1797,13 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen **security groups vs NACLs** (stateful vs stateless), the **three-tier default-deny layout** (public ALB → private app → private data), **egress filtering**, and **VPC endpoints**. Design the network so a public web app can reach its database and S3 *without* exposing the DB or giving a compromised app a path to exfiltrate data — and name the trade-off egress filtering forces on your team.",
             "modelAnswer": "Put each tier in its own subnet: the **ALB** in a public subnet (the only thing with `0.0.0.0/0` ingress, and only on 443), the **app** in a private subnet, the **RDS** in a private data subnet with no route to the internet at all. Wire the **security groups by reference, not CIDR** — the app SG allows ingress only from the ALB's SG, the DB SG allows 5432 only from the app's SG — so as instances scale and IPs churn, the rules track automatically and the DB is reachable *only* through the app tier (two walls). Because SGs are **stateful**, return traffic is automatic; I keep **NACLs** as a coarse stateless backstop at the subnet edge and stay alert to the stateful/stateless mismatch that silently drops return packets. For S3 and KMS I add **VPC endpoints** so that traffic rides the AWS backbone and never the public internet — which also lets me clamp **egress**: the app SG allows outbound only to the DB and those endpoints, so a compromised app can't ship the database to attacker-controlled S3 (it also kills crypto-mining call-homes). Flow Logs to a SIEM make all of it investigable. The **trade-off** egress filtering forces: every new outbound dependency — a third-party API, a new package mirror, a metrics vendor — now needs an explicit allow, so it adds friction and the occasional baffling timeout when someone forgets. I accept it because default-deny egress fails *closed and visible* rather than leaving an open exfil channel; the win is that the blast radius of a compromised app shrinks to 'can talk to its own DB and nothing else'.",
-            "hint": "The two walls in front of the DB come from chaining SGs by ID (ALB→app→DB). The exfil defense and the trade-off both live in egress: what does locking outbound to 'DB + VPC endpoints only' cost the next engineer who adds a new external dependency?"
+            "hint": "The two walls in front of the DB come from chaining SGs by ID (ALB→app→DB). The exfil defense and the trade-off both live in egress: what does locking outbound to 'DB + VPC endpoints only' cost the next engineer who adds a new external dependency?",
+            "commit": {
+              "q": "You lock the app tier's outbound to 'DB + VPC endpoints only'. A teammate then wires in a third-party metrics vendor. What breaks first?",
+              "opts": ["The ALB stops passing health checks to the app tier on 443", "The vendor calls time out until someone adds an explicit egress allow", "Return traffic from the DB gets dropped by the stateful security group"],
+              "answer": 1,
+              "why": "Default-deny egress means every new outbound dependency needs an explicit rule, and the failure shows up as a baffling timeout. That friction is the cost you accept for failing closed instead of leaving an open exfil channel."
+            }
           }
         ]
       }
@@ -3099,6 +3123,821 @@ export default {
             "type": "quote",
             "text": "Assume breach. Then exercise the assumption — or it isn't one.",
             "cite": "the purple-team creed"
+          }
+        ]
+      }
+    ]
+  },
+  "sec-project-vault": {
+    "sections": [
+      {
+        "heading": "Your mission",
+        "body": [
+          {
+            "type": "p",
+            "text": "You're going to build **a working password vault** — a CLI that stores secrets in a single encrypted file, unlocked by one master password. Roughly 80 lines of Python, a real crypto library, zero cloud. Everything happens in **your own VS Code and terminal** — this page guides, you build."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "`vault init` — create an empty encrypted vault",
+              "`vault add github-token` — store a secret (prompted, never echoed)",
+              "`vault get github-token` — decrypt and print one secret",
+              "`vault list` — show entry **names** only, never values",
+              "Wrong master password? The vault **fails closed** — one error, no hints"
+            ]
+          },
+          {
+            "type": "diagram",
+            "title": "How the vault works",
+            "height": 250,
+            "nodes": [
+              {
+                "id": "pass",
+                "label": "master pw",
+                "subtitle": "IN YOUR HEAD",
+                "accent": "water",
+                "x": 0.18,
+                "y": 0.26
+              },
+              {
+                "id": "kdf",
+                "label": "scrypt",
+                "subtitle": "KDF + SALT",
+                "accent": "sky",
+                "x": 0.5,
+                "y": 0.26
+              },
+              {
+                "id": "key",
+                "label": "key",
+                "subtitle": "32 BYTES, RAM ONLY",
+                "accent": "amber",
+                "x": 0.82,
+                "y": 0.26
+              },
+              {
+                "id": "fernet",
+                "label": "Fernet",
+                "subtitle": "ENCRYPT + MAC",
+                "accent": "sky",
+                "x": 0.34,
+                "y": 0.74
+              },
+              {
+                "id": "file",
+                "label": "vault.enc",
+                "subtitle": "ON DISK",
+                "accent": "earth",
+                "x": 0.68,
+                "y": 0.74
+              }
+            ],
+            "edges": [
+              {
+                "from": "pass",
+                "to": "kdf",
+                "kind": "solid",
+                "label": "stretch"
+              },
+              {
+                "from": "kdf",
+                "to": "key",
+                "kind": "solid",
+                "label": "derive"
+              },
+              {
+                "from": "key",
+                "to": "fernet",
+                "kind": "dashed",
+                "label": "unlock"
+              },
+              {
+                "from": "fernet",
+                "to": "file",
+                "kind": "solid",
+                "label": "seal"
+              }
+            ],
+            "caption": "The key never touches disk — it's re-derived from your password every run."
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "YOU WILL BUILD",
+            "watchLabel": "OUT OF SCOPE (TODAY)",
+            "good": [
+              "Key derivation with **scrypt** — slow on purpose",
+              "Authenticated encryption with **Fernet** — tampering gets caught",
+              "Atomic file writes — a crash can't corrupt the vault",
+              "A fail-closed CLI with proper exit codes"
+            ],
+            "watch": [
+              "Sync, browser extensions, autofill",
+              "Multiple vaults or user accounts",
+              "Changing the master password (that's a stretch goal)"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Setup — scaffold in five commands",
+        "body": [
+          {
+            "type": "p",
+            "text": "Open a real terminal. Click through the steps here, then **type them yourself** — muscle memory is the point."
+          },
+          {
+            "type": "build-along",
+            "title": "Project scaffold",
+            "goal": "A clean folder, an isolated Python env, one vetted crypto dependency, and a .gitignore that keeps the vault out of git forever.",
+            "lang": "bash",
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "One folder for everything",
+                "say": "Keep the project self-contained — the vault file will live next to the code, and git will guard the boundary.",
+                "add": "mkdir password-vault && cd password-vault  # one folder, everything lives here"
+              },
+              {
+                "title": "Isolate the environment",
+                "say": "A venv keeps the crypto dependency pinned to this project. On Windows, activate with `.venv\\Scripts\\activate` instead.",
+                "add": "\npython -m venv .venv  # project-local Python — no system pollution\nsource .venv/bin/activate  # Windows: .venv\\Scripts\\activate"
+              },
+              {
+                "title": "Install the one real dependency",
+                "say": "`cryptography` is the audited, industry-standard Python library. The whole lesson of `sec-crypto-basics` applies: never roll your own.",
+                "add": "\npip install cryptography  # vetted library — we NEVER hand-roll primitives"
+              },
+              {
+                "title": "Fence off git before writing any code",
+                "say": "The vault file is encrypted, but it still never belongs in git — once pushed, it's forever, and offline brute-force gets unlimited tries.",
+                "add": "\ngit init  # version the CODE, never the secrets\necho '.venv/' > .gitignore  # the env is rebuildable, don't commit it\necho 'vault.enc' >> .gitignore  # ciphertext in git = unlimited offline guesses\necho 'vault.salt' >> .gitignore  # keep the whole vault out, salt included"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Commit the scaffold (`git add -A && git commit -m 'scaffold'`). That's **milestone 1** — tick it off."
+          }
+        ]
+      },
+      {
+        "heading": "Step 1 — master password → key (crypto.py)",
+        "body": [
+          {
+            "type": "p",
+            "text": "A password is **not** a key — it's short, human, and guessable. A **KDF** (key derivation function) stretches it into a 32-byte key and makes each guess *expensive*. We use **scrypt** because it's memory-hard: a GPU farm that hashes billions of MD5s per second chokes on it."
+          },
+          {
+            "type": "terms",
+            "items": [
+              {
+                "term": "KDF",
+                "def": "Turns a password into a key, slowly on purpose — cost per guess is the defense."
+              },
+              {
+                "term": "Salt",
+                "def": "Random public bytes stored next to the vault. Kills rainbow tables; two users with the same password get different keys."
+              },
+              {
+                "term": "CSPRNG",
+                "def": "`os.urandom` — the OS's crypto-grade randomness. `random.random()` is predictable and banned here."
+              }
+            ]
+          },
+          {
+            "type": "build-along",
+            "title": "Create crypto.py in VS Code",
+            "goal": "One module, one job: master password + salt → the Fernet key. Nothing in here ever touches disk.",
+            "lang": "python",
+            "file": "crypto.py",
+            "steps": [
+              {
+                "title": "Imports — each one is a security decision",
+                "say": "scrypt lives under `hazmat` — 'hazardous materials' — because misusing parameters is how DIY crypto fails. We'll set them deliberately.",
+                "add": "import base64  # Fernet wants a url-safe base64 key, not raw bytes\nimport os  # os.urandom = the OS CSPRNG, the only randomness allowed here\nfrom cryptography.hazmat.primitives.kdf.scrypt import Scrypt  # memory-hard KDF — GPU farms hate it"
+              },
+              {
+                "title": "Pin the KDF parameters",
+                "say": "n is the cost knob — 2**14 costs about 100ms per derive on a laptop. That's invisible to you, brutal at a billion guesses.",
+                "add": "\nSALT_BYTES = 16  # 128-bit salt — public, but unique per vault\nKDF_N = 2 ** 14  # cost factor — ~100ms per guess; raise as hardware improves\nKDF_R = 8  # block size — library default, don't tune without reading the paper\nKDF_P = 1  # parallelism — 1 is right for a single-user local tool"
+              },
+              {
+                "title": "Salt generation",
+                "say": "One function so there's exactly one place randomness comes from. A constant salt would let one cracked password crack every vault with that password.",
+                "add": "\n\ndef new_salt():\n    return os.urandom(SALT_BYTES)  # CSPRNG — never random.random(), never a constant"
+              },
+              {
+                "title": "The derive function",
+                "say": "Password in, key out — deterministic for the same salt, which is exactly why the salt gets stored and reused.",
+                "add": "\n\ndef derive_key(master_password, salt):\n    kdf = Scrypt(salt=salt, length=32, n=KDF_N, r=KDF_R, p=KDF_P)  # fresh object per call — Scrypt is single-use\n    raw = kdf.derive(master_password.encode('utf-8'))  # the slow part, ~100ms — that's the feature\n    return base64.urlsafe_b64encode(raw)  # exactly the key format Fernet expects"
+              }
+            ]
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Parameter",
+              "Value",
+              "Why"
+            ],
+            "rows": [
+              [
+                "`n`",
+                "`2**14`",
+                "CPU/memory cost — the per-guess price tag"
+              ],
+              [
+                "`r`",
+                "`8`",
+                "Block size — the vetted default"
+              ],
+              [
+                "`p`",
+                "`1`",
+                "Parallelism — local tool, one user"
+              ],
+              [
+                "`length`",
+                "`32`",
+                "Fernet requires exactly 32 key bytes"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Step 2 — the encrypted file (vault.py)",
+        "body": [
+          {
+            "type": "p",
+            "text": "**Fernet is authenticated encryption** — AES to hide the data, plus an HMAC signature over the ciphertext. Decryption verifies the HMAC *first*, so a tampered or wrong-key file raises `InvalidToken` before a single byte is decrypted. That's the property that lets us fail closed."
+          },
+          {
+            "type": "build-along",
+            "title": "Create vault.py in VS Code",
+            "goal": "Load, save, and initialize the vault. Entries are a plain dict — encrypted as one JSON blob, never written half-way.",
+            "lang": "python",
+            "file": "vault.py",
+            "steps": [
+              {
+                "title": "Imports and the two files on disk",
+                "say": "Two artifacts: the ciphertext and the public salt. Both are gitignored — the salt isn't secret, but shipping it helps offline crackers get started.",
+                "add": "import json  # entries live as one JSON dict inside the ciphertext\nimport os  # for the atomic os.replace at save time\nfrom cryptography.fernet import Fernet, InvalidToken  # AES + HMAC — tampering raises, never garbage\nfrom crypto import derive_key, new_salt  # our KDF module from step 1\n\nVAULT_FILE = 'vault.enc'  # the sealed blob\nSALT_FILE = 'vault.salt'  # public salt — stored beside the vault, reused every run"
+              },
+              {
+                "title": "init_vault — fresh salt, empty vault",
+                "say": "Write the salt first, then save an empty dict through the normal save path — one code path for all writes means one place to get it right.",
+                "add": "\n\ndef init_vault(master):\n    with open(SALT_FILE, 'wb') as f:\n        f.write(new_salt())  # salt is public — its job is uniqueness, not secrecy\n    save_vault({}, master)  # empty vault, sealed immediately — no plaintext window"
+              },
+              {
+                "title": "load_vault — decrypt or die, quietly",
+                "say": "InvalidToken means wrong key OR tampered file — Fernet can't tell which, and neither should your error message. Detail helps attackers.",
+                "add": "\n\ndef load_vault(master):\n    with open(SALT_FILE, 'rb') as f:\n        salt = f.read()  # same salt as init — same password re-derives the same key\n    key = derive_key(master, salt)\n    with open(VAULT_FILE, 'rb') as f:\n        blob = f.read()\n    try:\n        plain = Fernet(key).decrypt(blob)  # HMAC checked FIRST — bad data never reaches the parser\n    except InvalidToken:\n        raise SystemExit('vault: wrong master password or corrupted vault')  # fail closed, exit 1, say no more\n    return json.loads(plain)"
+              },
+              {
+                "title": "save_vault — encrypt, then swap atomically",
+                "say": "Write to a temp file and os.replace it over the real one — a crash mid-write leaves the OLD vault intact instead of a truncated ruin.",
+                "add": "\n\ndef save_vault(entries, master):\n    with open(SALT_FILE, 'rb') as f:\n        salt = f.read()  # reuse the vault's salt — never regenerate on save\n    key = derive_key(master, salt)\n    blob = Fernet(key).encrypt(json.dumps(entries).encode())  # fresh random IV each save — same data, new bytes\n    tmp = VAULT_FILE + '.tmp'\n    with open(tmp, 'wb') as f:\n        f.write(blob)  # land the full ciphertext somewhere safe first\n    os.replace(tmp, VAULT_FILE)  # atomic swap — the vault is always old-or-new, never half"
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Notice what `save_vault` **doesn't** do: cache the key, log anything, or leave a `.tmp` with plaintext. The only plaintext copy of your secrets ever lives in RAM."
+          }
+        ]
+      },
+      {
+        "heading": "Step 3 — the CLI (cli.py)",
+        "body": [
+          {
+            "type": "p",
+            "text": "Last file. Two rules carry all the security weight here: read passwords with **getpass** (no echo, no shell history), and **verify before you trust** — `add` decrypts the vault first, so a typo'd master password can't silently write an entry the real password can't read."
+          },
+          {
+            "type": "build-along",
+            "title": "Create cli.py in VS Code",
+            "goal": "Four commands wired to the vault module. Secrets go to stdout only when explicitly asked, names-only everywhere else.",
+            "lang": "python",
+            "file": "cli.py",
+            "steps": [
+              {
+                "title": "Imports and the password prompt",
+                "say": "getpass reads without echoing — the password never appears on screen, in scrollback, or in shell history the way an argument would.",
+                "add": "import argparse  # tiny CLI — four subcommands, no framework\nimport getpass  # no-echo prompt — passwords NEVER go in argv or env\nimport sys  # for exit codes scripts can rely on\nfrom vault import init_vault, load_vault, save_vault  # step 2's module\n\n\ndef ask_master():\n    return getpass.getpass('Master password: ')  # invisible while typing — that's correct"
+              },
+              {
+                "title": "Parse the command",
+                "say": "One positional command plus an optional entry name. argparse's `choices` rejects anything else for free.",
+                "add": "\n\ndef main():\n    ap = argparse.ArgumentParser(prog='vault')\n    ap.add_argument('command', choices=['init', 'add', 'get', 'list'])  # closed set — no surprise verbs\n    ap.add_argument('name', nargs='?')  # entry name — only add/get use it\n    args = ap.parse_args()\n    master = ask_master()  # every command re-proves the password — no session, no cache"
+              },
+              {
+                "title": "init and add",
+                "say": "add loads the vault BEFORE prompting for the secret — that both proves the master password and pulls the current entries to extend.",
+                "add": "\n    if args.command == 'init':\n        init_vault(master)\n        print('Vault created.')\n    elif args.command == 'add':\n        entries = load_vault(master)  # proves the password before accepting a secret\n        secret = getpass.getpass(f'Secret for {args.name}: ')  # the secret is never echoed either\n        entries[args.name] = secret\n        save_vault(entries, master)\n        print(f'Stored {args.name}.')  # confirm the NAME only — never echo the value"
+              },
+              {
+                "title": "get, list, and the entry point",
+                "say": "list prints names only. If listing leaked values, every shoulder-surf and screen-share would be a breach.",
+                "add": "\n    elif args.command == 'get':\n        entries = load_vault(master)\n        if args.name not in entries:\n            sys.exit(f'vault: no entry named {args.name}')  # exit 1 — pipelines can branch on it\n        print(entries[args.name])  # the ONE place a secret is allowed on stdout\n    elif args.command == 'list':\n        for name in sorted(load_vault(master)):\n            print(name)  # names only — values need an explicit get\n\n\nif __name__ == '__main__':\n    main()  # import-safe — tests can import cli without running it"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Verify — try to break your own vault",
+        "body": [
+          {
+            "type": "p",
+            "text": "A security tool isn't done when the happy path works — it's done when the **attack paths fail the right way**. Run both."
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "# Happy path — store and retrieve a secret\npython cli.py init  # pick a master password you can retype\npython cli.py add github-token  # master, then the secret — neither echoes\npython cli.py get github-token  # right master → prints the secret\npython cli.py list  # names only — no values"
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "# Attack path 1 — wrong master password\npython cli.py get github-token  # type it WRONG on purpose\n# → 'vault: wrong master password or corrupted vault', exit code 1  # fail closed, zero detail\n\n# Attack path 2 — read the raw file\ncat vault.enc  # a gAAAA... base64 blob — ciphertext, not your JSON\n\n# Attack path 3 — tamper with the ciphertext\ncp vault.enc vault.enc.bak  # keep a copy — we're about to vandalize it\npython -c \"b = open('vault.enc','rb').read(); open('vault.enc','wb').write(b[:-2] + b'xx')\"  # flip the tail bytes\npython cli.py get github-token  # RIGHT password now → still refuses: HMAC caught the edit\nmv vault.enc.bak vault.enc  # restore the good vault"
+          },
+          {
+            "type": "table",
+            "headers": [
+              "What you proved",
+              "How you saw it"
+            ],
+            "rows": [
+              [
+                "Secrets encrypted at rest",
+                "`cat vault.enc` shows ciphertext, not JSON"
+              ],
+              [
+                "Wrong password fails closed",
+                "One vague error, exit code 1, no partial data"
+              ],
+              [
+                "Tampering is detected",
+                "HMAC rejects the edited file even with the right password"
+              ],
+              [
+                "Nothing leaks by default",
+                "`list` shows names; prompts never echo"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Ship it — stretch goals",
+        "body": [
+          {
+            "type": "p",
+            "text": "The core vault is done — commit it. Each stretch below is a self-contained upgrade; pick **one** and finish it before eyeing the next."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**`vault gen name`** — generate a 32-byte token with `os.urandom` and store it in one move",
+              "**`vault rm name`** — delete an entry; require the name twice to confirm",
+              "**Master-password rotation** — decrypt with the old, re-derive with a *new salt*, re-encrypt with the new",
+              "**Clipboard mode** — copy on `get` instead of printing, and clear the clipboard after 20 seconds",
+              "**Argon2id** — swap scrypt for the current OWASP-favored KDF (`argon2-cffi`) and defend the parameter choices"
+            ]
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "DO NEXT",
+            "watchLabel": "NEVER DO",
+            "good": [
+              "Add a `--vault PATH` flag so tests use a throwaway vault",
+              "Write a pytest that asserts wrong-password raises SystemExit",
+              "Time `derive_key` and tune `KDF_N` to ~100ms on your machine"
+            ],
+            "watch": [
+              "Cache the derived key to disk 'for speed' — that file *is* the vault, unlocked",
+              "Accept the master password as an argv flag — it lands in shell history and `ps`",
+              "Invent your own cipher mode or MAC — Fernet exists so you don't",
+              "Commit `vault.enc` because 'it's encrypted anyway' — git makes brute force offline and eternal"
+            ]
+          },
+          {
+            "type": "quote",
+            "text": "You didn't roll your own crypto. You rolled your own *decisions* — KDF cost, fail-closed errors, atomic writes — and that's the actual job.",
+            "cite": "the vault builder's takeaway"
+          }
+        ]
+      }
+    ]
+  },
+  "sec-project-audit": {
+    "sections": [
+      {
+        "heading": "The brief",
+        "body": [
+          {
+            "type": "p",
+            "text": "A fresh Linux box (a VM, a cloud instance, or your own WSL) is about to become a build server. Your job: write **`audit.sh` or `audit.py`** — a script that inspects the machine for hardening failures and reports them with severities. **No step-by-step this time.** You get the contract, the success criteria, and hints. You write every line."
+          },
+          {
+            "type": "p",
+            "text": "One rule is absolute: the script is **read-only**. It observes and reports. It never chmods, never edits configs, never 'helpfully fixes' anything — an auditor that mutates the system is a new attack surface."
+          },
+          {
+            "type": "table",
+            "headers": [
+              "#",
+              "Check",
+              "Bad looks like",
+              "Severity"
+            ],
+            "rows": [
+              [
+                "1",
+                "SSH daemon config",
+                "`PasswordAuthentication yes` or `PermitRootLogin yes`",
+                "HIGH"
+              ],
+              [
+                "2",
+                "SSH key permissions",
+                "Private keys not `600`, `~/.ssh` not `700`",
+                "HIGH"
+              ],
+              [
+                "3",
+                "Secrets in git",
+                "`.env` tracked in a repo, or keys in shell history",
+                "HIGH"
+              ],
+              [
+                "4",
+                "World-writable files",
+                "`-perm -o+w` files in `$HOME` or `/etc`",
+                "MEDIUM"
+              ],
+              [
+                "5",
+                "Listening ports",
+                "Services bound to `0.0.0.0` outside your allowlist",
+                "MEDIUM"
+              ],
+              [
+                "6",
+                "Stale packages",
+                "Upgradable packages pending (`apt` / `pip`)",
+                "LOW"
+              ]
+            ]
+          },
+          {
+            "type": "ul",
+            "items": [
+              "Each finding reports: **check name, severity, evidence location** — never the secret value itself",
+              "Human-readable summary by default; `--json` flag for machine output",
+              "Exit code contract: `0` = clean, `1` = only LOW/MEDIUM findings, `2` = any HIGH finding",
+              "Runs without sudo — checks that need root **degrade gracefully** and say so, they don't crash",
+              "Finishes in under 30 seconds — scope your filesystem scans"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Success criteria — how you'll know it's done",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "On a deliberately broken box (see *Prove it*), every planted issue appears in the report with the right severity",
+              "On a clean box, the report is empty and the exit code is `0` — **zero false positives**",
+              "`./audit.sh --json | python -m json.tool` parses — the JSON is real, not string-glued",
+              "Running it twice in a row produces identical output — read-only means idempotent",
+              "A finding never prints a secret's *value* — only its path/location and why it's a problem"
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Target output shape — match the spirit, not the exact bytes:"
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "$ ./audit.sh  # human mode — one line per finding, severity first\n[HIGH]   ssh-config: PasswordAuthentication is enabled (sshd -T)\n[HIGH]   ssh-keys: ~/.ssh/id_ed25519 is mode 644, expected 600\n[MEDIUM] ports: 0.0.0.0:5432 listening, not in allowlist (postgres)\n[LOW]    packages: 14 upgradable packages pending\n\n4 findings (2 high, 1 medium, 1 low)\n$ echo $?  # any HIGH present → exit 2, per the contract\n2"
+          }
+        ]
+      },
+      {
+        "heading": "Hints — open only if you're stuck",
+        "body": [
+          {
+            "type": "p",
+            "text": "These are the raw ingredients, not the recipe. Each command answers one check from the table — your work is wrapping them in detection logic, severities, and the report."
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "sudo sshd -T 2>/dev/null | grep -Ei 'passwordauthentication|permitrootlogin'  # EFFECTIVE config — beats parsing sshd_config by hand\nstat -c '%a %n' ~/.ssh/* 2>/dev/null  # numeric perms per file — compare against 600/700\nfind \"$HOME\" /etc -xdev -type f -perm -o+w 2>/dev/null  # world-writable — -xdev stops filesystem-crossing crawls\ngit -C some-repo ls-files | grep -E '(^|/)\\.env$'  # TRACKED .env files — staged secrets, not just present ones\ngrep -cE 'AKIA|api[_-]?key|token=' ~/.bash_history 2>/dev/null  # count matches — report the COUNT, never the lines\nss -tlnp 2>/dev/null | awk '$4 ~ /0\\.0\\.0\\.0/'  # sockets listening on every interface\napt list --upgradable 2>/dev/null | tail -n +2 | wc -l  # pending upgrades — a number is enough for LOW"
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "GOOD MOVES",
+            "watchLabel": "CLASSIC TRAPS",
+            "good": [
+              "One function per check, each returning findings into a shared list — report and exit code fall out at the end",
+              "Read `sshd -T` (effective config) instead of parsing `sshd_config` — drop-in dirs override the main file",
+              "Make the port allowlist a variable at the top — graders *will* have sshd on 22",
+              "When a check needs root and you don't have it, emit an `INFO: skipped` finding — silence looks like a pass"
+            ],
+            "watch": [
+              "`set -e` + `grep` — grep exits 1 on 'no match', which is your *success* case, and kills the script",
+              "`find /` without `-xdev` or scoping — hello, 10-minute scan of `/proc` and mounted drives",
+              "Printing the matched history line as evidence — you just wrote a secret into a report file",
+              "Hardcoding `~/.ssh/id_rsa` — glob the directory; modern keys are `id_ed25519`"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Prove it — break, catch, fix, green",
+        "body": [
+          {
+            "type": "p",
+            "text": "The demo *is* the deliverable. Plant real failures, watch the script catch them, fix them, watch it go green."
+          },
+          {
+            "type": "ol",
+            "items": [
+              "Plant: `chmod 644 ~/.ssh/id_ed25519` (or a dummy key file), `touch /tmp/audit-test && chmod 666` a file in `$HOME`, and `git add` a throwaway `.env` in a scratch repo",
+              "Run `./audit.sh` — every plant appears, severities match the table, exit code is `2`",
+              "Run `./audit.sh --json | python -m json.tool` — parses clean",
+              "Fix each planted issue, re-run — findings disappear one by one, exit code drops to `0`",
+              "Run twice more back-to-back — identical output, because you never mutated anything"
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Stretch, if you're hungry: add `--fix-hints` (print the remediation *command* for each finding — still without executing it), or ship the JSON to a file with a timestamp and diff two runs. That diff is a baby SIEM — you've met that idea in `sec-siem`."
+          }
+        ]
+      }
+    ]
+  },
+  "sec-project-threat-model": {
+    "sections": [
+      {
+        "heading": "The system you're handed",
+        "body": [
+          {
+            "type": "p",
+            "text": "**Lumen Notes** is a six-person startup: a note-taking SaaS with 40K users. You're the first security-minded engineer they've ever had, and you get **one architecture review** before next sprint ships a new *share-note-by-link* feature. No guided steps, no hints — this is the architect's chair."
+          },
+          {
+            "type": "diagram",
+            "title": "Lumen Notes today",
+            "height": 260,
+            "nodes": [
+              {
+                "id": "spa",
+                "label": "React SPA",
+                "subtitle": "BROWSER",
+                "accent": "water",
+                "x": 0.18,
+                "y": 0.26
+              },
+              {
+                "id": "api",
+                "label": "Node API",
+                "subtitle": "AWS ECS",
+                "accent": "sky",
+                "x": 0.5,
+                "y": 0.26
+              },
+              {
+                "id": "db",
+                "label": "Postgres",
+                "subtitle": "RDS",
+                "accent": "earth",
+                "x": 0.82,
+                "y": 0.26
+              },
+              {
+                "id": "s3",
+                "label": "S3",
+                "subtitle": "PRESIGNED UPLOADS",
+                "accent": "earth",
+                "x": 0.18,
+                "y": 0.74
+              },
+              {
+                "id": "stripe",
+                "label": "Stripe",
+                "subtitle": "WEBHOOKS IN",
+                "accent": "fire",
+                "x": 0.5,
+                "y": 0.74
+              },
+              {
+                "id": "ci",
+                "label": "GH Actions",
+                "subtitle": "DEPLOY ON MERGE",
+                "accent": "amber",
+                "x": 0.82,
+                "y": 0.74
+              }
+            ],
+            "edges": [
+              {
+                "from": "spa",
+                "to": "api",
+                "kind": "solid",
+                "label": "JWT"
+              },
+              {
+                "from": "api",
+                "to": "db",
+                "kind": "solid",
+                "label": "SQL"
+              },
+              {
+                "from": "spa",
+                "to": "s3",
+                "kind": "dashed",
+                "label": "upload"
+              },
+              {
+                "from": "stripe",
+                "to": "api",
+                "kind": "dashed",
+                "label": "webhook"
+              },
+              {
+                "from": "ci",
+                "to": "api",
+                "kind": "dashed",
+                "label": "deploy"
+              }
+            ],
+            "caption": "Five arrows, five trust boundaries. Every one is a place to ask the STRIDE questions."
+          },
+          {
+            "type": "p",
+            "text": "Extra facts that matter: the admin panel lives at `/admin` on the public API, protected by password login. CI deploys with a **long-lived AWS access key** stored in GitHub secrets. Uploads go straight from the browser to S3 via presigned URLs with no size or type limit."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Crown jewels:** note content (user private data), account emails, S3 attachments, Stripe customer records, and the AWS deploy credentials",
+              "**Team reality:** two engineers can spend the next two weeks on security — that's the whole budget",
+              "**Product reality:** share-by-link *will* ship; your model has to make it survivable, not veto it"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Your deliverable",
+        "body": [
+          {
+            "type": "p",
+            "text": "Produce a written threat model — a doc or a whiteboard photo, your call. It must contain these five parts:"
+          },
+          {
+            "type": "ol",
+            "items": [
+              "A **data-flow diagram** with every trust boundary drawn as a line the data crosses",
+              "A **STRIDE pass** over each boundary — at least one credible threat per letter that applies",
+              "The **top 5 risks**, ranked by likelihood × impact, each with a concrete mitigation that fits the existing stack",
+              "**One accepted risk** — a threat you consciously choose *not* to fix, with the justification and revisit trigger written down",
+              "A **two-week plan** — which mitigations two engineers actually ship, in what order"
+            ]
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Letter",
+              "Threat",
+              "The question to ask at each boundary"
+            ],
+            "rows": [
+              [
+                "S",
+                "Spoofing",
+                "Can someone pretend to be a user, the API, or Stripe?"
+              ],
+              [
+                "T",
+                "Tampering",
+                "Can data be altered in transit or at rest without detection?"
+              ],
+              [
+                "R",
+                "Repudiation",
+                "Could an actor deny an action because nothing logged it?"
+              ],
+              [
+                "I",
+                "Info disclosure",
+                "Can data leak to someone who shouldn't read it?"
+              ],
+              [
+                "D",
+                "Denial of service",
+                "Can someone make this boundary unusable or expensive?"
+              ],
+              [
+                "E",
+                "Elevation of privilege",
+                "Can a low-power actor gain high-power capability?"
+              ]
+            ]
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Constraint:** no budget for a SIEM, a WAF vendor, or a pentest — mitigations use what AWS/GitHub/Stripe already offer",
+              "**Constraint:** signup friction can't grow by more than one step (MFA for *admins* is fine; forcing it on all 40K users is not)",
+              "**Constraint:** every mitigation names its owner and its sprint slot — 'we should' without a when is not a plan"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Trade-offs you must defend",
+        "body": [
+          {
+            "type": "p",
+            "text": "A threat model without trade-offs is a wishlist. For each row, pick a side **in writing** and defend it — 'both' is not an answer when you have two engineers and two weeks."
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Decision",
+              "Option A",
+              "Option B",
+              "What forces the choice"
+            ],
+            "rows": [
+              [
+                "Share-by-link design",
+                "Unguessable 128-bit token URL",
+                "Require login for every shared note",
+                "Virality vs confidentiality — product demands the link *just work*"
+              ],
+              [
+                "CI deploy credentials",
+                "OIDC federation, short-lived",
+                "Keep the long-lived AWS key",
+                "Migration effort now vs a forever-key in GitHub's blast radius"
+              ],
+              [
+                "Admin panel",
+                "IP-allowlist / VPN + MFA",
+                "Public URL with MFA only",
+                "Team works remote — ops friction vs exposed admin surface"
+              ],
+              [
+                "Uploads",
+                "Keep presigned, add size/type caps + scoped prefix",
+                "Proxy all uploads through the API",
+                "S3 bill and API load vs inspection and control"
+              ],
+              [
+                "Stripe webhooks",
+                "Verify signatures + replay window",
+                "Trust the endpoint's obscurity",
+                "One afternoon of work vs forged billing events"
+              ]
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Scoring yourself: a strong model names **who the attacker is** for each top-5 risk (bored scraper? angry ex-employee? credential-stuffing bot?), because likelihood is a claim about *people*, not about code."
+          }
+        ]
+      },
+      {
+        "heading": "Defend the model",
+        "body": [
+          {
+            "type": "p",
+            "text": "Close the loop the way a staff engineer would: say the whole model out loud, then commit to the judgment call below."
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Walk the room through your threat model: name the **trust boundaries** you drew, your **#1 ranked risk** and its mitigation, the **accepted risk** you're deliberately not fixing, and defend your **share-by-link** decision against the strongest objection you can imagine.",
+            "modelAnswer": "The boundaries are the five arrows: browser→API (authn/session), API→Postgres and API→S3 (data at rest), Stripe→API (inbound webhooks), and GitHub→AWS (deploy path) — plus the admin panel as its own high-privilege boundary. My **#1 risk is the CI deploy path**: a long-lived AWS key in GitHub secrets means one leaked runner log or malicious dependency in a workflow equals full production compromise — high impact, and supply-chain likelihood is real (xz-utils, Codecov). Mitigation: swap to **OIDC federation** with a role scoped to ECS deploy only — about two days of work, kills the forever-credential entirely. Next tier: admin takeover (MFA + IP-allowlist — admins are five people, friction is fine), Stripe webhook spoofing (verify signatures, reject stale timestamps — an afternoon), and presigned upload abuse (size/type caps, per-user key prefix). My **accepted risk**: no SIEM. With two engineers we can't run one; instead CloudTrail + GuardDuty stay on with alerts to Slack, and the written revisit trigger is 100K users or the first security hire. **Share-by-link ships as a 128-bit random token URL**: the strongest objection is that links leak — pasted into Slack, indexed from referer headers, sitting in browser history forever. I accept the mechanism but bound the blast radius: tokens are revocable per-note, optional expiry defaults to 30 days, and shared views are read-only. The defense is honest math: a random 128-bit token can't be guessed or enumerated, so the residual risk isn't *cryptographic*, it's *human forwarding* — and requiring login instead would kill the feature's entire purpose. That's a trade-off I write down, not one I hide.",
+            "hint": "Rank by likelihood × impact and let the ranking pick your #1 — the deploy path usually wins because impact is total. For the accepted risk, the justification is the two-engineer constraint plus a revisit trigger. For share-by-link, name the *residual* risk that remains after the crypto is right.",
+            "commit": {
+              "q": "Share-by-link ships as an unguessable 128-bit random token URL, read-only, revocable. What is the biggest RESIDUAL risk you carry?",
+              "opts": [
+                "Humans forward the link — Slack pastes, email threads, browser history — and it keeps working for anyone who finds it",
+                "Attackers brute-force the token space once they know the URL format",
+                "The token lets holders modify the note, so tampering is unbounded"
+              ],
+              "answer": 0,
+              "why": "128 bits of CSPRNG randomness makes guessing computationally absurd, and read-only links can't tamper — but a link is a bearer credential, and bearer credentials travel. The residual risk is human forwarding, which is why expiry and revocation are the mitigations that matter."
+            }
           }
         ]
       }

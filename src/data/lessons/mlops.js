@@ -277,7 +277,17 @@ export default {
             "type": "explain-back",
             "prompt": "Synthesis. You've now seen all eight stages — **data → features → train → eval → deploy → monitor → drift → retrain**. Trace a *single* concept-drift event through the loop: a competitor launches and your churn model's accuracy quietly slides. Explain how **monitoring**, the **feature store**, the **eval gate**, and **data versioning** each play a role in catching it and shipping a fix safely — then name the one trade-off you'd watch when you wire the loop to retrain *automatically*.",
             "modelAnswer": "The decay is silent — no exception throws — so **monitoring** is what surfaces it: a sliding-window drift detector on inputs and predictions fires before accuracy formally drops, because accuracy is a trailing indicator that needs ground-truth labels that arrive late. That kicks the loop back to **data**: you pull a fresh, **versioned** slice (a new data SHA) so the retrain is reproducible and you can diff exactly what changed. The **feature store** is what makes the new model trustworthy — the rolling features are computed once from a single definition and materialized to both the warehouse (train) and the online store (serve), so the retrained model doesn't inherit train-serve skew on top of the drift. Before it ships, the **eval gate** blocks promotion unless the new θ beats the incumbent on held-out and sliced metrics — that's the safety interlock that stops an automated pipeline from shipping a worse model just because deploy is push-button. Rollback stays safe because you kept the prior model *and* the data that made it. The trade-off with **fully automatic** retraining: speed vs. stability — auto-retrain closes the loop in hours instead of a quarterly meeting, but if the trigger is too twitchy you retrain on noise (or on a transient outage's poisoned logs), thrash the production model, and chase your own tail. So you gate the auto-trigger behind a sustained drift threshold plus a hard eval gate, and keep a human approval for the final Staging→Production promotion.",
-            "hint": "Walk it stage by stage: who *notices*, who supplies *clean reproducible data*, who *blocks a bad fix*, and what the *cost of automating the trigger* is."
+            "hint": "Walk it stage by stage: who *notices*, who supplies *clean reproducible data*, who *blocks a bad fix*, and what the *cost of automating the trigger* is.",
+            "commit": {
+              "q": "A competitor launches and concept drift starts quietly eroding your churn model. Which part of the loop surfaces the problem FIRST?",
+              "opts": [
+                "The accuracy dashboard — it dips as soon as predictions start missing",
+                "The eval gate — it re-checks the production model against fresh labels every night",
+                "A sliding-window drift monitor watching inputs and prediction distributions"
+              ],
+              "answer": 2,
+              "why": "The decay is silent — nothing throws an exception, and ground-truth labels arrive too late for accuracy to lead. Only a monitor watching what goes *into* and *out of* the model fires early."
+            }
           }
         ]
       }
@@ -4942,7 +4952,17 @@ export default {
             "type": "explain-back",
             "prompt": "In your own words: why does a feature store need both an offline and an online store, and how does it prevent training-serving skew?",
             "modelAnswer": "Training scans months of history across billions of rows — that's a warehouse workload (Snowflake, BigQuery, Parquet on S3). Serving needs a single row back in <20 ms — that's a key-value workload (Redis, DynamoDB). One physical store can't do both well, so you keep two, but you feed both from a **single feature definition** registered in Feast or Tecton. That shared definition is the whole point: the rolling 7-day basket average is computed *once* as code, materialized into the warehouse for training and into Redis for serving. Skew dies because the transform isn't reimplemented in two languages — training and inference literally read the same numbers, joined point-in-time against the prediction timestamp.",
-            "hint": "Think about what \"same data, two databases, one definition\" means — and what `point-in-time correctness` prevents."
+            "hint": "Think about what \"same data, two databases, one definition\" means — and what `point-in-time correctness` prevents.",
+            "commit": {
+              "q": "Why can't one physical database serve as BOTH the offline and the online feature store?",
+              "opts": [
+                "Training scans months of history across billions of rows; serving needs one row back in under 20 ms — opposite workloads",
+                "Online key-value stores can't hold floating-point feature values, so training data has to live in a warehouse",
+                "Keeping two independent copies of the data is what prevents training-serving skew"
+              ],
+              "answer": 0,
+              "why": "The split exists because the access patterns are opposites — a giant historical scan versus a millisecond point lookup. What actually kills skew is something the store shares between the two, not the copies themselves."
+            }
           },
           {
             "type": "quote",
@@ -5096,7 +5116,17 @@ export default {
             "type": "explain-back",
             "prompt": "Synthesis. You've seen the **three drifts** (input, prediction, concept), the **sliding-window stats** that detect them (PSI / KS), and the split between an **alarm** that pages you and a **dashboard** you glance at. Design the monitoring you'd put on a real-time fraud model: which signal goes on which of the three drifts, what you'd page on vs. only chart, and why you can't just wait for the accuracy number — then name the trade-off you tune to keep the on-call human sane.",
             "modelAnswer": "Each drift gets a different sensor. **Input drift** — run PSI (or KS) on each incoming feature against the training reference over a sliding window; this catches the upstream pipeline breaking or the population shifting (a new country, a logging-format change). **Prediction drift** — watch the distribution of the *scores* the model emits; if the fraud-probability histogram suddenly skews, the model is reacting to something even before labels confirm it. **Concept drift** — the relationship between features and the truth has changed; you only see it once ground-truth labels (confirmed chargebacks) land, which is *why you can't wait for accuracy*: in fraud, labels are delayed days to weeks, so by the time accuracy formally drops you've been bleeding money the whole time. Input and prediction drift are your **leading** indicators; accuracy is the **trailing** one. Routing: a hard PSI breach above ~0.25 on a key feature, or prediction volume cratering, is an **alarm** that pages on-call — that's 'the model may be blind right now.' Gradual minor drift, label-based accuracy, and per-segment slices go on a **dashboard** for the weekly review. The trade-off you tune is **alarm sensitivity vs. alert fatigue**: thresholds too tight and the pager screams at every weekend traffic dip until people mute it (so the *real* outage gets ignored); too loose and you find out from the fraud-loss report. You tune it with sustained-window thresholds and severity tiers so only 'model is effectively down' pages a human at 3 a.m.",
-            "hint": "Map one detector to each drift, then ask which failure means 'wake someone up *now*' vs. 'discuss Monday' — and what breaks if every drift pages."
+            "hint": "Map one detector to each drift, then ask which failure means 'wake someone up *now*' vs. 'discuss Monday' — and what breaks if every drift pages.",
+            "commit": {
+              "q": "PSI on a key input feature of your fraud model breaches 0.25 and stays there. What's the right routing for this signal?",
+              "opts": [
+                "Chart it on the weekly-review dashboard — only a real accuracy drop should page a human",
+                "Page on-call now — the model may be effectively blind, and labels won't confirm it for weeks",
+                "Kick off an automatic retrain immediately — input drift needs no human in the loop"
+              ],
+              "answer": 1,
+              "why": "A sustained hard PSI breach is a leading indicator that the model may be wrong *right now*. In fraud, waiting for label-based accuracy means the loss report tells you first."
+            }
           }
         ]
       }
@@ -5270,7 +5300,17 @@ export default {
             "type": "explain-back",
             "prompt": "Synthesis. You've seen retrain **triggers** (schedule / drift / data-volume / performance), the **promotion ladder** (None → Staging → Production → Archived), the **CI/CD eval gate** between train and register, and the **registry + DVC** that pin the artifact and its data. Wire these into one self-driving retrain pipeline: trace what happens from the moment a drift trigger fires to a new model serving traffic, say where a *human* still has to sign off and why, and name the trade-off between trigger sensitivity and pipeline stability.",
             "modelAnswer": "A **drift trigger** fires (PSI breach sustained over a window) and kicks off the pipeline. Step one pins the inputs: **DVC** snapshots the exact data version so the run is reproducible — same data SHA + seed → same θ — which is what lets you diff this model against the last and roll back to the data, not just the weights. The pipeline trains, then hits the **CI/CD eval gate**: the new model must beat the incumbent on held-out and *sliced* metrics or the pipeline hard-stops and registers nothing — this is the interlock that stops an automated trigger from shipping a worse model just because deploy is push-button. If it passes, it's written to the **registry** and transitioned to **Staging**, where the serving layer shadow- or canary-tests it on live traffic. The **human sign-off** lives at the Staging→Production promotion: a person confirms the canary's online metrics (latency, conversion, no Simpson's-paradox segment loss) before it takes real traffic — because offline eval can't see novelty effects, feedback loops, or calibration shifts, and an unattended promotion can silently regress the business metric. Promotion is the source of truth: serving just polls 'who's in Production?', so rollback is the *same* operation (re-promote the prior version, no redeploy). The trade-off: **trigger sensitivity vs. pipeline stability** — a twitchy trigger retrains on noise or on a transient outage's poisoned logs, thrashes the prod model, and burns compute chasing its tail; too dull and decay runs for weeks. You damp it with sustained-window thresholds plus the eval gate and the human promotion as backstops, so a false trigger costs a wasted run, never a bad deploy.",
-            "hint": "Follow one artifact: data pinned → trained → gated → registered → promoted. Then ask where automation is *unsafe* and what a hair-trigger costs you."
+            "hint": "Follow one artifact: data pinned → trained → gated → registered → promoted. Then ask where automation is *unsafe* and what a hair-trigger costs you.",
+            "commit": {
+              "q": "In a self-driving retrain pipeline, where does a HUMAN still have to sign off?",
+              "opts": [
+                "At the drift trigger — a person confirms the PSI breach before any training run starts",
+                "At the Staging → Production promotion, after the canary's online metrics come back",
+                "Nowhere — the automated eval gate already makes the whole pipeline safe to run unattended"
+              ],
+              "answer": 1,
+              "why": "Offline eval — even a strict gate — can't see what happens on live traffic. The final promotion is the one step where a person checks real online behavior before users depend on the new model."
+            }
           }
         ]
       }
@@ -5388,7 +5428,17 @@ export default {
             "type": "explain-back",
             "prompt": "Synthesis. You've climbed the **rollout ladder** (shadow → canary → A/B), seen why a model can win **offline** yet lose **online**, learned which **online metric** actually decides ship/no-ship, and met the validity traps (novelty, peeking, Simpson's paradox, SRM). Design the rollout for a new recommender that beats the incumbent on offline AUC: which rung you start on and what each rung is *for*, what single metric gates the final ship, and the trade-off between calling the result fast and calling it right.",
             "modelAnswer": "Offline AUC is necessary but not sufficient — the training labels were generated by the *old* recommender's choices, so offline eval is counterfactual and can't see feedback loops, latency regressions, or calibration shifts. So you earn confidence one rung at a time. **Shadow** first: mirror live traffic to the new model but serve none of its outputs — this validates plumbing, latency, and error rate with zero user risk (a slower model that regresses latency can erase its accuracy gains here before anyone's affected). Then **canary**: route a small slice (say 1–5%) of real traffic to it and watch the operational metrics — if it errors or tanks the guardrail, you've blast-radiused the damage. Then the full **A/B**: a proper 50/50 (or sized) split where the *decision* metric is an **online business outcome** — conversion / engagement / revenue-per-session, not AUC — because that's what you actually ship for. The guardrails before you trust the number: pre-compute **sample size** so you don't **peek** and stop the instant p < 0.05 (which inflates false positives); run a full **weekly cycle** so the **novelty effect** washes out; check **SRM** (assignments must be 50/50 ± noise, else the splitter is broken — throw it out); and **slice by segment** so **Simpson's paradox** doesn't hide a cohort loss under an overall lift. The trade-off is **speed vs. validity**: ending early or on too little traffic gives you a fast answer that's probably a false positive (novelty + peeking both bias toward 'ship'); waiting for the pre-registered sample size and a full cycle costs days but is the only honest read. You buy speed safely by failing *fast* on the cheap rungs (shadow/canary catch the obvious losers) and being patient only on the final A/B that gates the business metric.",
-            "hint": "Each rung de-risks a different thing (plumbing → blast radius → truth). Then ask: what makes a fast 'ship it' a *lie*?"
+            "hint": "Each rung de-risks a different thing (plumbing → blast radius → truth). Then ask: what makes a fast 'ship it' a *lie*?",
+            "commit": {
+              "q": "Your new recommender beats the incumbent on offline AUC. Which single metric should gate the final ship decision?",
+              "opts": [
+                "An online business outcome — conversion or revenue-per-session in the full A/B",
+                "Offline AUC re-measured on a fresh held-out set to rule out overfitting",
+                "The p-value, the moment it first dips below 0.05 during the experiment"
+              ],
+              "answer": 0,
+              "why": "AUC is offline and counterfactual, and stopping at the first p < 0.05 is the peeking trap. The ship/no-ship call rides on what users actually *do* when the model serves them."
+            }
           }
         ]
       }
@@ -5396,4 +5446,881 @@ export default {
   },
 
   // ─── API DESIGN (swe) ─────────────────────────────────────────────────────
+  "mlops-capstone-serve": {
+    "sections": [
+      {
+        "heading": "What you're shipping",
+        "body": [
+          {
+            "type": "p",
+            "text": "This is the whole MLOps loop in miniature: **train** a model, put it **behind an API**, and **ship it in a container** anyone can run. Every production ML system you'll ever touch is this exact pipeline with more zeros on the end."
+          },
+          {
+            "type": "p",
+            "text": "You build this in **your own terminal and VS Code** — the app shows each step, you make it real. Budget about an hour of actual keyboard time."
+          },
+          {
+            "type": "diagram",
+            "title": "The pipeline you're building",
+            "height": 240,
+            "nodes": [
+              {
+                "id": "train",
+                "label": "train.py",
+                "subtitle": "fit + gate",
+                "accent": "sky",
+                "x": 0.25,
+                "y": 0.25
+              },
+              {
+                "id": "artifact",
+                "label": "model.joblib",
+                "subtitle": "the artifact",
+                "accent": "earth",
+                "x": 0.75,
+                "y": 0.25
+              },
+              {
+                "id": "api",
+                "label": "app.py",
+                "subtitle": "FastAPI",
+                "accent": "amber",
+                "x": 0.75,
+                "y": 0.75
+              },
+              {
+                "id": "image",
+                "label": "iris-api",
+                "subtitle": "docker image",
+                "accent": "fire",
+                "x": 0.25,
+                "y": 0.75
+              }
+            ],
+            "edges": [
+              {
+                "from": "train",
+                "to": "artifact",
+                "kind": "solid",
+                "label": "dump"
+              },
+              {
+                "from": "artifact",
+                "to": "api",
+                "kind": "solid",
+                "label": "load at startup"
+              },
+              {
+                "from": "api",
+                "to": "image",
+                "kind": "dashed",
+                "label": "docker build"
+              }
+            ],
+            "caption": "Four files, one shippable unit — the same shape as any production serving pipeline."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "`train.py` — trains a classifier and **refuses to save a bad one**",
+              "`app.py` — a FastAPI service with input validation, `/healthz`, and `/predict`",
+              "`Dockerfile` — bakes code + model + deps into one runnable image",
+              "A running container answering `curl` on port 8000"
+            ]
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Tool",
+              "Why you need it",
+              "Check it works"
+            ],
+            "align": [
+              "left",
+              "left",
+              "left"
+            ],
+            "rows": [
+              [
+                "Python 3.10+",
+                "Trains the model, runs the API",
+                "`python --version`"
+              ],
+              [
+                "Docker Desktop",
+                "Builds and runs the image",
+                "`docker --version`"
+              ],
+              [
+                "curl",
+                "Tests the endpoint like a client would",
+                "`curl --version`"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Setup — scaffold the project",
+        "body": [
+          {
+            "type": "p",
+            "text": "One folder, one virtual environment, pinned dependencies. Thirty seconds now saves the classic *works-on-my-machine* container failure later."
+          },
+          {
+            "type": "build-along",
+            "title": "Project scaffold",
+            "goal": "An isolated project folder with the four packages you need — and their exact versions frozen so the container installs the same thing you tested.",
+            "lang": "bash",
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Make the project folder",
+                "say": "Everything — code, model artifact, Dockerfile — lives in this one folder. That's what makes the docker build context simple later.",
+                "add": "mkdir iris-api && cd iris-api  # project root — everything lives here"
+              },
+              {
+                "title": "Create and activate a venv",
+                "say": "A virtual environment keeps this project's packages away from your system Python. If your prompt doesn't show (.venv) after this, the activate didn't take.",
+                "add": "python -m venv .venv  # isolated deps — never install into system Python\nsource .venv/bin/activate  # Windows PowerShell: .venv\\Scripts\\activate"
+              },
+              {
+                "title": "Install the stack",
+                "say": "Four packages, four jobs: scikit-learn trains, joblib saves the model to disk, FastAPI defines the API, uvicorn actually runs it.",
+                "add": "pip install scikit-learn fastapi uvicorn joblib  # train, define, run, save — the whole stack"
+              },
+              {
+                "title": "Freeze what you installed",
+                "say": "This file is the contract with your future container: it installs THESE exact versions, not whatever 'latest' means next month. Skipping this step is the #1 cause of works-locally-dies-in-Docker.",
+                "add": "pip freeze > requirements.txt  # exact versions — the container installs THESE, not 'latest'"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Build train.py — train it, gate it, save it",
+        "body": [
+          {
+            "type": "p",
+            "text": "The model is deliberately tiny — a random forest on the built-in iris dataset. The **shape** is what matters: load data, hold some out, fit, and pass an **eval gate** before anything gets saved. A model that can't clear the bar never becomes an artifact."
+          },
+          {
+            "type": "build-along",
+            "title": "train.py — five chunks, one artifact",
+            "goal": "A training script that fits a classifier, checks it against held-out data, and only saves the model file if it clears the accuracy gate.",
+            "lang": "python",
+            "file": "train.py",
+            "steps": [
+              {
+                "title": "Imports",
+                "say": "load_iris ships inside scikit-learn — no download, works offline. joblib is how a fitted sklearn model becomes a file on disk.",
+                "add": "from sklearn.datasets import load_iris  # bundled dataset — no download, works offline\nfrom sklearn.ensemble import RandomForestClassifier\nfrom sklearn.model_selection import train_test_split\nimport joblib  # serializes the fitted model to a file"
+              },
+              {
+                "title": "Load and split the data",
+                "say": "The 20% you hold out is the only honest scorecard — the model never sees it during training. The fixed seed means the same split every run, so your accuracy number is reproducible.",
+                "add": "\nX, y = load_iris(return_X_y=True)  # 150 rows, 4 measurements, 3 species\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42  # fixed seed — same split every run\n)"
+              },
+              {
+                "title": "Train",
+                "say": "Two lines IS the training pipeline — tiny on purpose. The serving and shipping around it is what this capstone is actually teaching.",
+                "add": "\nmodel = RandomForestClassifier(n_estimators=100, random_state=42)  # small, solid default\nmodel.fit(X_train, y_train)  # the entire 'training pipeline' — tiny on purpose"
+              },
+              {
+                "title": "The eval gate",
+                "say": "This assert is a real production pattern in miniature: if the model can't clear the bar on held-out data, the script crashes and nothing gets saved. A bad model that was never saved can never be deployed.",
+                "add": "\nacc = model.score(X_test, y_test)  # held-out accuracy — never trust train-set scores\nprint(f\"holdout accuracy: {acc:.3f}\")\nassert acc > 0.9, \"failed the eval gate — refusing to save\"  # bad model = crash = no artifact"
+              },
+              {
+                "title": "Save the artifact",
+                "say": "model.joblib is the handoff point: training's output, serving's input. In a real shop this line is 'push to the model registry' — same idea, one file.",
+                "add": "\njoblib.dump(model, \"model.joblib\")  # the artifact your API loads at startup\nprint(\"saved model.joblib\")"
+              }
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "python train.py  # run it — should print the score, then save\n# holdout accuracy: 0.933\n# saved model.joblib  ← this file must exist before the next section"
+          },
+          {
+            "type": "p",
+            "text": "If the assert ever fires, the gate did its job — nothing was saved, nothing can ship. That crash-instead-of-save behavior is the whole point."
+          }
+        ]
+      },
+      {
+        "heading": "Build app.py — the serving layer",
+        "body": [
+          {
+            "type": "p",
+            "text": "The API's job: accept JSON, **validate it at the edge**, run the model, return JSON. Pydantic rejects garbage before the model ever sees it — a request with `\"petal_length\": \"banana\"` gets a clean 422, not a stack trace."
+          },
+          {
+            "type": "build-along",
+            "title": "app.py — validate, predict, respond",
+            "goal": "A FastAPI service that loads the model once at startup, validates every request against a schema, and returns a species plus a confidence score.",
+            "lang": "python",
+            "file": "app.py",
+            "steps": [
+              {
+                "title": "Imports and the app object",
+                "say": "BaseModel + Field are the validation layer — they turn 'trust the client' into 'check the client'. The app object is what uvicorn runs.",
+                "add": "from fastapi import FastAPI\nfrom pydantic import BaseModel, Field  # request validation at the edge\nimport joblib\n\napp = FastAPI(title=\"iris-api\")  # the service uvicorn will run"
+              },
+              {
+                "title": "Load the model ONCE",
+                "say": "This line runs at import time — once per process, not once per request. Loading inside the handler would add disk I/O to every single prediction. This is the classic cold-start-vs-request-latency trade you learned in the serving lessons.",
+                "add": "\nmodel = joblib.load(\"model.joblib\")  # load ONCE at startup — never inside a handler\nSPECIES = [\"setosa\", \"versicolor\", \"virginica\"]  # class index → human-readable name"
+              },
+              {
+                "title": "The request schema",
+                "say": "Bounds on every field: a negative petal or a 400cm sepal is rejected with a 422 before the model runs. Validation failures are the client's bug; unvalidated garbage becomes YOUR bug.",
+                "add": "\nclass Measurements(BaseModel):\n    sepal_length: float = Field(gt=0, lt=10)  # bounds reject garbage before the model sees it\n    sepal_width: float = Field(gt=0, lt=10)\n    petal_length: float = Field(gt=0, lt=10)\n    petal_width: float = Field(gt=0, lt=10)"
+              },
+              {
+                "title": "Health check",
+                "say": "Every container orchestrator polls an endpoint like this to decide whether your service gets traffic. It exists before /predict on purpose — plumbing first.",
+                "add": "\n@app.get(\"/healthz\")\ndef healthz():\n    return {\"status\": \"ok\", \"model_loaded\": model is not None}  # orchestrators poll this"
+              },
+              {
+                "title": "The predict endpoint",
+                "say": "Three gotchas handled: the model expects a 2-D batch (hence the double brackets), numpy's int64 breaks JSON serialization (hence int()), and clients deserve a confidence, not just a label.",
+                "add": "\n@app.post(\"/predict\")\ndef predict(m: Measurements):\n    row = [[m.sepal_length, m.sepal_width, m.petal_length, m.petal_width]]  # 2-D: model expects a batch\n    idx = int(model.predict(row)[0])  # numpy int64 → int, or JSON serialization breaks\n    probs = model.predict_proba(row)[0]  # confidence — let clients decide what to trust\n    return {\"species\": SPECIES[idx], \"confidence\": round(float(probs[idx]), 3)}"
+              }
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "uvicorn app:app --reload --port 8000  # dev server — --reload watches your files\n\n# in a SECOND terminal — test it like a client would:\ncurl -X POST http://localhost:8000/predict \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"sepal_length\": 5.1, \"sepal_width\": 3.5, \"petal_length\": 1.4, \"petal_width\": 0.2}'  # a textbook setosa\n# {\"species\":\"setosa\",\"confidence\":1.0}"
+          },
+          {
+            "type": "p",
+            "text": "Try breaking it on purpose: send `\"petal_length\": -1` and watch pydantic return a 422 with the exact field that failed. That error message is the validation layer earning its keep."
+          }
+        ]
+      },
+      {
+        "heading": "Containerize it",
+        "body": [
+          {
+            "type": "p",
+            "text": "Right now the API only runs on a machine with your venv. The container bakes **code + model + pinned deps + Python itself** into one image — it runs identically on your laptop, a teammate's, or a cluster."
+          },
+          {
+            "type": "build-along",
+            "title": "Dockerfile — four layers, ordered by how often they change",
+            "goal": "An image where the slow layer (dependency install) is cached, so a code change rebuilds in seconds instead of minutes.",
+            "lang": "dockerfile",
+            "file": "Dockerfile",
+            "steps": [
+              {
+                "title": "The base image",
+                "say": "slim strips the OS down to what Python needs — smaller download, smaller attack surface. Pinning the Python version here matches what you developed against.",
+                "add": "FROM python:3.12-slim  # slim = small image, small attack surface"
+              },
+              {
+                "title": "Dependencies FIRST",
+                "say": "Layer-cache economics: requirements.txt changes rarely, your code changes constantly. Copying deps first means Docker reuses the expensive pip-install layer on every code-only rebuild.",
+                "add": "\nWORKDIR /app\nCOPY requirements.txt .  # deps first — this layer caches until requirements change\nRUN pip install --no-cache-dir -r requirements.txt  # no pip cache — smaller image"
+              },
+              {
+                "title": "Code + model artifact",
+                "say": "The model file ships INSIDE the image — the container needs zero setup at runtime. Forgetting model.joblib here is the top works-locally-dies-in-Docker bug in this build.",
+                "add": "\nCOPY app.py model.joblib ./  # code + artifact — changing these won't bust the deps layer"
+              },
+              {
+                "title": "How it runs",
+                "say": "The host flag is the classic trap: uvicorn defaults to 127.0.0.1, which inside a container means 'talk to myself only'. 0.0.0.0 makes it reachable through the container's network boundary.",
+                "add": "\nEXPOSE 8000  # documentation for humans — publishing still needs -p\nCMD [\"uvicorn\", \"app:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]  # 0.0.0.0 or it's unreachable"
+              }
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "bash",
+            "text": "docker build -t iris-api .  # bake code + model + deps into one shippable unit\ndocker run -p 8000:8000 iris-api  # map host port 8000 → container port 8000\n\n# same curl as before — but now it's hitting the CONTAINER:\ncurl http://localhost:8000/healthz  # {\"status\":\"ok\",\"model_loaded\":true}"
+          },
+          {
+            "type": "p",
+            "text": "Now change one line in `app.py` and rebuild. Watch the pip-install layer say `CACHED` — that's the deps-first ordering paying rent."
+          }
+        ]
+      },
+      {
+        "heading": "Verify — prove the whole chain",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "`python train.py` prints an accuracy above 0.9 and saves `model.joblib`",
+              "`curl /healthz` against the **container** returns `\"model_loaded\": true`",
+              "`curl /predict` with the setosa row returns `\"species\": \"setosa\"`",
+              "`curl /predict` with `\"petal_length\": -1` returns a **422**, not a 500",
+              "A code-only change rebuilds with the pip layer showing `CACHED`"
+            ]
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Symptom",
+              "Likely cause",
+              "Fix"
+            ],
+            "align": [
+              "left",
+              "left",
+              "left"
+            ],
+            "rows": [
+              [
+                "`curl` refused against container",
+                "Missing `-p 8000:8000` or host is `127.0.0.1`",
+                "Publish the port; set `--host 0.0.0.0`"
+              ],
+              [
+                "`ModuleNotFoundError` in container",
+                "`requirements.txt` missing or stale",
+                "Re-run `pip freeze > requirements.txt`, rebuild"
+              ],
+              [
+                "`FileNotFoundError: model.joblib`",
+                "Artifact not copied into the image",
+                "Add it to the `COPY` line, rebuild"
+              ],
+              [
+                "500 with `int64 is not JSON serializable`",
+                "Raw numpy type in the response",
+                "Wrap with `int()` / `float()` before returning"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Ship it — stretch goals",
+        "body": [
+          {
+            "type": "ul",
+            "items": [
+              "**/version endpoint** — return the model file's hash + build time, so you always know *which* model answered",
+              "**Tests** — `pytest` with FastAPI's `TestClient`: one happy path, one 422, one healthz",
+              "**Push it** — tag and push the image to Docker Hub, then `docker run` it on another machine (or ask a friend to)",
+              "**CI** — a GitHub Action that runs `train.py` + the tests and builds the image on every push: congratulations, that's a training pipeline with an eval gate"
+            ]
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Two decisions in this build look unrelated: the API loads the model **once at startup** (not per request), and the Dockerfile copies `requirements.txt` **before** the code. In your own words — what single principle connects them?",
+            "modelAnswer": "Both are about **putting cost where it runs rarely, not where it runs often**. Loading the model per request would charge every prediction a disk-read tax; loading at startup pays that cost once per process, so the hot path (requests) stays fast — the trade-off is a slower cold start, which is why `/healthz` exists to say when the process is actually ready. The Dockerfile is the same move in build-time clothing: `pip install` is the expensive step, and deps change rarely while code changes constantly — so deps go in an early layer that Docker caches, and code goes in a late layer that rebuilds cheaply. In both cases you sort work by *how often it changes or runs*, and push the expensive stuff to the rare side of that line. That principle scales all the way up: model registries, warm pools, and layer-cached CI are the production-sized versions of these two lines.",
+            "hint": "Ask of each expensive operation: how often does this actually need to happen — and who pays when it happens too often?",
+            "commit": {
+              "q": "Why does `train.py` hard-fail on holdout accuracy BEFORE `joblib.dump`?",
+              "opts": [
+                "A model that never becomes an artifact can never be deployed — the gate makes bad models unshippable, not just visible",
+                "The assert speeds up training by skipping the save step when accuracy is low",
+                "Saving a low-accuracy model would produce a corrupted .joblib file"
+              ],
+              "answer": 0,
+              "why": "The gate's power is placement: it runs before the artifact exists. Downstream steps (the API, the image) physically can't ship what was never saved — that's a guarantee, not a warning."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "mlops-capstone-monitor": {
+    "sections": [
+      {
+        "heading": "Your mission",
+        "body": [
+          {
+            "type": "p",
+            "text": "Your iris API from the guided capstone is now \"in production\" — and it's **flying blind**. Nobody knows how many requests it serves, how slow it is, or whether the inputs still look anything like the training data. You're going to fix all three."
+          },
+          {
+            "type": "p",
+            "text": "This one is **build-it-yourself**: you get requirements, success criteria, and hints — no steps. You decide the file layout, the libraries, the design. That's the point."
+          },
+          {
+            "type": "diagram",
+            "title": "The target architecture",
+            "height": 240,
+            "nodes": [
+              {
+                "id": "api",
+                "label": "app.py",
+                "subtitle": "/predict",
+                "accent": "amber",
+                "x": 0.25,
+                "y": 0.25
+              },
+              {
+                "id": "log",
+                "label": "predictions log",
+                "subtitle": "one line / request",
+                "accent": "earth",
+                "x": 0.75,
+                "y": 0.25
+              },
+              {
+                "id": "base",
+                "label": "baseline.json",
+                "subtitle": "training stats",
+                "accent": "water",
+                "x": 0.25,
+                "y": 0.75
+              },
+              {
+                "id": "drift",
+                "label": "drift check",
+                "subtitle": "recent vs baseline",
+                "accent": "sky",
+                "x": 0.75,
+                "y": 0.75
+              }
+            ],
+            "edges": [
+              {
+                "from": "api",
+                "to": "log",
+                "kind": "solid",
+                "label": "append"
+              },
+              {
+                "from": "log",
+                "to": "drift",
+                "kind": "solid",
+                "label": "last N rows"
+              },
+              {
+                "from": "base",
+                "to": "drift",
+                "kind": "solid",
+                "label": "compare"
+              },
+              {
+                "from": "drift",
+                "to": "api",
+                "kind": "dashed",
+                "label": "flips /healthz"
+              }
+            ],
+            "caption": "Every prediction leaves a trace; a checker compares recent traces against what training saw."
+          }
+        ]
+      },
+      {
+        "heading": "Requirements — what it must do",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "**Log every prediction.** Each `/predict` call appends one machine-readable line: timestamp, the four inputs, predicted class, confidence. No handler edits per endpoint — one mechanism that sees everything.",
+              "**Expose `/metrics`.** Total request count, per-class prediction counts, and latency (p50 + p95, or avg + max at minimum). Numbers, as JSON — no dashboard needed.",
+              "**Ship a training baseline.** `train.py` also writes `baseline.json`: per-feature mean and standard deviation of the training data, plus the class distribution. The baseline is a *training-time artifact*, exactly like the model.",
+              "**Check for drift.** A script or endpoint compares the last N logged requests against the baseline and produces a per-feature drift score.",
+              "**Trip an alarm.** When any feature's score crosses your threshold, `/healthz` starts reporting `\"drift\": true` and a warning is logged. The API keeps serving — drift is a signal, not an outage.",
+              "**Prove it fires.** Simulate drift (send deliberately shifted inputs) and show the alarm tripping — then show it settling back when traffic normalizes."
+            ]
+          },
+          {
+            "type": "p",
+            "text": "*How* you build each one is your call: middleware or decorator, file or SQLite, inline check or separate job. Every choice is defensible if you can say why."
+          }
+        ]
+      },
+      {
+        "heading": "Success criteria — the demo script",
+        "body": [
+          {
+            "type": "p",
+            "text": "You're done when you can run this demo cold, in order, with no edits in between:"
+          },
+          {
+            "type": "table",
+            "headers": [
+              "#",
+              "Prove it",
+              "It passes when"
+            ],
+            "align": [
+              "center",
+              "left",
+              "left"
+            ],
+            "rows": [
+              [
+                "1",
+                "Send 20 normal predictions",
+                "Log has 20 new lines, each parseable"
+              ],
+              [
+                "2",
+                "`curl /metrics`",
+                "Count = 20, per-class counts sum to 20, latency numbers present"
+              ],
+              [
+                "3",
+                "Inspect `baseline.json`",
+                "4 features × (mean, std) + class rates, written by `train.py`"
+              ],
+              [
+                "4",
+                "Run the drift check on normal traffic",
+                "All scores under threshold, `/healthz` shows `\"drift\": false`"
+              ],
+              [
+                "5",
+                "Send 30 shifted requests (e.g. petal_length ×3)",
+                "Score for that feature crosses threshold"
+              ],
+              [
+                "6",
+                "`curl /healthz`",
+                "Now reports `\"drift\": true` — and the API still serves 200s"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Hints — open one only when stuck",
+        "body": [
+          {
+            "type": "terms",
+            "items": [
+              {
+                "term": "Logging without touching handlers",
+                "def": "FastAPI **middleware** wraps every request/response in one place — timing comes free, since you're already holding a before/after timestamp."
+              },
+              {
+                "term": "Latency percentiles",
+                "def": "Keep an in-memory list of durations and sort on demand. In-process state is fine at this scale — you're learning the *shape*, not building Prometheus."
+              },
+              {
+                "term": "The baseline",
+                "def": "`train.py` already holds `X_train` in memory at exactly the right moment. Compute the stats there and dump JSON next to the model — two artifacts, one training run."
+              },
+              {
+                "term": "A good-enough drift score",
+                "def": "The z-score of the recent mean against the baseline distribution answers 'how unusual is recent traffic?' in one line. PSI is the industry favorite if you want stretch credit."
+              },
+              {
+                "term": "Faking drift",
+                "def": "A loop of curl calls with one feature multiplied by 3 shifts the recent mean fast. If your window is the last 50 requests, expect the alarm within ~30 shifted calls."
+              }
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "python",
+            "text": "def drift_score(recent_values, base_mean, base_std):  # one feature at a time\n    recent_mean = sum(recent_values) / len(recent_values)  # mean of the last N requests\n    return abs(recent_mean - base_mean) / max(base_std, 1e-9)  # z-score; guard div-by-zero\n\n# score > 3.0 is a reasonable starting threshold  # ~3 std devs — tune it with your fake-drift test"
+          },
+          {
+            "type": "p",
+            "text": "That snippet is the *math*, not the architecture — where it runs, what feeds it, and what it flips is still your design."
+          }
+        ]
+      },
+      {
+        "heading": "Design choices you'll defend",
+        "body": [
+          {
+            "type": "compare",
+            "title": "Where does the drift check live?",
+            "columns": [
+              {
+                "label": "Inline (every request)",
+                "accent": "sky",
+                "rows": [
+                  "Alarm updates instantly",
+                  "Adds latency to the hot path",
+                  "Recompute cost grows with window size"
+                ]
+              },
+              {
+                "label": "Separate job over the log",
+                "accent": "earth",
+                "rows": [
+                  "Zero cost on the request path",
+                  "Alarm lags by the check interval",
+                  "This is how real monitors work — logs first, checks later"
+                ]
+              }
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Neither is wrong here. What's wrong is not being able to say which you picked and what it cost you — that's the question an interviewer (or an incident review) will ask."
+          }
+        ]
+      },
+      {
+        "heading": "Defend your build",
+        "body": [
+          {
+            "type": "explain-back",
+            "prompt": "Your drift alarm fires on a Tuesday. Accuracy, as far as anyone can tell, is unchanged, and no users have complained. In your own words: what did you actually detect, why is it still worth an alarm, and why do we monitor **inputs** at all when what we care about is **accuracy**?",
+            "modelAnswer": "You detected **input drift**: the distribution of incoming features has moved away from what the model was trained on. That is *not* the same as the model being wrong — a model can keep performing on shifted inputs for a while. It's an alarm anyway because in production you almost never see accuracy directly: true labels arrive late or never (nobody tells the iris API what the flower really was). Ground truth **lags**, so accuracy is a trailing indicator you can't wait on. Input drift is the **leading indicator** you *can* compute in real time from data you already have — the requests themselves. The reasoning chain is: the model's guarantees are conditional on inputs resembling training data; inputs no longer resemble training data; therefore the guarantee is void, even if the failure hasn't materialized yet. That's why the right response to this alarm is investigation (did an upstream unit change? a new client? a real-world shift?) and possibly retraining — not panic, and definitely not silencing the alarm because 'accuracy looks fine'. By the time accuracy visibly drops, you've been serving degraded predictions for as long as your labels lag.",
+            "hint": "Think about *when* you'd find out accuracy dropped. What's the earliest signal you could possibly have, and what data does it need?",
+            "commit": {
+              "q": "The drift alarm fires but users report nothing wrong. What did you most likely detect?",
+              "opts": [
+                "The input distribution shifted — the model may still be fine, but its training-data assumptions no longer hold",
+                "Accuracy has already dropped — retrain and redeploy immediately, before more damage is done",
+                "A false positive — raise the threshold until the alarm stays quiet"
+              ],
+              "answer": 0,
+              "why": "Input drift is a leading indicator: it voids the model's assumptions before accuracy visibly moves. Retraining might be the eventual answer, but the alarm itself only says 'the world changed' — and tuning alarms until they're silent is how outages get missed."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "mlops-capstone-platform": {
+    "sections": [
+      {
+        "heading": "The brief",
+        "body": [
+          {
+            "type": "p",
+            "text": "You're the first **ML platform hire** at Nimbus, a 200-person logistics company. Five ML teams run about forty models between them — fraud scoring, delivery-ETA prediction, demand forecasting, support-ticket routing, address matching. There is no platform. There are notebooks, cron jobs, and copy-pasted FastAPI services."
+          },
+          {
+            "type": "ul",
+            "items": [
+              "Last quarter: the fraud team **couldn't roll back** a bad model because nobody knew which artifact was live",
+              "The ETA team retrains by hand, from a laptop, \"usually Fridays\"",
+              "Two teams built the same customer features twice — with different definitions",
+              "An auditor asked \"which model made this decision?\" and it took **nine days** to answer"
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Your job: **design the platform.** No code — an architecture and the reasoning behind it. This is the open challenge: no scaffolding, no steps. Sketch it on paper or a whiteboard, out loud, like the design review it would really be."
+          }
+        ]
+      },
+      {
+        "heading": "Hard constraints",
+        "body": [
+          {
+            "type": "table",
+            "headers": [
+              "Constraint",
+              "The number to respect"
+            ],
+            "align": [
+              "left",
+              "left"
+            ],
+            "rows": [
+              [
+                "Platform team size",
+                "**3 engineers** including you — you cannot operate five bespoke stacks"
+              ],
+              [
+                "Fraud latency",
+                "p99 **< 150ms**, 800 req/s peak — it sits in the checkout path"
+              ],
+              [
+                "ETA batch",
+                "**2M predictions** scored nightly, ready by 6am"
+              ],
+              [
+                "Auditability",
+                "Every prod prediction traceable to **model version + training data** within one hour"
+              ],
+              [
+                "Budget",
+                "**$40k/month** cloud spend, all teams combined"
+              ],
+              [
+                "Team autonomy",
+                "Teams keep their own repos and frameworks — you provide the road, not the car"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Your design must answer",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "**Training** — where do training jobs run, what triggers them, and what pins their data so runs are reproducible?",
+              "**Registry** — what is the source of truth for 'which model is live', and what does the promotion ladder look like?",
+              "**The gate** — what must a model prove before it can be promoted, and is the check automated, human, or both?",
+              "**Serving** — one shared multi-tenant serving layer, or a paved-road template each team deploys? Where do fraud's 150ms and ETA's 2M-row batch each live?",
+              "**Features** — do you build a feature store now, later, or never? What stops the duplicate-definition bug from recurring in the meantime?",
+              "**Monitoring** — what gets measured on every model by default, and who gets paged when drift trips?",
+              "**Rollout + rollback** — how does a new model version take traffic, and what does the fraud team do differently next time in the first five minutes?",
+              "**Cost + tenancy** — how do you attribute the $40k to teams and stop one team's GPU experiment from starving another's serving?"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "The platform stack",
+        "body": [
+          {
+            "type": "p",
+            "text": "One way to keep your sketch honest — make sure every layer of this stack has an owner, a technology, and a failure story in your design:"
+          },
+          {
+            "type": "layers",
+            "title": "Five layers your design must cover",
+            "layers": [
+              {
+                "label": "Serving + rollout",
+                "subtitle": "traffic, canaries, rollback",
+                "accent": "amber"
+              },
+              {
+                "label": "Registry + lineage",
+                "subtitle": "source of truth",
+                "accent": "earth"
+              },
+              {
+                "label": "Training + orchestration",
+                "subtitle": "jobs, triggers, gates",
+                "accent": "sky"
+              },
+              {
+                "label": "Features + data",
+                "subtitle": "definitions, versioning",
+                "accent": "water"
+              },
+              {
+                "label": "Observability",
+                "subtitle": "cross-cutting: metrics, drift, cost",
+                "accent": "fire"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Trade-offs you must defend",
+        "body": [
+          {
+            "type": "compare",
+            "title": "The central platform question",
+            "columns": [
+              {
+                "label": "Shared multi-tenant serving",
+                "accent": "sky",
+                "rows": [
+                  "3 engineers operate ONE thing",
+                  "Uniform monitoring for free",
+                  "Noisy neighbors; one bad deploy hits everyone",
+                  "Teams give up runtime control"
+                ]
+              },
+              {
+                "label": "Paved-road per team",
+                "accent": "earth",
+                "rows": [
+                  "Teams keep autonomy (a hard constraint)",
+                  "Blast radius stays per-team",
+                  "Five deployments to keep patched",
+                  "Standards drift unless the template is enforced"
+                ]
+              }
+            ]
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Axis",
+              "Option A",
+              "Option B",
+              "What decides it"
+            ],
+            "align": [
+              "left",
+              "left",
+              "left",
+              "left"
+            ],
+            "rows": [
+              [
+                "Build vs buy",
+                "Managed platform (SageMaker / Vertex)",
+                "Open-source on K8s",
+                "3-person team vs $40k budget — cost *and* ops load"
+              ],
+              [
+                "Feature store",
+                "Adopt one now",
+                "Shared transform library + warehouse tables first",
+                "Is duplicate-definition pain worth a new system *today*?"
+              ],
+              [
+                "Promotion gate",
+                "Fully automated",
+                "Automated eval + human sign-off to prod",
+                "The audit constraint — who answers for a bad promote?"
+              ],
+              [
+                "Fraud serving",
+                "On the shared platform",
+                "Dedicated low-latency service",
+                "p99 < 150ms in the checkout path is not a shared-tenancy workload"
+              ]
+            ]
+          },
+          {
+            "type": "quote",
+            "text": "A platform for five teams is a product with five customers — every constraint you ignore becomes a team that routes around you.",
+            "cite": "every platform post-mortem, eventually"
+          }
+        ]
+      },
+      {
+        "heading": "Deliverables",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "**The sketch** — one screen or one sheet of paper: boxes, arrows, and which of the five layers each box lives in",
+              "**One lifecycle, end to end** — walk the fraud model from `git commit` → trained → gated → registered → canaried → 100% traffic → *rolled back*, naming the component that acts at each step",
+              "**A failure story** — kill one component of your own design (the registry, say) and trace the blast radius: what breaks, what degrades, what doesn't notice?",
+              "**The cost story** — roughly where the $40k/month goes, and which line item you'd cut first under pressure"
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Say it out loud or write it down — then, and only then, open the model answer below and score yourself honestly."
+          }
+        ]
+      },
+      {
+        "heading": "The strong answer — check yourself",
+        "body": [
+          {
+            "type": "explain-back",
+            "prompt": "Present your full design as if to Nimbus's CTO: the architecture, the fraud-model lifecycle, your sharpest trade-off call, and your failure story. Then compare against the model answer — not for matching choices, but for whether every choice you made carries a *reason* the way these do.",
+            "modelAnswer": "**Spine first: the registry.** A strong design makes the model registry the source of truth for 'what is live' — every serving process answers that question by asking the registry, which makes rollback a metadata flip instead of a redeploy and collapses the nine-day audit answer to a lookup (model version → training run → pinned data hash). This is the component to build first, because both incidents in the brief are registry-shaped holes. **Training:** containerized jobs on a scheduler (Argo/Airflow or a managed equivalent), triggered by schedule or drift, each run pinning its data version and logging params + metrics. The **gate** is two-stage: an automated eval (beat the incumbent on held-out and sliced metrics or the run registers nothing) plus a human sign-off on the staging→prod promotion — the audit constraint means a person must own that click. **Serving is two lanes, not one:** a paved-road template (standard container, baked-in metrics/logging sidecar, canary config) that teams deploy themselves — honoring the autonomy constraint with a 3-person team — *plus* a dedicated, over-provisioned low-latency deployment for fraud, because a p99 < 150ms checkout-path workload should never share a noisy tenant. ETA's 2M nightly rows are a **batch job on the orchestrator writing to a table** — putting batch behind a real-time API is the classic overbuild. **Features:** skip the full feature store on day one; a shared, versioned transform library plus warehouse tables kills the duplicate-definition bug for a tenth of the ops cost, and the store gets revisited when online/offline skew actually bites. **Monitoring is default-on in the template** — request logging, latency, input-drift checks against a training-time baseline — so no team ships blind even by accident; drift pages the owning team, not the platform. **Cost:** namespace quotas and per-team labels attribute the $40k; training GPUs are spot/preemptible, serving is not. **Failure story:** if the registry dies, serving keeps running on its last-known model (cache the answer, degrade gracefully) but promotions and rollbacks freeze — an acceptable failure mode, and *designing* which failures are acceptable is the actual job. The through-line a weak design misses: every constraint in the brief shows up somewhere as a named component or an explicit trade — if one didn't, the design ignored it.",
+            "hint": "Start from the two incidents in the brief — both point at the same missing component. Then let each hard constraint pick one side of each trade-off for you.",
+            "commit": {
+              "q": "Fraud needs p99 < 150ms online; ETA needs 2M predictions ready nightly. What's the strongest serving decision?",
+              "opts": [
+                "One shared real-time platform for both — a batch run is just two million API calls",
+                "Two lanes: a dedicated low-latency service for fraud, and ETA as a batch job on the orchestrator writing to a table",
+                "Precompute everything nightly for both — fraud can read yesterday's scores from a cache"
+              ],
+              "answer": 1,
+              "why": "The workloads are shaped differently and the constraints say so: checkout-path p99 can't share tenancy with anything, and hammering an API two million times to fill a table buys latency machinery ETA never needed. Matching the serving pattern to the workload — not unifying for elegance — is the staff-level call."
+            }
+          }
+        ]
+      }
+    ]
+  },
 };

@@ -1394,24 +1394,42 @@ function PredictBlock({ block, idx }) {
 //      Honesty XP is the load-bearing detail — without it ADHD readers
 //      silently rubber-stamp every answer ("yeah close enough"). The
 //      revisit option is incentivized just enough to be picked.
-// Synthesis Challenge — a read-only integration prompt. The learner thinks
-// through how the lesson's concepts fit together, then reveals a strong model
-// answer to check against. (Formerly the interactive "explain it back" block;
-// the typing + self-grade mechanic was removed per product direction, while the
-// synthesis prompts + model answers were kept. Block type stays "explain-back".)
+// Synthesis Challenge — a commit-then-reveal integration prompt. The learner
+// thinks through how the lesson's concepts fit together, COMMITS to a
+// concrete forced-choice about it (block.commit — 2-4 authored options),
+// then reveals the strong model answer to check against. XP pays only on a
+// correct commitment ('synthesis:commit', PredictBlock's contract); the
+// reveal tap itself pays nothing — it used to pay +5 for zero commitment,
+// which made the app's main synthesis surface a free-XP button. Blocks
+// without an authored commit fall back to plain reveal (no XP).
+// (Typed self-grade stays removed per product direction; block type stays
+// "explain-back".)
 function ExplainBackBlock({ block, idx }) {
   const addXp = useStore((s) => s.addXp);
   const [hintOpen, setHintOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [committed, setCommitted] = useState(null); // picked commit-option index
   const prompt = block.prompt || '';
   const modelAnswer = block.modelAnswer || '';
   const hint = block.hint || null;
+  const c = block.commit;
+  const commit = c && typeof c.q === 'string'
+    && Array.isArray(c.opts) && c.opts.length >= 2
+    && Number.isInteger(c.answer) && c.answer >= 0 && c.answer < c.opts.length
+    ? c : null;
   if (!prompt || !modelAnswer) return null;
 
+  const mustCommit = commit !== null && committed === null;
+
+  const pickCommit = (i) => {
+    if (committed !== null || revealed) return;
+    setCommitted(i);
+    if (i === commit.answer) addXp?.(5, 'synthesis:commit');
+  };
+
   const onReveal = () => {
-    if (revealed) return;
+    if (revealed || mustCommit) return;
     setRevealed(true);
-    addXp?.(5, 'synthesis:reveal');
   };
 
   return (
@@ -1421,14 +1439,47 @@ function ExplainBackBlock({ block, idx }) {
       <p className="synthesis-nudge">
         Think it through end-to-end before you reveal — that&apos;s where the learning is.
       </p>
+
+      {/* Commit step — generation before the answer is visible. */}
+      {commit && !revealed && (
+        <div style={{ margin: '10px 0' }}>
+          <p style={{ fontSize: 13.5, fontWeight: 600, margin: '0 0 8px' }}>
+            {renderInline(commit.q, `syn-c-${idx}`)}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {commit.opts.map((o, i) => {
+              let cls = 'btn dp-option';
+              if (committed !== null && i === commit.answer) cls += ' dp-correct';
+              else if (committed !== null && i === committed) cls += ' dp-wrong';
+              return (
+                <button key={i} type="button" className={cls} disabled={committed !== null} onClick={() => pickCommit(i)}>
+                  <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
+                  <span className="dp-text">{o}</span>
+                </button>
+              );
+            })}
+          </div>
+          {committed !== null && (
+            <p className="caption" style={{ margin: '8px 0 0', fontSize: 12.5 }}>
+              {committed === commit.answer ? '✓ ' : '✗ '}
+              {commit.why ? renderInline(commit.why, `syn-w-${idx}`) : (committed === commit.answer ? 'Committed and right.' : 'Worth a second look — the reveal below shows the full picture.')}
+              {committed === commit.answer && <span className="mono" style={{ color: 'var(--accent-amber)' }}> +5 XP</span>}
+            </p>
+          )}
+        </div>
+      )}
+
       {!revealed && (
         <div className="synthesis-actions">
           <button
             type="button"
             className="synthesis-btn synthesis-btn-primary"
             onClick={onReveal}
+            disabled={mustCommit}
+            title={mustCommit ? 'Commit to an answer first' : undefined}
+            style={mustCommit ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
           >
-            Reveal a strong answer →
+            {mustCommit ? 'Commit above to unlock the answer' : 'Reveal a strong answer →'}
           </button>
           {hint && (
             <button

@@ -1278,7 +1278,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've now seen **HTTPS termination**, a **CORS allowlist**, **per-IP rate limits**, **`helmet` headers**, and **input validation**. A logged-in user's browser is tricked into POSTing to your API from `evil.com`. Walk the request through your middleware stack in order, say which layer (if any) stops it, and name the one trade-off you'd accept to keep the stack cheap.",
             "modelAnswer": "Order matters because each layer should reject traffic before a more expensive one runs: HTTPS first (bytes arrive private), then CORS, then the rate limit, then the body parser, then validation, then the route. For this specific attack — a cross-site request from a logged-in user — none of these layers actually blocks it: CORS only stops `evil.com` from *reading* the response, not from *sending* a state-changing POST, and HTTPS/rate-limit/helmet/validation are about transport, volume, headers, and payload shape, not request forgery. The real defense is CSRF protection (SameSite=Lax/Strict cookies or a CSRF token), which this defense-in-depth stack deliberately doesn't include. So the integration point is recognizing the gap: these five cheap wins cover scanners, brute force, sniffing, and malformed input, but cross-site *writes* need a sixth layer. The trade-off I'd accept: every layer adds a little latency and config surface (a too-strict CORS origin or rate limit will block legitimate clients first), so I keep limits generous globally and only tighten on auth/write endpoints, accepting that a determined attacker who already has valid creds isn't stopped by edge middleware at all.",
-            "hint": "Order = cheap-rejects-first. Then ask: which of these actually stops a cross-site *write*?"
+            "hint": "Order = cheap-rejects-first. Then ask: which of these actually stops a cross-site *write*?",
+            "commit": {
+              "q": "A logged-in user's browser is tricked into POSTing to your API from `evil.com`. Which layer in your five-layer stack actually blocks that write?",
+              "opts": [
+                "CORS — the allowlist rejects any request whose Origin isn't on it",
+                "The rate limiter — forged requests all arrive from one attacker IP",
+                "None of them — this stack has a gap that needs a sixth layer"
+              ],
+              "answer": 2,
+              "why": "CORS controls who can *read* responses, not who can *send* a state-changing request — so this attack sails past every layer listed."
+            }
           }
         ]
       }
@@ -1723,7 +1733,17 @@ export default {
             "type": "explain-back",
             "prompt": "A `/users` list page that also shows each user's recent posts takes 3 seconds. You have three tools: **`EXPLAIN ANALYZE`**, **indexes** (which speed reads but tax writes), and **eager-loading** (JOIN / ORM `include`) to kill **N+1**. Lay out the order you'd apply them to diagnose and fix this page, and name the trade-off that stops you from just indexing everything.",
             "modelAnswer": "Diagnose before you touch anything: this is almost certainly N+1 — 1 query for the user list plus N queries for each user's posts — so I'd confirm by counting queries or watching the query log, not by guessing. The first fix is structural, not an index: collapse the N+1 with eager-loading — a `LEFT JOIN posts ON posts.author_id = users.id` or an ORM `include`, turning 1+N round trips into 1 (or 2) queries. Then I run `EXPLAIN ANALYZE` on that one query: if I see a `Seq Scan` on `posts`, the JOIN is scanning the whole posts table per user, so I add a B-tree index on the foreign key `posts(author_id)` — that's the single highest-value index here, turning each lookup into O(log n). I'd re-run `EXPLAIN ANALYZE` to confirm it flipped to an Index Scan and the time dropped. The trade-off that stops me from indexing every column: every index makes reads faster but taxes *writes* — each INSERT/UPDATE must maintain every index touching that column — so I only index FKs and the columns this hot query actually filters or orders on, and I measure with EXPLAIN rather than adding indexes 'just in case.' The integration insight: fixing the round-trip count (N+1) and fixing per-query speed (indexes) are different problems, and you must do them in that order — a perfect index on a query you run N times is still N round trips.",
-            "hint": "Fix the round-trip count first (N+1), then make the remaining query fast (index the FK), measuring with EXPLAIN at each step."
+            "hint": "Fix the round-trip count first (N+1), then make the remaining query fast (index the FK), measuring with EXPLAIN at each step.",
+            "commit": {
+              "q": "The `/users` page fires 1 query for the user list plus 1 more per user for their posts. Which fix do you apply FIRST?",
+              "opts": [
+                "Collapse the N+1 with a JOIN / eager-load — fix the round-trip count",
+                "Add a B-tree index on `posts(author_id)` — the FK index is the big win",
+                "Index every column the page touches so any query plan stays covered"
+              ],
+              "answer": 0,
+              "why": "A perfect index on a query you still run N times is still N round trips — fix the query *structure* before the per-query speed."
+            }
           }
         ]
       }
@@ -3101,7 +3121,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've separated **sessions** (storage), **JWT/PASETO** (token format), and **cookies** (transport) — three different layers people constantly conflate. Design end-to-end auth for a first-party web app that needs **instant logout**, then say what you'd change for a **mobile + service-to-service** client, and name the trade-off you accept in the second design.",
             "modelAnswer": "These are three independent axes, so I pick one from each layer to fit the requirement. For the first-party web app that needs instant logout, *where trust lives* is the deciding factor: I want server-side sessions (a random session ID in Redis) so logout is just deleting the row — instant revocation, which stateless tokens can't give me. Transport is an HttpOnly + Secure + SameSite=Lax cookie, because the client is a browser and HttpOnly keeps the ID out of reach of XSS, while SameSite also buys CSRF protection. Token format is almost irrelevant here since the cookie carries an opaque ID the server looks up. The trade-off accepted: every request pays a Redis round trip, and if the session store is down nobody can authenticate — I'm trading scalability/availability for instant revocation and simplicity. For mobile + service-to-service, cookies and a shared session store stop fitting (non-browser clients, cross-domain, want any node to verify without I/O), so I switch to a stateless token: a short-TTL (15m) JWT — or PASETO v4.public if it's greenfield with no JWT lock-in, because PASETO pins the algorithm and removes the `alg`-confusion / `alg:none` footguns — sent in the `Authorization: Bearer` header, paired with a refresh-token row in the DB. The trade-off I now accept: revocation is no longer instant — a stolen access token is valid until it expires (mitigated only by short TTL + a refresh blocklist), and a leaked signing secret forges every user. So the through-line is: instant logout pushes you to server-side storage; horizontal/cross-client scaling pushes you to stateless signatures — and you can't fully have both.",
-            "hint": "Pick one choice per layer (storage / format / transport) and let the hard requirement — instant logout vs stateless scaling — drive it."
+            "hint": "Pick one choice per layer (storage / format / transport) and let the hard requirement — instant logout vs stateless scaling — drive it.",
+            "commit": {
+              "q": "Your web app's hard requirement is INSTANT logout. Which storage choice does that requirement force?",
+              "opts": [
+                "Short-TTL JWTs — logout just means waiting out the 15-minute expiry",
+                "Server-side sessions — revocation is deleting a row the server owns",
+                "PASETO v4.public — pinned algorithms make tokens revocable client-side"
+              ],
+              "answer": 1,
+              "why": "A stateless token stays valid until it expires no matter what the server does; only state the server itself holds can be killed on the spot."
+            }
           }
         ]
       }
@@ -3227,7 +3257,17 @@ export default {
             "type": "explain-back",
             "prompt": "You've seen the **five patterns**, why **cache-aside** is the default, the role of **short TTLs**, **delete-on-write invalidation**, and the **fill-vs-invalidate / thundering-herd race**. Design the caching for a read-heavy `GET /users/:id` endpoint that must never serve obviously stale data after an edit, then name the one failure mode you're deliberately choosing to live with.",
             "modelAnswer": "I'd pick cache-aside because the workload is read-heavy with occasional writes and I want the app to own the write path so consistency stays biased toward the DB. Read path: check Redis for `user:42`; on a hit return it (~1ms), on a miss query Postgres, then `SETEX` the row with a deliberately short TTL (say 60s) so even if invalidation is ever missed, drift self-heals within a minute. Write path: write to Postgres first, then **delete** the key — not overwrite it — so the next reader refills from the canonical row; overwriting risks caching a half-built object. That delete is what keeps it from serving obviously stale data after an edit. The two named hazards integrate here: a hot key that just got invalidated can let many concurrent readers all miss and stampede the DB (thundering herd), and two of those readers racing fill-vs-invalidate can briefly resurrect stale data — so on hot keys I wrap the fill in a single-flight mutex so one DB query serves N waiting readers. The failure mode I deliberately accept: cache-aside is only *eventually* consistent — there's a tiny window between the DB write committing and the cache delete landing where a reader can still get the old value, and the short TTL caps how long any missed invalidation can linger. I accept that millisecond-to-60-second staleness window in exchange for cheap reads and a simple, survivable failure story (a Redis crash costs latency, never data — unlike write-back, which would cost durability).",
-            "hint": "Cache-aside + short TTL + delete (not overwrite) on write; then say which consistency window you're knowingly accepting."
+            "hint": "Cache-aside + short TTL + delete (not overwrite) on write; then say which consistency window you're knowingly accepting.",
+            "commit": {
+              "q": "An admin just edited user 42 in Postgres. What should your app do to the Redis key `user:42` so the edit shows up right away?",
+              "opts": [
+                "DELETE the key — the next reader refills it from the canonical row",
+                "OVERWRITE the key with the patched object — saves the next DB trip",
+                "Leave it alone — the short TTL will expire it soon enough anyway"
+              ],
+              "answer": 0,
+              "why": "Overwriting risks caching a half-built object, and waiting on the TTL means knowingly serving stale data right after an edit."
+            }
           }
         ]
       }
@@ -3285,7 +3325,17 @@ export default {
                     "type": "explain-back",
                     "prompt": "Why is **at-least-once** the universal delivery guarantee for chat, and what does that force the **client** to do?",
                     "modelAnswer": "Exactly-once delivery is provably impossible across an unreliable network without ack-and-dedupe at both ends — it always collapses into at-least-once + idempotent processing. Practically every chat system (WhatsApp, Slack, iMessage) accepts at-least-once and pushes the dedupe burden onto the client. The client **must** stamp every outgoing message with a client-generated `message_id` (usually a UUID), and on receipt, the client deduplicates by ID before rendering. Without client-side dedupe, the user sees their own message appear twice during a reconnect storm. This is one of those decisions where the protocol-level guarantee is weaker than what the product needs, and the gap is closed by client-side conventions.",
-                    "hint": "Client-generated IDs and dedupe."
+                    "hint": "Client-generated IDs and dedupe.",
+                    "commit": {
+                      "q": "A chat client reconnects mid-send and the server delivers the same message twice. Whose job is it to stop the duplicate from rendering?",
+                      "opts": [
+                        "The server's — it tracks delivery state and guarantees exactly-once",
+                        "The network's — TCP already deduplicates retransmitted packets",
+                        "The client's — it dedupes by an ID it generated before sending"
+                      ],
+                      "answer": 2,
+                      "why": "Exactly-once over an unreliable network always collapses into at-least-once plus dedupe — and only the receiving end can dedupe at render time."
+                    }
                   }
                 ],
                 "reference": "**Functional:** 1-to-1 and group chat (up to 200), text + image attachments, message history (forever, paginated), typing indicators, read receipts (v2). **Non-functional:** 50K concurrent connections; ~5 messages/min per active user → ~4K msg/sec; group fanout up to 200x → up to ~50K event/sec; p95 message-send-to-display < 500ms; history-load p95 < 200ms. **Guarantees:** at-least-once delivery + client-side dedupe by `client_message_id`; **strict per-conversation ordering** (not global); messages durable on server before ack. **Non-goals (v1):** end-to-end encryption, voice/video, message editing after 5 minutes, federation."
@@ -3340,7 +3390,17 @@ export default {
                     "type": "explain-back",
                     "prompt": "Explain the trade-off between **push fanout at write time** (write the message into 200 per-user inboxes) vs **pull fanout at read time** (write once into the conversation log, each client pulls from there).",
                     "modelAnswer": "Push-at-write makes reads cheap (just read your own inbox) but writes expensive — a 200-person group means 1 send = 200 writes, and storage cost scales with `num_messages × group_size`. Pull-at-read makes writes cheap (1 write per send) but reads expensive — every client opening a group fetches the shared log, and you need per-user read cursors. Most real systems use **push for active conversations** (so live members get sub-second delivery via their pre-warmed inboxes) and **pull for history scrollback** (so opening a chat from 2 years ago doesn't require maintaining 200 forever-growing inboxes). Slack and Discord both ship hybrid variants. The pure-push end of the spectrum is Twitter timelines (called \"fanout-on-write\"); the pure-pull end is Reddit threads. Chat lives in between because conversations have a small bounded fanout (≤ 200) but unbounded history.",
-                    "hint": "Write amplification vs read amplification."
+                    "hint": "Write amplification vs read amplification.",
+                    "commit": {
+                      "q": "One user sends one message to a 200-person group. Under pure push-at-write fanout, what does that single send cost?",
+                      "opts": [
+                        "1 write — the message lands once in the shared conversation log",
+                        "200 writes — one copy lands in every member's personal inbox",
+                        "200 reads — every member's client pulls the shared log on open"
+                      ],
+                      "answer": 1,
+                      "why": "Push-at-write buys cheap reads by paying write amplification: cost scales with messages times group size, which is why history usually goes the other way."
+                    }
                   }
                 ],
                 "reference": "**Choice: hybrid fanout.** (1) **Source of truth:** a single append-only log per conversation in Cassandra (or DynamoDB) — `(conversation_id, message_id [ULID])` is the primary key. One write per message. (2) **Live delivery:** publish to a **Kafka topic per shard** (256 shards across all conversations, keyed by `conversation_id`); each WebSocket server subscribes to a slice. On message receive, the server looks up which connected clients care and pushes via WS. (3) **No per-user inbox**: clients pull history on scroll-back via paginated reads on the conversation log. (4) **Hot cache:** Redis holds the last 100 messages per conversation in a sorted set, so a reconnecting client gets the last few minutes instantly. **Why no per-user inbox:** at 200-person groups with forever-retention, per-user inboxes blow storage 200x. Chat conversations are inherently shared logs — store them that way."
@@ -3398,7 +3458,17 @@ export default {
                     "type": "explain-back",
                     "prompt": "Explain how you'd build **presence** (\"who is online right now\") for 50K users efficiently.",
                     "modelAnswer": "Presence is a **single bit per user** that flips on/off as their WebSocket connects/disconnects. Store it in **Redis with a TTL** — when a user's WebSocket connects, the server does `SET presence:user:123 \"online\" EX 60`; the WebSocket sends a heartbeat every 30s that refreshes the TTL. If the user disconnects, the TTL expires and they're implicitly offline — no graceful-disconnect handling needed (which is good, because clients crash). Querying \"is user X online?\" is `EXISTS presence:user:X`. For **friend lists**, batch the EXISTS calls or maintain a Redis set per user of their friends and use SINTER. **Push for changes:** when presence flips, publish to a Redis pub/sub channel `presence:user:123` that the user's contacts subscribe to. Total Redis cost: 50K keys × ~64 bytes = ~3 MB, trivial. The TTL approach is load-bearing — it makes the system **self-cleaning** under crashes, partitions, and process restarts.",
-                    "hint": "TTL-based, self-cleaning, Redis."
+                    "hint": "TTL-based, self-cleaning, Redis.",
+                    "commit": {
+                      "q": "A user's phone dies mid-session — no disconnect event ever fires. How does your presence system end up marking them offline?",
+                      "opts": [
+                        "Their Redis key's TTL expires because heartbeats stopped refreshing it",
+                        "A nightly cleanup job sweeps stale rows out of the presence table",
+                        "The server catches the WebSocket close event and deletes their key"
+                      ],
+                      "answer": 0,
+                      "why": "Crashed clients never send a clean close — a key that only stays alive under active heartbeats makes the system self-cleaning."
+                    }
                   }
                 ],
                 "reference": "**Presence:** Redis key `presence:user:{id}` with `EX 60` TTL, refreshed by 30s WebSocket heartbeat. Query via `EXISTS`. Changes published to `pubsub:presence:user:{id}` so contacts get a real-time \"came online\" event. **Typing indicators:** never persisted. Published as `{type: 'typing_start', conv_id, user_id}` events on the conversation's Redis pub/sub channel; client renders with a 4s local timeout. **Last seen:** if you need \"last seen 2 hours ago\" UX, write the disconnect time to a separate Redis hash (`last_seen:user:{id}`) — that one *is* persistent (no TTL) and updated on heartbeat. **Why NOT a database:** the write rate (50K users × heartbeat every 30s = ~1,700 writes/sec just for presence, before typing events) would dominate your DB's IOPS budget for zero durable value."
@@ -3475,6 +3545,420 @@ export default {
               }
             ],
             "reflection": "What's the strongest argument for SSE over WebSocket here, even though most teams default to WebSocket?"
+          }
+        ]
+      }
+    ]
+  },
+  "fs-cap-notes": {
+    "sections": [
+      {
+        "heading": "What you're building",
+        "body": [
+          {
+            "type": "p",
+            "text": "A complete notes app: an **Express** API, a **SQLite** database, and a browser frontend that talks to your API with `fetch`. No frameworks-of-the-week — the same three layers every full-stack app you'll ever touch is made of. You build it in **your own VS Code and terminal**; this lesson walks beside you."
+          },
+          {
+            "type": "diagram",
+            "title": "The three layers",
+            "height": 180,
+            "nodes": [
+              {
+                "id": "ui",
+                "label": "frontend",
+                "subtitle": "index.html + fetch",
+                "accent": "water",
+                "x": 0.08,
+                "y": 0.5
+              },
+              {
+                "id": "api",
+                "label": "API",
+                "subtitle": "Express routes",
+                "accent": "sky",
+                "x": 0.5,
+                "y": 0.5
+              },
+              {
+                "id": "db",
+                "label": "SQLite",
+                "subtitle": "notes.db",
+                "accent": "earth",
+                "x": 0.88,
+                "y": 0.5
+              }
+            ],
+            "edges": [
+              {
+                "from": "ui",
+                "to": "api",
+                "kind": "solid",
+                "label": "JSON over HTTP"
+              },
+              {
+                "from": "api",
+                "to": "db",
+                "kind": "dashed",
+                "label": "SQL"
+              }
+            ]
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**You need:** Node 18+, VS Code, a terminal. Check with `node --version`.",
+              "**You'll finish with:** a CRUD API, a working UI, and the muscle memory of wiring them together."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Set up the project",
+        "body": [
+          {
+            "type": "build-along",
+            "title": "Scaffold and hello-world the server",
+            "goal": "A running Express server answering on port 3000. Run each line in your terminal.",
+            "lang": "bash",
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Create the project",
+                "say": "One folder per project, its own git history from minute zero.",
+                "add": "mkdir notes-app && cd notes-app  # && chains only on success\ngit init  # history from the first commit\nnpm init -y  # package.json with defaults"
+              },
+              {
+                "title": "Install the two dependencies",
+                "say": "Express for routing, better-sqlite3 for a zero-config embedded database — no separate DB server to run.",
+                "add": "npm install express better-sqlite3  # runtime deps only; no build step needed"
+              },
+              {
+                "title": "Write the smallest possible server",
+                "say": "Prove the plumbing before adding features — a hello route catches broken installs early.",
+                "add": "echo. > server.js  # create the file; open it in VS Code next"
+              },
+              {
+                "title": "Run it",
+                "say": "node --watch restarts on save — the fast feedback loop you'll live in for the rest of the build.",
+                "add": "node --watch server.js  # auto-restarts on file save (Node 18.11+)"
+              }
+            ]
+          },
+          {
+            "type": "code",
+            "lang": "json",
+            "text": "// server.js — paste this, save, then open http://localhost:3000/health\nconst express = require('express');  // the routing layer\nconst app = express();\napp.use(express.json());  // parse JSON request bodies — without this req.body is undefined\n\napp.get('/health', (req, res) => res.json({ ok: true }));  // smoke-test route\n\napp.listen(3000, () => console.log('http://localhost:3000'));  // start accepting requests"
+          },
+          {
+            "type": "p",
+            "text": "Open `http://localhost:3000/health` in the browser. Seeing `{\"ok\":true}`? Commit: `git add -A && git commit -m \"hello server\"`. Small commits at every green moment — that habit is half of what this capstone teaches."
+          }
+        ]
+      },
+      {
+        "heading": "The data layer — schema and queries",
+        "body": [
+          {
+            "type": "p",
+            "text": "SQLite lives in one file (`notes.db`) inside your project. `better-sqlite3` is synchronous, which keeps this first data layer dead simple — no callbacks, no ORM magic between you and the SQL you learned in the Databases section."
+          },
+          {
+            "type": "code",
+            "lang": "json",
+            "text": "// db.js — the whole data layer in one file\nconst Database = require('better-sqlite3');\nconst db = new Database('notes.db');  // creates the file on first run\n\ndb.exec(`CREATE TABLE IF NOT EXISTS notes (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,  -- SQLite rowid alias; auto-assigns\n  title TEXT NOT NULL,                   -- NOT NULL: the DB enforces it, not just your UI\n  body TEXT DEFAULT '',                  -- empty string beats NULL for display code\n  created_at TEXT DEFAULT (datetime('now'))  -- store UTC; format at the edge\n)`);\n\nmodule.exports = {\n  list: () => db.prepare('SELECT * FROM notes ORDER BY id DESC').all(),  // newest first\n  create: (title, body) =>\n    db.prepare('INSERT INTO notes (title, body) VALUES (?, ?)').run(title, body),  // ? params — NEVER string-concat SQL\n  remove: (id) => db.prepare('DELETE FROM notes WHERE id = ?').run(id),  // returns { changes } — 0 means id not found\n};"
+          },
+          {
+            "type": "p",
+            "text": "The `?` placeholders are the SQL-injection lesson made real: user input never touches the query text. Try `node -e \"console.log(require('./db.js').list())\"` — an empty array means the schema ran."
+          }
+        ]
+      },
+      {
+        "heading": "The API — CRUD routes",
+        "body": [
+          {
+            "type": "code",
+            "lang": "json",
+            "text": "// add to server.js, above app.listen\nconst notes = require('./db.js');  // the data layer you just wrote\n\napp.get('/api/notes', (req, res) => {\n  res.json(notes.list());  // the DB rows ARE the response shape — fine at this size\n});\n\napp.post('/api/notes', (req, res) => {\n  const { title, body } = req.body || {};\n  if (!title || !title.trim()) {\n    return res.status(400).json({ error: 'title is required' });  // validate at the boundary, reject early\n  }\n  const info = notes.create(title.trim(), body || '');\n  res.status(201).json({ id: info.lastInsertRowid });  // 201 = created; return the new id\n});\n\napp.delete('/api/notes/:id', (req, res) => {\n  const info = notes.remove(Number(req.params.id));  // params are strings — coerce before the query\n  if (info.changes === 0) return res.status(404).json({ error: 'not found' });  // honest 404 beats silent success\n  res.status(204).end();  // 204 = done, no body\n});"
+          },
+          {
+            "type": "build-along",
+            "title": "Prove the API with curl",
+            "goal": "Every route answers correctly — including the error cases — before any UI exists.",
+            "lang": "bash",
+            "file": "terminal",
+            "steps": [
+              {
+                "title": "Create a note",
+                "say": "POST with a JSON body. The -H header is what makes express.json() parse it.",
+                "add": "curl -s -X POST http://localhost:3000/api/notes -H \"Content-Type: application/json\" -d \"{\\\"title\\\":\\\"first note\\\"}\"  # expect {\"id\":1}"
+              },
+              {
+                "title": "List notes",
+                "say": "The read path — your note should come back in an array.",
+                "add": "curl -s http://localhost:3000/api/notes  # expect a one-element array"
+              },
+              {
+                "title": "Test the FAILURE cases too",
+                "say": "An API is defined by how it fails. Empty title → 400; deleting a ghost id → 404.",
+                "add": "curl -s -X POST http://localhost:3000/api/notes -H \"Content-Type: application/json\" -d \"{}\"  # expect the 400 error\ncurl -s -X DELETE http://localhost:3000/api/notes/999 -i  # expect HTTP 404 in the headers"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "The frontend — fetch against your own API",
+        "body": [
+          {
+            "type": "p",
+            "text": "One static HTML file, served by the same Express app. No build step, no framework — the point is to feel the browser↔API contract with nothing in between."
+          },
+          {
+            "type": "code",
+            "lang": "json",
+            "text": "// add to server.js: serve everything in /public as static files\napp.use(express.static('public'));  // public/index.html becomes http://localhost:3000/"
+          },
+          {
+            "type": "code",
+            "lang": "json",
+            "text": "<!-- public/index.html — the whole UI -->\n<body>\n  <form id=\"f\"><input id=\"title\" placeholder=\"New note...\" /><button>Add</button></form>\n  <ul id=\"list\"></ul>\n  <script>\n    async function refresh() {\n      const notes = await (await fetch('/api/notes')).json();  // GET, parse JSON\n      list.innerHTML = notes.map(n =>\n        `<li>${n.title} <button data-id=\"${n.id}\">x</button></li>`).join('');\n    }\n    f.onsubmit = async (e) => {\n      e.preventDefault();  // stop the full-page form reload — WE own the request\n      await fetch('/api/notes', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },  // same header curl needed\n        body: JSON.stringify({ title: title.value }),\n      });\n      title.value = '';\n      refresh();  // re-pull the list — simplest possible state management\n    };\n    list.onclick = async (e) => {\n      const id = e.target.dataset.id;  // event delegation: one listener for every delete button\n      if (id) { await fetch('/api/notes/' + id, { method: 'DELETE' }); refresh(); }\n    };\n    refresh();  // first paint\n  </script>\n</body>"
+          },
+          {
+            "type": "p",
+            "text": "Reload `http://localhost:3000/` — add a note, delete a note, then refresh the page. It persists, because the truth lives in SQLite, not in the DOM. That sentence is the whole full-stack mental model."
+          }
+        ]
+      },
+      {
+        "heading": "Verify, commit, stretch",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "Add a note with an **empty title** from the form — does the UI survive the 400?",
+              "Stop the server, restart it, reload — notes still there (the DB file is the source of truth).",
+              "Open DevTools → Network, add a note — read the actual request and response like an engineer, not a user.",
+              "Commit: `git add -A && git commit -m \"notes app v1\"`."
+            ]
+          },
+          {
+            "type": "explain-back",
+            "prompt": "Walk a teammate through what happens between clicking **Add** and the note appearing in the list — every layer, in order.",
+            "modelAnswer": "The form's submit handler prevents the default reload and sends `fetch POST /api/notes` with a JSON body and a `Content-Type: application/json` header. Express's `express.json()` middleware parses that body; the route validates the title at the boundary, rejecting empties with a 400 before any SQL runs. Valid input reaches the data layer, which executes a **parameterized** INSERT (the `?` placeholders keep user text out of the query string), and SQLite appends the row to `notes.db` on disk. The route answers `201` with the new id. The frontend then calls `refresh()`, which GETs `/api/notes`, the route SELECTs newest-first, and the UI re-renders the list from the response — the DOM is a projection of the database, never the other way around.",
+            "hint": "Follow the data: DOM event → HTTP request → middleware → validation → parameterized SQL → disk → response → re-render.",
+            "commit": {
+              "q": "Your notes disappear every time the server restarts. Which layer is broken?",
+              "opts": [
+                "The frontend — refresh() is clearing the list on page load",
+                "The data layer — writes never reached the SQLite file, so nothing persisted",
+                "The API — Express drops its route table when the process restarts"
+              ],
+              "answer": 1,
+              "why": "Persistence is the database's one job. If a restart loses data, the writes were living in process memory (or the DB file path is wrong) — the frontend and routes are stateless by design."
+            }
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Stretch:** add an `updated_at` column and a PUT route for editing.",
+              "**Stretch:** return the created note object from POST and insert it into the DOM without a full refresh.",
+              "**Stretch:** add `express.static` cache headers and see them in DevTools."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "fs-cap-shiplist": {
+    "sections": [
+      {
+        "heading": "The brief",
+        "body": [
+          {
+            "type": "p",
+            "text": "Your notes app has users now — plural. Take the capstone you built and ship **auth, private data, and search**, then put it on the public internet. This time you get requirements and success criteria, not steps. You've seen every ingredient in the Auth & Sessions and Databases sections; the work is assembling them without a rail to lean on."
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Requirement",
+              "Success criterion"
+            ],
+            "rows": [
+              [
+                "Signup + login",
+                "Passwords stored **hashed** (bcrypt/argon2) — plaintext anywhere = instant fail"
+              ],
+              [
+                "Sessions",
+                "A logged-out user gets 401 from every `/api/notes` route; a cookie or token survives a page reload"
+              ],
+              [
+                "Private notes",
+                "Ada can never see Sam's notes — enforce with a `WHERE user_id = ?`, not frontend hiding"
+              ],
+              [
+                "Search + pagination",
+                "`GET /api/notes?q=term&page=2` returns matches with a total count; no unbounded SELECT *"
+              ],
+              [
+                "Deployed",
+                "A public URL (Render/Fly/Railway free tier) serves it over HTTPS"
+              ]
+            ]
+          },
+          {
+            "type": "pros-cons",
+            "goodLabel": "IN SCOPE",
+            "watchLabel": "OUT OF SCOPE",
+            "good": [
+              "Session cookies OR JWT — your call, defend it",
+              "SQLite is still fine — migrations by hand",
+              "Server-rendered or fetch-based UI, your call"
+            ],
+            "watch": [
+              "OAuth providers (that's a later lesson)",
+              "Email verification / password reset flows",
+              "Rate limiting (note where you WOULD add it)"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Hints when you're stuck (peek sparingly)",
+        "body": [
+          {
+            "type": "ul",
+            "items": [
+              "Auth middleware is just a function: read the session, load the user, `req.user = user`, else 401 — every notes route runs after it.",
+              "`notes` table gains a `user_id INTEGER NOT NULL REFERENCES users(id)` — add the column in a migration script you commit.",
+              "Search on SQLite: `WHERE user_id = ? AND title LIKE '%' || ? || '%' LIMIT ? OFFSET ?` — parameterized, always.",
+              "Deploys fail on hardcoded ports: read `process.env.PORT || 3000`."
+            ]
+          },
+          {
+            "type": "quote",
+            "text": "If the frontend is the only thing stopping a user from reading someone else's data, nothing is stopping them.",
+            "cite": "the authz lesson, applied"
+          }
+        ]
+      },
+      {
+        "heading": "Definition of done",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "A fresh browser (or curl with no cookie) gets 401s from every data route.",
+              "Two accounts you created can't see each other's notes — prove it with curl, not by squinting at the UI.",
+              "Search returns page 2 correctly when you have 25+ notes.",
+              "The public URL works from your phone.",
+              "The README says how to run it locally in 3 commands or fewer."
+            ]
+          },
+          {
+            "type": "explain-back",
+            "prompt": "You shipped it. Explain where a stolen laptop with your `notes.db` file does — and does not — hurt your users.",
+            "modelAnswer": "The database holds every note in plaintext, so **confidentiality of note content is gone** for all users — encryption at rest was never a requirement, and SQLite files are trivially readable. But the passwords survive: they're bcrypt/argon2 **hashes with per-password salts**, so the thief can't log in as anyone or reuse those credentials on other sites without an expensive offline crack per password. Sessions are also safe if they're server-side (the store can be wiped) or short-lived JWTs. The honest postmortem: hashing protected identity, nothing protected content — which is why 'encrypt sensitive columns' or full-disk encryption is the next control up the ladder, and why you never store more user data than the product needs.",
+            "hint": "Separate what's hashed (credentials) from what's plaintext (content). Which one does hashing actually protect?",
+            "commit": {
+              "q": "The thief runs `SELECT * FROM users` on the stolen file. What do they get?",
+              "opts": [
+                "Nothing usable — the whole SQLite file is encrypted by better-sqlite3 by default",
+                "Every user's password, because sessions require storing it to compare on login",
+                "Emails and password HASHES — bad, but not credentials they can log in with"
+              ],
+              "answer": 2,
+              "why": "Login compares a fresh hash against the stored hash — the plaintext is never stored. SQLite does no encryption by default; the rows are readable, but the hashes still stand between the thief and anyone's account."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "fs-cap-saas-design": {
+    "sections": [
+      {
+        "heading": "The challenge",
+        "body": [
+          {
+            "type": "p",
+            "text": "Your notes app got funded. It's now **NoteCorp** — a multi-tenant SaaS where whole companies sign up, each with hundreds of users, permissions, and an audit trail. Design it. No code this time: produce an architecture document you could defend in a design review. This is the interview-shaped skill everything else was building toward."
+          },
+          {
+            "type": "table",
+            "headers": [
+              "Constraint",
+              "Value"
+            ],
+            "rows": [
+              [
+                "Tenants",
+                "10,000 companies; the largest has 5,000 users"
+              ],
+              [
+                "Traffic",
+                "Peak 2,000 req/s reads, 200 req/s writes"
+              ],
+              [
+                "Data isolation",
+                "A tenant leak is a company-ending incident — design like it"
+              ],
+              [
+                "Latency",
+                "p95 < 200ms for note reads"
+              ],
+              [
+                "Team",
+                "You + 3 engineers — no exotic infra you can't operate"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "What your design doc must answer",
+        "body": [
+          {
+            "type": "ol",
+            "items": [
+              "**Tenancy model:** shared tables with `tenant_id`, schema-per-tenant, or database-per-tenant — pick one, defend it against the isolation constraint, and name the scale point where you'd switch.",
+              "**Data layer:** does SQLite survive this? (No.) What replaces it, how is it indexed for `tenant_id + user_id + full-text search`, and what's the read-scaling story?",
+              "**Auth & authz:** how does a request prove tenant AND role? Where does the `tenant_id` check live so no engineer can forget it?",
+              "**The cache layer:** what's cacheable when every row is tenant-scoped, and what's your invalidation story?",
+              "**Blast radius:** one tenant runs a pathological query / gets DDoSed — how do the other 9,999 not notice?",
+              "**Migration path:** you have real customers on the v1 app — how do you get them here without downtime?"
+            ]
+          },
+          {
+            "type": "ul",
+            "items": [
+              "Deliverable: a diagram (boxes and arrows, any tool) + one page per question above.",
+              "For every choice, write the alternative you REJECTED and the constraint that killed it — that column is what separates a design from a guess."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Check your design against a strong take",
+        "body": [
+          {
+            "type": "explain-back",
+            "prompt": "Defend your tenancy model choice against both the isolation constraint (a leak is company-ending) and the ops constraint (a 4-person team).",
+            "modelAnswer": "Shared tables with a `tenant_id` column on every row is the only model a 4-person team can operate at 10,000 tenants — 10,000 databases is a migration and backup nightmare, and schema-per-tenant dies at the first ALTER TABLE across thousands of schemas. The isolation constraint is then handled in **depth, not architecture**: `tenant_id` is set from the authenticated session (never from request input), enforced by a query builder/middleware layer that refuses to emit a query without it, backed by Postgres **row-level security** as the second net so even a buggy query can't cross tenants, and verified by tests that literally attempt cross-tenant reads in CI. The largest tenant (5,000 users) plus the noisy-neighbor requirement is why the answer adds per-tenant rate limits and a connection-pool cap — isolation of performance, not just of data. Database-per-tenant is the right call only when compliance demands physical separation, and the doc should name that as the future escape hatch: the `tenant_id` model migrates to it tenant-by-tenant if a whale customer ever pays for it.",
+            "hint": "The team-size constraint kills two of the three models on ops cost alone — then the isolation constraint has to be solved INSIDE the survivor.",
+            "commit": {
+              "q": "Which single mistake most reliably causes a cross-tenant data leak in a shared-table design?",
+              "opts": [
+                "Trusting a tenant_id that arrived in the request body instead of deriving it from the authenticated session",
+                "Choosing Postgres over MySQL, which has weaker row-level isolation guarantees",
+                "Using integer tenant ids instead of UUIDs, letting attackers guess neighboring tenants"
+              ],
+              "answer": 0,
+              "why": "If the client can NAME the tenant, the client can name someone else's. Identity-derived scoping (plus RLS as the backstop) is the load-bearing control; the id format and the database brand are side notes."
+            }
           }
         ]
       }

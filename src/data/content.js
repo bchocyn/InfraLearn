@@ -86,6 +86,94 @@ export const PATHS = {
       { id: 'f4',                title: 'HTTP at a glance',             min: 5, kind: 'concept', section: 'DEEPER CUTS', tierLevel: 'junior' },
       { id: 'f5',                title: 'Servers and clients explained', min: 6, kind: 'concept', section: 'DEEPER CUTS', tierLevel: 'junior' },
       { id: 'f6',                title: 'Git snapshots, not diffs',     min: 6, kind: 'concept', section: 'DEEPER CUTS', tierLevel: 'junior' },
+
+      // ── Capstone projects (guided → build-yourself → architect) ────────
+      {
+        "id": "fund-capstone-tasktracker",
+        "title": "Build a CLI task tracker",
+        "tagline": "Real files, argparse, and tests — your first complete tool, built along",
+        "min": 60,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "guided",
+        "section": "Capstone projects",
+        "duration": "2H",
+        "tierLevel": "junior",
+        "milestones": [
+          {
+            "id": "setup",
+            "title": "Project set up — venv, git, pytest"
+          },
+          {
+            "id": "storage",
+            "title": "load_tasks / save_tasks written"
+          },
+          {
+            "id": "commands",
+            "title": "add · list · done working"
+          },
+          {
+            "id": "cli",
+            "title": "argparse wired — runs from your terminal"
+          },
+          {
+            "id": "tests",
+            "title": "pytest green (4 tests)"
+          }
+        ]
+      },
+      {
+        "id": "fund-capstone-logdigest",
+        "title": "Build a log digest tool",
+        "tagline": "You get requirements and a contract — you write every line yourself",
+        "min": 75,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "semi",
+        "section": "Capstone projects",
+        "duration": "3H",
+        "tierLevel": "junior",
+        "unlockAfter": [
+          "fund-capstone-tasktracker"
+        ],
+        "milestones": [
+          {
+            "id": "parse",
+            "title": "One line parses into (time, level, message)"
+          },
+          {
+            "id": "counts",
+            "title": "Level counts match the sample log"
+          },
+          {
+            "id": "top",
+            "title": "Top errors ranked correctly"
+          },
+          {
+            "id": "cli",
+            "title": "CLI flags + missing-file exit code"
+          },
+          {
+            "id": "tests",
+            "title": "pytest green, no file I/O in tests"
+          }
+        ]
+      },
+      {
+        "id": "fund-capstone-backup-design",
+        "title": "Architect a backup tool",
+        "tagline": "No steps, no code — a spec, hard constraints, and trade-offs to defend",
+        "min": 45,
+        "kind": "sd",
+        "sd": true,
+        "guidance": "open",
+        "section": "Capstone projects",
+        "tierLevel": "junior",
+        "unlockAfter": [
+          "fund-capstone-logdigest"
+        ]
+      },
+
     ],
   },
   devops: {
@@ -231,6 +319,86 @@ export const PATHS = {
       { id: 'm4',                title: 'FastAPI inference quick-wrap',     min: 5, kind: 'concept', section: 'DEEPER CUTS', tierLevel: 'junior' },
       { id: 'm5',                title: 'Drift detection — milestones',     min: 6, kind: 'concept', section: 'DEEPER CUTS', tierLevel: 'junior' },
       { id: 'sd-model-registry-source-of-truth', title: "The model registry — your aircraft logbook for production ML", min: 7, kind: 'sd', sd: true, section: 'PRODUCTION ML', tagline: "The model registry — your aircraft logbook for production ML", tierLevel: 'staff' },
+
+      // ── Capstone projects (guided → build-yourself → architect) ────────
+      {
+        "id": "mlops-capstone-serve",
+        "title": "Ship a model behind an API",
+        "tagline": "Train it, gate it, serve it with FastAPI, ship it in a container",
+        "min": 60,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "guided",
+        "section": "Capstone projects",
+        "duration": "2H",
+        "tierLevel": "junior",
+        "milestones": [
+          {
+            "id": "scaffold",
+            "title": "Scaffold the project + venv"
+          },
+          {
+            "id": "train",
+            "title": "Train and gate the model"
+          },
+          {
+            "id": "serve",
+            "title": "Serve it with FastAPI"
+          },
+          {
+            "id": "container",
+            "title": "Containerize and verify"
+          }
+        ]
+      },
+      {
+        "id": "mlops-capstone-monitor",
+        "title": "Add monitoring + drift checks",
+        "tagline": "Your API is flying blind — instrument it and catch drift before users do",
+        "min": 75,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "semi",
+        "section": "Capstone projects",
+        "duration": "3H",
+        "tierLevel": "senior",
+        "unlockAfter": [
+          "mlops-capstone-serve"
+        ],
+        "milestones": [
+          {
+            "id": "logging",
+            "title": "Log every prediction"
+          },
+          {
+            "id": "metrics",
+            "title": "Expose /metrics"
+          },
+          {
+            "id": "baseline",
+            "title": "Compute the training baseline"
+          },
+          {
+            "id": "drift",
+            "title": "Detect drift + trip the alarm"
+          }
+        ]
+      },
+      {
+        "id": "mlops-capstone-platform",
+        "title": "Design an ML platform",
+        "tagline": "Five teams, forty models, three platform engineers — architect the whole thing",
+        "min": 90,
+        "kind": "sd",
+        "sd": true,
+        "guidance": "open",
+        "section": "Capstone projects",
+        "tierLevel": "staff",
+        "unlockAfter": [
+          "mlops-capstone-monitor"
+        ]
+      },
+
     ],
   },
   swe: {
@@ -278,6 +446,86 @@ export const PATHS = {
 
       // ── Deeper Cuts (legacy v14 archive) ──
       { id: 's2',                          title: 'Big O — quick reference', min: 5, kind: 'concept', section: 'DEEPER CUTS', tierLevel: 'junior' },
+
+      // ── Capstone projects (guided → build-yourself → architect) ────────
+      {
+        "id": "swe-cap-retrykit",
+        "title": "Ship a real library: retrykit",
+        "tagline": "Backoff decorator, pytest suite, GitHub Actions — built in your own VS Code",
+        "min": 75,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "guided",
+        "section": "Capstone projects",
+        "duration": "3H",
+        "tierLevel": "senior",
+        "milestones": [
+          {
+            "id": "skeleton",
+            "title": "Scaffold the package"
+          },
+          {
+            "id": "decorator",
+            "title": "Build the retry decorator"
+          },
+          {
+            "id": "tests",
+            "title": "Prove it with pytest"
+          },
+          {
+            "id": "ci",
+            "title": "Push with CI green"
+          }
+        ]
+      },
+      {
+        "id": "swe-cap-legacy-rescue",
+        "title": "Legacy rescue: pin it, then refactor it",
+        "tagline": "A gnarly script, a green-tests rule, and no step-by-step — you drive",
+        "min": 90,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "semi",
+        "section": "Capstone projects",
+        "duration": "4H",
+        "tierLevel": "senior",
+        "unlockAfter": [
+          "swe-cap-retrykit"
+        ],
+        "milestones": [
+          {
+            "id": "pin",
+            "title": "Pin behavior with tests"
+          },
+          {
+            "id": "seams",
+            "title": "Make the seams"
+          },
+          {
+            "id": "refactor",
+            "title": "Refactor under green"
+          },
+          {
+            "id": "ship",
+            "title": "CI green on push"
+          }
+        ]
+      },
+      {
+        "id": "swe-cap-webhook-design",
+        "title": "Architect a webhook delivery platform",
+        "tagline": "5K events/s, 20K flaky receivers, zero loss — defend every trade-off",
+        "min": 60,
+        "kind": "sd",
+        "sd": true,
+        "guidance": "open",
+        "section": "Capstone projects",
+        "tierLevel": "staff",
+        "unlockAfter": [
+          "swe-cap-legacy-rescue"
+        ]
+      },
+
     ],
   },
   mleng: {
@@ -317,6 +565,50 @@ export const PATHS = {
       { id: 'ml-applied-gan-gen', title: 'GANs & generative models',     min: 13, deep: true, kind: 'concept', section: 'ADVANCED APPLIED', tierLevel: 'staff' },
       { id: 'ml-applied-rl',      title: 'Reinforcement learning',       min: 14, deep: true, kind: 'concept', section: 'ADVANCED APPLIED', tierLevel: 'staff' },
       { id: 'sd-inference-vs-training-cost', title: "Inference and training are different businesses", min: 8, kind: 'sd', sd: true, section: 'ADVANCED APPLIED', tagline: "Why the model that's cheap to train is expensive to serve", tierLevel: 'staff' },
+
+      // ── Capstone projects (guided → build-yourself → architect) ────────
+      {
+        "id": "mleng-cap-rag",
+        "title": "Capstone: Build a RAG app end-to-end",
+        "tagline": "Chunk real docs, embed them, store vectors, retrieve, answer with an LLM — all on your machine",
+        "min": 75,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "guided",
+        "section": "Capstone projects",
+        "duration": "75M",
+        "tierLevel": "senior"
+      },
+      {
+        "id": "mleng-cap-evals",
+        "title": "Capstone: Build an eval harness for your RAG app",
+        "tagline": "Golden set, retrieval metrics, LLM-as-judge — you design it, the numbers keep you honest",
+        "min": 60,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "semi",
+        "section": "Capstone projects",
+        "duration": "60M",
+        "unlockAfter": [
+          "mleng-cap-rag"
+        ],
+        "tierLevel": "senior"
+      },
+      {
+        "id": "mleng-cap-design",
+        "title": "Capstone: Architect an ML system from scratch",
+        "tagline": "50K support tickets a day, a $3K budget, and zero tolerance for a wrong refund answer — design it on paper",
+        "min": 45,
+        "kind": "sd",
+        "sd": true,
+        "guidance": "open",
+        "section": "Capstone projects",
+        "unlockAfter": [
+          "mleng-cap-evals"
+        ],
+        "tierLevel": "staff"
+      },
+
     ],
   },
   faang: {
@@ -392,6 +684,91 @@ export const PATHS = {
 
       // ── System Design Labs (multi-phase whiteboard rehearsals) ──
       { id: 'lab-realtime-chat', title: 'Design a real-time chat backend', tagline: '50K concurrent, 200-member groups, forever history', min: 30, kind: 'lab', lab: true, guidance: 'open', section: 'System Design Labs', duration: '30M', tierLevel: 'senior' },
+
+      // ── Capstone projects (guided → build-yourself → architect) ────────
+      {
+        "id": "fs-cap-notes",
+        "title": "Build a full-stack notes app",
+        "tagline": "Express + SQLite + a real frontend — the whole stack, built along",
+        "min": 75,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "guided",
+        "section": "Capstone projects",
+        "duration": "2H",
+        "tierLevel": "junior",
+        "milestones": [
+          {
+            "id": "setup",
+            "title": "Project set up — npm, git, Express hello"
+          },
+          {
+            "id": "db",
+            "title": "SQLite schema + data layer working"
+          },
+          {
+            "id": "api",
+            "title": "CRUD API returns real JSON"
+          },
+          {
+            "id": "frontend",
+            "title": "Frontend lists, adds, and deletes notes"
+          },
+          {
+            "id": "verify",
+            "title": "Manual test pass + error cases handled"
+          }
+        ]
+      },
+      {
+        "id": "fs-cap-shiplist",
+        "title": "Ship it: auth + search, your way",
+        "tagline": "Requirements and success criteria only — you decide how to build it",
+        "min": 90,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "semi",
+        "section": "Capstone projects",
+        "duration": "4H",
+        "tierLevel": "senior",
+        "unlockAfter": [
+          "fs-cap-notes"
+        ],
+        "milestones": [
+          {
+            "id": "auth",
+            "title": "Signup + login with hashed passwords"
+          },
+          {
+            "id": "scope",
+            "title": "Notes are private per user"
+          },
+          {
+            "id": "search",
+            "title": "Search endpoint with pagination"
+          },
+          {
+            "id": "deploy",
+            "title": "Running somewhere that isn't localhost"
+          }
+        ]
+      },
+      {
+        "id": "fs-cap-saas-design",
+        "title": "Architect a multi-tenant SaaS",
+        "tagline": "A spec, hard constraints, and trade-offs to defend — no scaffolding",
+        "min": 45,
+        "kind": "sd",
+        "sd": true,
+        "guidance": "open",
+        "section": "Capstone projects",
+        "duration": "1H",
+        "tierLevel": "staff",
+        "unlockAfter": [
+          "fs-cap-shiplist"
+        ]
+      },
+
     ],
   },
   cybersec: {
@@ -433,6 +810,90 @@ export const PATHS = {
       { id: 'sec-soc2',                title: 'SOC 2 in practice',             tagline: 'Five trust principles, Type I vs Type II, and why every B2B deal demands it', min: 9, kind: 'concept', section: 'Compliance & Governance', tierLevel: 'senior' },
       { id: 'sec-pci-dss',             title: 'PCI-DSS for handling payments', tagline: 'The 12 requirements, merchant levels, and the tokenization escape hatch',     min: 8, kind: 'concept', section: 'Compliance & Governance', tierLevel: 'senior' },
       { id: 'sec-compliance-audits',   title: 'Audit trails for compliance',   tagline: 'Evidence chains, immutability, retention — pass the audit on the first pass', min: 7, kind: 'concept', section: 'Compliance & Governance', tierLevel: 'senior' },
+
+      // ── Capstone projects (guided → build-yourself → architect) ────────
+      {
+        "id": "sec-project-vault",
+        "title": "Build a local password vault",
+        "tagline": "A master password, a real KDF, an encrypted file — your secrets, no cloud",
+        "min": 75,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "guided",
+        "section": "Capstone projects",
+        "duration": "3H",
+        "tierLevel": "senior",
+        "milestones": [
+          {
+            "id": "scaffold",
+            "title": "Scaffold the project + install cryptography"
+          },
+          {
+            "id": "kdf",
+            "title": "Derive a key from the master password"
+          },
+          {
+            "id": "vault",
+            "title": "Encrypt / decrypt the vault file"
+          },
+          {
+            "id": "cli",
+            "title": "Wire the CLI (init, add, get, list)"
+          },
+          {
+            "id": "verify",
+            "title": "Prove wrong password + tampering fail closed"
+          }
+        ]
+      },
+      {
+        "id": "sec-project-audit",
+        "title": "Write a hardening audit script",
+        "tagline": "Six read-only checks, severities, exit codes — you write every line",
+        "min": 60,
+        "kind": "lab",
+        "lab": true,
+        "guidance": "semi",
+        "section": "Capstone projects",
+        "duration": "2H",
+        "tierLevel": "senior",
+        "unlockAfter": [
+          "sec-project-vault"
+        ],
+        "milestones": [
+          {
+            "id": "spec",
+            "title": "Pick your checks + severities"
+          },
+          {
+            "id": "checks",
+            "title": "Implement all six checks (read-only)"
+          },
+          {
+            "id": "report",
+            "title": "Human summary + --json + exit codes"
+          },
+          {
+            "id": "prove",
+            "title": "Break a thing, catch it, fix it, go green"
+          }
+        ]
+      },
+      {
+        "id": "sec-project-threat-model",
+        "title": "Threat-model a real startup",
+        "tagline": "One whiteboard, five risks, every trade-off defended out loud",
+        "min": 45,
+        "kind": "sd",
+        "sd": true,
+        "guidance": "open",
+        "section": "Capstone projects",
+        "tierLevel": "staff",
+        "unlockAfter": [
+          "sec-project-audit"
+        ]
+      },
+
     ],
   },
 };
