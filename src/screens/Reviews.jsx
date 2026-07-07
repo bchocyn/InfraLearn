@@ -12,8 +12,11 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 // Every due concept asks ONE multiple-choice question drawn from that
 // lesson's own material — the lesson's math-quiz bank first, then
 // title-matched questions from its path's daily bank — exactly like daily
-// practice. Right = grade 3 (good), wrong = grade 1 (miss) + a weak-spot
-// entry, so the FSRS card is graded honestly and misses stay actionable.
+// practice, salted by the card's rep count so successive reviews draw
+// different probes. Right = grade 3 ("Held it") or grade 2 ("That was
+// close" — shaky recall returns sooner), wrong = grade 1 (miss) + a
+// weak-spot entry, so the FSRS card is graded honestly and misses stay
+// actionable.
 // (Typed free-recall was removed by owner decision: reviews that HAPPEN
 // beat production reviews that don't. The whyWrong/whyCorrect feedback
 // after every answer carries the learning.)
@@ -52,6 +55,14 @@ function buildLessonIndex() {
   return idx;
 }
 
+// Comeback session cap: a multi-day lapser opening Reviews to a 40-card
+// backlog is the moment retention products lose people. The first session
+// back keeps the CAP most-overdue cards (the due list is sorted oldest-due
+// first) and defers the rest — spacing genuinely doesn't care, tomorrow is
+// fine, and the done screen says so.
+const COMEBACK_GAP_DAYS = 3;
+const COMEBACK_CAP = 8;
+
 export default function Reviews() {
   const nav = useNavigate();
   const reviewQueue = useStore((s) => s.reviewQueue);
@@ -59,19 +70,29 @@ export default function Reviews() {
   const recordQuizMiss = useStore((s) => s.recordQuizMiss);
   const clearQuizMiss = useStore((s) => s.clearQuizMiss);
   const quizMisses = useStore((s) => s.quizMisses);
+  const lastActivityDate = useStore((s) => s.lastActivityDate);
 
   // Snapshot due IDs at mount so grading doesn't shuffle the deck mid-session
-  // (reviewQueue is deliberately NOT a dep). `today` IS a dep: getReviewsDue
+  // (reviewQueue is deliberately NOT a dep — and neither is lastActivityDate:
+  // grading the FIRST card flips it to today, which must not re-expand a
+  // capped comeback session mid-flow). `today` IS a dep: getReviewsDue
   // compares against the local day internally, so a session left open past
   // midnight kept serving yesterday's snapshot — the day stamp re-snapshots
   // on the first render after the local day flips. No timers; a re-render
   // must happen for the refresh, which is acceptable.
   const today = isoDayString();
-  const dueIds = useMemo(
-    () => getReviewsDue({ reviewQueue: reviewQueue || {} }),
+  const { dueIds, deferred } = useMemo(() => {
+    const all = getReviewsDue({ reviewQueue: reviewQueue || {} });
+    const last = Date.parse(lastActivityDate || '');
+    const gap = Number.isFinite(last)
+      ? Math.round((Date.parse(today) - last) / 86400000)
+      : 0;
+    if (gap >= COMEBACK_GAP_DAYS && all.length > COMEBACK_CAP) {
+      return { dueIds: all.slice(0, COMEBACK_CAP), deferred: all.length - COMEBACK_CAP };
+    }
+    return { dueIds: all, deferred: 0 };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [today],
-  );
+  }, [today]);
   const lessonIndex = useMemo(() => buildLessonIndex(), []);
 
   const [idx, setIdx] = useState(0);
@@ -81,25 +102,38 @@ export default function Reviews() {
   const done = idx >= total;
   const conceptIdNow = !done ? dueIds[idx] : null;
 
-  // The question for the current card, deterministic per concept. Null only
-  // when the lesson can't be resolved (catalog skew) — handled by the skip
-  // card below; every real path has a question bank (drift-tested).
+  // The question for the current card — salted by the card's rep count so
+  // each successive review draws a DIFFERENT question (and a fresh option
+  // permutation) from the lesson's material. Without the salt the picker is
+  // fully deterministic and a concept gets the identical question with the
+  // identical option order forever — by the 2nd-3rd review the user is
+  // memorizing an answer letter, not retaining a concept. Null only when
+  // the lesson can't be resolved (catalog skew) — handled by the skip card.
+  // Deps stay [conceptIdNow] ON PURPOSE: grading a wrong answer bumps reps
+  // mid-card, and re-salting then would swap the question under the open
+  // feedback panel.
   const q = useMemo(
-    () => (conceptIdNow ? pickReviewQuestion(conceptIdNow, 0) : null),
+    () => (conceptIdNow
+      ? pickReviewQuestion(conceptIdNow, reviewQueue?.[conceptIdNow]?.reps || 0)
+      : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [conceptIdNow],
   );
 
   const advance = () => { setPicked(null); setIdx((i) => i + 1); };
 
-  // Answer an option: grade the FSRS card immediately (right=good,
-  // wrong=miss + weak spot), then hold for Continue so the why gets read.
+  // Answer an option. Wrong = grade the FSRS card immediately (miss + weak
+  // spot) and hold for Continue so the why gets read. Correct = hold the
+  // grade until the Continue row, where "Held it" grades 3 and "That was
+  // close" grades 2 — the shaky-but-correct signal the scheduler lost when
+  // free recall was removed (HANDOFF §4's scoped follow-up).
   const pick = (i) => {
     if (!q || picked !== null || done) return;
     setPicked(i);
     const correct = i === q.answer;
     if (correct) {
-      markReviewed(conceptIdNow, 3);
       if (q.lessonId && quizMisses?.[q.lessonId]?.[q.q]) clearQuizMiss(q.lessonId, q.q);
+      else if (!q.lessonId && quizMisses?.__daily_practice__?.[q.q]) clearQuizMiss('__daily_practice__', q.q);
     } else {
       markReviewed(conceptIdNow, 1);
       const canonical = q.origIndex?.[i];
@@ -111,10 +145,19 @@ export default function Reviews() {
     }
   };
 
+  // Continue after a CORRECT answer: grade 3 (held) or 2 (close) then move on.
+  const finishCorrect = (grade) => {
+    if (picked === null || done || !q || picked !== q.answer) return;
+    markReviewed(conceptIdNow, grade);
+    advance();
+  };
+
   useKeyboardShortcuts(
     {
-      Enter: () => { if (!done && picked !== null) advance(); },
-      ' ': () => { if (!done && picked !== null) advance(); },
+      // Enter/Space = the primary continue: "Held it" on a correct answer,
+      // plain advance on a wrong one (already graded at pick time).
+      Enter: () => { if (!done && picked !== null) (picked === q?.answer ? finishCorrect(3) : advance()); },
+      ' ': () => { if (!done && picked !== null) (picked === q?.answer ? finishCorrect(3) : advance()); },
       1: () => pick(0),
       2: () => pick(1),
       3: () => pick(2),
@@ -151,7 +194,9 @@ export default function Reviews() {
           <p className="caption" style={{ marginBottom: 14 }}>
             {total === 0
               ? 'Finish a lesson and it joins the spaced-repetition queue.'
-              : 'Come back tomorrow — spacing is doing the work now.'}
+              : deferred > 0
+                ? `${deferred} more can wait until tomorrow — coming back was the hard part, and you did it.`
+                : 'Come back tomorrow — spacing is doing the work now.'}
           </p>
           <button
             type="button"
@@ -220,11 +265,27 @@ export default function Reviews() {
         </div>
         {picked !== null && <FeedbackPanel question={q} picked={picked} />}
       </div>
-      {picked !== null && (
+      {picked !== null && (picked === q.answer ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <button type="button" className="btn btn-primary btn-block" onClick={() => finishCorrect(3)}>
+            Held it — next →
+          </button>
+          {/* Secondary, quieter: the honest "I almost lost that one" tap.
+              Grade 2 brings the card back sooner (and pays less). */}
+          <button
+            type="button"
+            className="btn btn-block"
+            style={{ fontSize: 12.5, opacity: 0.85 }}
+            onClick={() => finishCorrect(2)}
+          >
+            That was close — bring it back sooner
+          </button>
+        </div>
+      ) : (
         <button type="button" className="btn btn-primary btn-block" onClick={advance}>
-          {picked === q.answer ? 'Held — next →' : 'Noted for weak spots — next →'}
+          Noted for weak spots — next →
         </button>
-      )}
+      ))}
     </div>
   );
 }

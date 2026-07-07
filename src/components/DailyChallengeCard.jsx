@@ -2,22 +2,34 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS } from '../data/content.js';
-import { loadLessonsForPath, LESSON_PATH_KEYS } from '../data/lessons/loader.js';
+import FeedbackPanel from './FeedbackPanel.jsx';
 
-// DailyChallengeCard — pinned recall card on Home. ONE question per day, drawn
-// from concepts the user has already learned. Reuses spaced-rep + recall infra.
+// DailyChallengeCard — pinned MCQ card on Home. ONE question per day, drawn
+// from concepts the user has already learned via the SAME picker every other
+// testing surface uses (pickReviewQuestion — normalized, option-shuffled,
+// whyWrong-carrying), salted by the calendar date so each day asks fresh.
+// The user picks an option, then states confidence (guess/likely/certain) —
+// only the confidence tap reveals the verdict and records calibration, the
+// challenge's stated reason to exist. (The old tap-to-reveal self-grade
+// fallback is gone: every testing surface is MCQ + feedback by owner
+// decision, and the self-grade path also never wrote calibration.)
 // Visual contract (locked):
 //   - amber gradient header, 12px padding, amber border
 //   - kicker "🎯 TODAY'S CHALLENGE · ~60s"
-//   - serif 16px title pulled from concept question OR generated from title
-//   - 3 multiple-choice options when a dailyChallengeQ is present on the body
-//   - fallback: "Recall: what is X?" with tap-to-reveal first paragraph
-//   - after answer: ✓/✗ + feedback + XP chip + streak chip
+//   - after answer: ✓/✗ + FeedbackPanel + XP chip + streak chip
 //   - collapses to "✓ Done — back tomorrow" with streak counter
 //   - empty state (no completions yet) links to first incomplete lesson
 //
-// Selection + +8 XP + streak bookkeeping all live in the store
-// (pickDailyChallenge / answerDailyChallenge). This file is pure presentation.
+// Selection + +5 XP + streak + scheduler bookkeeping live in the store
+// (pickDailyChallenge / answerDailyChallenge).
+
+// Module-level cache for the lazily-loaded battles chunk. pickReviewQuestion
+// lives in battles.js, which drags the full question banks — that chunk must
+// NOT ride the eager bundle (Home imports this card), so it's fetched on
+// first mount and reused synchronously after (same pattern as DailyPractice's
+// dailyQuestions chunk).
+let battlesMod = null;
+
 export default function DailyChallengeCard() {
   const nav = useNavigate();
   const dailyChallenge = useStore((s) => s.dailyChallenge);
@@ -33,37 +45,40 @@ export default function DailyChallengeCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Object.keys(completed || {}).length]);
 
+  // Lazy-load the question picker (see battlesMod note above). The state
+  // holds the FUNCTION itself — both the initializer and setPicker use the
+  // callback form so React never mistakes the fn for an updater.
+  const [pickFn, setPicker] = useState(() => (battlesMod ? battlesMod.pickReviewQuestion : null));
+  useEffect(() => {
+    let alive = true;
+    if (battlesMod) return undefined;
+    import('../data/battles.js').then((m) => {
+      battlesMod = m;
+      if (alive) setPicker(() => m.pickReviewQuestion);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   // Resolve the concept's display title from PATHS metadata.
   const conceptId = dailyChallenge?.conceptId || null;
   const conceptMeta = useMemo(() => {
     if (!conceptId) return null;
     for (const p of Object.values(PATHS)) {
       const hit = p.lessons.find((l) => l.id === conceptId);
-      if (hit) return { lesson: hit, pathKey: pathKeyForLesson(conceptId) };
+      if (hit) return { lesson: hit };
     }
     return null;
   }, [conceptId]);
 
-  // Async-load the lesson body so we can read its optional dailyChallengeQ
-  // and tagline/first-paragraph fallback. Keyed by conceptId so a date roll
-  // triggers a fresh fetch automatically.
-  const [body, setBody] = useState(null);
-  useEffect(() => {
-    let alive = true;
-    setBody(null);
-    if (!conceptMeta) return undefined;
-    loadLessonsForPath(conceptMeta.pathKey).then((bodies) => {
-      if (!alive) return;
-      setBody(bodies?.[conceptId] || null);
-    }).catch(() => { if (alive) setBody(null); });
-    return () => { alive = false; };
-  }, [conceptId, conceptMeta]);
-
-  // Build the question object surfaced to the user. Three layers:
-  //   1. body.dailyChallengeQ — explicit { q, opts, answer, explain }
-  //   2. body.mathQuiz / sections — first MCQ found becomes the challenge
-  //   3. tagline-based reveal — "Recall: what is X?" + tap-to-reveal text
-  const challenge = useMemo(() => buildChallenge(conceptMeta?.lesson, body), [conceptMeta, body]);
+  // Today's question: deterministic per (concept, calendar day) so remounts
+  // re-serve the same challenge, different days draw different probes.
+  const challenge = useMemo(() => {
+    if (!conceptMeta) return null;
+    if (!pickFn) return { kind: 'loading', title: 'Loading…' };
+    const daySalt = Number((dailyChallenge?.date || '').replaceAll('-', '')) || 0;
+    const q = pickFn(conceptId, daySalt);
+    return q ? { kind: 'mcq', q } : { kind: 'review-link' };
+  }, [conceptId, conceptMeta, pickFn, dailyChallenge?.date]);
 
   // --- Empty state: zero completions ---------------------------------------
   if (!conceptId) {
@@ -109,26 +124,44 @@ export default function DailyChallengeCard() {
     );
   }
 
-  // --- Loading state: concept picked but its body chunk isn't here yet ------
-  // Without this gate buildChallenge falls through to the recall fallback with
-  // reveal = tagline/title — i.e. the question echoed as its own answer — and
-  // a self-grade burns the day's challenge on garbage. Render a non-interactive
-  // stub until real content exists.
-  if (challenge.kind === 'loading') {
+  // --- Loading state: the question-bank chunk isn't here yet ---------------
+  // Render a non-interactive stub until the picker can deal a real question —
+  // never burn the day's challenge on a placeholder.
+  if (!challenge || challenge.kind === 'loading') {
     return (
       <div className="card daily-challenge" aria-busy="true">
         <div className="kicker daily-kicker">🎯 TODAY&apos;S CHALLENGE · ~60s</div>
-        <div className="daily-title">{challenge.title}</div>
+        <div className="daily-title">{challenge?.title || 'Loading…'}</div>
       </div>
     );
   }
 
+  // --- No bank covers this concept (catalog skew) — honest fallback --------
+  // No self-grade theater: link to the lesson instead. The day's challenge
+  // stays unanswered, which is correct — nothing was tested.
+  if (challenge.kind === 'review-link') {
+    return (
+      <button
+        type="button"
+        className="card daily-challenge daily-empty"
+        onClick={() => nav(`/lesson/${conceptId}`)}
+        aria-label="Daily challenge — revisit this concept"
+      >
+        <div className="kicker daily-kicker">🎯 TODAY&apos;S CHALLENGE</div>
+        <div className="daily-empty-title">
+          No quiz covers {conceptMeta?.lesson?.title || 'this concept'} yet — give it a re-read instead
+        </div>
+        <div className="daily-empty-cta">→ Open the lesson</div>
+      </button>
+    );
+  }
+
   // --- Active state: question to answer -------------------------------------
-  // Keyed by concept so revealed/picked state can't carry across logically
-  // different questions when the challenge object changes shape mid-interaction.
+  // Keyed by concept so picked state can't carry across logically different
+  // questions when the challenge object changes mid-interaction.
   return (
     <ActiveChallenge
-      key={challenge.conceptId || dailyChallenge.conceptId}
+      key={dailyChallenge.conceptId}
       challenge={challenge}
       conceptMeta={conceptMeta}
       onAnswer={(correct, confidence) => answerDailyChallenge(correct, confidence)}
@@ -137,21 +170,20 @@ export default function DailyChallengeCard() {
 }
 
 // ── Active card body — shown when the user has a fresh challenge ────────────
-// Split out so the MCQ vs tap-to-reveal branch stays readable. Both branches
-// resolve to a single `answer(correct)` call so the parent store-action is the
-// only path that mutates state. State is purely local: a tap on an MCQ option
-// flips local `picked`, which then drives `answer()` synchronously.
+// Commit-then-reveal: pick an option, THEN state your confidence — only the
+// confidence tap reveals the verdict, records calibration, and grades the
+// store. Weak-spot bookkeeping mirrors Reviews: a miss files the question
+// (canonical option index via origIndex), a correct answer clears any prior
+// miss on the same prompt.
 function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
-  const [picked, setPicked] = useState(null);          // MCQ pick index
+  const [picked, setPicked] = useState(null);          // option index
   const [confidence, setConfidence] = useState(null);  // 'guess'|'likely'|'certain'
-  const [revealed, setRevealed] = useState(false);     // tap-to-reveal mode
-  const [recallVerdict, setRecallVerdict] = useState(null); // 'right' | 'wrong'
+  const recordQuizMiss = useStore((s) => s.recordQuizMiss);
+  const clearQuizMiss = useStore((s) => s.clearQuizMiss);
+  const quizMisses = useStore((s) => s.quizMisses);
 
-  const title = challenge.title;
-  const isMcq = challenge.kind === 'mcq';
+  const q = challenge.q;
 
-  // MCQ: pick an option first, THEN state your confidence — only on the
-  // confidence tap do we reveal the verdict and record the calibration.
   const pickOption = (i) => {
     if (picked !== null) return;
     setPicked(i);
@@ -159,56 +191,60 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
   const chooseConfidence = (level) => {
     if (picked === null || confidence !== null) return;
     setConfidence(level);
-    onAnswer(picked === challenge.answer, level);
-  };
-  // Tap-to-reveal self-grade — same shape as DailyPractice recall flow.
-  const selfGrade = (v) => {
-    if (recallVerdict) return;
-    setRecallVerdict(v);
-    onAnswer(v === 'right');
+    const isCorrect = picked === q.answer;
+    onAnswer(isCorrect, level);
+    if (isCorrect) {
+      if (q.lessonId && quizMisses?.[q.lessonId]?.[q.q]) clearQuizMiss(q.lessonId, q.q);
+      else if (!q.lessonId && quizMisses?.__daily_practice__?.[q.q]) clearQuizMiss('__daily_practice__', q.q);
+    } else {
+      const canonical = q.origIndex?.[picked];
+      recordQuizMiss(
+        q.lessonId || '__daily_practice__',
+        q.q,
+        q.lessonId && Number.isInteger(canonical) && canonical <= 3 ? canonical : null,
+      );
+    }
   };
 
-  const answered = isMcq ? (picked !== null && confidence !== null) : recallVerdict !== null;
-  const correct = isMcq ? (picked === challenge.answer) : (recallVerdict === 'right');
+  const answered = picked !== null && confidence !== null;
+  const correct = picked === q.answer;
 
   return (
     <div className="card daily-challenge">
       <div className="kicker daily-kicker">🎯 TODAY&apos;S CHALLENGE · ~60s</div>
-      <div className="daily-title">{title}</div>
+      <div className="daily-title">{q.q}</div>
       {conceptMeta?.lesson?.title && (
         <div className="daily-source mono">
           FROM · {conceptMeta.lesson.title.toUpperCase()}
         </div>
       )}
 
-      {isMcq && (
-        <div className="daily-opts">
-          {challenge.opts.map((opt, i) => {
-            const isAnswer = i === challenge.answer;
-            const wasPicked = picked === i;
-            let cls = 'daily-opt';
-            if (answered && isAnswer) cls += ' daily-opt-correct';
-            else if (answered && wasPicked) cls += ' daily-opt-wrong';
-            else if (!answered && wasPicked) cls += ' daily-opt-selected';
-            return (
-              <button
-                key={i}
-                type="button"
-                className={cls}
-                disabled={picked !== null}
-                onClick={() => pickOption(i)}
-              >
-                <span className="daily-opt-letter">{String.fromCharCode(65 + i)}</span>
-                <span className="daily-opt-text">{opt}</span>
-                {answered && isAnswer && <span className="daily-opt-mark" aria-hidden>✓</span>}
-                {answered && wasPicked && !isAnswer && <span className="daily-opt-mark" aria-hidden>✗</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div className="daily-opts">
+        {q.opts.map((opt, i) => {
+          const isAnswer = i === q.answer;
+          const wasPicked = picked === i;
+          let cls = 'daily-opt';
+          if (answered && isAnswer) cls += ' daily-opt-correct';
+          else if (answered && wasPicked) cls += ' daily-opt-wrong';
+          else if (!answered && wasPicked) cls += ' daily-opt-selected';
+          return (
+            <button
+              key={i}
+              type="button"
+              className={cls}
+              disabled={picked !== null}
+              onClick={() => pickOption(i)}
+            >
+              <span className="daily-opt-letter">{String.fromCharCode(65 + i)}</span>
+              <span className="daily-opt-text">{opt}</span>
+              {answered && isAnswer && <span className="daily-opt-mark" aria-hidden>✓</span>}
+              {answered && wasPicked && !isAnswer && <span className="daily-opt-mark" aria-hidden>✗</span>}
+            </button>
+          );
+        })}
+      </div>
 
-      {isMcq && picked !== null && confidence === null && (
+      {picked !== null && confidence === null && (
         <div className="daily-confidence">
           <div className="daily-confidence-q mono">HOW SURE ARE YOU?</div>
           <div className="daily-confidence-opts">
@@ -219,56 +255,19 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
         </div>
       )}
 
-      {!isMcq && (
-        <div className="daily-reveal-wrap">
-          {!revealed && (
-            <button
-              type="button"
-              className="btn btn-primary btn-block daily-reveal-btn"
-              onClick={() => setRevealed(true)}
-            >
-              Tap to reveal answer
-            </button>
-          )}
-          {revealed && (
-            <>
-              <div className="daily-reveal-body">{challenge.reveal}</div>
-              {!recallVerdict && (
-                <div className="daily-grade-row">
-                  <button
-                    type="button"
-                    className="btn btn-block daily-grade-right"
-                    onClick={() => selfGrade('right')}
-                  >
-                    ✓ Got it
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-block daily-grade-wrong"
-                    onClick={() => selfGrade('wrong')}
-                  >
-                    ✗ Missed
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
       {answered && (
         <div className="daily-feedback-wrap">
           <div className={`daily-verdict ${correct ? 'daily-verdict-right' : 'daily-verdict-wrong'}`}>
             {correct ? '✓ Correct' : '✗ Not quite'}
           </div>
-          {isMcq && confidence && (
+          {confidence && (
             <div className="daily-calib-note">{calibNote(confidence, correct)}</div>
           )}
-          {challenge.explain && (
-            <div className="daily-explain">{challenge.explain}</div>
-          )}
+          {/* Same 3-part feedback every other testing surface shows. */}
+          <FeedbackPanel question={q} picked={picked} />
           <div className="daily-chip-row">
-            {correct && <span className="daily-chip daily-chip-xp">+8 XP</span>}
+            {/* +5, matching what answerDailyChallenge actually pays. */}
+            {correct && <span className="daily-chip daily-chip-xp">+5 XP</span>}
             <span className="daily-chip daily-chip-streak">
               🔥 Day {correct ? 'counts' : 'attempted'}
             </span>
@@ -280,18 +279,6 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-// Resolve the path-loader key for a lesson id by walking PATHS. Cheap: PATHS
-// is a static object with ~150 lessons total. Returns 'fundamentals' fallback
-// only when the id isn't found in any path (shouldn't happen — pickDailyChallenge
-// already validates the id against VALID_LESSON_IDS).
-function pathKeyForLesson(lessonId) {
-  for (const [key, p] of Object.entries(PATHS)) {
-    if (p.lessons.some((l) => l.id === lessonId)) return key;
-  }
-  // Fallback: walk the loader keys until something matches. Edge case only.
-  return LESSON_PATH_KEYS[0] || 'fundamentals';
-}
 
 // Find the first lesson the user hasn't completed (any path). Used by the
 // empty-state CTA so we don't dead-end users with "complete your first lesson"
@@ -307,85 +294,6 @@ function firstIncompleteLesson(completed) {
     if (hit) return hit;
   }
   return null;
-}
-
-// Build the challenge question from whatever data the lesson exposes.
-// Resolution order:
-//   1. body.dailyChallengeQ — explicit author-supplied MCQ ({ q, opts, answer, explain })
-//   2. body.mathQuiz.questions[0] — first math-quiz question (MCQ shape)
-//   3. tagline / first paragraph — tap-to-reveal recall fallback
-// Returns an object with `kind: 'mcq' | 'recall'` driving the renderer.
-function buildChallenge(lesson, body) {
-  if (!lesson || body === null) {
-    // Concept metadata may resolve before loadLessonsForPath delivers the
-    // body (it's an async chunk). Until the body exists, NONE of the layers
-    // below have real content — the recall fallback would echo the question
-    // as its own answer. Return a non-interactive loading stub instead; the
-    // renderer shows a static card for kind 'loading'.
-    return {
-      kind: 'loading',
-      title: 'Loading…',
-      reveal: '',
-      explain: '',
-    };
-  }
-  // 1. Explicit author-supplied question on the body.
-  const explicit = body?.dailyChallengeQ;
-  if (explicit && typeof explicit === 'object'
-      && typeof explicit.q === 'string'
-      && Array.isArray(explicit.opts)
-      && explicit.opts.length >= 2
-      && Number.isInteger(explicit.answer)) {
-    return {
-      kind: 'mcq',
-      title: explicit.q,
-      opts: explicit.opts.slice(0, 4),
-      answer: Math.min(explicit.answer, explicit.opts.length - 1),
-      explain: typeof explicit.explain === 'string' ? explicit.explain : '',
-    };
-  }
-  // 2. Math-quiz fallback — surface the first question if present.
-  const mq = body?.mathQuiz?.questions?.[0];
-  if (mq && typeof mq.prompt === 'string' && Array.isArray(mq.options)) {
-    return {
-      kind: 'mcq',
-      title: mq.prompt,
-      opts: mq.options.slice(0, 4),
-      answer: Number.isInteger(mq.answer) ? mq.answer : 0,
-      explain: typeof mq.whyCorrect === 'string'
-        ? mq.whyCorrect
-        : typeof mq.explanation === 'string' ? mq.explanation : '',
-    };
-  }
-  // 3. Tap-to-reveal recall fallback. Title from tagline or generated from
-  //    the concept title; reveal text from the first paragraph of the body.
-  const titleText = lesson.tagline
-    ? `Recall: ${lesson.tagline}`
-    : `Recall: what is ${lesson.title}?`;
-  const reveal = firstParagraph(body) || lesson.tagline || lesson.title;
-  return {
-    kind: 'recall',
-    title: titleText,
-    reveal,
-    explain: '',
-  };
-}
-
-// Pull the first prose paragraph from a lesson body. Lessons store content
-// as { sections: [{ body: [{ type, text }, ...] }, ...] }. We scan sections in
-// order and return the first `type: 'p'` text. Strips markdown bold so the
-// tap-to-reveal text reads cleanly without a markdown renderer.
-function firstParagraph(body) {
-  if (!body || !Array.isArray(body.sections)) return '';
-  for (const section of body.sections) {
-    if (!Array.isArray(section.body)) continue;
-    for (const node of section.body) {
-      if (node?.type === 'p' && typeof node.text === 'string' && node.text.length > 0) {
-        return node.text.replace(/\*\*(.+?)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
-      }
-    }
-  }
-  return '';
 }
 
 // Short calibration nudge shown after a daily-challenge MCQ — pairs the user's

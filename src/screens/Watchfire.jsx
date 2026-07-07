@@ -82,9 +82,16 @@ export default function Watchfire() {
   const done = idx >= total;
   const conceptIdNow = !done ? dueIds[idx] : null;
 
-  // The wraith's question — same per-lesson picker the Reviews screen uses.
+  // The wraith's question — same per-lesson picker the Reviews screen uses,
+  // salted by the card's rep count so each patrol draws a different probe
+  // (attempt 0 forever = memorizing an answer letter, not retaining).
+  // Deps stay [conceptIdNow] on purpose: grading bumps reps mid-card and
+  // re-salting then would swap the question under the feedback.
   const q = useMemo(
-    () => (conceptIdNow ? pickReviewQuestion(conceptIdNow, 0) : null),
+    () => (conceptIdNow
+      ? pickReviewQuestion(conceptIdNow, reviewQueue?.[conceptIdNow]?.reps || 0)
+      : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [conceptIdNow],
   );
 
@@ -98,6 +105,7 @@ export default function Watchfire() {
       // The honest part: the real scheduler call, identical to Reviews.
       markReviewed(conceptIdNow, 3);
       if (q.lessonId && quizMisses?.[q.lessonId]?.[q.q]) clearQuizMiss(q.lessonId, q.q);
+      else if (!q.lessonId && quizMisses?.__daily_practice__?.[q.q]) clearQuizMiss('__daily_practice__', q.q);
       setBanished((n) => n + 1);
       // The theater: the beast strikes, then the next wraith drifts in.
       if (reducedMotion) { advance(); return; }

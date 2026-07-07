@@ -17,7 +17,7 @@
 //
 // Everything is deterministically seeded by (pathKey, stage, attempt) so a
 // retry deals a fresh hand but the same attempt re-renders identically.
-import { PATHS } from './content.js';
+import { PATHS, pathProgress } from './content.js';
 import { DAILY_QUESTIONS } from './dailyQuestions.js';
 import mathQuizzes from './mathQuizzes.js';
 import { PROVINCES, FIVE_LAPSES } from './lore.js';
@@ -115,27 +115,44 @@ export function rawPathPool(pathKey, completed) {
       });
     }
   }
-  // B: 3-option daily questions for this path (all levels), plus the borrow
+  // B: 3-option daily questions for this path (tagged with their level so
+  // dealBattle can bias toward the learner's progress band), plus the borrow
   // pool of known-wrong options they can draw a 4th distractor from.
   const daily = DAILY_QUESTIONS[pathKey];
   if (daily && typeof daily === 'object') {
-    const entries = Object.values(daily).flat();
+    const entries = [];
+    for (const [level, arr] of Object.entries(daily)) {
+      if (!Array.isArray(arr)) continue;
+      for (const e of arr) entries.push({ e, level });
+    }
     const wrongPool = [];
-    for (const e of entries) {
+    for (const { e } of entries) {
       for (let i = 0; i < e.opts.length; i++) {
         if (i !== e.answer) wrongPool.push(e.opts[i]);
       }
     }
-    for (const e of entries) {
+    for (const { e, level } of entries) {
       out.push({
         prompt: e.q, options: e.opts, answer: e.answer,
         whyWrong: e.whyWrong, whyCorrect: e.whyCorrect,
         explanation: e.explanation, bestPractices: e.bestPractices,
-        lessonId: null, _wrongPool: wrongPool,
+        lessonId: null, _wrongPool: wrongPool, _level: level,
       });
     }
   }
   return out;
+}
+
+// Daily-bank difficulty ladder, in teaching order. Encounter 1 at ~17%
+// progress must not quiz 'distinguished' material the user has never seen —
+// dealBattle prefers questions at or below the learner's band and only tops
+// up from harder levels when the band can't fill a full hand (small banks
+// still deal complete decks).
+const LEVEL_ORDER = ['novice', 'junior', 'senior', 'distinguished'];
+function allowedLevels(pct) {
+  if (pct >= 0.7) return new Set(LEVEL_ORDER);
+  if (pct >= 0.35) return new Set(LEVEL_ORDER.slice(0, 3));
+  return new Set(LEVEL_ORDER.slice(0, 2));
 }
 
 // Upgrade a 3-option daily-bank candidate to 4 options with a borrowed
@@ -159,7 +176,18 @@ export function dealBattle(pathKey, completed, stage, attempt = 0, count = BATTL
   const raw = rawPathPool(pathKey, completed);
   if (raw.length === 0) return [];
   const rnd = mulberry32(hashStr(`${pathKey}:${stage}:${attempt * 17}`));
-  const picked = seededShuffle(raw, rnd).slice(0, count);
+  // Difficulty band: lesson-anchored questions (Source A) are always fair
+  // game — they come from COMPLETED lessons. Daily-bank questions prefer
+  // the learner's current band, topping up from harder levels only when
+  // the band alone can't fill the hand.
+  const { pct } = pathProgress(pathKey, completed);
+  const allowed = allowedLevels(pct);
+  const preferred = raw.filter((c) => !c._level || allowed.has(c._level));
+  const harder = raw.filter((c) => c._level && !allowed.has(c._level));
+  const picked = seededShuffle(preferred, rnd).slice(0, count);
+  if (picked.length < count) {
+    picked.push(...seededShuffle(harder, rnd).slice(0, count - picked.length));
+  }
   return picked.map((c) => {
     const options = upgradeTo4(c, rnd);
     return normalize({ ...c, options }, rnd);
@@ -173,8 +201,10 @@ export function dealBattle(pathKey, completed, stage, attempt = 0, count = BATTL
 //   2. the path's daily bank, filtered to questions sharing title keywords
 //      with the lesson (a cheap but deterministic relevance proxy);
 //   3. the whole path bank (labeled generic — still the same province).
-// Returns null when the lesson's path has no bank at all — the caller falls
-// back to typed free recall for that card.
+// Returns null when the lesson's path has no bank at all — callers render a
+// skip card for that concept (free recall was removed by owner decision).
+// `attempt` salts the deterministic pick — callers pass the card's rep count
+// so successive reviews draw different probes with fresh option orders.
 export function pickReviewQuestion(lessonId, attempt = 0) {
   let pathKey = null;
   let lesson = null;

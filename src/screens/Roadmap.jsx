@@ -619,22 +619,28 @@ export default function Roadmap({ initialView = 'world' }) {
     if (!completed[n.lesson.id]) {
       const gate = battleGateForLesson(pathKey, lessons.indexOf(n.lesson), lessons.length, battlesMap);
       if (gate.blocked) {
-        nav(`/battle/${pathKey}/${gate.stage}`);
+        // Carry the barred lesson so the battle can name what it blocks.
+        nav(`/battle/${pathKey}/${gate.stage}`, { state: { fromLessonId: n.lesson.id } });
         return;
       }
     }
     nav(`/lesson/${n.lesson.id}`);
   };
 
+  // Hero-CTA gate — shared by the world view's footer AND the trail view's
+  // bottom button. Both must tell the truth when a minion bars the road:
+  // the trail CTA used to read "Open: <lesson>" and silently teleport into
+  // a battle via the route-level BattleGate.
+  const heroGate = currentLesson && !completed[currentLesson.id]
+    ? battleGateForLesson(pathKey, currentIdx, lessons.length, battlesMap)
+    : { blocked: false, stage: 0 };
+  const minionName = MINIONS[PROVINCES[pathKey]?.lapse]?.name || 'minion';
+
   // ── A1: the world map IS the Roadmap landing ─────────────────────────
   // Tapping a continent sails into that province's trail; "← World" in the
   // trail header sails back. One hero CTA rides the map (R5) — and it
   // respects the minion road-block, pointing at the due fight instead.
   if (view === 'world') {
-    const heroGate = currentLesson && !completed[currentLesson.id]
-      ? battleGateForLesson(pathKey, currentIdx, lessons.length, battlesMap)
-      : { blocked: false, stage: 0 };
-    const minionName = MINIONS[PROVINCES[pathKey]?.lapse]?.name || 'minion';
     return (
       <WorldView
         completed={completed}
@@ -646,7 +652,7 @@ export default function Roadmap({ initialView = 'world' }) {
             className="btn btn-primary btn-block"
             style={{ marginBottom: 12 }}
             onClick={() => (heroGate.blocked
-              ? nav(`/battle/${pathKey}/${heroGate.stage}`)
+              ? nav(`/battle/${pathKey}/${heroGate.stage}`, { state: { fromLessonId: currentLesson.id } })
               : nav(`/lesson/${currentLesson.id}`))}
           >
             {heroGate.blocked
@@ -749,10 +755,27 @@ export default function Roadmap({ initialView = 'world' }) {
             return (
               <g
                 key={lesson.id}
+                role="button"
+                tabIndex={clickable ? 0 : -1}
+                aria-disabled={!clickable}
                 onClick={() => handleNodeClick(n)}
+                onKeyDown={(e) => {
+                  if (clickable && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    handleNodeClick(n);
+                  }
+                }}
                 style={{ cursor }}
                 aria-label={lesson.title}
               >
+                {/* Invisible-but-PAINTED hit target. The chip sprites are
+                    pointer-events:none (UiSprite), so without this circle a
+                    node's only tappable area is its 8.5px title text — the
+                    core "review a done lesson" tap was effectively dead on
+                    touch and completely dead to keyboard. fillOpacity 0 with
+                    a real fill still hit-tests (visiblePainted). */}
+                <circle cx={n.x} cy={n.y} r="17" fill="#000" fillOpacity="0" />
+
                 {/* Current node halo — gently scales for the "you are here" beat. */}
                 {isCurrent ? (
                   <circle
@@ -905,10 +928,19 @@ export default function Roadmap({ initialView = 'world' }) {
       <button
         className="btn btn-primary btn-block"
         style={{ marginTop: 14 }}
-        onClick={() => currentLesson && nav(`/lesson/${currentLesson.id}`)}
+        onClick={() => {
+          if (!currentLesson) return;
+          if (heroGate.blocked) {
+            nav(`/battle/${pathKey}/${heroGate.stage}`, { state: { fromLessonId: currentLesson.id } });
+          } else {
+            nav(`/lesson/${currentLesson.id}`);
+          }
+        }}
         disabled={!currentLesson}
       >
-        {allDone ? 'Review' : 'Open'}: {currentLesson?.title || '—'} →
+        {heroGate.blocked
+          ? `⚔ A ${minionName} blocks the road — face it →`
+          : `${allDone ? 'Review' : 'Open'}: ${currentLesson?.title || '—'} →`}
       </button>
     </div>
   );

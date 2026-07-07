@@ -39,13 +39,32 @@ function precacheManifest() {
       const PRECACHE_SKIP = /-(cyrillic(?:-ext)?|greek(?:-ext)?|vietnamese)-|^firebaseAdapter-/;
       collect('assets', /\.(js|css|woff2?)$/, PRECACHE_SKIP); // chunks + latin fonts
       collect('beasts', /\.(png|json)$/);      // sprite art + manifest.json (BeastSprite fetches it at runtime)
+      collect('beasts/eggs', /\.png$/);        // hatch art — onboarding's first paint
       collect('worldmap', /\.png$/);           // continent/boss/minion art (world map + battles)
       collect('worldmap/anim', /\.png$/);      // minion idle-loop frames (Battle screen)
+      collect('map', /\.png$/);                // trail node chips/medal/fog/props — the trail's own UI
+      collect('roadmap-scenes', /\.png$/);     // per-province sky scenes (trail drill-in)
+      collect('anim/dawn_shield_idle_south', /\.png$/); // keeper idle frames (anims.js)
+      // NOT precached on purpose: beasts/anim (~3.2 MB of idle loops) and the
+      // wardrobe/cutscene art (armor/, scenes/, tamers/) — decorative, deep-
+      // progression surfaces the SW's runtime cache-first picks up on first
+      // view. Install precache stays focused on what a first offline session
+      // actually renders.
       const json = JSON.stringify(list.sort());
-      const sw = fs.readFileSync(swPath, 'utf8').replace(
+      // Guard the substitution (it broke silently once): an empty manifest or
+      // a sentinel that survives the regex must FAIL the build, not ship a SW
+      // whose offline-first quietly covers nothing.
+      if (list.length === 0) {
+        throw new Error('[precache-manifest] collected 0 assets — dist layout changed?');
+      }
+      const src = fs.readFileSync(swPath, 'utf8');
+      const sw = src.replace(
         /\/\*__PRECACHE_MANIFEST_START__\*\/[\s\S]*?\/\*__PRECACHE_MANIFEST_END__\*\//,
         `/*__PRECACHE_MANIFEST_START__*/${json}/*__PRECACHE_MANIFEST_END__*/`,
       );
+      if (sw === src || !sw.includes(json)) {
+        throw new Error('[precache-manifest] sentinel not found in dist/sw.js — substitution failed');
+      }
       fs.writeFileSync(swPath, sw);
       // eslint-disable-next-line no-console
       console.log(`[precache-manifest] injected ${list.length} assets into dist/sw.js`);
