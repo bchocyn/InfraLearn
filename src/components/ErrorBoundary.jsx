@@ -56,6 +56,12 @@ export default class ErrorBoundary extends React.Component {
       localStorage.removeItem('infralearn-store');
       localStorage.removeItem('infralearn-store.bak');
     } catch { /* ignore */ }
+    try {
+      // The evidence log + SW notify-state live in IndexedDB — raw API on
+      // purpose (this path must not depend on app modules that may be what
+      // crashed). Without it a "start fresh" keeps ghost curve/reminder data.
+      indexedDB.deleteDatabase('infralearn-evidence');
+    } catch { /* ignore */ }
     // Hard reload so the next mount starts from initial state.
     if (typeof window !== 'undefined') window.location.reload();
   };

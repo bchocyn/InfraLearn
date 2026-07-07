@@ -8,6 +8,10 @@ import { isCloudConfigured, getCloud, syncNow, LAST_SYNC_KEY, ENABLED_KEY } from
 import ProgressPanel from '../components/ProgressPanel.jsx';
 import WeekRecap from '../components/WeekRecap.jsx';
 import { PATHS, PATH_KEYS } from '../data/content.js';
+// Evidence log round-trip: export bundles it into the backup file, import
+// restores it (dedup inside). Without this, backups silently dropped the
+// forgetting curve's underlying data.
+import { readReviewEvents, importReviewEvents } from '../data/evidenceLog.js';
 // Theme tables live in their own tiny module so main.jsx can read them
 // SYNCHRONOUSLY without dragging in the whole Settings screen. We re-export
 // them here so any code that already imports from '../screens/Settings.jsx'
@@ -214,7 +218,13 @@ function DisplayTab() {
 const REMINDER_TAG = 'infralearn-daily-reminder';
 
 function ReminderCard() {
-  const [status, setStatus] = useState('checking'); // checking|unsupported|off|on|denied
+  // checking|unsupported|off|on|denied|failed — 'failed' is the Chrome-with-
+  // PWA-not-installed case: periodicSync EXISTS on the registration (so the
+  // enable button shows) but register() rejects with NotAllowedError. That
+  // used to fall through to detect() → 'off', i.e. the user granted the
+  // permission prompt and the button silently snapped back — a dead primary
+  // CTA on the exact browser most users have.
+  const [status, setStatus] = useState('checking');
 
   const detect = async () => {
     try {
@@ -234,10 +244,13 @@ function ReminderCard() {
       if (perm !== 'granted') return detect();
       const reg = await navigator.serviceWorker.getRegistration();
       // ~20h min interval → the browser fires it roughly daily at its own
-      // discretion (engagement-based). Registration can throw when the PWA
-      // isn't installed; detect() reports the resulting truth either way.
+      // discretion (engagement-based). Registration throws when the PWA
+      // isn't installed — surface that instead of silently no-oping.
       await reg.periodicSync.register(REMINDER_TAG, { minInterval: 20 * 60 * 60 * 1000 });
-    } catch { /* fall through to detect */ }
+    } catch {
+      setStatus('failed');
+      return;
+    }
     detect();
   };
   const disable = async () => {
@@ -263,6 +276,12 @@ function ReminderCard() {
         <p className="caption" style={{ fontSize: 12.5 }}>
           Notifications are blocked for this site — re-allow them in your browser's
           site settings, then come back.
+        </p>
+      ) : status === 'failed' ? (
+        <p className="caption" style={{ fontSize: 12.5 }}>
+          Almost — the browser only allows daily reminders for apps installed to
+          the home screen. Install InfraLearn (browser menu → &quot;Install app&quot; /
+          &quot;Add to Home screen&quot;), then tap the reminder button again.
         </p>
       ) : (
         <>
@@ -293,8 +312,16 @@ function ReviewTab() {
   // failure no longer renders in success-green.
   const [importMsg, setImportMsg] = useState(null);
 
-  const doExport = () => {
-    const blob = new Blob([exportData()], { type: 'application/json' });
+  const doExport = async () => {
+    // Bundle the IndexedDB evidence log alongside the store payload — a
+    // backup that omits it silently loses the forgetting curve on restore
+    // (evidenceLog.js promises "never leaves the device unless the user
+    // exports it"; this is that export path).
+    const payload = JSON.parse(exportData());
+    try {
+      payload.evidence = await readReviewEvents();
+    } catch { /* evidence is best-effort — the store backup still exports */ }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -307,7 +334,9 @@ function ReviewTab() {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
-  const MAX_IMPORT_BYTES = 1_000_000; // 1 MB — backup files should be a few KB at most.
+  // 5 MB — the store payload is a few KB, but a year of evidence-log events
+  // rides along now (~50 bytes each, capped at 20k).
+  const MAX_IMPORT_BYTES = 5_000_000;
   const onFile = (e) => {
     // Capture the input element NOW — React pools synthetic events, so
     // e.target is not reliable inside the async FileReader callbacks.
@@ -336,6 +365,16 @@ function ReviewTab() {
         return; // aborted — nothing imported
       }
       const res = importData(String(reader.result), mode);
+      // Restore the evidence log when the backup carries one (exact
+      // duplicates are skipped inside, so merging your own backup back in
+      // can't inflate the curve). Fire-and-forget — the store import is the
+      // part that must not fail silently.
+      if (res.ok) {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          if (Array.isArray(parsed?.evidence)) importReviewEvents(parsed.evidence);
+        } catch { /* store import already succeeded */ }
+      }
       setImportMsg(res.ok
         ? { ok: true, text: `Imported (${mode}).` }
         : { ok: false, text: `Import failed: ${res.error}` });

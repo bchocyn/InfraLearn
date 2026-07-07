@@ -77,7 +77,6 @@ export default function Home() {
           <h1 className="h1" style={{ marginBottom: 0 }}>InfraLearn<span className="dot">.</span></h1>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <EmberChip />
           <ComboChip />
           <StreakBadge />
         </div>
@@ -91,9 +90,11 @@ export default function Home() {
           per screen keeps the timer logic simple. */}
       <CelebrationMoment />
 
-      {/* Adaptive forgiveness-framed nudge — at most ONE per session.
-          Renders nothing when nothing helpful applies. */}
-      <NudgeCard />
+      {/* Multi-day lapser gets ONE warm card, not the cold default screen —
+          the lapsed user is a retention product's entire reason to exist.
+          It supersedes the nudge (one card, not two) and disappears on the
+          first activity of the day (recordActivity moves lastActivityDate). */}
+      <ComebackCard fallback={<NudgeCard />} />
 
       {!hideCompanion && <CampHero />}
 
@@ -197,6 +198,60 @@ export default function Home() {
   );
 }
 
+// Local-day gap between two 'YYYY-MM-DD' stamps. Small + timezone-safe
+// enough for "how many days away was the user" purposes.
+function dayGap(fromIso, toIso) {
+  const a = Date.parse(fromIso);
+  const b = Date.parse(toIso);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.round((b - a) / 86400000);
+}
+
+// ── Comeback card ────────────────────────────────────────────────────────
+// The day-10 returner used to get the coldest screen in the app: a silently
+// reset streak, an uncapped "N due" count, and nothing acknowledging they
+// came back. One warm card, one CTA, honest numbers. `fallback` renders
+// when there's no comeback to stage (the regular NudgeCard) so Home never
+// shows both.
+const COMEBACK_GAP_DAYS = 3;
+function ComebackCard({ fallback }) {
+  const nav = useNavigate();
+  const lastActivityDate = useStore((s) => s.lastActivityDate);
+  const highWater = useStore((s) => s.streakHighWater) || 0;
+  const completed = useStore((s) => s.completed) || {};
+  const reviewQueue = useStore((s) => s.reviewQueue);
+  const hideCompanion = useStore((s) => s.settings?.hideCompanion);
+
+  const today = localIsoDay();
+  const gap = lastActivityDate ? dayGap(lastActivityDate, today) : 0;
+  if (gap < COMEBACK_GAP_DAYS) return fallback || null;
+
+  const dueCount = getReviewsDue({ reviewQueue: reviewQueue || {} }).length;
+  const lessonsDone = Object.keys(completed).length;
+  return (
+    <div className="card fade-in" style={{ borderLeft: '3px solid var(--accent-amber)' }}>
+      <div className="kicker" style={{ color: 'var(--accent-amber)' }}>
+        WELCOME BACK · {gap} DAYS AWAY
+      </div>
+      <p style={{ fontSize: 14, fontWeight: 600, margin: '8px 0 4px' }}>
+        The camp kept the fire going{hideCompanion ? '' : ' — your beast waited'}.
+      </p>
+      <p className="caption" style={{ margin: '0 0 10px' }}>
+        {lessonsDone > 0
+          ? `${lessonsDone} lesson${lessonsDone === 1 ? '' : 's'} learned${highWater > 1 ? ` and a best streak of ${highWater}` : ''} — none of that went anywhere. Start small today${dueCount > 0 ? ': a short review session, the rest can wait' : ''}.`
+          : 'Pick up right where you left off — one small lesson restarts the fire.'}
+      </p>
+      <button
+        type="button"
+        className="btn btn-primary btn-block"
+        onClick={() => nav(dueCount > 0 ? '/reviews' : '/roadmap')}
+      >
+        {dueCount > 0 ? `Ease back in — a short review session →` : 'Back to the journey →'}
+      </button>
+    </div>
+  );
+}
+
 // ── Cliffhanger card (Zeigarnik open-loop) ───────────────────────────────
 // Surfaces the unresolved question from the user's most recently completed
 // lesson (when that lesson opted in via a top-level `cliffhanger` field).
@@ -215,6 +270,14 @@ function CliffhangerCard() {
 
   if (!pending || !pending.question || !pending.lessonId) return null;
 
+  // Date the tease honestly — the kicker hard-coded "FROM YESTERDAY", which
+  // reads as a lie to a returning user whose cliffhanger is a week old. Past
+  // 3 days the open loop has gone cold: drop it rather than stage stale
+  // curiosity (the comeback card owns that moment).
+  const age = pending.savedAt ? dayGap(pending.savedAt, localIsoDay()) : 1;
+  if (age > 3) return null;
+  const fromLabel = age <= 0 ? 'FROM EARLIER TODAY' : age === 1 ? 'FROM YESTERDAY' : `FROM ${age} DAYS AGO`;
+
   const onReveal = () => {
     const targetId = pending.lessonId;
     // Clear BEFORE nav so a quick back-button doesn't re-show the card.
@@ -227,7 +290,7 @@ function CliffhangerCard() {
 
   return (
     <div className="card cliffhanger-card fade-in">
-      <div className="kicker cliffhanger-kicker">⏳ FROM YESTERDAY · OPEN QUESTION</div>
+      <div className="kicker cliffhanger-kicker">⏳ {fromLabel} · OPEN QUESTION</div>
       <p className="cliffhanger-question">{pending.question}</p>
       <div className="row cliffhanger-actions">
         <button
@@ -251,24 +314,13 @@ function CliffhangerCard() {
   );
 }
 
-// ── Ember chip ───────────────────────────────────────────────────────────
-// The journey economy's visibility anchor (design doc §10) — embers ⟡ are
-// earned ONLY by learning actions and spent on journey content. Always
-// rendered (a visible 0 is the curiosity hook that pulls a new Keeper into
-// the loop); the count ticks live off the store.
-function EmberChip() {
-  const embers = useStore((st) => st.embers) || 0;
-  return (
-    <span
-      className="ember-header-chip"
-      role="status"
-      aria-label={`Embers: ${embers}`}
-      title="Embers — earned by learning, spent on the journey"
-    >
-      ⟡ {embers}
-    </span>
-  );
-}
+// (The ember header chip is gone: embers have earn sources but ZERO spend
+// sinks in shipped code — spendEmbers has no callers outside tests — so the
+// "curiosity hook" led nowhere and trained users to ignore the app's
+// signals. The balance still accrues dormant in the store; Journey remains
+// the place embers surface, where they at least carry narrative meaning.
+// Do not re-add a sink just to justify a chip — the locked decision gates
+// any economy expansion on a measured retention signal.)
 
 // ── Combo multiplier chip ────────────────────────────────────────────────
 // Tiny amber pill that sits next to the StreakBadge when the user is on a
@@ -464,25 +516,26 @@ function ReviewsDueTeaser() {
       <div className="caption" style={{ marginTop: 4 }}>
         5 min · spaced-repetition keeps it stuck
       </div>
-      <div className="row" style={{ gap: 8, marginTop: 10 }}>
-        <button
-          type="button"
-          className="btn btn-primary"
-          style={{ flex: 1 }}
-          onClick={(e) => { e.stopPropagation(); nav('/reviews'); }}
-        >
-          ▶ Start review
-        </button>
-        {/* Same cards, battle costume — markReviewed under both. */}
-        <button
-          type="button"
-          className="btn"
-          onClick={(e) => { e.stopPropagation(); nav('/watchfire'); }}
-          title="The same reviews as a watchfire patrol"
-        >
-          🔥 Patrol
-        </button>
-      </div>
+      {/* ONE primary CTA (the locked one-CTA mandate) — the patrol variant
+          is the same deck in battle costume (markReviewed under both), so it
+          rides below as a quiet text link, not a competing second button. */}
+      <button
+        type="button"
+        className="btn btn-primary btn-block"
+        style={{ marginTop: 10 }}
+        onClick={(e) => { e.stopPropagation(); nav('/reviews'); }}
+      >
+        ▶ Start review
+      </button>
+      <button
+        type="button"
+        className="btn btn-ghost btn-block"
+        style={{ marginTop: 4, fontSize: 12, opacity: 0.8 }}
+        onClick={(e) => { e.stopPropagation(); nav('/watchfire'); }}
+        title="The same reviews as a watchfire patrol"
+      >
+        🔥 …or walk them as a watchfire patrol
+      </button>
     </div>
   );
 }
@@ -632,13 +685,25 @@ function localIsoDay(d = new Date()) {
 // mount. Once resolved, remounts reuse it synchronously — no skeleton flash.
 let dailyQuestionsMod = null;
 
+// Paths the user has actually started (>=1 completed lesson) — the daily
+// pool draws only from these. A day-0 beginner used to get quizzed across
+// all 8 careers at once, with misses lighting up the red weak-spots card as
+// their first interactive moment.
+function touchedPathKeys() {
+  const completed = useStore.getState().completed || {};
+  return PATH_KEYS.filter((k) => PATHS[k].lessons.some((l) => completed[l.id]));
+}
+
 function DailyPractice() {
   // Same 5 picks for the whole calendar day. The picks come from the lazy
   // dailyQuestions chunk; `session` is null while that chunk loads (a small
   // skeleton renders below). The dayIndex-based seed keeps the result stable
   // within a day, so loading async can't change which questions appear.
+  // (Completing a first lesson in a NEW path mid-day changes the pool on the
+  // next mount — the persisted per-index verdicts still latch XP correctly,
+  // so the worst case is chips marking a reshuffled question. Acceptable.)
   const [session, setSession] = useState(() => (
-    dailyQuestionsMod ? dailyQuestionsMod.pickDailySession() : null
+    dailyQuestionsMod ? dailyQuestionsMod.pickDailySession(touchedPathKeys()) : null
   ));
   useEffect(() => {
     let cancelled = false;
@@ -646,12 +711,15 @@ function DailyPractice() {
       dailyQuestionsMod = m;
       // Keep the existing array identity if the initializer already seeded it
       // (cached module) — avoids a pointless re-render of the chips row.
-      if (!cancelled) setSession((cur) => cur || m.pickDailySession());
+      if (!cancelled) setSession((cur) => cur || m.pickDailySession(touchedPathKeys()));
     };
     if (dailyQuestionsMod) apply(dailyQuestionsMod);
     else import('../data/dailyQuestions.js').then(apply);
     return () => { cancelled = true; };
   }, []);
+  // Gated until the first lesson completes (same stance as DailyChallenge's
+  // empty state, minus a second unlock card — Home stays calm on day 0).
+  const anyCompleted = useStore((st) => Object.keys(st.completed || {}).length > 0);
   // Pull recordActivity off the store directly to keep finalization stable.
   const recordActivity = useStore((st) => st.recordActivity);
   // recordQuizMiss feeds Review Weak Spots on wrong MCQ answers.
@@ -787,6 +855,10 @@ function DailyPractice() {
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answered, idx, done, session]);
+
+  // AFTER all hooks (rules of hooks): day-0 users see no practice card at
+  // all until their first lesson is done.
+  if (!anyCompleted) return null;
 
   if (done) {
     return (

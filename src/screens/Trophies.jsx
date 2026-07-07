@@ -3,7 +3,7 @@
 // Layout:
 //   • 3-column grid on 375px+; 1-column at <375px (rare edge — fallback).
 //   • Each card: emoji-icon-in-circle (64px), name, unlock date, fake but
-//     deterministic "earned by N% of learners" social-proof string.
+//     honest "day N of your journey" unlock stat (no invented social proof).
 //   • Locked badges show as greyed silhouettes with the unlock hint.
 //   • Tap → modal: "How you earned this" + Share button (clipboard copy).
 //
@@ -22,13 +22,16 @@ import { PATHS, PATH_KEYS } from '../data/content.js';
 // Catalog is built dynamically so adding a new content section or path
 // auto-grows the trophy room without code changes here.
 
-// Deterministic-by-id fake stat: "earned by N% of learners". Same id always
-// produces the same number. Range 8..78 — never 100 (would feel meaningless)
-// and never single-digit (would feel discouraging).
-function fakePctEarned(id) {
-  let h = 5381;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) >>> 0;
-  return 8 + (h % 71);
+// Honest per-badge stat: "day N of your journey" — the day count from the
+// user's FIRST recorded activity to the badge's unlock date. (This replaced
+// a fabricated "earned by N% of learners" line: a serverless single-user
+// app has no learner population, and invented social proof in a product
+// whose evidence layer draws real retention curves is a trust time-bomb.)
+function journeyDayOf(unlockedAt, activityDays) {
+  if (!unlockedAt || !Array.isArray(activityDays) || activityDays.length === 0) return null;
+  const first = activityDays.reduce((min, d) => (d < min ? d : min), activityDays[0]);
+  const days = Math.round((Date.parse(unlockedAt) - Date.parse(first)) / 86400000);
+  return Number.isFinite(days) && days >= 0 ? days + 1 : null;
 }
 
 function buildCatalog() {
@@ -121,6 +124,7 @@ function buildCatalog() {
 
 export default function Trophies({ onClose }) {
   const badges = useStore((s) => s.badges) || {};
+  const activityDays = useStore((s) => s.activityDays) || [];
   const catalog = useMemo(buildCatalog, []);
   const [open, setOpen] = useState(null); // selected badge for the detail modal
 
@@ -154,7 +158,7 @@ export default function Trophies({ onClose }) {
           {catalog.map((b) => {
             const owned = !!badges[b.id];
             const unlockedAt = owned ? badges[b.id].unlockedAt : null;
-            const pct = fakePctEarned(b.id);
+            const day = owned ? journeyDayOf(unlockedAt, activityDays) : null;
             return (
               <button
                 key={b.id}
@@ -172,7 +176,7 @@ export default function Trophies({ onClose }) {
                     ? (unlockedAt || 'unlocked')
                     : 'locked'}
                 </div>
-                <div className="trophy-social mono">{pct}% earned</div>
+                {day !== null && <div className="trophy-social mono">day {day} of your journey</div>}
               </button>
             );
           })}

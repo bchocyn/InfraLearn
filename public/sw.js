@@ -252,16 +252,18 @@ self.addEventListener('fetch', (event) => {
 function readNotifyState() {
   return new Promise((resolve) => {
     try {
-      const open = indexedDB.open('infralearn-evidence', 1);
-      open.onupgradeneeded = () => {
-        // First open from the SW side — create the stores the app expects.
-        const db = open.result;
-        if (!db.objectStoreNames.contains('events')) db.createObjectStore('events', { autoIncrement: true });
-        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
-      };
+      // Open WITHOUT a version: takes whatever version exists. A pinned
+      // version here would throw VersionError the day the app bumps its
+      // schema (the schema is owned by src/data/evidenceLog.js — this file
+      // deploys on a different cadence) and reminders would silently die.
+      const open = indexedDB.open('infralearn-evidence');
       open.onsuccess = () => {
         try {
-          const tx = open.result.transaction('kv', 'readonly');
+          const db = open.result;
+          // A fresh versionless open can create an empty v1 DB with no
+          // stores (the app hasn't run yet) — treat that as "no state".
+          if (!db.objectStoreNames.contains('kv')) { db.close(); resolve(null); return; }
+          const tx = db.transaction('kv', 'readonly');
           const req = tx.objectStore('kv').get('notify-state');
           req.onsuccess = () => resolve(req.result || null);
           req.onerror = () => resolve(null);
@@ -278,7 +280,13 @@ async function showDailyReminder() {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   if (state.lastActivityDate === today) return; // already showed up today
-  const due = state.dueCount || 0;
+  // Recount due reviews AT FIRE TIME from the schedule the app wrote —
+  // this handler runs exclusively on days the app was NOT opened, which is
+  // exactly when a count snapshotted at last open under-reports. Fall back
+  // to the snapshot count for pre-schedule notify-state records.
+  const due = Array.isArray(state.dueDates)
+    ? state.dueDates.filter((d) => typeof d === 'string' && d <= today).length
+    : (state.dueCount || 0);
   const streak = state.streak || 0;
   const body = due > 0
     ? `${due} review${due === 1 ? '' : 's'} ready — the ${streak}-day watch holds until midnight.`
@@ -300,10 +308,17 @@ self.addEventListener('periodicsync', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || './';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) { if ('focus' in c) return c.focus(); }
-      return self.clients.openWindow('./');
+      // Same-ORIGIN isn't same-APP on a shared GitHub Pages origin (see the
+      // cache-prefix note up top): filter to clients inside THIS app's scope
+      // or the reminder tap focuses whatever sibling project tab is open.
+      const scope = self.registration.scope;
+      for (const c of list) {
+        if ('focus' in c && typeof c.url === 'string' && c.url.startsWith(scope)) return c.focus();
+      }
+      return self.clients.openWindow(target);
     })
   );
 });

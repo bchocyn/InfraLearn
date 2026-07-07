@@ -44,17 +44,83 @@ function openDb() {
   return dbPromise;
 }
 
-// Append one review-evidence event. Fire-and-forget.
+// Hard cap on stored events. A heavy user writes ~10-20k/year; without a cap
+// the log grows monotonically forever and every curve read getAll()s it into
+// memory. Trimming the OLDEST past the cap keeps recent evidence intact —
+// the curve is about current retention, not archaeology.
+const EVENTS_CAP = 20000;
+
+// Append one review-evidence event. Fire-and-forget. Occasionally trims the
+// oldest events past EVENTS_CAP (count() is cheap; the cursor-delete only
+// runs when actually over).
 export function logReviewEvent(conceptId, grade, elapsedDays) {
   openDb().then((db) => {
     const tx = db.transaction('events', 'readwrite');
-    tx.objectStore('events').add({
+    const store = tx.objectStore('events');
+    store.add({
       t: Date.now(),
       c: String(conceptId),
       g: grade,
       e: Number.isFinite(elapsedDays) ? elapsedDays : null,
     });
+    const countReq = store.count();
+    countReq.onsuccess = () => {
+      let excess = countReq.result - EVENTS_CAP;
+      if (excess <= 0) return;
+      const cursorReq = store.openCursor(); // ascending key order = oldest first
+      cursorReq.onsuccess = () => {
+        const cursor = cursorReq.result;
+        if (!cursor || excess <= 0) return;
+        cursor.delete();
+        excess -= 1;
+        cursor.continue();
+      };
+    };
   }).catch(() => {});
+}
+
+// Wipe everything this module owns — the events log AND the notify-state
+// bridge. Called by resetAll (and the ErrorBoundary nuke): "Reset all
+// progress — cannot be undone" must not leave a pre-reset forgetting curve
+// rendering or a stale streak in the reminder. Resolves true on success.
+export function clearEvidence() {
+  return openDb().then((db) => new Promise((resolve) => {
+    const tx = db.transaction(['events', 'kv'], 'readwrite');
+    tx.objectStore('events').clear();
+    tx.objectStore('kv').delete('notify-state');
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => resolve(false);
+  })).catch(() => false);
+}
+
+// Restore events from a backup file (Settings → Import). Validates each
+// record's shape and skips exact duplicates of events already in the log,
+// so merging your own backup back in can't double the curve's sample sizes.
+// Resolves the number of events written.
+export function importReviewEvents(events) {
+  if (!Array.isArray(events) || events.length === 0) return Promise.resolve(0);
+  const clean = events
+    .filter((ev) => ev && typeof ev === 'object'
+      && Number.isFinite(ev.t)
+      && typeof ev.c === 'string' && ev.c.length > 0 && ev.c.length <= 120
+      && Number.isInteger(ev.g) && ev.g >= 1 && ev.g <= 4
+      && (ev.e === null || Number.isFinite(ev.e)))
+    .slice(0, EVENTS_CAP);
+  if (clean.length === 0) return Promise.resolve(0);
+  return readReviewEvents().then((existing) => {
+    const seen = new Set(existing.map((ev) => `${ev.t}:${ev.c}:${ev.g}`));
+    const fresh = clean.filter((ev) => !seen.has(`${ev.t}:${ev.c}:${ev.g}`));
+    if (fresh.length === 0) return 0;
+    return openDb().then((db) => new Promise((resolve) => {
+      const tx = db.transaction('events', 'readwrite');
+      const store = tx.objectStore('events');
+      for (const ev of fresh) {
+        store.add({ t: ev.t, c: ev.c, g: ev.g, e: Number.isFinite(ev.e) ? ev.e : null });
+      }
+      tx.oncomplete = () => resolve(fresh.length);
+      tx.onerror = () => resolve(0);
+    }));
+  }).catch(() => 0);
 }
 
 // Read the full event log (newest last). Resolves [] on any failure.
@@ -69,7 +135,11 @@ export function readReviewEvents() {
 
 // ── Service-worker bridge ───────────────────────────────────────────────────
 // A single small record the SW reads to compose the daily reminder:
-// { streak, lastActivityDate, dueCount, updatedAt }.
+// { streak, lastActivityDate, dueCount, dueDates, updatedAt }.
+// `dueDates` is the SCHEDULE (sorted 'YYYY-MM-DD' dueAt stamps), not just a
+// snapshot count: the reminder fires exclusively on days the app was NOT
+// opened, which is exactly when a count frozen at last-open under-reports.
+// The SW counts dueDates <= today at fire time instead.
 export function setNotifyState(state) {
   openDb().then((db) => {
     const tx = db.transaction('kv', 'readwrite');

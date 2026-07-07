@@ -101,11 +101,16 @@ function CalibrationReadout() {
   );
 }
 
-// Personal forgetting curve — the north-star made visible. For each gap
-// band, the share of graded recalls that held (grade >= 3), read from the
-// append-only evidence log. This is what makes "users retain long-term"
-// FALSIFIABLE for the user themself: if the 15-30d bar is strong, the
-// spacing engine is doing its job; if it sags, the schedule needs work.
+// Personal retention readout — per gap band, the share of graded answers
+// that were right (grade >= 3), read from the append-only evidence log.
+// Honesty caveats baked into the render:
+//   - Per-band minimum n: a band under 5 reviews renders nothing — an n=1
+//     band drew a full-width 100% bar indistinguishable from real signal.
+//   - Copy says "answered right at the gaps the scheduler chose", NOT "the
+//     engine works": the sample is survivorship-shaped (stability only grows
+//     on success, misses reset toward 1d), so long-gap bands over-represent
+//     already-proven cards. A strong 31d+ bar is encouraging, not proof.
+const MIN_BAND_N = 5;
 function RetentionCurveReadout() {
   const [curve, setCurve] = useState(null);
   useEffect(() => {
@@ -115,13 +120,11 @@ function RetentionCurveReadout() {
     });
     return () => { live = false; };
   }, []);
-  const bands = (curve || []).filter((b) => b.total > 0);
-  // Needs a little real evidence before it says anything.
-  const totalEvents = bands.reduce((n, b) => n + b.total, 0);
-  if (totalEvents < 5) return null;
+  const bands = (curve || []).filter((b) => b.total >= MIN_BAND_N);
+  if (bands.length === 0) return null;
   return (
     <div className="calib-readout">
-      <div className="calib-title">Your forgetting curve <span className="calib-sub">· recall held, by gap</span></div>
+      <div className="calib-title">Your retention <span className="calib-sub">· answered right, by gap since last seen</span></div>
       {bands.map((b) => (
         <div className="calib-row" key={b.label}>
           <span className="calib-label mono">{b.label}</span>
@@ -131,6 +134,9 @@ function RetentionCurveReadout() {
           <span className="calib-val mono">{Math.round((b.pct || 0) * 100)}% · {b.total}</span>
         </div>
       ))}
+      <div className="calib-sub" style={{ marginTop: 4 }}>
+        Bands appear once they hold {MIN_BAND_N}+ reviews.
+      </div>
     </div>
   );
 }

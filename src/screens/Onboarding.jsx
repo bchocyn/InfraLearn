@@ -21,7 +21,9 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [pick, setPick] = useState('dragon');
-  const [pathPick, setPathPick] = useState('devops');
+  // Default to the recommended beginner path — the old default was 'devops'
+  // purely by accident of declaration order.
+  const [pathPick, setPathPick] = useState('fundamentals');
   const [hatching, setHatching] = useState(false);
 
   const setNameStore = useStore((s) => s.setName);
@@ -44,7 +46,7 @@ export default function Onboarding() {
   if (step === 0) return (
     <WelcomeStep
       name={name} setName={setName}
-      onNext={() => { setNameStore(name.trim()); setStep(1); }}
+      onNext={() => { setNameStore(name.trim() || 'Keeper'); setStep(1); }}
       stepIdx={0} totalSteps={totalSteps}
     />
   );
@@ -746,15 +748,18 @@ function WelcomeStep({ name, setName, onNext, stepIdx, totalSteps }) {
             </div>
           </div>
 
-          <div className="kicker" style={{ margin: '22px 0 6px' }}>What should we call you?</div>
+          <div className="kicker" style={{ margin: '22px 0 6px' }}>What should we call you? <span style={{ opacity: 0.6 }}>(optional)</span></div>
+          {/* No required typing before the first dopamine hit — an empty
+              name defaults to "Keeper" and Next is always live. Mandatory
+              text entry was the very first interactive demand of the app. */}
           <input
             ref={inputRef}
             value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="Display name..." className="ob-input"
-            onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) onNext(); }}
+            placeholder="Keeper" className="ob-input"
+            onKeyDown={(e) => { if (e.key === 'Enter') onNext(); }}
           />
 
-          <button className="btn btn-primary btn-block ob-cta" disabled={!name.trim()}
+          <button className="btn btn-primary btn-block ob-cta"
             onClick={onNext}>
             Next: choose your Byte Beast →
           </button>
@@ -806,11 +811,29 @@ function PathStep({ pathPick, setPathPick, onBack, onHatch, hatching, pickedBeas
           {PATH_KEYS.map((k) => {
             const p = PATHS[k];
             const active = pathPick === k;
+            // Soft steer only — free choice stays (the locked ADHD on-ramp
+            // decision bars hard gates), but a true beginner deserves ONE
+            // marked door instead of eight equal ones.
+            const recommended = k === 'fundamentals';
             return (
               <button key={k} onClick={() => setPathPick(k)} className={`ob-path-cell${active ? ' active' : ''}`}>
                 <span className="ob-path-icon">{p.icon}</span>
                 <span className="ob-path-meta">
-                  <span className="ob-path-name">{p.name}</span>
+                  <span className="ob-path-name">
+                    {p.name}
+                    {recommended && (
+                      <span
+                        className="mono"
+                        style={{
+                          marginLeft: 6, fontSize: 8, letterSpacing: '.08em',
+                          color: 'var(--accent-amber)', border: '1px solid var(--accent-amber)',
+                          borderRadius: 999, padding: '1px 5px', verticalAlign: 'middle',
+                        }}
+                      >
+                        START HERE
+                      </span>
+                    )}
+                  </span>
                   <span className="ob-path-count">{p.lessons.length} LESSONS</span>
                 </span>
               </button>

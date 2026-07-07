@@ -4,7 +4,7 @@ import { resolveTier, BEASTS, SPECIES_KEYS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as labProgressFromContent } from '../data/content.js';
 import { PROVINCES, LAPSE_KEYS, JOURNEY_CHAPTERS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
-import { logReviewEvent, setNotifyState } from '../data/evidenceLog.js';
+import { logReviewEvent, setNotifyState, clearEvidence } from '../data/evidenceLog.js';
 import { TAMER_KEYS } from '../data/tamers.js';
 import { ARMOR_KEYS } from '../data/armorSets.js';
 
@@ -889,7 +889,11 @@ export const useStore = create(
       // outcome of grading (caller does the grading — store doesn't know
       // the question shape). Side effects:
       //   - flips answered=true, stores the correct flag
-      //   - if correct: bumps dailyChallengeStreak, awards +8 XP, calls
+      //   - grades the concept's FSRS card (scheduleReview — the challenge
+      //     is a real retrieval event; before this it wrote nothing back,
+      //     so the stalest-concept picker could oscillate over the same
+      //     2-3 concepts forever for challenge-only users)
+      //   - if correct: bumps dailyChallengeStreak, awards +5 XP, calls
       //     recordActivity() so the global streak also counts
       //   - if incorrect: resets dailyChallengeStreak to 0 (loose streak —
       //     it's a fun nudge, not a punishment ladder), still calls
@@ -902,6 +906,7 @@ export const useStore = create(
         if (cur.date !== today) return;          // stale slot, ignore
         if (cur.answered) return;                // already answered today
         const isCorrect = !!correct;
+        if (cur.conceptId) get().scheduleReview(cur.conceptId, isCorrect ? 3 : 1);
         set((s) => {
           const next = {
             dailyChallenge: { ...cur, answered: true, correct: isCorrect },
@@ -1110,22 +1115,26 @@ export const useStore = create(
       // was defeated in a quiz battle. Watermark semantics like completeChapter:
       // XP mints only when the watermark actually advances, so replaying a
       // beaten stage is free practice, not a farm. Boss needs all 5 minions.
+      // Returns true only when the watermark advanced (XP actually minted) —
+      // the battle end screen shows the +XP banner off this, never off the
+      // outcome alone.
       recordBattleWin: (pathKey, stage) => {
-        if (!PATH_KEYS.includes(pathKey)) return;
+        if (!PATH_KEYS.includes(pathKey)) return false;
         const cur = get().battles?.[pathKey] || { minions: 0, boss: false };
         if (stage === 'boss') {
-          if (cur.boss || cur.minions < 5) return;
+          if (cur.boss || cur.minions < 5) return false;
           set((s) => ({ battles: { ...(s.battles || {}), [pathKey]: { ...cur, boss: true } } }));
           get().addXp(40, `battle:boss:${pathKey}`);
           get().recordActivity();
-          return;
+          return true;
         }
-        if (!Number.isInteger(stage) || stage < 1 || stage > 5) return;
+        if (!Number.isInteger(stage) || stage < 1 || stage > 5) return false;
         // Sequential: can only advance the watermark by exactly one.
-        if (stage !== cur.minions + 1) return;
+        if (stage !== cur.minions + 1) return false;
         set((s) => ({ battles: { ...(s.battles || {}), [pathKey]: { ...cur, minions: stage } } }));
         get().addXp(15, `battle:minion:${pathKey}:${stage}`);
         get().recordActivity();
+        return true;
       },
 
       // ── Spaced-repetition scheduler (gap-anchored) ───────────────────
@@ -1349,13 +1358,16 @@ export const useStore = create(
         }
         // Refresh the service-worker reminder bridge (IndexedDB — the SW
         // can't read localStorage). Fire-and-forget; called at most a few
-        // times per day because of the same-day no-op above.
+        // times per day because of the same-day no-op above. dueDates is the
+        // whole schedule — the SW recounts at fire time, so multi-day
+        // absences don't under-report (the count alone froze at last open).
         {
           const s2 = get();
           setNotifyState({
             streak: s2.streak,
             lastActivityDate: s2.lastActivityDate,
             dueCount: getReviewsDue({ reviewQueue: s2.reviewQueue }).length,
+            dueDates: dueDatesFor(s2.reviewQueue),
           });
         }
       },
@@ -1978,7 +1990,14 @@ export const useStore = create(
         }
       },
 
-      resetAll: () => set({ ...initial }),
+      // Reset = the store AND the IndexedDB evidence bucket. Without the
+      // clear, "cannot be undone" left the pre-reset forgetting curve
+      // rendering and the SW reminder holding the old streak — ghost data
+      // wearing a fresh account.
+      resetAll: () => {
+        set({ ...initial });
+        clearEvidence();
+      },
     }),
     {
       name: 'infralearn-store',
@@ -2350,6 +2369,18 @@ export function labProgress(state, labId) {
 export function beastForm(state) {
   const b = BEASTS[state.companion];
   return b ? b.forms[state.beastTier - 1] : '';
+}
+
+// The full review SCHEDULE as sorted 'YYYY-MM-DD' dueAt stamps — written to
+// the SW notify-state so the daily reminder can recount "due as of today" at
+// FIRE time (it fires only on no-show days, exactly when a count snapshotted
+// at last open goes stale). Capped well above any real queue size.
+export function dueDatesFor(reviewQueue) {
+  return Object.values(reviewQueue || {})
+    .map((e) => e?.dueAt)
+    .filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .sort()
+    .slice(0, 1000);
 }
 
 // Return the concept IDs whose review is due today or earlier, sorted by

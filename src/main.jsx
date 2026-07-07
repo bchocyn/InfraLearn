@@ -23,7 +23,7 @@ import EvolutionNotice from './components/EvolutionNotice.jsx';
 import PersistWarning from './components/PersistWarning.jsx';
 import { battleBlockForLessonId } from './data/battleMeta.js';
 import { setNotifyState } from './data/evidenceLog.js';
-import { getReviewsDue } from './store/useStore.js';
+import { getReviewsDue, dueDatesFor } from './store/useStore.js';
 import CoachTour from './components/CoachTour.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import KeyboardHelp from './components/KeyboardHelp.jsx';
@@ -114,7 +114,15 @@ function BattleGate({ children }) {
   if (completed?.[id]) return children;
   const gate = battleBlockForLessonId(id, battles);
   if (gate.blocked && gate.pathKey) {
-    return <Navigate to={`/battle/${gate.pathKey}/${gate.stage}`} replace />;
+    // Carry the barred lesson's id so the battle can say what it's blocking
+    // and route the win back to it instead of dumping the user on /roadmap.
+    return (
+      <Navigate
+        to={`/battle/${gate.pathKey}/${gate.stage}`}
+        state={{ fromLessonId: id }}
+        replace
+      />
+    );
   }
   return children;
 }
@@ -296,13 +304,15 @@ function App() {
 
   // Refresh the SW reminder bridge on app open: reviews come due overnight
   // with no store write, so dueCount would otherwise go stale in IndexedDB
-  // and the daily notification would under-report.
+  // and the daily notification would under-report. dueDates carries the
+  // whole schedule so the SW can recount at fire time on multi-day absences.
   useEffect(() => {
     const s = useStore.getState();
     setNotifyState({
       streak: s.streak,
       lastActivityDate: s.lastActivityDate,
       dueCount: getReviewsDue({ reviewQueue: s.reviewQueue }).length,
+      dueDates: dueDatesFor(s.reviewQueue),
     });
   }, []);
 
