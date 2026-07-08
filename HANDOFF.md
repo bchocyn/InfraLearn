@@ -1,210 +1,132 @@
 # InfraLearn — Session Handoff
 
-> Shareable summary of a large feature + correctness session. Copy/paste freely.
+> Shareable summary of the 2026-07 measurement-integrity + content sessions. Copy/paste freely.
 
 **What this is:** InfraLearn — an offline-first PWA learning tracker (React 18 + Vite/rolldown,
-Zustand → localStorage, HashRouter, GitHub Pages). 8 career paths (~264 lessons), a
-gap-anchored spaced-repetition engine, XP/streak/badges, a virtual "Byte Beast" companion, a
-story/journey layer, a world-map roadmap, and **Pokémon-style quiz battles**.
+Zustand → localStorage with an IndexedDB mirror, HashRouter, GitHub Pages). 8 career paths
+(**282 lessons** incl. per-path capstone ladders), a gap-anchored spaced-repetition engine with
+concept coalescing, XP/streak/badges, a virtual "Byte Beast" companion, a world-map roadmap,
+Pokémon-style quiz battles, and drag-to-order questions.
 
 - **Repo:** https://github.com/bchocyn/InfraLearn · **Live:** https://bchocyn.github.io/InfraLearn/
-- **State at handoff:** everything committed + pushed to `main`. **HEAD `a52da27`**, deploy
-  verified live (compared the live `sw.js` chunk hash against the local build — byte match).
-  **386/386 tests · ESLint clean · build clean.** Working tree clean.
-- **Two companion docs are the living backlog** (read these first next session):
-  - **`IMPROVEMENTS.md`** — prioritized, evidence-backed roadmap (Tier 0–4 + "don't build" list),
-    with `file:line` citations and a Cookie-Run design-research section (R1–R7) + Fable-5
-    game-feel lessons (G1–G6). Items done this session are marked ✅.
-  - **`DEVILS-ADVOCATE.md`** — adversarial architecture critique (11 decisions steelmanned then
-    contested) + a world-map addendum (A1–A6).
+- **State at handoff:** Sprints 1–3 (`cab4b91`…`4d22785`) are pushed + deploy-verified (live
+  `sw.js` byte-matched the local build modulo CRLF). Sprints A–C are committed locally,
+  **NOT yet pushed**. Tests **466+ · ESLint clean · build clean** at every commit.
+- **The audit docs (`IMPROVEMENTS.md`, `DEVILS-ADVOCATE.md`) predate these sessions** — most of
+  their Tier 0–3 items and the world-map addendum (A1–A6) are now DONE; treat this file as
+  current and those as background rationale.
 
 ---
 
-## This session's commits (`36215d2` → `a52da27`)
+## The headline: the measurement layer is honest now
 
-```
-a52da27 Retrigger Pages deploy (deploy-pages step 500'd transiently on 6c250ae)
-6c250ae Remove free recall — every testing surface is MCQ + feedback
-b79d37c World map: single-file voyage — one continent per row, connected route
-5405098 World map goes portrait — phone-first vertical layout
-7a6a6e5 Reviews become quiz-first; CampHero gets a pixel-art scene
-145709b Evidence layer, gap-anchored scheduler, reminders, full content coverage
-a536d00 World map, quiz battles, Tier-0 fixes, skill-rank removal
-eb29c65 Add audit docs: IMPROVEMENTS backlog + DEVILS-ADVOCATE critique
-```
+The 2026-07 consulting review found the testing loop *looked* right but measured
+answer-memorization, not recall. All five compromises are fixed:
 
-## 1 · World-map roadmap (the Roadmap tab is now a map)
+1. **Frozen probes** — Reviews/Watchfire asked the identical question with the identical option
+   order forever (`pickReviewQuestion(id, 0)`). Now salted by the card's rep count.
+2. **Answer leakage** — correct sat at slot B in 83% of mathQuizzes and was the strictly-longest
+   option in 75–93% of legacy banks. Every serving surface now shuffles options (with
+   answer/whyWrong remaps), the legacy banks' verbose correct options were split (elaborations
+   MOVED into whyCorrect, nothing deleted), throwaway distractors upgraded, and answer slots
+   rebalanced. `tests/question-bank-quality.test.js` gates all of it with **zero allowlists**.
+3. **Thin banks** — six paths had 5–7 questions total (the faang boss repeated its 5th question
+   three times in 7 turns). 150 new questions authored; every path now holds 27–39, every boss
+   deals a full hand, pools are floor-gated at 25.
+4. **Ungraded surfaces** — battles, the daily challenge, and daily practice wrote nothing back.
+   Battles now `scheduleReview` first attempts on completed lessons (no XP — rewards stay
+   watermark-latched); the challenge grades its concept and finally populates **calibration**;
+   daily practice files/clears weak spots under the real lesson.
+5. **Wrong attribution** — reviews for the ~270 lessons without their own quiz bank fell back to
+   keyword guesses. 136 daily-bank questions are now `lessonId`-tagged (stopword-filtered,
+   plural-folded title matching, hand-audited) and the picker prefers exact tags, blending in
+   related questions when only one tag exists so the salt keeps variety.
 
-- **`src/screens/WorldMap.jsx`** — the Roadmap tab **lands on a world map** (A1 from the
-  devil's-advocate doc: one map system, not two). 8 continents as flat top-down pixel-art
-  landmasses (pixellab, backgrounds keyed transparent), each themed to its province. Fog over
-  unstarted provinces; the province's **Lapse boss stands greyed on its own continent**;
-  medallion progress rings; a live "you are here" halo on the active continent.
-- **Layout is a single-file vertical voyage** (`WORLD_W 480 × WORLD_H 2260`): one continent per
-  row in learning order, alternating L/R, threaded by a **dotted sea-route** — phone-first
-  (it scrolls down like Cookie Run's own map). Hero "Continue" CTA rides **above** the map.
-- **Tap a continent → the serpentine trail drill-in** (the existing per-province Roadmap trail,
-  with its PixelLab landscape + cutscenes). "← World map" sails back. `Roadmap` takes an
-  `initialView` prop (`'world'|'trail'`) so tests/deep-links can target the trail.
-- The old `/worldmap` dev route still exists as a standalone prototype but the shipped path is
-  the Roadmap landing.
+## What shipped, by commit
 
-## 2 · Pokémon-style quiz battles (NEW)
-
-- **`src/screens/Battle.jsx`** + **`src/data/battles.js`** (heavy, lazy) + **`src/data/battleMeta.js`**
-  (light, eager — the Roadmap reads it). Route `/battle/:pathKey/:stage`, stage `1..5` | `'boss'`.
-- Per path: **5 minion encounters + 1 boss.** Each battle is **5 questions (boss: 7), 4 options,
-  one per turn.** Pokémon layout: enemy card + HP bar top-left, animated minion top-right, your
-  Byte Beast (flipped) bottom-left, hearts bottom-right, question in the dialogue box, the 4
-  answers as the 4 colored menu buttons. Keys 1–4 answer, Enter advances.
-- **Honest under the costume:** questions come from the due path's own material
-  (`mathQuizzes[lessonId]` for completed lessons first, then title-matched daily-bank
-  questions). Right = `markReviewed(id, 3)`, wrong = `markReviewed(id, 1)` + a weak-spot entry.
-  XP is **watermark-latched** (`recordBattleWin` in the store; minion +15, boss +40) so replays
-  are free practice, unfarmable. Wins count toward the streak.
-- **Minions bar the road** (Pokémon-trainer style): an unbeaten encounter at trail-fraction k/6
-  blocks NEW lessons past it — enforced on the trail **and** at the `/lesson/:id` route via a
-  `BattleGate` wrapper in `main.jsx`. Completed lessons stay freely reviewable; the tap routes
-  to the due fight, never a dead end. Gate math lives in `battleMeta.battleGateForLesson` /
-  `battleBlockForLessonId`.
-- **Sprites** (pixellab, in `public/worldmap/`): 8 continent islands (`island-{key}.png`), 4
-  Lapse bosses (`beasts/null_*.png`), 4 minion base sprites + **animated idle loops**
-  (`anim/minion-{lapse}-{0..4}.png`, played via `AnimatedSprite`). Minions are "descendants" of
-  their boss (Bitling/Cinderling/Driftling/Letheling).
-- **Store:** new `battles: {[pathKey]:{minions,boss}}` field, **persist version bumped to 18**,
-  scrub + merge + migration + tests (`tests/store-battles.test.js`). A CI drift-guard
-  (`BATTLE_BANKED_PATHS`) fails if the eager path list disagrees with what the banks can deal.
-
-## 3 · Engine correctness (the core loop, made honest)
-
-- **Gap-anchored scheduler** (`scheduleReview` in `useStore.js`): stability growth now scales by
-  `sqrt(elapsed/expected)` clamped `[0.25, 1.5]` — same-day massing earns a quarter increment,
-  on-time the full, overdue-but-recalled a bonus. Previously intervals depended only on review
-  *count* (ignored elapsed time). **Difficulty now responds to every grade**; Hard is floored
-  strictly sooner than Good. Tests updated (`tests/store-retention.test.js`).
-- **XP economy gradient fixed.** Recognition now pays strictly below graded recall: daily
-  practice `+4`, daily challenge `+5`, math-quiz first-sight `+6` (was `+8`), all ≤ `review:good
-  +6`. `docs/retention-engine.md` rewritten to match the code (the old doc over-claimed FSRS-6
-  and had an inverted table).
-
-## 4 · Free recall REMOVED (owner decision)
-
-- Every type-what-you-remember flow is gone: **Daily Practice** (MCQ-only now; wrong answers
-  feed weak spots, which used to be recall-only), **Reviews** (`src/screens/Reviews.jsx` is
-  quiz-per-due-card), **Watchfire** (quiz patrol — correct strikes + auto-advance, wrong costs a
-  heart and holds on the why-wrong feedback). No textareas / self-grade anywhere.
-- Retired: `recall:first` badge (earned copies survive, no longer displayed), `recall:got-it`
-  +12 XP path; legacy `settings.practiceMode` / `settings.reviewMode` keys are ignored.
-- **Known trade-off:** the scheduler now only ever hears grade 3 (right) or 1 (miss) — no
-  Hard/Easy. The gap anchor handles nuance, but a "that was close" secondary tap is a cheap
-  future add if shaky-but-correct cards feel like they return too slowly.
-
-## 5 · Evidence layer + re-engagement (NEW)
-
-- **`src/data/evidenceLog.js`** — append-only IndexedDB review log `{t, concept, grade, elapsed-gap}`
-  (own quota bucket, survives localStorage pressure). `scheduleReview` logs each graded review.
-  **ProgressPanel draws a personal forgetting curve** (recall held, by gap band) — the north-star
-  claim made falsifiable for the user. The same DB carries a tiny KV "notify-state" bridge for
-  the service worker (the SW can't read localStorage).
-- **Daily reminder** (`public/sw.js` `periodicsync` + `notificationclick` handlers + a
-  `ReminderCard` in Settings): one nudge on no-activity days ("N reviews due · streak holds"),
-  via Periodic Background Sync + Notifications. Honest about support (needs an installed PWA on
-  Chrome/Android; the card says so elsewhere). No server, no account.
-
-## 6 · Tier-0 durability + quality fixes
-
-- **ESLint installed + wired into CI** (`.github/workflows/deploy.yml` now lints before test +
-  build). The prior handoff's "ESLint clean" was false — it was never installed. First run
-  caught a real crash bug (undefined `embers` prop in the shipped `Journey.jsx`).
-- **Persist durability:** `.bak` rotation before every write + corrupt-read recovery in the
-  custom storage (`useStore.js`); a **`persistFailed` banner** (`PersistWarning.jsx`) on
-  quota/private-mode failures; ErrorBoundary now offers "Download backup first" before its nuke,
-  and nukes both keys.
-- **Reduced-motion toggle actually works** — `main.jsx` stamps `data-reduced-motion` on `<html>`
-  from the setting; CSS snaps animations to their end state (was media-query-only, so the
-  in-app toggle did nothing).
-- **`@vitejs/plugin-react` 4 → 6** — kills the rolldown "Invalid input options: jsx" dev warnings.
-- **Skill ranks removed** (novice/junior/senior/distinguished): the picker, rank ladder, and
-  displays are gone; **beast evolution re-based onto lessons-completed** (same 4/10 thresholds
-  the rank used, so evolution pacing is unchanged).
-
-## 7 · Content coverage + a11y + Home
-
-- **All 8 paths now have question banks** — authored `fullstack` + `cybersec` daily-question
-  banks (55 grounded questions) via a content fan-out workflow, so daily practice, journey
-  encounters, and **battles work on every path**.
-- **All 16 broken `bash` practice blocks converted to `build-along`** (the blessed pattern) — no
-  more in-app terminal returning "command not found" for `curl`/`node`/`npm`.
-- **A11y:** route-change scroll reset + focus-to-`<main>` + a skip link (`main.jsx`, WCAG 2.4.1).
-- **Home:** a Projects teaser card (gated on ≥3 completed lessons) surfaces the capstone ramp
-  that was buried two taps deep in Library.
-
-## 8 · CampHero pixel-art scene
-
-- `src/components/CampHero.jsx` — replaced the hand-drawn SVG sky/hills/fire with two pixel-art
-  camp backdrops (`public/worldmap/camp-day.png` / `camp-night.png`, chosen by time of day) +
-  a breathing glow. **The beast is visible at night now** (firelight rim; the old sleepy filter
-  was erasing it). Identity strip collapsed to one line. `scripts/key-worldmap.mjs` hard-excludes
-  `camp-*.png` (they're full-bleed scenes; keying would eat the sky).
-
----
+- **`cab4b91` Sprint 1 — the loop measures recall again**: picker salt · option shuffles ·
+  daily challenge → real MCQ + confidence calibration · battle integrity (deck clamp, locked
+  encounters get a fogged screen instead of deep-link XP, truthful +XP banner, gate context —
+  battles name the lesson they block and the win CTA continues to it) · "That was close"
+  grade-2 tap on Reviews · trail nodes tappable + keyboard-reachable · `map/`,
+  `roadmap-scenes/`, eggs, keeper anims precached with a build-failing substitution guard.
+- **`f776e13` Sprint 2 — trust & lifecycle**: evidence log cleared on reset/nuke + round-trips
+  through backups (dedup on import, 20k-event self-cap) · forgetting curve hides n<5 bands +
+  honest copy · reminder failed-state with install hint, SW recounts due reviews at fire time
+  from the written schedule, notification click scoped to THIS app on the shared origin ·
+  fake trophy % → real "day N of your journey" · sinkless EmberChip removed from Home ·
+  one-CTA reviews card (patrol demoted to a text link) · comeback flow (welcome-back card,
+  8-review capped first session, honest cliffhanger dating, >3d cliffhangers expire) · day-0
+  fixes (daily practice gated + touched-paths pool, optional name, START HERE badge,
+  fundamentals default).
+- **`4d22785` Sprint 3 — content at scale**: 150 bank questions · 47 synthesis blocks gained
+  commit-before-reveal questions (XP only on a correct commitment; the free reveal tap pays
+  nothing) · **18 capstone projects** (guided lab → semi lab → open sd × 6 paths, incl. the
+  mleng RAG build, fundamentals CLI task tracker, cybersec vault), `unlockAfter`-chained,
+  section "Capstone projects" · quality gates + the inverse content-integrity test (every
+  PATHS id must have an authored body).
+- **(unlabeled, rode `ebd603d`)**: review attribution (lessonId tags + tiered picker) and the
+  **drag-to-order question type** — `OrderQuestion.jsx` (pointer-drag grip, arrow keys, ↑/↓
+  buttons), 16 authored order questions serving daily practice/Reviews/Watchfire (battles and
+  the challenge exclude them by design).
+- **`ebd603d` Sprint A — trust & data safety**: `useFocusTrap` on all seven aria-modal
+  surfaces · **iOS-eviction survival** (every persist flush mirrors the store blob into
+  IndexedDB — on the quota-failure path too; boot recovery restores it when both localStorage
+  copies are gone; `navigator.storage.persist()` requested; reset/nuke clear the mirror so a
+  wipe can't resurrect) · legacy bank rewrite (see headline #2).
+- **`b7424a0` Sprint B — map & perf**: world↔trail is a REAL route (`/roadmap` vs
+  `/roadmap/:pathKey` — back button, deep links, focus reset; returning auto-scrolls the
+  active continent into view) · WorldView extracted, the `/worldmap` prototype deleted (it was
+  riding the eager bundle via a static import; `/worldmap` now redirects) · **map art
+  quantized** (`scripts/quantize-map-art.mjs`, pngquant-bin devDep): 1,307 KB → 419 KB (−68%)
+  · **Python practice works offline after one online run** (SW serves
+  `cdn.jsdelivr.net/pyodide/*` cache-first from a deploy-stable cache).
+- **Sprint C — feel & clarity** (this commit): G1 juice (tapped option pops/shakes + a "+N XP"
+  mote where XP mints at tap time; reduced-motion snaps it away) · **density fixes** — sections
+  can carry `takeaway` ("☝ THE ONE THING" chip) and `deep: true` (collapses behind "Go deeper ▸");
+  the first 8 fundamentals lessons are tagged (16 takeaways, 6 deep sections); **168 lesson
+  `min` labels recomputed honestly** from word counts (a "5 MIN" lesson with 1,000 words now
+  says 9) · **concept coalescing** — `src/data/conceptTags.js` tags the cross-path duplicates
+  (SQL ×3, caching ×3, monitoring ×4, TLS ×2); the due list serves one sibling per concept per
+  day and a grade-≥3 recall defers near-due siblings two days (a deferral, never fabricated
+  evidence) · this HANDOFF refresh.
 
 ## How to run / verify
 
 ```bash
 npm install --legacy-peer-deps   # peer tree requires the flag (CI uses it too)
-npm run dev                      # http://localhost:5173/InfraLearn/  (Roadmap → world map)
-npm run lint                     # ESLint — now real, wired into CI
-npm test                         # 386 tests (10 files)
+npm run dev                      # http://localhost:5173/InfraLearn/
+npm run lint                     # ESLint, wired into CI
+npm test                         # vitest (13 files)
 npm run build && npm run preview # production at http://localhost:4173/InfraLearn/
+node scripts/quantize-map-art.mjs   # idempotent; run after regenerating any map art
 ```
 
-Dev tricks: `window.__ascend('devops')` triggers the Ascension cinematic; jump straight to a
-battle at `#/battle/devops/1`.
+Dev tricks: `window.__ascend('devops')` triggers the Ascension cinematic; `#/battle/devops/1`
+jumps into a fight; `#/roadmap/mleng` deep-links a province trail.
 
-**Art pipeline (pixellab MCP):** async + credit-based; generated map objects auto-delete after
-8h (download promptly). All map art is background-keyed transparent via
-`node scripts/key-worldmap.mjs [all]` (idempotent; `island-*` by default, `camp-*` always
-excluded). pixellab sometimes returns isometric vs flat inconsistently — re-roll outliers.
-Frame-URL animations come from `get_object` (not `get_map_object`).
-
-**Deploy gotcha (bit us this session):** GitHub's `actions/deploy-pages` step occasionally 500s
-transiently even when build is green — retrigger with an empty commit. **Always verify a deploy
-by comparing a local `dist/sw.js` chunk hash against the live `sw.js`** (don't trust the run
-status alone; a stale poll once reported the wrong run's result).
-
----
+**Deploy gotcha (standing):** GitHub's `deploy-pages` step occasionally 500s transiently —
+retrigger with an empty commit, and always verify by comparing the local `dist/sw.js` against
+the live one (byte-identical after CRLF→LF normalization; check a hashed chunk name appears in
+the live precache manifest).
 
 ## Known follow-ups / not done
 
-**Immediate (owner was mid-decision):**
-- **Projects catalog is thin — expansion recommended, NOT built.** Of 26 "projects", only **6
-  are real builds**; the other 20 are `sd` design-*reading* lessons. **Fundamentals and Cybersec
-  have ZERO projects**; Fullstack has 1; swe/mlops/mleng have no *labs* (only design readings).
-  A per-path capstone ladder (~17 new: one guided build / one build-yourself / one architect
-  challenge each, incl. an ML-Eng **RAG** project, a Fundamentals CLI tool, a Cybersec vault) was
-  scoped and offered — run the same content fan-out to author it. This also finally answers the
-  long-open "should projects have prerequisites?" question (labs already support `unlockAfter`).
-  Also: label the 20 `sd` entries as "Design challenges" so builds vs readings are distinguishable.
-
-**From IMPROVEMENTS.md, still open (see that doc for detail):**
-- Dialog **focus traps** on Trophies / Codex / KeyboardHelp / CoachTour (aria-modal without a
-  trap) — §3.3.
-- **Concept-dedup tags** (SQL ×4, caching ×3 taught cold across paths → uncoordinated review
-  cards) — §3.5.
-- **G1 juice pass** — layered feedback on answer taps (the highest-frequency interaction) — G1.
-- **Self-host Pyodide** (Python practice is CDN-only → dead offline) — §3.7.
-- A **"that was close" grade** to restore Hard/Easy signal to the scheduler (see §4 above).
-
-**Standing / lower urgency:**
-- **Cloud sync** (`src/cloud/`) is built but **dormant** — needs the owner's Firebase config
-  (`docs/SETUP-CLOUD.md`). DEVILS-ADVOCATE §8 recommends moving `firebase` to an optional dep and
-  env-gating its CSP while it ships dark.
-- **Journey design doc** (`docs/journey-design.md`) still reads as a committed backlog; the ember
-  economy is partially built upstream. Treat further RPG expansion as gated on a retention signal.
-- The prior handoff's "deferred deep-dive bugs" list (walkthrough edge-label fallback,
-  `mlops-ab-testing` 5th actor lane, etc.) was not revisited — likely still open.
-
-**Docs to trust:** `IMPROVEMENTS.md` and `DEVILS-ADVOCATE.md` are current as of this session and
-are the source of truth for what's worth doing next and why. `docs/retention-engine.md` was
-rewritten to match the shipped scheduler + economy. This file summarizes; those go deep.
+- **Push Sprints A–C** (committed locally at handoff).
+- **Density tagging beyond the ramp**: the takeaway/deep mechanism is live app-wide but only
+  the first 8 fundamentals lessons are tagged — the same pass (see
+  `scratchpad ramp-density.mjs` pattern) fits any path.
+- **Watchfire's fate**: the one-CTA demotion shipped, but the product review still recommends
+  deleting it outright (a literal duplicate of Reviews with a second HP metaphor) — owner call.
+- **Cloud sync** stays dormant (`docs/SETUP-CLOUD.md`); firebase is still a hard dep with a
+  permanently widened CSP (DEVILS-ADVOCATE §8's optional-dep + env-gated-CSP trim is unbuilt),
+  and `src/cloud` still has no tests.
+- **Journey doc** (`docs/journey-design.md`) still reads as a committed backlog; keep RPG
+  expansion gated on a retention signal (locked decision).
+- Smaller: G2 beast barks in the answer loop · predict-block sweep beyond the 47 synthesis
+  commits · `checkJs`+JSDoc on the store/blocks seams · 404.html hardcoded base ·
+  per-path lesson-chunk precache (IMPROVEMENTS 3.6) · `docs/retention-engine.md` hasn't been
+  re-checked against the coalescing/deferral additions.
+- **The strategic one:** the measurement layer now exists and is honest — the bottleneck is
+  users. Distribution/sharing is unexplored (and BrowserRouter/OG-unfurl work only pays off
+  once a share feature exists — see DEVILS-ADVOCATE §4).

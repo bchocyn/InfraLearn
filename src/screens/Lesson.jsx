@@ -1394,6 +1394,31 @@ function PredictBlock({ block, idx }) {
 //      Honesty XP is the load-bearing detail — without it ADHD readers
 //      silently rubber-stamp every answer ("yeah close enough"). The
 //      revisit option is incentivized just enough to be picked.
+// DeepSection — collapsible wrapper for a section tagged `deep: true`.
+// The newcomer ramp measured 700-1,000 words per lesson with every block
+// carrying equal visual weight; deep sections put the nice-to-know material
+// behind one tap so a first pass reads only the core. Collapsed by default,
+// state is per-mount (a revisit starts collapsed again — that's the point).
+function DeepSection({ count, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="lesson-deep" data-open={open || undefined}>
+      <button
+        type="button"
+        className="lesson-deep-toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {open ? '▾ Collapse' : `▸ Go deeper`}
+        <span className="lesson-deep-hint">
+          {open ? '' : ` — optional detail (${count} block${count === 1 ? '' : 's'}); the core continues below`}
+        </span>
+      </button>
+      {open && <div className="lesson-deep-body">{children}</div>}
+    </div>
+  );
+}
+
 // Synthesis Challenge — a commit-then-reveal integration prompt. The learner
 // thinks through how the lesson's concepts fit together, COMMITS to a
 // concrete forced-choice about it (block.commit — 2-4 authored options),
@@ -2736,7 +2761,10 @@ export default function Lesson() {
     for (const g of visiblePage) {
       if (g.section) {
         if (g.section.heading) n += 1;
-        n += Array.isArray(g.section.body) ? g.section.body.length : 0;
+        // deep sections render collapsed as ONE tracked unit (the expander);
+        // their inner blocks aren't individually observed by the rail.
+        if (g.section.deep) n += 1;
+        else n += Array.isArray(g.section.body) ? g.section.body.length : 0;
       }
     }
     return n;
@@ -3078,7 +3106,33 @@ export default function Lesson() {
                         </h3>
                       );
                     })()}
-                    {bodyArr.map((b, bidx) => {
+                    {/* "The one thing" — a single-sentence takeaway chip under
+                        the heading, so a skimmer keeps the section's spine
+                        even when they skip the detail (density fix for the
+                        newcomer ramp). */}
+                    {sec.takeaway && (
+                      <div className="lesson-takeaway">
+                        <span className="lesson-takeaway-kicker mono">☝ THE ONE THING</span>
+                        <span className="lesson-takeaway-text">{renderInline(sec.takeaway, `tk-${sidx}`)}</span>
+                      </div>
+                    )}
+                    {sec.deep ? (() => {
+                      // Deep section: nice-to-know material collapses behind
+                      // an expander so a first pass reads only the core.
+                      // ONE tracked unit for the progress rail.
+                      const bi = cursor++;
+                      return (
+                        <div ref={trackedRef(bi)} data-block-idx={bi} className="lesson-block-wrap">
+                          <DeepSection count={bodyArr.length}>
+                            {bodyArr.map((b, bidx) => (
+                              <div key={`${sidx}-${bidx}`} className="lesson-block-wrap">
+                                <Block block={b} idx={`${sidx}-${bidx}`} lessonId={id} />
+                              </div>
+                            ))}
+                          </DeepSection>
+                        </div>
+                      );
+                    })() : bodyArr.map((b, bidx) => {
                       const bi = cursor++;
                       return (
                         <div

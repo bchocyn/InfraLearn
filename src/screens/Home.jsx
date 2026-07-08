@@ -980,7 +980,14 @@ function DailyPractice() {
               if (answered && correct) cls += ' dp-correct';
               else if (answered && wasPicked) cls += ' dp-wrong';
               return (
-                <button key={i} className={cls} disabled={answered} onClick={() => submit(i)}>
+                <button
+                  key={i}
+                  className={cls}
+                  disabled={answered}
+                  onClick={() => submit(i)}
+                  data-juice={answered && wasPicked ? (correct ? 'pop' : 'shake') : undefined}
+                  data-xp={answered && wasPicked && correct ? 4 : undefined}
+                >
                   <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
                   <span className="dp-text">{o}</span>
                   {answered && correct  && <span className="dp-mark">✓</span>}

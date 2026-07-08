@@ -285,7 +285,14 @@ export default function Reviews() {
                 if (picked !== null && i === q.answer) cls += ' dp-correct';
                 else if (picked !== null && i === picked) cls += ' dp-wrong';
                 return (
-                  <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
+                  <button
+                    key={i}
+                    type="button"
+                    className={cls}
+                    disabled={picked !== null}
+                    onClick={() => pick(i)}
+                    data-juice={picked === i ? (i === q.answer ? 'pop' : 'shake') : undefined}
+                  >
                     <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
                     <span className="dp-text">{o}</span>
                   </button>

@@ -364,6 +364,7 @@ export default function Battle() {
               className={`btl-opt btl-opt-${i}${tone}`}
               onClick={() => choose(i)}
               disabled={picked !== null}
+              data-juice={isPicked ? (i === q.answer ? 'pop' : 'shake') : undefined}
             >
               <span className="btl-opt-key">{i + 1}</span>
               <span className="btl-opt-text">{opt}</span>

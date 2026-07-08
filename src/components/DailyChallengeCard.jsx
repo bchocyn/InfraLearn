@@ -243,6 +243,8 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
               className={cls}
               disabled={picked !== null}
               onClick={() => pickOption(i)}
+              data-juice={answered && wasPicked ? (isAnswer ? 'pop' : 'shake') : undefined}
+              data-xp={answered && wasPicked && isAnswer ? 5 : undefined}
             >
               <span className="daily-opt-letter">{String.fromCharCode(65 + i)}</span>
               <span className="daily-opt-text">{opt}</span>

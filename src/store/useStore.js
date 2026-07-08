@@ -5,6 +5,7 @@ import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as l
 import { PROVINCES, LAPSE_KEYS, JOURNEY_CHAPTERS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
 import { logReviewEvent, setNotifyState, clearEvidence, mirrorStore } from '../data/evidenceLog.js';
+import { CONCEPT_TAGS, conceptSiblings } from '../data/conceptTags.js';
 import { TAMER_KEYS } from '../data/tamers.js';
 import { ARMOR_KEYS } from '../data/armorSets.js';
 
@@ -1212,7 +1213,24 @@ export const useStore = create(
             reps: prev.reps + 1,
             lapses,
           };
-          return { reviewQueue: { ...s.reviewQueue, [conceptId]: next } };
+          const queue = { ...s.reviewQueue, [conceptId]: next };
+          // Concept coalescing (the other half of getReviewsDue's dedupe):
+          // recalling this card just exercised the same memory its cross-path
+          // siblings test, so siblings due within a day get DEFERRED two days
+          // out. A deferral only — reps/stability/evidence stay untouched
+          // (fabricating review history from a sibling would corrupt the
+          // forgetting curve). Misses defer nothing: a failed recall says
+          // the concept needs MORE looks, not fewer.
+          if (g >= 3) {
+            const horizon = addDays(today, 1);
+            for (const sib of conceptSiblings(conceptId)) {
+              const entry = queue[sib];
+              if (entry && entry.dueAt && entry.dueAt <= horizon) {
+                queue[sib] = { ...entry, dueAt: addDays(today, 2) };
+              }
+            }
+          }
+          return { reviewQueue: queue };
         });
       },
 
@@ -2405,5 +2423,19 @@ export function getReviewsDue(state) {
     }
   }
   due.sort((a, b) => (a.dueAt < b.dueAt ? -1 : a.dueAt > b.dueAt ? 1 : 0));
-  return due.map((d) => d.conceptId);
+  // Concept coalescing: lessons sharing a CONCEPT_TAGS tag (SQL taught in
+  // two paths, caching in three, …) are the same memory — serving several
+  // of them in one session is redundant review, not extra retention. Only
+  // the OLDEST-due sibling serves per day; the rest surface on later days
+  // (or get deferred by scheduleReview when the served one is recalled).
+  const seenTags = new Set();
+  return due
+    .filter((d) => {
+      const tag = CONCEPT_TAGS[d.conceptId];
+      if (!tag) return true;
+      if (seenTags.has(tag)) return false;
+      seenTags.add(tag);
+      return true;
+    })
+    .map((d) => d.conceptId);
 }

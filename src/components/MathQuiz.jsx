@@ -185,6 +185,7 @@ export default function MathQuiz({ lessonId, title, questions, onSkip, onComplet
               className={cls}
               onClick={() => submit(i)}
               disabled={submitted}
+              data-juice={submitted && picked === i ? (i === q.answer ? 'pop' : 'shake') : undefined}
             >
               <span className="quiz-option-letter">{LETTERS[i]}</span>
               <span className="quiz-option-text">{opt}</span>

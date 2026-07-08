@@ -461,8 +461,30 @@ export default {
               "Sharing data",
               "Python GIL impact"
             ],
-            "left":  { "label": "Threads",   "accent": "sky",  "values": ["~10 μs", "~8 MB stack", "Fast (same page table)", "✗ one bug kills all", "✓ direct pointer", "✗ no CPU parallelism"] },
-            "right": { "label": "Processes", "accent": "fire", "values": ["~1-10 ms", "Full address-space copy", "Slow (TLB flush)", "✓ kernel-enforced walls", "✗ IPC required", "✓ true parallel CPUs"] }
+            "left": {
+              "label": "Threads",
+              "accent": "sky",
+              "values": [
+                "~10 μs",
+                "~8 MB stack",
+                "Fast (same page table)",
+                "✗ one bug kills all",
+                "✓ direct pointer",
+                "✗ no CPU parallelism"
+              ]
+            },
+            "right": {
+              "label": "Processes",
+              "accent": "fire",
+              "values": [
+                "~1-10 ms",
+                "Full address-space copy",
+                "Slow (TLB flush)",
+                "✓ kernel-enforced walls",
+                "✗ IPC required",
+                "✓ true parallel CPUs"
+              ]
+            }
           },
           {
             "type": "p",
@@ -1261,16 +1283,52 @@ export default {
           },
           {
             "type": "table",
-            "headers": ["Name", "Valid?", "Why"],
-            "align": ["left", "center", "left"],
+            "headers": [
+              "Name",
+              "Valid?",
+              "Why"
+            ],
+            "align": [
+              "left",
+              "center",
+              "left"
+            ],
             "rows": [
-              ["`name`",     "✓", "Starts with a letter"],
-              ["`_count`",   "✓", "Underscore is OK as the first character"],
-              ["`2name`",    "✗", "Can't start with a digit"],
-              ["`user_age`", "✓", "Letters, digits, underscores only"],
-              ["`user-age`", "✗", "Dashes aren't allowed — Python reads it as subtraction"],
-              ["`Name`",     "✓", "Different variable from `name` — case matters"],
-              ["`class`",    "✗", "Reserved keyword — same for `if`, `for`, `def`, `import`"]
+              [
+                "`name`",
+                "✓",
+                "Starts with a letter"
+              ],
+              [
+                "`_count`",
+                "✓",
+                "Underscore is OK as the first character"
+              ],
+              [
+                "`2name`",
+                "✗",
+                "Can't start with a digit"
+              ],
+              [
+                "`user_age`",
+                "✓",
+                "Letters, digits, underscores only"
+              ],
+              [
+                "`user-age`",
+                "✗",
+                "Dashes aren't allowed — Python reads it as subtraction"
+              ],
+              [
+                "`Name`",
+                "✓",
+                "Different variable from `name` — case matters"
+              ],
+              [
+                "`class`",
+                "✗",
+                "Reserved keyword — same for `if`, `for`, `def`, `import`"
+              ]
             ]
           },
           {
@@ -1289,7 +1347,8 @@ export default {
             "type": "p",
             "text": "**Using before assigning.** `print(age)` before `age = 22` throws `NameError: name 'age' is not defined`. Python reads top to bottom; the variable must exist before use."
           }
-        ]
+        ],
+        "takeaway": "A variable is a label pointing at a value — not a box containing it."
       },
       {
         "heading": "Try it",
@@ -1328,7 +1387,8 @@ export default {
             "starter": "x = 5\ny = x * 2\nresult = y + 3\nprint(result)\n",
             "hint": "Rebind `x` to a different number, or change the operations. Whatever ends up in `result` is what we echo back."
           }
-        ]
+        ],
+        "takeaway": "Reassigning moves the label to a new value; the old one is simply forgotten."
       },
       {
         "heading": "Your turn — make x equal 100",
@@ -1344,7 +1404,8 @@ export default {
       },
       {
         "heading": "Make a typo work",
-        "body": []
+        "body": [],
+        "deep": true
       }
     ]
   },
@@ -1361,7 +1422,8 @@ export default {
             "type": "p",
             "text": "But \"figured out\" doesn't mean \"forgiving.\" Mix them wrong and you get `TypeError`, not silent coercion. Knowing what each type *is* saves you from chasing bugs that look like math errors but are really type errors."
           }
-        ]
+        ],
+        "takeaway": "Every value has exactly one type, and the type decides what you can do with it."
       },
       {
         "heading": "What each type actually is",
@@ -1468,7 +1530,8 @@ export default {
               "`is` checks identity, not equality. `x == 5` is right; `x is 5` works by accident (small-int cache) and breaks at 257."
             ]
           }
-        ]
+        ],
+        "takeaway": "Most beginner bugs here are type confusions — `'2' + 2` is an error, not 4."
       },
       {
         "heading": "How conversion really works",
@@ -1529,7 +1592,8 @@ export default {
             "type": "p",
             "text": "Python promotes **int → float** automatically when they meet (`1 + 2.0` is `3.0`), but it will *never* promote `str → int` for you. Every cross-family conversion is explicit: `int(\"42\")`, `str(42)`, `bool(0)`. That explicitness is the feature."
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Watch out for",
@@ -1568,7 +1632,8 @@ export default {
             "type": "p",
             "text": "Because strings are immutable, **building one with `+=` in a loop is O(n²)** — each concat copies the whole buffer. Use `''.join(parts)` or an f-string instead."
           }
-        ]
+        ],
+        "takeaway": "Strings never change — every 'edit' quietly builds a new string."
       },
       {
         "heading": "f-strings: the only formatter you need",
@@ -1586,7 +1651,8 @@ export default {
             "type": "p",
             "text": "The format spec after `:` is the same mini-language `format()` uses. Memorize `:.2f` (decimals), `:,` (commas), `:03d` (zero-pad), `:>10` / `:<10` / `:^10` (align). That covers most real work."
           }
-        ]
+        ],
+        "takeaway": "f-strings are the only formatter you need: `f\"{name} is {age}\"`."
       },
       {
         "heading": "Slicing: [start:stop:step]",
@@ -1785,7 +1851,8 @@ export default {
               }
             ]
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Watch out for",
@@ -1902,7 +1969,8 @@ export default {
               }
             ]
           }
-        ]
+        ],
+        "takeaway": "A list is a growable row of pointers — and each operation has a cost."
       },
       {
         "heading": "The five operations you'll actually run",
@@ -2016,7 +2084,8 @@ export default {
               "Fixed small record — use a `tuple` or `dataclass`"
             ]
           }
-        ]
+        ],
+        "takeaway": "Assigning a list copies the LABEL, not the list — two names, one list."
       },
       {
         "heading": "Watch out for",
@@ -2058,7 +2127,8 @@ export default {
             "lang": "python",
             "text": "items = []  # empty list\nif items:  # falsy — body skipped\n    process(items)  # never runs\nelif cache_hit:  # checked only if items was falsy\n    serve_from(cache_hit)  # short-circuit: stops at first True\nelse:  # fallback when all above were falsy\n    fetch_remote()  # default branch"
           }
-        ]
+        ],
+        "takeaway": "`if x` really asks `bool(x)` — truthiness decides the branch."
       },
       {
         "heading": "What counts as falsy",
@@ -2100,7 +2170,8 @@ export default {
             "type": "p",
             "text": "The subtle trap: `if x:` and `if x is not None:` are NOT the same. If `x = 0` or `x = []`, the first skips, the second runs. When you genuinely mean \"was a value passed?\", use **`is not None`** explicitly."
           }
-        ]
+        ],
+        "takeaway": "Memorize the short falsy list; everything else is truthy."
       },
       {
         "heading": "Short-circuit and the ternary",
@@ -2136,7 +2207,8 @@ export default {
             "type": "p",
             "text": "Beware the **name-binding gotcha**: `case CONSTANT:` (lowercase) binds a new variable named `constant` and matches everything. To match against a constant, use a **dotted name** like `case Status.READY:` or guard with `if x == CONSTANT`."
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Decision flow",
@@ -2265,7 +2337,8 @@ export default {
             "lang": "python",
             "text": "for name in users:  # iterates the sequence directly\n    print(name)  # no index bookkeeping\n\nattempts = 0  # while needs an external state var\nwhile not connected and attempts < 5:    # condition can mix multiple checks\n    connected = try_connect()  # side-effect drives the loop\n    attempts += 1  # forget this → infinite loop"
           }
-        ]
+        ],
+        "takeaway": "`for` walks a collection that exists; `while` runs until a condition flips."
       },
       {
         "heading": "enumerate and zip — stop indexing manually",
@@ -2283,7 +2356,8 @@ export default {
             "type": "p",
             "text": "The `strict=True` flag is the underrated one. Silent truncation when two lists drift out of sync is the kind of bug you find six months later in production."
           }
-        ]
+        ],
+        "takeaway": "`enumerate` and `zip` replace manual index bookkeeping — stop writing `range(len(...))`."
       },
       {
         "heading": "break, continue, and the else clause",
@@ -2481,7 +2555,8 @@ export default {
             "lang": "python",
             "text": "def slope(x: float, y: float, b: float = 0.0) -> float:\n    \"\"\"Compute rise over run, shifted by b.\"\"\"   # docstring = signature truth\n    return (y - b) / x  # no hidden state\n\nf = slope  # functions are objects\nprint(f(3, 9))  # 3.0 — bound name, same callable"
           }
-        ]
+        ],
+        "takeaway": "A function is a value — pass it around, store it, return it."
       },
       {
         "heading": "Arguments: positional, default, *args, **kwargs, keyword-only",
@@ -2549,7 +2624,8 @@ export default {
             "text": "Default values are evaluated at the point of function definition in the defining scope.",
             "cite": "Python docs — and the reason your list grew between calls"
           }
-        ]
+        ],
+        "takeaway": "Defaults are created ONCE at def-time — never use a mutable default."
       },
       {
         "heading": "Type hints and docstrings — your contract",
@@ -2614,7 +2690,8 @@ export default {
               "It spans more than one line — readability tanks"
             ]
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Watch out for",
@@ -2651,7 +2728,8 @@ export default {
             "type": "p",
             "text": "Since **Python 3.7**, dicts are **insertion-ordered** as a language guarantee (CPython 3.6 had it as an implementation detail). Iteration follows the order keys were first added. This killed `OrderedDict` for most use cases — you only need it now for `move_to_end` and order-sensitive equality."
           }
-        ]
+        ],
+        "takeaway": "A dict is a hash table: O(1) lookups by hashable key."
       },
       {
         "heading": "Creating dicts",
@@ -2709,7 +2787,8 @@ export default {
               ]
             ]
           }
-        ]
+        ],
+        "takeaway": "`get`, `setdefault`, and `defaultdict` are three DIFFERENT answers to a missing key."
       },
       {
         "heading": "Views, unpacking, and merge",
@@ -2723,7 +2802,8 @@ export default {
             "lang": "python",
             "text": "config = {\"host\": \"db\", \"port\": 5432, \"ssl\": True}\noverrides = {\"port\": 6379, \"pool\": 10}\n\nfor k, v in config.items():  # tuple unpack — idiomatic dict iteration\n    print(k, v)\n\nshared = config.keys() & overrides.keys()    # set intersection on key views — {\"port\"}\n\nmerged = {**config, **overrides}  # ** unpack — right side wins on conflict\nmerged = config | overrides  # 3.9+ — same semantics, clearer intent\nconfig |= overrides  # 3.9+ — in-place merge, mutates config\n\ndef connect(**kwargs):  # ** in signature collects into a dict\n    return kwargs\n\nconnect(**merged)  # ** at call site explodes dict into kwargs"
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Method cheat sheet",
@@ -4024,37 +4104,74 @@ export default {
       {
         "heading": "Read a file",
         "body": [
-          { "type": "p", "text": "Always use `with` — it auto-closes the file even on exceptions. Reading happens in three common shapes: whole-file string, line-by-line iterator, or fixed-size chunks for large files." },
-          { "type": "code", "lang": "python", "text": "# whole file as one string\nwith open('notes.txt') as f:\n    text = f.read()\n\n# line by line — best for large files, doesn't load everything\nwith open('notes.txt') as f:\n    for line in f:\n        print(line.rstrip())  # rstrip drops the trailing \\n\n\n# all lines as a list\nwith open('notes.txt') as f:\n    lines = f.readlines()" },
-          { "type": "p", "text": "**Modes** are passed as the second argument: `'r'` read (default), `'rb'` read binary, `'w'` write (truncates!), `'a'` append, `'x'` create-or-fail. Add `'b'` for binary, leave it off for text decoded as UTF-8." }
+          {
+            "type": "p",
+            "text": "Always use `with` — it auto-closes the file even on exceptions. Reading happens in three common shapes: whole-file string, line-by-line iterator, or fixed-size chunks for large files."
+          },
+          {
+            "type": "code",
+            "lang": "python",
+            "text": "# whole file as one string\nwith open('notes.txt') as f:\n    text = f.read()\n\n# line by line — best for large files, doesn't load everything\nwith open('notes.txt') as f:\n    for line in f:\n        print(line.rstrip())  # rstrip drops the trailing \\n\n\n# all lines as a list\nwith open('notes.txt') as f:\n    lines = f.readlines()"
+          },
+          {
+            "type": "p",
+            "text": "**Modes** are passed as the second argument: `'r'` read (default), `'rb'` read binary, `'w'` write (truncates!), `'a'` append, `'x'` create-or-fail. Add `'b'` for binary, leave it off for text decoded as UTF-8."
+          }
         ]
       },
       {
         "heading": "Write a file",
         "body": [
-          { "type": "p", "text": "Writing follows the same `with` pattern. **`'w'` truncates the file to zero bytes the moment you open it** — even if you never call `write()`. Use `'a'` to append, or `'x'` to refuse if the file already exists." },
-          { "type": "code", "lang": "python", "text": "# overwrite (or create) — note: 'w' wipes the file immediately\nwith open('out.txt', 'w') as f:\n    f.write('hello\\n')\n    f.write('world\\n')\n\n# append — adds to the end, never destroys\nwith open('log.txt', 'a') as f:\n    f.write('event happened\\n')\n\n# write a list of lines\nlines = ['first\\n', 'second\\n']\nwith open('out.txt', 'w') as f:\n    f.writelines(lines)  # no automatic newlines, you provide them" },
-          { "type": "p", "text": "For atomic writes — so a crashed process can't leave a half-written file — write to `out.txt.tmp` and then `os.replace('out.txt.tmp', 'out.txt')`. The rename is atomic on POSIX and on Windows since 3.3." }
+          {
+            "type": "p",
+            "text": "Writing follows the same `with` pattern. **`'w'` truncates the file to zero bytes the moment you open it** — even if you never call `write()`. Use `'a'` to append, or `'x'` to refuse if the file already exists."
+          },
+          {
+            "type": "code",
+            "lang": "python",
+            "text": "# overwrite (or create) — note: 'w' wipes the file immediately\nwith open('out.txt', 'w') as f:\n    f.write('hello\\n')\n    f.write('world\\n')\n\n# append — adds to the end, never destroys\nwith open('log.txt', 'a') as f:\n    f.write('event happened\\n')\n\n# write a list of lines\nlines = ['first\\n', 'second\\n']\nwith open('out.txt', 'w') as f:\n    f.writelines(lines)  # no automatic newlines, you provide them"
+          },
+          {
+            "type": "p",
+            "text": "For atomic writes — so a crashed process can't leave a half-written file — write to `out.txt.tmp` and then `os.replace('out.txt.tmp', 'out.txt')`. The rename is atomic on POSIX and on Windows since 3.3."
+          }
         ]
       },
       {
         "heading": "JSON files",
         "body": [
-          { "type": "p", "text": "The `json` module is the workhorse for config files, API payloads, and small datastores. Use `dump`/`load` with a file object, or `dumps`/`loads` with a string." },
-          { "type": "code", "lang": "python", "text": "import json\n\n# write\nconfig = {'host': 'localhost', 'port': 5432, 'retries': 3}\nwith open('config.json', 'w') as f:\n    json.dump(config, f, indent=2)  # indent makes it diffable\n\n# read\nwith open('config.json') as f:\n    config = json.load(f)\n\n# round-trip via strings — useful for HTTP bodies / queues\nblob = json.dumps(config)\nrestored = json.loads(blob)" },
-          { "type": "ul", "items": [
-            "**Tuples become lists** on round-trip — JSON has no tuple type.",
-            "**Dict keys become strings** — `json.dumps({1: 'a'})` gives `'{\"1\": \"a\"}'`.",
-            "**Datetimes don't serialize** — convert to ISO strings yourself (`dt.isoformat()`).",
-            "**Use `json.JSONDecodeError`** to catch malformed input separately from I/O errors."
-          ]}
+          {
+            "type": "p",
+            "text": "The `json` module is the workhorse for config files, API payloads, and small datastores. Use `dump`/`load` with a file object, or `dumps`/`loads` with a string."
+          },
+          {
+            "type": "code",
+            "lang": "python",
+            "text": "import json\n\n# write\nconfig = {'host': 'localhost', 'port': 5432, 'retries': 3}\nwith open('config.json', 'w') as f:\n    json.dump(config, f, indent=2)  # indent makes it diffable\n\n# read\nwith open('config.json') as f:\n    config = json.load(f)\n\n# round-trip via strings — useful for HTTP bodies / queues\nblob = json.dumps(config)\nrestored = json.loads(blob)"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Tuples become lists** on round-trip — JSON has no tuple type.",
+              "**Dict keys become strings** — `json.dumps({1: 'a'})` gives `'{\"1\": \"a\"}'`.",
+              "**Datetimes don't serialize** — convert to ISO strings yourself (`dt.isoformat()`).",
+              "**Use `json.JSONDecodeError`** to catch malformed input separately from I/O errors."
+            ]
+          }
         ]
       },
       {
         "heading": "Round-trip — write then read",
         "body": [
-          { "type": "p", "text": "Tying it together: write a dict to disk, read it back, recover a value." },
-          { "type": "code", "lang": "python", "text": "import json\n\n# write\nwith open('out.json', 'w') as f:\n    json.dump({'x': 100}, f)\n\n# read back\nwith open('out.json') as f:\n    data = json.load(f)\n\nassert data['x'] == 100" }
+          {
+            "type": "p",
+            "text": "Tying it together: write a dict to disk, read it back, recover a value."
+          },
+          {
+            "type": "code",
+            "lang": "python",
+            "text": "import json\n\n# write\nwith open('out.json', 'w') as f:\n    json.dump({'x': 100}, f)\n\n# read back\nwith open('out.json') as f:\n    data = json.load(f)\n\nassert data['x'] == 100"
+          }
         ]
       }
     ]
@@ -7868,23 +7985,23 @@ export default {
                 "label": "v1.0",
                 "subtitle": "KNOWN GOOD",
                 "accent": "sky",
-                "x": 0.30,
-                "y": 0.30
+                "x": 0.3,
+                "y": 0.3
               },
               {
                 "id": "mid1",
                 "label": "midpoint",
                 "subtitle": "TEST · MARK",
                 "accent": "amber",
-                "x": 0.70,
-                "y": 0.30
+                "x": 0.7,
+                "y": 0.3
               },
               {
                 "id": "mid2",
                 "label": "midpoint",
                 "subtitle": "NARROWED",
                 "accent": "amber",
-                "x": 0.30,
+                "x": 0.3,
                 "y": 0.75
               },
               {
@@ -7892,7 +8009,7 @@ export default {
                 "label": "HEAD",
                 "subtitle": "BROKEN",
                 "accent": "fire",
-                "x": 0.70,
+                "x": 0.7,
                 "y": 0.75
               }
             ],
@@ -7998,16 +8115,66 @@ export default {
             "subtitle": "ONE MULTIPLY VS N SHIFTS",
             "height": 240,
             "nodes": [
-              { "id": "idx",   "label": "index i",        "subtitle": "INPUT",       "accent": "water", "x": 0.10, "y": 0.30 },
-              { "id": "calc",  "label": "base + i*size",  "subtitle": "POINTER MATH", "accent": "fire",  "x": 0.40, "y": 0.30 },
-              { "id": "cell",  "label": "arr[i]",         "subtitle": "MATCH",       "accent": "sky",   "x": 0.78, "y": 0.30 },
-              { "id": "front", "label": "insert at 0",    "subtitle": "INPUT",       "accent": "water", "x": 0.10, "y": 0.78 },
-              { "id": "shift", "label": "shift n cells",  "subtitle": "O(N) WORK",    "accent": "amber", "x": 0.50, "y": 0.78 }
+              {
+                "id": "idx",
+                "label": "index i",
+                "subtitle": "INPUT",
+                "accent": "water",
+                "x": 0.1,
+                "y": 0.3
+              },
+              {
+                "id": "calc",
+                "label": "base + i*size",
+                "subtitle": "POINTER MATH",
+                "accent": "fire",
+                "x": 0.4,
+                "y": 0.3
+              },
+              {
+                "id": "cell",
+                "label": "arr[i]",
+                "subtitle": "MATCH",
+                "accent": "sky",
+                "x": 0.78,
+                "y": 0.3
+              },
+              {
+                "id": "front",
+                "label": "insert at 0",
+                "subtitle": "INPUT",
+                "accent": "water",
+                "x": 0.1,
+                "y": 0.78
+              },
+              {
+                "id": "shift",
+                "label": "shift n cells",
+                "subtitle": "O(N) WORK",
+                "accent": "amber",
+                "x": 0.5,
+                "y": 0.78
+              }
             ],
             "edges": [
-              { "from": "idx",   "to": "calc",  "kind": "solid",  "label": "compute" },
-              { "from": "calc",  "to": "cell",  "kind": "solid",  "label": "fetch" },
-              { "from": "front", "to": "shift", "kind": "dashed", "label": "copy" }
+              {
+                "from": "idx",
+                "to": "calc",
+                "kind": "solid",
+                "label": "compute"
+              },
+              {
+                "from": "calc",
+                "to": "cell",
+                "kind": "solid",
+                "label": "fetch"
+              },
+              {
+                "from": "front",
+                "to": "shift",
+                "kind": "dashed",
+                "label": "copy"
+              }
             ]
           },
           {
@@ -8024,10 +8191,26 @@ export default {
               "Why"
             ],
             "rows": [
-              ["`arr[i]` read",        "O(1)",            "Pointer math, one cache line"],
-              ["`arr.append(x)`",      "amortized O(1)",  "Tail slot is free until a resize"],
-              ["`arr.insert(0, x)`",   "O(n)",            "Every element shifts one slot right"],
-              ["`arr.pop(0)`",         "O(n)",            "Same shift, in the other direction"]
+              [
+                "`arr[i]` read",
+                "O(1)",
+                "Pointer math, one cache line"
+              ],
+              [
+                "`arr.append(x)`",
+                "amortized O(1)",
+                "Tail slot is free until a resize"
+              ],
+              [
+                "`arr.insert(0, x)`",
+                "O(n)",
+                "Every element shifts one slot right"
+              ],
+              [
+                "`arr.pop(0)`",
+                "O(n)",
+                "Same shift, in the other direction"
+              ]
             ]
           },
           {
@@ -8110,15 +8293,58 @@ export default {
             "subtitle": "ONE FUNCTION, TWO STEPS",
             "height": 220,
             "nodes": [
-              { "id": "key",    "label": "\"ada\"",      "subtitle": "KEY",          "accent": "water", "x": 0.30, "y": 0.30 },
-              { "id": "hash",   "label": "hash() % n",   "subtitle": "BUCKET INDEX", "accent": "fire",  "x": 0.70, "y": 0.30 },
-              { "id": "bucket", "label": "buckets[3]",   "subtitle": "SLOT",         "accent": "amber", "x": 0.30, "y": 0.75 },
-              { "id": "value",  "label": "id=42",        "subtitle": "MATCH",        "accent": "sky",   "x": 0.70, "y": 0.75 }
+              {
+                "id": "key",
+                "label": "\"ada\"",
+                "subtitle": "KEY",
+                "accent": "water",
+                "x": 0.3,
+                "y": 0.3
+              },
+              {
+                "id": "hash",
+                "label": "hash() % n",
+                "subtitle": "BUCKET INDEX",
+                "accent": "fire",
+                "x": 0.7,
+                "y": 0.3
+              },
+              {
+                "id": "bucket",
+                "label": "buckets[3]",
+                "subtitle": "SLOT",
+                "accent": "amber",
+                "x": 0.3,
+                "y": 0.75
+              },
+              {
+                "id": "value",
+                "label": "id=42",
+                "subtitle": "MATCH",
+                "accent": "sky",
+                "x": 0.7,
+                "y": 0.75
+              }
             ],
             "edges": [
-              { "from": "key",    "to": "hash",   "kind": "solid", "label": "hash" },
-              { "from": "hash",   "to": "bucket", "kind": "solid", "label": "index" },
-              { "from": "bucket", "to": "value",  "kind": "solid", "label": "lookup" }
+              {
+                "from": "key",
+                "to": "hash",
+                "kind": "solid",
+                "label": "hash"
+              },
+              {
+                "from": "hash",
+                "to": "bucket",
+                "kind": "solid",
+                "label": "index"
+              },
+              {
+                "from": "bucket",
+                "to": "value",
+                "kind": "solid",
+                "label": "lookup"
+              }
             ]
           },
           {
@@ -8129,10 +8355,26 @@ export default {
               "Why"
             ],
             "rows": [
-              ["`d[k]` read",      "O(1) → O(n)", "Worst case: every key collides into one bucket"],
-              ["`d[k] = v` write", "O(1) → O(n)", "Same plus occasional resize"],
-              ["`k in d`",         "O(1) → O(n)", "Hash, then equality-check the bucket"],
-              ["iterate `d`",      "O(n)",        "Walks all buckets in insertion order"]
+              [
+                "`d[k]` read",
+                "O(1) → O(n)",
+                "Worst case: every key collides into one bucket"
+              ],
+              [
+                "`d[k] = v` write",
+                "O(1) → O(n)",
+                "Same plus occasional resize"
+              ],
+              [
+                "`k in d`",
+                "O(1) → O(n)",
+                "Hash, then equality-check the bucket"
+              ],
+              [
+                "iterate `d`",
+                "O(n)",
+                "Walks all buckets in insertion order"
+              ]
             ]
           }
         ]
@@ -8211,17 +8453,70 @@ export default {
             "subtitle": "WHERE 'ROOT' LANDS IN THE SEQUENCE",
             "height": 260,
             "nodes": [
-              { "id": "root", "label": "5",       "subtitle": "ROOT",      "accent": "amber", "x": 0.50, "y": 0.18 },
-              { "id": "l",    "label": "3",       "subtitle": "LEFT",      "accent": "water", "x": 0.30, "y": 0.55 },
-              { "id": "r",    "label": "8",       "subtitle": "RIGHT",     "accent": "water", "x": 0.70, "y": 0.55 },
-              { "id": "ll",   "label": "1",       "subtitle": "LEAF",      "accent": "earth", "x": 0.18, "y": 0.88 },
-              { "id": "lr",   "label": "4",       "subtitle": "LEAF",      "accent": "earth", "x": 0.42, "y": 0.88 }
+              {
+                "id": "root",
+                "label": "5",
+                "subtitle": "ROOT",
+                "accent": "amber",
+                "x": 0.5,
+                "y": 0.18
+              },
+              {
+                "id": "l",
+                "label": "3",
+                "subtitle": "LEFT",
+                "accent": "water",
+                "x": 0.3,
+                "y": 0.55
+              },
+              {
+                "id": "r",
+                "label": "8",
+                "subtitle": "RIGHT",
+                "accent": "water",
+                "x": 0.7,
+                "y": 0.55
+              },
+              {
+                "id": "ll",
+                "label": "1",
+                "subtitle": "LEAF",
+                "accent": "earth",
+                "x": 0.18,
+                "y": 0.88
+              },
+              {
+                "id": "lr",
+                "label": "4",
+                "subtitle": "LEAF",
+                "accent": "earth",
+                "x": 0.42,
+                "y": 0.88
+              }
             ],
             "edges": [
-              { "from": "root", "to": "l",  "kind": "solid", "label": "left" },
-              { "from": "root", "to": "r",  "kind": "solid", "label": "right" },
-              { "from": "l",    "to": "ll", "kind": "solid" },
-              { "from": "l",    "to": "lr", "kind": "solid" }
+              {
+                "from": "root",
+                "to": "l",
+                "kind": "solid",
+                "label": "left"
+              },
+              {
+                "from": "root",
+                "to": "r",
+                "kind": "solid",
+                "label": "right"
+              },
+              {
+                "from": "l",
+                "to": "ll",
+                "kind": "solid"
+              },
+              {
+                "from": "l",
+                "to": "lr",
+                "kind": "solid"
+              }
             ]
           },
           {
@@ -8232,10 +8527,26 @@ export default {
               "Use it for"
             ],
             "rows": [
-              ["Preorder",  "root, left, right", "Copying / serializing a tree"],
-              ["Inorder",   "left, root, right", "Sorted output from a BST"],
-              ["Postorder", "left, right, root", "Deletion, folds, expression eval"],
-              ["BFS",       "level by level",    "Shortest path, closest neighbor"]
+              [
+                "Preorder",
+                "root, left, right",
+                "Copying / serializing a tree"
+              ],
+              [
+                "Inorder",
+                "left, root, right",
+                "Sorted output from a BST"
+              ],
+              [
+                "Postorder",
+                "left, right, root",
+                "Deletion, folds, expression eval"
+              ],
+              [
+                "BFS",
+                "level by level",
+                "Shortest path, closest neighbor"
+              ]
             ]
           }
         ]
@@ -8261,36 +8572,87 @@ export default {
             "title": "factorial(3) unwinds step by step",
             "caption": "Watch the call stack grow, then collapse as each return cascades back.",
             "nodes": [
-              { "id": "f3", "label": "factorial(3)", "subtitle": "TOP CALL", "accent": "amber", "x": 0.18, "y": 0.5 },
-              { "id": "f2", "label": "factorial(2)", "subtitle": "RECURSE", "accent": "fire",  "x": 0.45, "y": 0.5 },
-              { "id": "f1", "label": "factorial(1)", "subtitle": "BASE CASE", "accent": "sky", "x": 0.78, "y": 0.5 }
+              {
+                "id": "f3",
+                "label": "factorial(3)",
+                "subtitle": "TOP CALL",
+                "accent": "amber",
+                "x": 0.18,
+                "y": 0.5
+              },
+              {
+                "id": "f2",
+                "label": "factorial(2)",
+                "subtitle": "RECURSE",
+                "accent": "fire",
+                "x": 0.45,
+                "y": 0.5
+              },
+              {
+                "id": "f1",
+                "label": "factorial(1)",
+                "subtitle": "BASE CASE",
+                "accent": "sky",
+                "x": 0.78,
+                "y": 0.5
+              }
             ],
             "steps": [
               {
                 "title": "Call factorial(3) — push frame",
                 "description": "n is 3, not the base case. Function says `return 3 * factorial(2)` — but factorial(2) hasn't run yet, so the frame waits on the stack.",
-                "activeNodes": ["f3"],
+                "activeNodes": [
+                  "f3"
+                ],
                 "activeEdges": []
               },
               {
                 "title": "Inside, call factorial(2) — push frame",
                 "description": "n is 2, still not the base case. Same pattern: `return 2 * factorial(1)`. Now two frames sit on the stack, both paused waiting on a child call.",
-                "activeNodes": ["f3", "f2"],
-                "activeEdges": [{ "from": "f3", "to": "f2", "label": "calls" }]
+                "activeNodes": [
+                  "f3",
+                  "f2"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "f3",
+                    "to": "f2",
+                    "label": "calls"
+                  }
+                ]
               },
               {
                 "title": "Call factorial(1) — base case hits",
                 "description": "n is 1. The base case returns 1 directly — no more recursion. This frame finishes and pops off the stack, handing 1 back up.",
-                "activeNodes": ["f2", "f1"],
-                "activeEdges": [{ "from": "f2", "to": "f1", "label": "calls" }]
+                "activeNodes": [
+                  "f2",
+                  "f1"
+                ],
+                "activeEdges": [
+                  {
+                    "from": "f2",
+                    "to": "f1",
+                    "label": "calls"
+                  }
+                ]
               },
               {
                 "title": "Returns cascade — 1 → 2 → 6",
                 "description": "factorial(1) returns 1, so factorial(2) computes 2*1 = 2 and returns. factorial(3) then computes 3*2 = 6 and returns. Stack is empty. The answer bubbled up the chain.",
-                "activeNodes": ["f3"],
+                "activeNodes": [
+                  "f3"
+                ],
                 "activeEdges": [
-                  { "from": "f1", "to": "f2", "label": "returns 1" },
-                  { "from": "f2", "to": "f3", "label": "returns 2" }
+                  {
+                    "from": "f1",
+                    "to": "f2",
+                    "label": "returns 1"
+                  },
+                  {
+                    "from": "f2",
+                    "to": "f3",
+                    "label": "returns 2"
+                  }
                 ]
               }
             ],
@@ -8370,17 +8732,70 @@ export default {
             "subtitle": "LAST IN, FIRST OUT",
             "height": 240,
             "nodes": [
-              { "id": "in",    "label": "push(C)",      "subtitle": "INPUT",       "accent": "water", "x": 0.10, "y": 0.05 },
-              { "id": "top",   "label": "[C]",          "subtitle": "TOP",         "accent": "fire",  "x": 0.40, "y": 0.30 },
-              { "id": "mid",   "label": "[B]",          "subtitle": "BELOW",       "accent": "amber", "x": 0.40, "y": 0.55 },
-              { "id": "bot",   "label": "[A]",          "subtitle": "BOTTOM",      "accent": "earth", "x": 0.40, "y": 0.80 },
-              { "id": "out",   "label": "pop() → C",    "subtitle": "OUTPUT",      "accent": "sky",   "x": 0.78, "y": 0.05 }
+              {
+                "id": "in",
+                "label": "push(C)",
+                "subtitle": "INPUT",
+                "accent": "water",
+                "x": 0.1,
+                "y": 0.05
+              },
+              {
+                "id": "top",
+                "label": "[C]",
+                "subtitle": "TOP",
+                "accent": "fire",
+                "x": 0.4,
+                "y": 0.3
+              },
+              {
+                "id": "mid",
+                "label": "[B]",
+                "subtitle": "BELOW",
+                "accent": "amber",
+                "x": 0.4,
+                "y": 0.55
+              },
+              {
+                "id": "bot",
+                "label": "[A]",
+                "subtitle": "BOTTOM",
+                "accent": "earth",
+                "x": 0.4,
+                "y": 0.8
+              },
+              {
+                "id": "out",
+                "label": "pop() → C",
+                "subtitle": "OUTPUT",
+                "accent": "sky",
+                "x": 0.78,
+                "y": 0.05
+              }
             ],
             "edges": [
-              { "from": "in",  "to": "top", "kind": "solid",  "label": "push" },
-              { "from": "top", "to": "out", "kind": "dashed", "label": "pop" },
-              { "from": "top", "to": "mid", "kind": "dashed" },
-              { "from": "mid", "to": "bot", "kind": "dashed" }
+              {
+                "from": "in",
+                "to": "top",
+                "kind": "solid",
+                "label": "push"
+              },
+              {
+                "from": "top",
+                "to": "out",
+                "kind": "dashed",
+                "label": "pop"
+              },
+              {
+                "from": "top",
+                "to": "mid",
+                "kind": "dashed"
+              },
+              {
+                "from": "mid",
+                "to": "bot",
+                "kind": "dashed"
+              }
             ]
           },
           {
@@ -8410,9 +8825,24 @@ export default {
               "Real-world example"
             ],
             "rows": [
-              ["Stack",       "push (top)",     "pop (top)",      "Function calls, undo history"],
-              ["Queue",       "enqueue (back)", "dequeue (front)", "Print queue, message broker"],
-              ["Deque",       "both ends",      "both ends",       "BFS frontier, sliding-window scan"]
+              [
+                "Stack",
+                "push (top)",
+                "pop (top)",
+                "Function calls, undo history"
+              ],
+              [
+                "Queue",
+                "enqueue (back)",
+                "dequeue (front)",
+                "Print queue, message broker"
+              ],
+              [
+                "Deque",
+                "both ends",
+                "both ends",
+                "BFS frontier, sliding-window scan"
+              ]
             ]
           },
           {
@@ -9248,5 +9678,5 @@ export default {
         ]
       }
     ]
-  },
+  }
 };

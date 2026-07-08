@@ -7823,3 +7823,83 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
   cursor: pointer;
 }
+
+/* ── G1 juice — layered feedback on answer taps ──────────────────────────
+   The answer tap is the app's highest-frequency interaction and was dry:
+   verdict colors only. Now the TAPPED option pops (correct) or shakes
+   (wrong), and surfaces that pay XP at tap time float a "+N" mote off the
+   button — several tiny simultaneous feedbacks on one event, all sub-250ms.
+   JSX sets data-juice="pop|shake" on the picked option only (the revealed
+   correct answer must NOT celebrate when the pick was wrong) and data-xp
+   where XP actually minted. Reduced motion: the global [data-reduced-motion]
+   rule snaps all of this to its end state (the mote ends at opacity 0, so
+   it simply never shows). */
+@keyframes tap-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+@keyframes tap-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+}
+@keyframes xp-mote {
+  0% { opacity: 0; transform: translateY(2px); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-22px); }
+}
+[data-juice] { position: relative; }
+[data-juice="pop"] { animation: tap-pop .18s ease-out; }
+[data-juice="shake"] { animation: tap-shake .22s ease-in-out; }
+[data-xp]::after {
+  content: '+' attr(data-xp) ' XP';
+  position: absolute;
+  right: 10px;
+  top: -8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+  pointer-events: none;
+  animation: xp-mote .8s ease-out forwards;
+}
+
+/* ── Lesson density: takeaway chip + deep-section expander ─────────────── */
+.lesson-takeaway {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 3px solid var(--accent-amber);
+  background: var(--accent-amber-bg, rgba(245, 184, 66, .08));
+  border-radius: 0 8px 8px 0;
+  padding: 8px 12px;
+  margin: 2px 0 12px;
+}
+.lesson-takeaway-kicker {
+  font-size: 9px;
+  letter-spacing: .16em;
+  color: var(--accent-amber);
+}
+.lesson-takeaway-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.lesson-deep-toggle {
+  width: 100%;
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border-default);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.lesson-deep-toggle:hover { border-color: var(--accent-amber); color: var(--text-primary); }
+.lesson-deep-hint { color: var(--text-tertiary); font-size: 10.5px; }
+.lesson-deep-body { margin-top: 10px; }
