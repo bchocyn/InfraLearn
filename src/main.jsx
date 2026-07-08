@@ -85,9 +85,9 @@ const Journey          = lazy(() => import('./screens/Journey.jsx'));
 // Watchfire Defense — reviews in battle costume (markReviewed underneath,
 // scheduler honest). Its own chunk like every mini-game.
 const Watchfire        = lazy(() => import('./screens/Watchfire.jsx'));
-// Prototype: the world-map roadmap (World → continent → lessons). Dev route
-// /worldmap so it can be clicked through before it replaces the Roadmap tab.
-const WorldMap         = lazy(() => import('./screens/WorldMap.jsx'));
+// (The /worldmap prototype is retired: its WorldView landing shipped as the
+// Roadmap's world view — src/screens/WorldView.jsx — and its ContinentView
+// drill-in was superseded by the Roadmap trail at /roadmap/:pathKey.)
 // Minion/boss quiz battles (Pokémon-style retrieval practice). Its question
 // banks ride the chunk — keep it lazy like every mini-game.
 const Battle           = lazy(() => import('./screens/Battle.jsx'));
@@ -370,6 +370,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/roadmap" element={<Roadmap />} />
+            {/* Province trail drill-in — a REAL route so back/deep links work. */}
+            <Route path="/roadmap/:pathKey" element={<Roadmap />} />
             <Route path="/library" element={<Library />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/beast" element={<ByteBeast />} />
@@ -380,7 +382,8 @@ function App() {
             <Route path="/codex" element={<Codex />} />
             <Route path="/journey" element={<Journey />} />
             <Route path="/watchfire" element={<Watchfire />} />
-            <Route path="/worldmap" element={<WorldMap />} />
+            {/* /worldmap retired — the world map IS the Roadmap landing. */}
+            <Route path="/worldmap" element={<Navigate to="/roadmap" replace />} />
             <Route path="/battle/:pathKey/:stage" element={<Battle />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

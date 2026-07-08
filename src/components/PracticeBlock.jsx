@@ -820,7 +820,8 @@ export default function PracticeBlock({
 
           {result.kind === 'unverified' && (
             <span>
-              Offline mode — couldn't load Python. Couldn't verify from the
+              Offline mode — couldn't load Python (one online run downloads
+              it; after that it works offline). Couldn't verify from the
               source alone; expected something equal to{' '}
               <code>{String(expected)}</code>. Paste this into a real Python
               REPL to check.

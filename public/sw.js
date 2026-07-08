@@ -10,8 +10,11 @@
 //   - Hashed assets (/assets/*) → cache-first, immutable. Vite hashes the
 //     filename so the cache key is the content fingerprint.
 //   - Beast PNGs / icons / fonts / manifest → cache-first.
-//   - Pyodide CDN (cdn.jsdelivr.net) → bypass; jsdelivr already cdn-caches
-//     and the WASM is large; better to let the browser HTTP cache handle it.
+//   - Pyodide CDN (cdn.jsdelivr.net/pyodide/*) → cache-first into a
+//     deploy-STABLE cache: the Python practice cells are the flagship
+//     interaction and were dead offline while the SW bypassed cross-origin.
+//     After one online run the ~10 MB runtime serves from cache forever
+//     (jsdelivr sends CORS headers, so responses are cacheable, not opaque).
 //   - Anything else cross-origin → bypass.
 //
 // On a new SW activation, all previous infralearn-* caches are deleted.
@@ -51,6 +54,11 @@ function precacheHash(list) {
 const CACHE_VERSION = `infralearn-${precacheHash(PRECACHE_ASSETS)}`;
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const ASSETS_CACHE = `${CACHE_VERSION}-assets`;
+// Deploy-STABLE (not derived from the precache hash): the Pyodide runtime is
+// ~10 MB and version-pinned by its URL — re-downloading it on every app
+// deploy would defeat the cache. Bump the suffix only when dropping support
+// for an old runtime.
+const PYODIDE_CACHE = 'infralearn-pyodide-v1';
 
 // The shell URL the SW falls back to when offline. Computed relative to the
 // SW's own scope, which matches the Vite `base` (/InfraLearn/).
@@ -122,7 +130,7 @@ self.addEventListener('activate', (event) => {
     // infralearn-* caches. The Cache Storage API is per-ORIGIN and
     // bchocyn.github.io hosts every project site, so an unprefixed filter
     // here would delete sibling projects' caches too.
-    const keep = new Set([SHELL_CACHE, ASSETS_CACHE]);
+    const keep = new Set([SHELL_CACHE, ASSETS_CACHE, PYODIDE_CACHE]);
     const keys = await caches.keys();
     await Promise.all(
       keys
@@ -186,7 +194,26 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
 
-  // Don't touch cross-origin requests — Pyodide CDN, fonts CDN, etc.
+  // Pyodide runtime → cache-first into the deploy-stable cache (see header).
+  // Worker fetches are controlled by this SW too, so the practice cells'
+  // in-worker importScripts/fetch land here as well.
+  if (url.origin === 'https://cdn.jsdelivr.net' && url.pathname.startsWith('/pyodide/')) {
+    event.respondWith((async () => {
+      const cache = await caches.open(PYODIDE_CACHE);
+      const cached = await cache.match(req);
+      if (cached) return cached;
+      try {
+        const fresh = await fetch(req);
+        if (fresh && fresh.ok) cache.put(req, fresh.clone()).catch(() => {});
+        return fresh;
+      } catch (_) {
+        return new Response('Python runtime unavailable offline (needs one online run first).', { status: 503 });
+      }
+    })());
+    return;
+  }
+
+  // Don't touch other cross-origin requests.
   if (!sameOrigin) return;
 
   // HTML navigations: network-first with cache fallback.

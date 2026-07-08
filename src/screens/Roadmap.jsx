@@ -1,5 +1,5 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { memo, useEffect, useMemo, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS, groupedSections, labUnlockStatus, pathProgress } from '../data/content.js';
 import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
@@ -9,7 +9,7 @@ import { encounterStatus, battleGateForLesson, MINIONS, BATTLE_BANKED_PATHS } fr
 import BeastSprite, { nullBeastSrc } from '../components/BeastSprite.jsx';
 // A1 (one map system): the world map is the Roadmap's landing view; the
 // serpentine trail below is the continent drill-in.
-import { WorldView } from './WorldMap.jsx';
+import { WorldView } from './WorldView.jsx';
 
 // ─── The Adventure Map (v5) ───────────────────────────────────────────────────
 // Serpentine SVG trail, now styled as a stage-road through province ruins
@@ -451,10 +451,16 @@ function quadTangent(seg, t) {
 }
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
-// initialView: 'world' (default landing) | 'trail' — the prop exists so
-// tests (and future deep links) can target the trail directly.
+// The world↔trail drill-in is a REAL route: /roadmap lands on the world map,
+// /roadmap/:pathKey is that province's trail. That makes the browser back
+// button leave the trail (instead of exiting the tab), provinces deep-
+// linkable, and RouteChrome's scroll/focus reset fire on the swap — all
+// three were broken while the view lived in component state (DA-A4).
+// initialView: 'world' | 'trail' — the prop remains so tests can target the
+// trail without router params; a valid :pathKey always wins over it.
 export default function Roadmap({ initialView = 'world' }) {
   const nav = useNavigate();
+  const { pathKey: routePathKey } = useParams();
   // Narrowed subscriptions — primitives + stable references only, so store
   // writes that don't touch these fields (XP ticks, celebration set+clear
   // pairs, review grades) no longer re-render the scene at all. `completed`
@@ -471,11 +477,20 @@ export default function Roadmap({ initialView = 'world' }) {
   // Minion/boss battle watermarks — drives the encounter markers on the trail.
   const battlesMap = useStore((st) => st.battles);
   // A1: 'world' (landing — the whole archipelago) | 'trail' (one province).
-  const [view, setView] = useState(initialView);
+  // Route-derived: a valid /roadmap/:pathKey renders that trail; otherwise
+  // the world (or the test-only initialView override).
+  const routeValid = !!(routePathKey && PATHS[routePathKey]);
+  const view = routeValid || initialView === 'trail' ? 'trail' : 'world';
   const hideCompanion = useStore((st) => st.settings?.hideCompanion);
   const companion = useStore((st) => st.companion);
   const beastTier = useStore((st) => st.beastTier);
   const setActivePath = useStore((st) => st.setActivePath);
+
+  // Landing on a province URL makes it the active path (deep links, back/
+  // forward). Store write in an effect, not render.
+  useEffect(() => {
+    if (routeValid && routePathKey !== activePath) setActivePath(routePathKey);
+  }, [routeValid, routePathKey, activePath, setActivePath]);
   // Reduced motion: in-app setting OR the OS preference (same pattern as
   // AnimatedDiagram). Gates the SMIL story animations (fog drift, eye blink,
   // shimmer breathe) — they simply aren't rendered when motion is reduced.
@@ -484,7 +499,10 @@ export default function Roadmap({ initialView = 'world' }) {
     || (typeof window !== 'undefined' && window.matchMedia
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-  const pathKey = PATHS[activePath] ? activePath : 'devops';
+  // The trail's province: the URL param wins (the activePath sync effect may
+  // lag one render behind); the store's activePath backs the world view's
+  // "you are here" and the test-only initialView path.
+  const pathKey = routeValid ? routePathKey : (PATHS[activePath] ? activePath : 'devops');
   const path = PATHS[pathKey];
   const lessons = path.lessons;
   const completed = storeCompleted || {};
@@ -646,7 +664,7 @@ export default function Roadmap({ initialView = 'world' }) {
         completed={completed}
         reduced={reduced}
         activePath={pathKey}
-        onOpen={(k) => { setActivePath(k); setView('trail'); }}
+        onOpen={(k) => nav(`/roadmap/${k}`)}
         footer={currentLesson ? (
           <button
             className="btn btn-primary btn-block"
@@ -669,7 +687,7 @@ export default function Roadmap({ initialView = 'world' }) {
       <button
         className="wm-back"
         style={{ marginBottom: 8 }}
-        onClick={() => setView('world')}
+        onClick={() => nav('/roadmap')}
         aria-label="Back to the world map"
       >
         ← World map
