@@ -91,6 +91,8 @@ const Watchfire        = lazy(() => import('./screens/Watchfire.jsx'));
 // Minion/boss quiz battles (Pokémon-style retrieval practice). Its question
 // banks ride the chunk — keep it lazy like every mini-game.
 const Battle           = lazy(() => import('./screens/Battle.jsx'));
+// On-demand drill for one lesson (XP-free). Pulls the banks — lazy.
+const PracticeLesson   = lazy(() => import('./screens/PracticeLesson.jsx'));
 
 // Route chrome — on every navigation: reset scroll and move focus to the
 // main landmark. Fixes the two audit findings in one: keyboard/SR users no
@@ -385,6 +387,7 @@ function App() {
             {/* /worldmap retired — the world map IS the Roadmap landing. */}
             <Route path="/worldmap" element={<Navigate to="/roadmap" replace />} />
             <Route path="/battle/:pathKey/:stage" element={<Battle />} />
+            <Route path="/practice/:lessonId" element={<PracticeLesson />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

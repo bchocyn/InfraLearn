@@ -140,8 +140,9 @@ export function rawPathPool(pathKey, completed) {
       if (e.kind === 'order') {
         // Drag-to-order entries ride the pool for the REVIEW picker only —
         // dealBattle filters them out (the battle UI is a 4-option menu).
+        // `code: true` marks a Parsons problem (items are code lines).
         out.push({
-          kind: 'order', prompt: e.q, items: e.items,
+          kind: 'order', prompt: e.q, items: e.items, code: e.code === true,
           whyWrong: e.whyWrong, whyCorrect: e.whyCorrect,
           bestPractices: e.bestPractices,
           lessonId: e.lessonId || null, _level: level,
@@ -223,6 +224,7 @@ function toOrderQuestion(c) {
     kind: 'order',
     q: c.prompt,
     items: c.items,
+    code: c.code === true, // Parsons problem — items render as code lines
     whyWrong: c.whyWrong || null,
     whyCorrect: c.whyCorrect || null,
     bestPractices: c.bestPractices || null,

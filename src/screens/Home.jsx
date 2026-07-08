@@ -17,6 +17,7 @@ const STREAK_MILESTONES = new Set([3, 7, 14, 30, 100]);
 import CampHero from '../components/CampHero.jsx';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
 import OrderQuestion from '../components/OrderQuestion.jsx';
+import StemText from '../components/StemText.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 import NudgeCard from '../components/NudgeCard.jsx';
 // InstallPrompt mounts at the BOTTOM of Home (below the action row) on
@@ -953,7 +954,13 @@ function DailyPractice() {
         })}
       </div>
 
-      <p style={{ fontSize: 14, margin: '0 0 12px', fontWeight: 500 }}>{Q.q}</p>
+      <p style={{ fontSize: 14, margin: '0 0 12px', fontWeight: 500 }}>
+        <StemText
+          text={Q.q}
+          fill={answered && Q.kind !== 'order' ? Q.opts[Q.answer] : null}
+          verdict={answered && typeof picked === 'number' && picked !== Q.answer ? 'wrong' : 'right'}
+        />
+      </p>
 
       {Q.kind === 'order' ? (
         /* Drag-to-order question — grading + feedback live in the component.

@@ -733,6 +733,14 @@ export default function Roadmap({ initialView = 'world' }) {
 
       <ProvinceBanner province={province} pathLabel={pathLabel} />
 
+      {/* The road ahead — a syllabus moment for a path the learner hasn't
+          started: scope, honest time, the section arc, what they'll be able
+          to DO (outcomes, when authored), and the capstone destination.
+          Disappears forever after the first completed lesson. */}
+      {doneCount === 0 && lessons.length > 0 && (
+        <PathPreviewCard path={path} lessons={lessons} currentLesson={currentLesson} nav={nav} />
+      )}
+
       <div ref={sceneRef} className="roadmap-scene" style={{ aspectRatio: `${W} / ${H}` }}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -959,6 +967,74 @@ export default function Roadmap({ initialView = 'world' }) {
         {heroGate.blocked
           ? `⚔ A ${minionName} blocks the road — face it →`
           : `${allDone ? 'Review' : 'Open'}: ${currentLesson?.title || '—'} →`}
+      </button>
+    </div>
+  );
+}
+
+// ─── Path preview (the syllabus moment) ──────────────────────────────────────
+// Rendered only while a path has ZERO completed lessons: what's ahead, how
+// long it honestly takes, the section arc, the outcomes (when authored on
+// PATHS[key].outcomes), and the capstone as the visible destination (R3:
+// the region's end-goal should be namable from the start).
+function PathPreviewCard({ path, lessons, currentLesson, nav }) {
+  const totalMin = lessons.reduce((n, l) => n + (l.min || 0), 0);
+  const hours = totalMin >= 90 ? Math.round(totalMin / 60) : Math.round((totalMin / 60) * 10) / 10;
+  const sections = [];
+  for (const l of lessons) {
+    const name = l.section || 'Lessons';
+    const last = sections[sections.length - 1];
+    if (last && last.name === name) last.count += 1;
+    else sections.push({ name, count: 1 });
+  }
+  const capstones = lessons.filter((l) => (l.section || '').toLowerCase().includes('capstone'));
+  const destination = capstones.length ? capstones[capstones.length - 1] : null;
+  const outcomes = Array.isArray(path.outcomes) ? path.outcomes : [];
+
+  return (
+    <div className="card" style={{ borderLeft: '3px solid var(--accent-amber)' }}>
+      <div className="kicker" style={{ color: 'var(--accent-amber)', marginBottom: 6 }}>THE ROAD AHEAD</div>
+      <div className="row mono" style={{ gap: 10, fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>
+        <span>{lessons.length} lessons</span>
+        <span>·</span>
+        <span>≈ {hours} h total</span>
+        {capstones.length > 0 && (<><span>·</span><span>{capstones.length} capstone{capstones.length === 1 ? '' : 's'}</span></>)}
+      </div>
+
+      {outcomes.length > 0 && (
+        <>
+          <div className="mono" style={{ fontSize: 9, letterSpacing: '.16em', color: 'var(--text-tertiary)', marginBottom: 4 }}>
+            BY THE END YOU CAN
+          </div>
+          <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55 }}>
+            {outcomes.slice(0, 4).map((o, i) => <li key={i}>{o}</li>)}
+          </ul>
+        </>
+      )}
+
+      <div className="mono" style={{ fontSize: 9, letterSpacing: '.16em', color: 'var(--text-tertiary)', marginBottom: 4 }}>
+        THE ARC
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: destination ? 8 : 12 }}>
+        {sections.map((s, i) => (
+          <span key={i} className="pill" style={{ fontSize: 10, padding: '3px 9px' }}>
+            {s.name} · {s.count}
+          </span>
+        ))}
+      </div>
+
+      {destination && (
+        <p className="caption" style={{ margin: '0 0 12px', fontSize: 12 }}>
+          Destination: <strong style={{ color: 'var(--text-secondary)' }}>{destination.title}</strong> — built by you, no rails.
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="btn btn-primary btn-block"
+        onClick={() => currentLesson && nav(`/lesson/${currentLesson.id}`)}
+      >
+        Begin: {currentLesson?.title || lessons[0].title} →
       </button>
     </div>
   );

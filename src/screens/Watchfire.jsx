@@ -25,6 +25,8 @@ import BeastSprite from '../components/BeastSprite.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
 import OrderQuestion from '../components/OrderQuestion.jsx';
+import SessionRecap from '../components/SessionRecap.jsx';
+import StemText from '../components/StemText.jsx';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 
 function isoDayString(d = new Date()) {
@@ -73,6 +75,8 @@ export default function Watchfire() {
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState(null); // chosen option index this wraith (MCQ)
   const [orderResult, setOrderResult] = useState(null); // 'right'|'wrong' (order kind)
+  // Per-wraith outcomes for the patrol-complete recap.
+  const [results, setResults] = useState([]);
   const [fireHp, setFireHp] = useState(FIRE_HP);
   const [banished, setBanished] = useState(0);
   // 'strike' | 'hit' — one-shot animation class on the stage.
@@ -109,6 +113,7 @@ export default function Watchfire() {
   // Shared outcome handling for both question kinds — the honest scheduler
   // call plus the battle theater.
   const resolve = (correct, canonical) => {
+    setResults((r) => [...r, { prompt: q.q, correct, lessonId: conceptIdNow }]);
     if (correct) {
       // The honest part: the real scheduler call, identical to Reviews.
       markReviewed(conceptIdNow, 3);
@@ -193,6 +198,8 @@ export default function Watchfire() {
             Back to camp →
           </button>
         </div>
+        {/* What the patrol taught — the wraiths that slipped past. */}
+        <SessionRecap results={results} title="THIS PATROL" />
       </div>
     );
   }
@@ -263,7 +270,13 @@ export default function Watchfire() {
         <div className="mono" style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '.16em', textTransform: 'uppercase', marginBottom: 8 }}>
           {pathName} · {lesson.title}
         </div>
-        <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>{q.q}</p>
+        <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>
+          <StemText
+            text={q.q}
+            fill={!isOrder && picked !== null ? q.opts[q.answer] : null}
+            verdict={picked !== null && picked !== q.answer ? 'wrong' : 'right'}
+          />
+        </p>
         {isOrder ? (
           /* Drag-to-order wraith — grading + feedback live in the component. */
           <OrderQuestion key={conceptIdNow} question={q} onDone={onOrderDone} />

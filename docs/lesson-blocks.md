@@ -247,3 +247,83 @@ The last step shows the `why` coda panel if set.
 `dockerfile`, `json`. Only `python` runs in-browser today (Pyodide is
 fetched on first use). `check.kind` is `value` for "var equals X" or
 `stdout` for "printed text contains X".
+
+### `build-along` — guided real-terminal walkthrough
+
+The blessed hands-on pattern: real commands the learner runs in THEIR OWN
+terminal/VS Code (the app never embeds an editor; the Python `practice` cell
+is the single exception).
+
+```js
+{ type: 'build-along', title: 'Create the project', lang: 'bash', file: 'terminal',
+  goal: 'A fresh folder with git history. Run each line as you click through.',
+  steps: [
+    { title: 'Make the folder',
+      say: 'One project per directory — mixing them is how chaos starts.',
+      add: 'mkdir app && cd app  # && chains only on success' },
+  ],
+}
+```
+
+### `explain-back` — Synthesis Challenge (commit-then-reveal)
+
+Read-only integration prompt + model answer. The `commit` field is REQUIRED
+on new blocks: a forced choice the learner must answer before the reveal
+unlocks (XP pays only on a correct commit).
+
+```js
+{ type: 'explain-back',
+  prompt: 'Walk a teammate through …',
+  modelAnswer: 'REQUIRED — the strong answer revealed after committing.',
+  hint: 'optional 1-line nudge',
+  commit: {
+    q: 'Which component fails FIRST under load?',
+    opts: ['the cache', 'the database', 'the load balancer'],
+    answer: 1,
+    why: '1-2 sentences — a nudge, never the full model answer.',
+  },
+}
+```
+
+### `system-design-lab` — phased checklist + reflection (persisted)
+
+Phases persist per-learner via the store's `labProgress` (checkboxes +
+reflection textarea + completion stamp).
+
+**Debrief convention (capstones):** every capstone lesson ends with a
+`system-design-lab` block used as a RUBRIC — `id: '<lessonId>-debrief'`,
+`title: 'Debrief: grade your build'`, each phase = one rubric criterion
+(`prompt` = the check, e.g. "Does it survive a restart without losing
+data?", `reference` = what a strong implementation does), and `reflection`
+prompting "What would you do differently?". Self-checked, honestly framed —
+it's the closure that makes finishing a project mean something.
+
+## Question-bank conventions (src/data/dailyQuestions.js)
+
+- **MCQ**: `{ q, opts: [3], answer: 0-2, whyWrong: {i: …}, whyCorrect,
+  bestPractices, lessonId? }`. Balance answer positions; the correct option
+  must not be systematically the longest (gated by tests).
+- **Cloze**: an MCQ whose stem contains a `____` blank (3+ underscores); the
+  options are candidate fills. Rendered with a styled blank that fills with
+  the correct answer after the pick. Inline `` `code` `` in any stem renders
+  monospace (find-the-bug stems quote real code).
+- **Order**: `{ kind: 'order', q, items: [3-6 in CORRECT order], whyWrong,
+  whyCorrect, bestPractices, lessonId? }` — presentation shuffles per mount.
+- **Parsons problem**: an order question with `code: true` — items are CODE
+  LINES (indentation preserved, rendered monospace). The strongest practice
+  format for program structure; prefer it wherever a concept IS a sequence
+  of code.
+- `lessonId` tags a question to the lesson it teaches — reviews prefer exact
+  tags, weak spots file under the real lesson. Tag everything taggable.
+
+## Lesson-body extras
+
+- `objectives: [2-4 strings]` at the body root — rendered as "AFTER THIS YOU
+  CAN" atop the first page. Write outcomes ("read a traceback bottom-up"),
+  not topics ("learn about tracebacks").
+- Per-section `takeaway: '<one sentence>'` — the "☝ THE ONE THING" chip; the
+  spine a skimmer keeps.
+- Per-section `deep: true` — collapses the section's body behind "Go deeper ▸"
+  (nice-to-know material; the core path must read complete without it).
+- `PATHS[key].outcomes: [strings]` in content.js — the path-level "by the end
+  you can" list shown on the un-started trail's preview card.

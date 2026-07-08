@@ -6,6 +6,8 @@ import { pickReviewQuestion } from '../data/battles.js';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
 import OrderQuestion from '../components/OrderQuestion.jsx';
+import SessionRecap from '../components/SessionRecap.jsx';
+import StemText from '../components/StemText.jsx';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 
 // Reviews — the spaced-repetition session screen.
@@ -99,6 +101,9 @@ export default function Reviews() {
   const [idx, setIdx] = useState(0);
   const [picked, setPicked] = useState(null); // chosen option index this card (MCQ)
   const [orderResult, setOrderResult] = useState(null); // 'right'|'wrong' (order kind)
+  // Per-card outcomes for the end-of-session recap. lessonId = the CONCEPT
+  // under review (the remediation target), not the question's source bank.
+  const [results, setResults] = useState([]);
 
   const total = dueIds.length;
   const done = idx >= total;
@@ -152,6 +157,7 @@ export default function Reviews() {
         // distractor has no slot in the bank's option list).
         q.lessonId && Number.isInteger(canonical) && canonical < (q.bankOpts ?? 4) ? canonical : null,
       );
+      setResults((r) => [...r, { prompt: q.q, correct: false, lessonId: conceptIdNow }]);
     }
   };
 
@@ -166,6 +172,7 @@ export default function Reviews() {
     } else {
       markReviewed(conceptIdNow, 1);
       recordQuizMiss(q.lessonId || '__daily_practice__', q.q, null);
+      setResults((r) => [...r, { prompt: q.q, correct: false, lessonId: conceptIdNow }]);
     }
   };
 
@@ -173,6 +180,7 @@ export default function Reviews() {
   const finishCorrect = (grade) => {
     if (done || !answeredCorrect) return;
     markReviewed(conceptIdNow, grade);
+    setResults((r) => [...r, { prompt: q.q, correct: true, close: grade === 2, lessonId: conceptIdNow }]);
     advance();
   };
 
@@ -230,6 +238,8 @@ export default function Reviews() {
             Back to home →
           </button>
         </div>
+        {/* What this session taught — the misses are the study plan. */}
+        <SessionRecap results={results} title="TODAY'S REVIEW" />
       </div>
     );
   }
@@ -273,7 +283,13 @@ export default function Reviews() {
         >
           {pathName} · {lesson.title}
         </div>
-        <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>{q.q}</p>
+        <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>
+          <StemText
+            text={q.q}
+            fill={!isOrder && picked !== null ? q.opts[q.answer] : null}
+            verdict={answeredWrong ? 'wrong' : 'right'}
+          />
+        </p>
         {isOrder ? (
           /* Drag-to-order card — grading + feedback live inside the component. */
           <OrderQuestion key={conceptIdNow} question={q} onDone={onOrderDone} />

@@ -8,6 +8,8 @@ import { BEASTS } from '../data/beasts.js';
 import BeastSprite, { nullBeastSrc } from '../components/BeastSprite.jsx';
 import AnimatedSprite from '../components/AnimatedSprite.jsx';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
+import SessionRecap from '../components/SessionRecap.jsx';
+import StemText from '../components/StemText.jsx';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import {
   dealBattle, minionFor, encounterStatus,
@@ -71,6 +73,8 @@ export default function Battle() {
   const [fx, setFx] = useState('');             // 'strike' | 'hit' | ''
   const [outcome, setOutcome] = useState(null); // 'win' | 'lose' | null
   const [minted, setMinted] = useState(false);  // recordBattleWin actually paid
+  // Per-turn outcomes for the end-screen recap (which questions cost hearts).
+  const [results, setResults] = useState([]);
 
   const count = isBoss ? BOSS_QUESTIONS : BATTLE_QUESTIONS;
   const deck = useMemo(
@@ -109,6 +113,7 @@ export default function Battle() {
     if (!q || picked !== null || outcome || i >= q.opts.length) return;
     const correct = i === q.answer;
     setPicked(i);
+    setResults((r) => [...r, { prompt: q.q, correct, lessonId: q.lessonId || null }]);
     setFx(correct ? 'strike' : 'hit');
     // Always schedule the reset — reduced-motion suppresses the VISUAL via
     // CSS, but the state machine must not depend on that (a stale fx class
@@ -172,6 +177,7 @@ export default function Battle() {
     setAttempt((a) => a + 1); // fresh deterministic hand
     setTurn(0); setWrongs(0); setPicked(null); setOutcome(null); setFx('');
     setMinted(false);
+    setResults([]);
   };
 
   // Resolve the barred lesson's title (gate context for the kicker + win CTA).
@@ -277,6 +283,8 @@ export default function Battle() {
             {won ? winCta.label : 'Back'}
           </button>
         </div>
+        {/* The fight's recap — which questions cost the hearts. */}
+        <SessionRecap results={results} title={won ? 'THE FIGHT' : 'WHAT COST THE HEARTS'} />
       </div>
     );
   }
@@ -348,7 +356,13 @@ export default function Battle() {
       {/* Dialogue box: the question (turn counter rides the corner) */}
       <div className="btl-dialog card">
         <div className="btl-turn">{turn + 1}/{total}</div>
-        <p className="btl-question">{q.q}</p>
+        <p className="btl-question">
+          <StemText
+            text={q.q}
+            fill={picked !== null ? q.opts[q.answer] : null}
+            verdict={picked !== null && picked !== q.answer ? 'wrong' : 'right'}
+          />
+        </p>
       </div>
 
       {/* The 4 answers, Pokémon-menu style */}

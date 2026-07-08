@@ -3078,6 +3078,25 @@ export default function Lesson() {
               lesson A's mounted block instances — leaking locked PredictBlock
               picks and PracticeBlock editor text across lessons. */}
           <div className="lesson-body" key={id}>
+            {/* Learning objectives — the goal-frame that turns reading into
+                pursuit. Authored as body.objectives: [strings]; first page
+                only (it's an expectation-setter, not a recurring banner). */}
+            {safePage === 0 && Array.isArray(entry.objectives) && entry.objectives.length > 0 && (
+              <div className="lesson-objectives" style={{
+                border: '1px solid var(--border-default)',
+                borderLeft: '3px solid var(--accent-amber)',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 16,
+              }}>
+                <div className="mono" style={{ fontSize: 9, letterSpacing: '.16em', color: 'var(--accent-amber)', marginBottom: 4 }}>
+                  AFTER THIS YOU CAN
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6 }}>
+                  {entry.objectives.slice(0, 4).map((o, i) => (
+                    <li key={i}>{renderInline(o, `obj-${i}`)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {(() => {
               // Reset the ref array each render — the visible page's block
               // count + ordering changes when the user pages forward/back, so
@@ -3188,6 +3207,21 @@ export default function Lesson() {
             Take the quiz →
           </button>
         </div>
+      )}
+
+      {/* On-demand drill — reps whenever the learner wants them, decoupled
+          from the review schedule (no XP, no due-date changes; see
+          PracticeLesson.jsx). Last page only, quiet ghost style so the
+          primary complete/continue flow stays the one CTA. */}
+      {isLastPage && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-block"
+          style={{ fontSize: 12, opacity: 0.85 }}
+          onClick={() => nav(`/practice/${id}`)}
+        >
+          🎯 Drill this lesson — quick practice, no XP
+        </button>
       )}
 
       {isLastPage && isComplete && (() => {

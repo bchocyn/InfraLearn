@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS } from '../data/content.js';
 import FeedbackPanel from './FeedbackPanel.jsx';
+import StemText from './StemText.jsx';
 
 // DailyChallengeCard — pinned MCQ card on Home. ONE question per day, drawn
 // from concepts the user has already learned via the SAME picker every other
@@ -221,7 +222,13 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
   return (
     <div className="card daily-challenge">
       <div className="kicker daily-kicker">🎯 TODAY&apos;S CHALLENGE · ~60s</div>
-      <div className="daily-title">{q.q}</div>
+      <div className="daily-title">
+        <StemText
+          text={q.q}
+          fill={answered ? q.opts[q.answer] : null}
+          verdict={answered && !correct ? 'wrong' : 'right'}
+        />
+      </div>
       {conceptMeta?.lesson?.title && (
         <div className="daily-source mono">
           FROM · {conceptMeta.lesson.title.toUpperCase()}

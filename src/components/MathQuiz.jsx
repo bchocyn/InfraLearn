@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import FeedbackPanel from './FeedbackPanel.jsx';
+import StemText from './StemText.jsx';
 import { useStore } from '../store/useStore.js';
 
 // MathQuiz — a self-contained 5-question quiz card.
@@ -166,7 +167,11 @@ export default function MathQuiz({ lessonId, title, questions, onSkip, onComplet
 
       <div className="quiz-question">
         <p style={{ margin: '14px 0 10px', color: 'var(--text-primary)', lineHeight: 1.55 }}>
-          {q.prompt}
+          <StemText
+            text={q.prompt}
+            fill={submitted ? q.options[q.answer] : null}
+            verdict={submitted && picked !== q.answer ? 'wrong' : 'right'}
+          />
         </p>
         {q.formula && <code className="quiz-formula">{q.formula}</code>}
       </div>

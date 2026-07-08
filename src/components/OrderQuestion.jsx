@@ -15,7 +15,10 @@ import FeedbackPanel from './FeedbackPanel.jsx';
 // "Check order" grades exact-match: every item in its canonical slot.
 //
 // Props:
-//   question      — { q, items, whyWrong?, whyCorrect?, bestPractices? }
+//   question      — { q, items, whyWrong?, whyCorrect?, bestPractices?, code? }
+//                   `code: true` = a Parsons problem: items are CODE LINES,
+//                   rendered monospace with indentation preserved (arranging
+//                   program structure is the point, so whitespace is data).
 //   onDone(bool)  — fired exactly once when the order is checked
 //   initialResult — 'right' | 'wrong' | null; hydrated remounts (daily
 //                   practice re-opened mid-day) render the CANONICAL order
@@ -167,7 +170,13 @@ export default function OrderQuestion({ question, onDone, initialResult = null }
               <span className="mono" style={{ fontSize: 10, color: 'var(--text-tertiary)', width: 14, flex: '0 0 auto' }}>
                 {pos + 1}
               </span>
-              <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: 13, lineHeight: 1.4 }}>
+              <span
+                style={question.code ? {
+                  flex: '1 1 auto', minWidth: 0, fontSize: 12, lineHeight: 1.45,
+                  fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap',
+                  overflowWrap: 'anywhere',
+                } : { flex: '1 1 auto', minWidth: 0, fontSize: 13, lineHeight: 1.4 }}
+              >
                 {items[itemIdx]}
               </span>
               {submitted ? (

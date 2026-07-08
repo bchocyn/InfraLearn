@@ -5,6 +5,7 @@ import mathQuizzes from '../data/mathQuizzes.js';
 import { DAILY_QUESTIONS } from '../data/dailyQuestions.js';
 import { PATHS } from '../data/content.js';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
+import StemText from '../components/StemText.jsx';
 
 // ReviewWeakSpots — surfaces every question the user has answered wrong,
 // with the same per-choice feedback panel the in-lesson MathQuiz uses.
@@ -141,7 +142,11 @@ export default function ReviewWeakSpots() {
               lineHeight: 1.35,
             }}
           >
-            {m.question.prompt}
+            <StemText
+              text={m.question.prompt}
+              fill={m.question.answer >= 0 ? m.question.options?.[m.question.answer] : null}
+              verdict="right"
+            />
           </div>
           {m.question.formula && (
             <pre
