@@ -52,7 +52,8 @@ export const DAILY_QUESTIONS = {
           "2": "`grep` searches inside files for a pattern. Useful, but it's a filter, not a directory lister."
         },
         "whyCorrect": "`ls` is the canonical directory listing tool. `ls -lah` adds long-form, hidden files, and human-readable sizes.",
-        "bestPractices": "Memorize three forms: `ls` (quick scan), `ls -la` (perms + hidden), `ls -lah` (with sizes). Aliases like `ll` save keystrokes daily."
+        "bestPractices": "Memorize three forms: `ls` (quick scan), `ls -la` (perms + hidden), `ls -lah` (with sizes). Aliases like `ll` save keystrokes daily.",
+        "lessonId": "f3"
       },
       {
         "q": "A \"file path\" is...",
@@ -142,7 +143,8 @@ export const DAILY_QUESTIONS = {
           "2": "Only a *leading* `/` makes a path absolute. `../logs` starts with `..`, so it's relative — resolved from your current directory, not from root."
         },
         "whyCorrect": "`..` climbs one level to the parent directory, then `/logs` descends into its `logs` child — a sibling of where you started. Relative paths are always resolved against the current working directory.",
-        "bestPractices": "In scripts, prefer absolute paths (or anchor with `cd \"$(dirname \"$0\")\"`) so behavior doesn't change with the caller's working directory. Interactively, `cd -` jumps back to wherever you just were."
+        "bestPractices": "In scripts, prefer absolute paths (or anchor with `cd \"$(dirname \"$0\")\"`) so behavior doesn't change with the caller's working directory. Interactively, `cd -` jumps back to wherever you just were.",
+        "lessonId": "cli-navigate"
       },
       {
         "q": "In Python file I/O, why is `with open('data.txt') as f:` preferred over a bare `open()` call?",
@@ -187,7 +189,8 @@ export const DAILY_QUESTIONS = {
           "2": "Both go through the same hash-table lookup and are O(1) on average. `.get()` differs in error behavior, not in algorithm."
         },
         "whyCorrect": "`d[k]` is the loud version — a missing key raises `KeyError` immediately. `d.get(k)` returns `None`, and `d.get(k, default)` returns your fallback. Same O(1) hash lookup underneath, different failure contract.",
-        "bestPractices": "Pick by intent: brackets when the key *must* exist (crash early beats corrupt state), `.get(k, default)` for genuinely optional keys. For counting or grouping, look at `setdefault`, `defaultdict`, and `Counter`."
+        "bestPractices": "Pick by intent: brackets when the key *must* exist (crash early beats corrupt state), `.get(k, default)` for genuinely optional keys. For counting or grouping, look at `setdefault`, `defaultdict`, and `Counter`.",
+        "lessonId": "py-dicts"
       },
       {
         "q": "From the Strings lesson: `s = \"abc\"` then `s[0] = \"z\"` raises `TypeError`. What's going on?",
@@ -232,7 +235,22 @@ export const DAILY_QUESTIONS = {
           "2": "The success-only slot is `else` on a try block. `finally` runs regardless of outcome — including when the exception isn't caught at all."
         },
         "whyCorrect": "`finally` is the guaranteed-exit hook: normal completion, a raised exception, an early `return` — the block runs on every path out of the `try`. That guarantee is why cleanup (closing files, releasing locks) belongs there.",
-        "bestPractices": "Full shape: `try` / `except` (failure) / `else` (success only) / `finally` (always). If your `finally` just closes a resource, a `with` block usually says it better."
+        "bestPractices": "Full shape: `try` / `except` (failure) / `else` (success only) / `finally` (always). If your `finally` just closes a resource, a `with` block usually says it better.",
+        "lessonId": "py-exceptions"
+      },
+      {
+        "kind": "order",
+        "q": "Put the steps of loading a web page in the order they happen — from typing the URL to seeing the page.",
+        "items": [
+          "DNS resolves the domain name to an IP address",
+          "A TCP connection opens to that IP",
+          "TLS handshake encrypts the connection",
+          "The browser sends the HTTP request",
+          "The server's response renders as the page"
+        ],
+        "whyWrong": "The most common flip is putting the HTTP request before TLS — but the request would travel unencrypted. Every layer prepares the ground for the one after it: you can't connect before you know the address, and you can't speak privately before the handshake.",
+        "whyCorrect": "Name → connection → encryption → request → response. Each step needs the previous one's output: TCP needs the IP from DNS, TLS needs the open TCP pipe, and HTTP rides inside the encrypted channel.",
+        "bestPractices": "When a page won't load, debug in this exact order: can you resolve the name (dig), can you connect (ping/curl -v), does TLS succeed, THEN look at the app."
       }
     ],
     "junior": [
@@ -294,7 +312,8 @@ export const DAILY_QUESTIONS = {
           "1": "`if` never looks at output — it tests the command's exit status. With `-q`, grep prints nothing in *either* case and exits the moment it finds a match."
         },
         "whyCorrect": "Shell `if` runs a command and branches on its exit code: 0 is success. grep exits 0 on match, 1 on no match (2 on error), and `-q` silences output while exiting early on the first hit — perfect for conditionals.",
-        "bestPractices": "This convention powers `&&` and `||` chains too: `grep -q pattern file && do_thing`. Remember exit 0 = true in shell — the opposite of most programming languages."
+        "bestPractices": "This convention powers `&&` and `||` chains too: `grep -q pattern file && do_thing`. Remember exit 0 = true in shell — the opposite of most programming languages.",
+        "lessonId": "cli-grep"
       },
       {
         "q": "You set `MODE=dev` in your shell without `export`, then run a Python script that reads environment variables. What does `os.getenv('MODE')` return?",
@@ -309,7 +328,8 @@ export const DAILY_QUESTIONS = {
           "2": "Same window isn't enough — the boundary is process inheritance, not the terminal. Without `export`, even a child launched from that exact shell sees nothing."
         },
         "whyCorrect": "`MODE=dev` creates a shell variable; `export MODE=dev` promotes it into the environment that child processes inherit. The Python script is a child process, so without the export it sees nothing and `getenv` returns None.",
-        "bestPractices": "One-off runs can inline it: `MODE=dev python app.py` exports for just that command. In code, use `os.environ['X']` for required config (crash loudly at boot) and `os.getenv('X', default)` for true optionals — and cast, env values are always strings."
+        "bestPractices": "One-off runs can inline it: `MODE=dev python app.py` exports for just that command. In code, use `os.environ['X']` for required config (crash loudly at boot) and `os.getenv('X', default)` for true optionals — and cast, env values are always strings.",
+        "lessonId": "cli-env"
       },
       {
         "q": "SSH refuses to connect to a server you've used for months: 'REMOTE HOST IDENTIFICATION HAS CHANGED'. What does this mean?",
@@ -324,7 +344,8 @@ export const DAILY_QUESTIONS = {
           "2": "SSH doesn't use TLS or certificate authorities. Trust comes from pinning the host key in `known_hosts` on first connect — that pinned fingerprint mismatching is exactly this error."
         },
         "whyCorrect": "On first connect, SSH pins the server's host key into `~/.ssh/known_hosts`. If the key later changes, SSH refuses rather than silently trusting — either the server was legitimately rebuilt, or you're being man-in-the-middled. The refusal is a feature.",
-        "bestPractices": "Don't reflexively delete the `known_hosts` line — first confirm out-of-band (with whoever runs the box) that the host was reprovisioned. If it was, remove just that entry with `ssh-keygen -R hostname` and re-verify the new fingerprint."
+        "bestPractices": "Don't reflexively delete the `known_hosts` line — first confirm out-of-band (with whoever runs the box) that the host was reprovisioned. If it was, remove just that entry with `ssh-keygen -R hostname` and re-verify the new fingerprint.",
+        "lessonId": "f5"
       },
       {
         "q": "A teammate pushed commits to GitHub. You run `git fetch`. Where do their commits now live on your machine?",
@@ -399,7 +420,22 @@ export const DAILY_QUESTIONS = {
           "2": "That's a linear scan — 60 reapply-and-test cycles, plus reverting published history creates its own mess. Bisection gets the same answer in log2(60) ≈ 6 checks without rewriting anything."
         },
         "whyCorrect": "When you have a known-good state and a known-bad state, binary search finds the breaking change in log2(n) steps. `git bisect` automates it: mark good and bad, Git checks out midpoints, you test and mark, and it corners the guilty commit.",
-        "bestPractices": "If the test is scriptable, `git bisect run ./test.sh` does the whole hunt unattended. The prerequisite is a reliable repro — bisecting a flaky test just teaches you to distrust bisect."
+        "bestPractices": "If the test is scriptable, `git bisect run ./test.sh` does the whole hunt unattended. The prerequisite is a reliable repro — bisecting a flaky test just teaches you to distrust bisect.",
+        "lessonId": "fund-debugging"
+      },
+      {
+        "kind": "order",
+        "q": "Order the git workflow for sharing a change — from editing a file to teammates seeing it.",
+        "items": [
+          "Edit the file in your working directory",
+          "Stage the change with git add",
+          "Commit the snapshot with a message",
+          "Push the commit to the remote",
+          "Teammates pull it into their copies"
+        ],
+        "whyWrong": "Commit-before-add is the classic trip: git only commits what's STAGED, so an unstaged edit silently stays out of the snapshot. Push doesn't send files — it sends commits.",
+        "whyCorrect": "Working directory → staging area → local history → remote → everyone else. Each git command moves the change exactly one station down the line.",
+        "bestPractices": "Run git status between every step until the flow is muscle memory — it names which station your change is currently sitting at."
       }
     ],
     "senior": [
@@ -431,7 +467,8 @@ export const DAILY_QUESTIONS = {
           "1": "There is no threshold where the GIL relents — pure-Python CPU work is single-core at any thread count. More threads just add lock contention and context-switch overhead."
         },
         "whyCorrect": "CPython's Global Interpreter Lock allows one thread to execute Python bytecode at a time — threads give zero CPU parallelism. A `ProcessPoolExecutor` sidesteps it: one interpreter and one GIL per worker, so 8 workers really use 8 cores. The tax is pickling arguments across the process boundary.",
-        "bestPractices": "Split by bottleneck: threads for I/O-bound work (the GIL is released during blocking syscalls), processes for CPU-bound work, C-extension libraries (NumPy, Polars) when they drop the GIL internally. Real services often layer both — gunicorn's `--workers N --threads M`."
+        "bestPractices": "Split by bottleneck: threads for I/O-bound work (the GIL is released during blocking syscalls), processes for CPU-bound work, C-extension libraries (NumPy, Polars) when they drop the GIL internally. Real services often layer both — gunicorn's `--workers N --threads M`.",
+        "lessonId": "processes-threads"
       },
       {
         "q": "On Linux, `malloc` of 1 TB succeeds instantly on a 16 GB box. How does virtual memory & paging make that sane — and when does the bill arrive?",
@@ -446,7 +483,8 @@ export const DAILY_QUESTIONS = {
           "2": "Swap isn't reserved up front either — allocation creates page-table bookkeeping only. Swap enters later, as eviction overflow under memory pressure, not as a pre-paid reservation."
         },
         "whyCorrect": "Linux overcommits by default: `malloc` hands out virtual address space, which costs nothing until a page is first touched and the kernel must find a real frame. When RAM plus swap can't cover a fault, the OOM killer selects a process by `oom_score` and kills it — often not the one that actually bloated.",
-        "bestPractices": "Monitor RSS (resident, real) not VSZ (virtual, the lie). In containers, remember cgroup limits OOM silently inside the cgroup — check `memory.events` rather than host dmesg. And treat a non-null `malloc` return as meaningless for capacity planning."
+        "bestPractices": "Monitor RSS (resident, real) not VSZ (virtual, the lie). In containers, remember cgroup limits OOM silently inside the cgroup — check `memory.events` rather than host dmesg. And treat a non-null `malloc` return as meaningless for capacity planning.",
+        "lessonId": "virtual-memory"
       },
       {
         "q": "From the File Systems lesson: `write()` returned success, the machine lost power seconds later, and the data is gone. Why wasn't the write durable?",
@@ -461,7 +499,8 @@ export const DAILY_QUESTIONS = {
           "2": "Spin-up isn't the issue (and SSDs don't spin at all) — the kernel simply hadn't issued the write to the device yet. `write()` success means 'the kernel accepted these bytes', nothing more."
         },
         "whyCorrect": "Linux buffers writes in the page cache and flushes lazily — a successful `write()` promises acceptance, not persistence. `fsync(fd)` is the durability barrier: it blocks until data and metadata reach storage. That per-commit fsync on the WAL is exactly what bounds database transaction throughput.",
-        "bestPractices": "For anything crash-critical: write, `fsync` the file, and fsync the containing directory if you created or renamed it. Remember `close()` does not imply fsync. This is also why moving a database's WAL onto low-fsync-latency NVMe is the cheapest perf win going."
+        "bestPractices": "For anything crash-critical: write, `fsync` the file, and fsync the containing directory if you created or renamed it. Remember `close()` does not imply fsync. This is also why moving a database's WAL onto low-fsync-latency NVMe is the cheapest perf win going.",
+        "lessonId": "file-systems"
       },
       {
         "q": "An attacker records months of HTTPS traffic, then steals the server's private certificate key. With TLS 1.3, why can't they decrypt the recordings?",
@@ -491,7 +530,8 @@ export const DAILY_QUESTIONS = {
           "2": "The structure stays a hash table — resize allocates a bigger bucket array and rehashes into it. (Tree fallback exists in some Java `HashMap` buckets, but that's collision handling, not what a resize does.)"
         },
         "whyCorrect": "Growth doubles the bucket array, so resizes get exponentially rarer as the map grows. Spread the occasional O(n) rehash over the many O(1) inserts between resizes and the amortized cost per operation is constant — the same accounting that makes list append O(1).",
-        "bestPractices": "Amortized O(1) still means occasional latency spikes — in hot paths that matters. If you know the final size, pre-size the container to skip rehash storms entirely. And remember worst-case O(n) exists when keys collide adversarially."
+        "bestPractices": "Amortized O(1) still means occasional latency spikes — in hot paths that matters. If you know the final size, pre-size the container to skip rehash storms entirely. And remember worst-case O(n) exists when keys collide adversarially.",
+        "lessonId": "fund-hash-maps"
       },
       {
         "q": "You need the keys of a binary search tree in sorted order. Which traversal do you reach for, and why?",
@@ -506,7 +546,8 @@ export const DAILY_QUESTIONS = {
           "2": "Depth says nothing about magnitude in a BST — left children are smaller, right children larger, at every level. A level-order walk interleaves small and large keys arbitrarily."
         },
         "whyCorrect": "The BST invariant is left < root < right at every node. Inorder traversal visits exactly in that order — recurse left, emit root, recurse right — so the output is globally sorted. It's the one traversal whose sequence depends on the BST property paying off.",
-        "bestPractices": "Map traversal to job: inorder for sorted output, preorder to copy/serialize, postorder to delete or fold bottom-up, BFS for shortest-path and nearest-first searches. In Python, mind recursion depth (~1000 frames) on deep or degenerate trees — switch to an explicit stack."
+        "bestPractices": "Map traversal to job: inorder for sorted output, preorder to copy/serialize, postorder to delete or fold bottom-up, BFS for shortest-path and nearest-first searches. In Python, mind recursion depth (~1000 frames) on deep or degenerate trees — switch to an explicit stack.",
+        "lessonId": "fund-trees-recursion"
       }
     ],
     "distinguished": [
@@ -538,7 +579,8 @@ export const DAILY_QUESTIONS = {
           "2": "Backwards on both counts — the TLB miss is the cheap one (a hardware page walk, ~100 cycles, no disk), while a page fault is the expensive kernel trap that may have to read from disk."
         },
         "whyCorrect": "Three tiers on every memory access: TLB hit (~1 cycle, invisible), TLB miss (MMU walks 4 levels of page tables in RAM, 100+ cycles, still pure hardware), page fault (no valid mapping — CPU traps to the kernel, which allocates, swaps in, or kills). The units jump from cycles to potentially milliseconds at that last boundary.",
-        "bestPractices": "Diagnose accordingly: heavy TLB misses (visible in `perf stat -e dTLB-load-misses`) suggest scattered access patterns or a case for hugepages; high major-fault counts (`ps -o maj_flt`, `sar -B`) mean you're touching disk — a working-set or swap problem, not a CPU one."
+        "bestPractices": "Diagnose accordingly: heavy TLB misses (visible in `perf stat -e dTLB-load-misses`) suggest scattered access patterns or a case for hugepages; high major-fault counts (`ps -o maj_flt`, `sar -B`) mean you're touching disk — a working-set or swap problem, not a CPU one.",
+        "lessonId": "virtual-memory"
       },
       {
         "q": "`mv big.iso /archive/` on the same filesystem returns instantly, but moving it to a different filesystem grinds for minutes. What explains the gap?",
@@ -553,7 +595,8 @@ export const DAILY_QUESTIONS = {
           "2": "No checksumming or compression happens at the boundary. The bytes are simply read and rewritten wholesale, because inode numbers are meaningful only within their own filesystem."
         },
         "whyCorrect": "A file is an inode; its name is just a (name → inode number) entry in a directory. Same-filesystem `mv` rewrites that one dentry — O(1) regardless of file size. Inode numbers don't exist outside their filesystem, so a cross-filesystem move must copy all the data to a new inode, then unlink the original.",
-        "bestPractices": "This model unlocks more than mv: hard links are extra dentries on one inode (file dies at link count zero), and atomic same-directory `rename()` is the standard trick for crash-safe file replacement. Plan data layout so huge files don't need to hop filesystems."
+        "bestPractices": "This model unlocks more than mv: hard links are extra dentries on one inode (file dies at link count zero), and atomic same-directory `rename()` is the standard trick for crash-safe file replacement. Plan data layout so huge files don't need to hop filesystems.",
+        "lessonId": "cli-navigate"
       },
       {
         "q": "Git stores snapshots, not diffs — yet creating a branch on a 10 GB repo is instant. What is a branch, physically?",
@@ -568,7 +611,8 @@ export const DAILY_QUESTIONS = {
           "1": "Deltas don't exist at commit time — commits point at whole-tree snapshots. Delta compression only arrives later, inside packfiles, when `git gc` squeezes similar blobs for storage."
         },
         "whyCorrect": "A branch is a pointer: one file containing one commit SHA. The commit points to a tree, trees point to blobs, and everything is content-addressed, so the new branch shares 100% of existing objects. That's why branching, rebasing, and cherry-picking are cheap — they move pointers and rebuild trees, never copy the repo.",
-        "bestPractices": "Explore it: `cat .git/refs/heads/main`, then `git cat-file -p <sha>` to walk commit → tree → blob yourself. The snapshot model explains the weird stuff — why `git gc` shrinks repos, why identical files cost nothing, why history rewrites are pointer surgery."
+        "bestPractices": "Explore it: `cat .git/refs/heads/main`, then `git cat-file -p <sha>` to walk commit → tree → blob yourself. The snapshot model explains the weird stuff — why `git gc` shrinks repos, why identical files cost nothing, why history rewrites are pointer surgery.",
+        "lessonId": "f6"
       },
       {
         "q": "You build handlers in a loop — `for i in range(3): handlers.append(lambda: i)` — and every closure returns 2. What's the scope story?",
@@ -583,7 +627,8 @@ export const DAILY_QUESTIONS = {
           "2": "Integers are immutable and iteration rebinds the name `i` to a new object each pass. The sharing happens at the variable (cell) level — three closures over one cell — not at the object level."
         },
         "whyCorrect": "A closure carries a reference to the variable itself, not a frozen copy of its value at capture time. All three lambdas point at the same `i`, and by the time any of them runs, the loop has left it at 2. The `lambda i=i:` fix works because default arguments *are* evaluated at definition time — the one eager corner of a lazy mechanism.",
-        "bestPractices": "Any callback built in a loop needs value-binding: a default arg (`i=i`), `functools.partial`, or a factory function per iteration. Same trap exists in JS with `var` — and the deep pattern is worth internalizing: late binding of free variables, early binding of defaults."
+        "bestPractices": "Any callback built in a loop needs value-binding: a default arg (`i=i`), `functools.partial`, or a factory function per iteration. Same trap exists in JS with `var` — and the deep pattern is worth internalizing: late binding of free variables, early binding of defaults.",
+        "lessonId": "fund-functions-scope"
       }
     ]
   },
@@ -664,7 +709,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "This is the infamous 'Norway problem': YAML 1.1 reads yes/no/on/off (in any case) as booleans, so `country: NO` becomes `country: false`. Quoting — `country: \"NO\"` — turns the type guessing off.",
         "bestPractices": "Quote any scalar that must stay text: country codes, version strings like \"1.10\", IDs with leading zeros, and anything yes/no-ish. That one habit kills the whole bug category.",
-        "explanation": "Unquoted NO is the Norway problem — YAML 1.1 coerces it to boolean false."
+        "explanation": "Unquoted NO is the Norway problem — YAML 1.1 coerces it to boolean false.",
+        "lessonId": "yaml-basics"
       },
       {
         "q": "You store a startup script in YAML and need each command to stay on its own line. Which block style keeps your newlines exactly as written?",
@@ -712,7 +758,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "`uniq` compares each line only to the one immediately before it. On unsorted input, identical lines separated by other text all survive. Sorting first makes duplicates adjacent so `uniq` can actually collapse them.",
         "bestPractices": "`sort -u` does both jobs in one step. For frequency tables, use `sort | uniq -c | sort -nr` — the classic top-talkers pipeline.",
-        "explanation": "uniq only collapses adjacent duplicates — sort makes them adjacent."
+        "explanation": "uniq only collapses adjacent duplicates — sort makes them adjacent.",
+        "lessonId": "d1"
       },
       {
         "q": "During branch cleanup after a merge, `git branch -d feature/x` refuses to delete the branch. What's the safe reading of that refusal?",
@@ -728,7 +775,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Lowercase `-d` refuses to delete a branch whose commits aren't reachable from main. Squash merges rewrite the work into one new commit, so the branch's original SHAs never appear on main — verify the PR merged on the host, then use `-D`.",
         "bestPractices": "Pair every branch delete with `git fetch --prune` so stale `origin/feature-x` tracking refs vanish too. Deleted the wrong branch? `git reflog` keeps the old tip recoverable for ~90 days.",
-        "explanation": "-d refuses unmerged-looking branches; squash merges hide the SHAs from main."
+        "explanation": "-d refuses unmerged-looking branches; squash merges hide the SHAs from main.",
+        "lessonId": "d3"
       },
       {
         "q": "In the CI vs Delivery vs Deployment ladder, what is the exact delta between Continuous Delivery and Continuous Deployment?",
@@ -744,7 +792,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Everything upstream is identical. The only difference is that Continuous Delivery keeps a human approval before production, while Continuous Deployment lets every green build flow straight to prod. Most companies stop at Delivery.",
         "bestPractices": "When reading any team's pipeline, ask one question: 'who pushes the button?' That answer determines the release risk, test coverage requirements, and on-call model.",
-        "explanation": "The delta is exactly one manual approval step — nothing else changes."
+        "explanation": "The delta is exactly one manual approval step — nothing else changes.",
+        "lessonId": "d6"
       },
       {
         "q": "Among the cloud service models, your team wants to push code and never patch an operating system again — but still write the app themselves. Which stop on the slider fits?",
@@ -760,7 +809,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "PaaS (App Engine, Beanstalk, Heroku) hands you a managed runtime: you push code and the platform handles OS patching, scaling, and load balancing. You own only the application layer.",
         "bestPractices": "Pick the model by asking 'what do I want to stop caring about?' — then choose the rightmost option on the control-vs-convenience slider that still lets you sleep at night.",
-        "explanation": "PaaS abstracts OS and runtime; you still own the application code."
+        "explanation": "PaaS abstracts OS and runtime; you still own the application code.",
+        "lessonId": "cloud-models"
       },
       {
         "q": "Using the 'Regions, AZs, and the edge' geography: a fire takes out a single datacenter building. Which deployment choice keeps your app up?",
@@ -776,7 +826,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Region is the city, AZ is the building. Multi-AZ replicas sit in physically separate buildings with 1-3 ms cross-AZ latency, so one building fire doesn't become an outage.",
         "bestPractices": "Default to multi-AZ for HA. Reach for multi-region only when the SLA truly demands it and the team can operate two stacks — active-active across regions means conflict resolution and double the ops surface.",
-        "explanation": "AZ = building. Multi-AZ replicas survive a single-building fire."
+        "explanation": "AZ = building. Multi-AZ replicas survive a single-building fire.",
+        "lessonId": "cloud-regions"
       },
       {
         "q": "Your Postgres data directory needs single-digit-millisecond random IO and full filesystem semantics. Of object, block, and file storage, which shape fits?",
@@ -792,7 +843,22 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Block storage (EBS, Persistent Disk) hands you a raw virtual disk: you mkfs it, get single-digit-ms latency, full filesystem semantics, and exactly one writer. That's precisely the shape a database needs.",
         "bestPractices": "Map workloads to shapes: object for static assets, backups, and ML datasets; block for databases, root volumes, and random IO; file for shared scratch space across a fleet.",
-        "explanation": "Databases need low-latency random IO with one writer — that's block storage."
+        "explanation": "Databases need low-latency random IO with one writer — that's block storage.",
+        "lessonId": "cloud-storage"
+      },
+      {
+        "kind": "order",
+        "q": "Arrange a CI/CD pipeline's stages in the order a commit travels through them.",
+        "items": [
+          "Developer pushes the commit",
+          "CI builds the artifact",
+          "Automated tests run against the build",
+          "The image is scanned and pushed to the registry",
+          "The deploy rolls out to production"
+        ],
+        "whyWrong": "Testing after deploy is the order that pages you at 3am — the pipeline exists to catch failures while they're cheap. And you can't test what hasn't been built: every stage gates the next.",
+        "whyCorrect": "Push → build → test → publish → deploy. Each stage is a quality gate; a failure stops the line before the blast radius grows.",
+        "bestPractices": "Make every stage fail the pipeline loudly. A pipeline where a red test still deploys is theater, not CI/CD."
       }
     ],
     "junior": [
@@ -840,7 +906,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Jobs are parallel by default; `needs:` declares the DAG. Making lint and test siblings roughly halves PR feedback time, and build waits for both gates before producing an image.",
         "bestPractices": "Keep PR feedback under ~3 minutes on a warm cache. Run independent checks as siblings, then require them as branch-protection checks so the pipeline is a gate, not a suggestion.",
-        "explanation": "No needs: between jobs = parallel; needs: [lint, test] = build waits for both."
+        "explanation": "No needs: between jobs = parallel; needs: [lint, test] = build waits for both.",
+        "lessonId": "gh-actions-ci"
       },
       {
         "q": "In a multi-service Docker Compose stack, your API connects with `postgres://db:5432` and it just works. What resolves the hostname `db`?",
@@ -856,7 +923,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Compose creates a user-defined bridge network, and inside it an embedded DNS server at 127.0.0.11 gives every service an A-record for its service name. `db` resolves to the postgres container's current IP on every lookup.",
         "bestPractices": "Let services talk over the Compose network by service name and skip publishing database ports to the host — the API can reach `db:5432` while the outside world never can.",
-        "explanation": "Docker's embedded DNS (127.0.0.11) on the user-defined network resolves service names."
+        "explanation": "Docker's embedded DNS (127.0.0.11) on the user-defined network resolves service names.",
+        "lessonId": "compose-stack"
       },
       {
         "q": "Prod breaks minutes after a deploy. In a CI/CD pipeline with rollback done right, what does `./rollback.sh` actually do?",
@@ -872,7 +940,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Prod keeps a record of current + previous SHAs in a deploy log. Rollback reads the last known-good tag and re-deploys that exact image from the registry — a metadata flip that completes in seconds because nothing is rebuilt.",
         "bestPractices": "Tag every image with the commit SHA, never `:latest`; keep at least the last two tags in the registry; and only append to the deploy log after a promotion succeeds, so failed deploys never pollute the rollback target.",
-        "explanation": "Rollback = re-deploy the previous SHA's existing image. Fast because nothing rebuilds."
+        "explanation": "Rollback = re-deploy the previous SHA's existing image. Fast because nothing rebuilds.",
+        "lessonId": "cicd-rollback"
       },
       {
         "q": "After a hardened container build on a distroless base, `docker exec -it app sh` fails with 'executable file not found'. Why is that failure the goal?",
@@ -888,7 +957,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Attack surface reduction: with no /bin/sh, no apt, and no curl, an attacker who achieves code execution has no living-off-the-land tools to explore, download payloads, or pivot. Combined with a non-root UID and read-only rootfs, the container is a dead end.",
         "bestPractices": "Verify hardening like a test suite: `exec sh` must fail, `id` must print uid=65532, and writing to /etc must error. Pin base images by digest and fail the build on HIGH/CRITICAL CVEs.",
-        "explanation": "Distroless = no shell to find. An attacker with code exec has nothing to pivot with."
+        "explanation": "Distroless = no shell to find. An attacker with code exec has nothing to pivot with.",
+        "lessonId": "hardened-container"
       },
       {
         "q": "In your Terraform AWS VPC module, app servers sit in a private subnet but still need to call external APIs. What gives them outbound internet without inbound exposure?",
@@ -904,7 +974,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "The NAT Gateway is the one-way valve: private workloads can *initiate* outbound connections (API calls, package installs) through it, but nothing outside can initiate a connection back in.",
         "bestPractices": "NAT Gateways cost real money (~$32/mo each plus per-GB data). For learning labs, share a single NAT across AZs or skip the private subnet; for prod, one NAT per AZ avoids cross-AZ data charges.",
-        "explanation": "NAT Gateway = outbound-initiate-only. Routing to the IGW would make the subnet public."
+        "explanation": "NAT Gateway = outbound-initiate-only. Routing to the IGW would make the subnet public.",
+        "lessonId": "terraform-vpc"
       },
       {
         "q": "An IAM role exists and its permission policy allows s3:GetObject, yet your service gets AccessDenied when it tries to assume the role. Which IAM fundamental is usually missing?",
@@ -936,7 +1007,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Every serverless platform has hard limits: Lambda caps at 15 minutes, Cloud Run at 60, Fargate has none. A 45-minute job gets killed mid-run on Lambda — the duration ceiling has sunk more 'just use a function' migrations than cold starts ever did.",
         "bestPractices": "Before committing a workload, memorize your platform's ceilings — max duration, memory, and concurrency. Long-running or unpredictable-duration work belongs on serverless containers or a batch service.",
-        "explanation": "Lambda hard-stops at 15 minutes. A 45-minute job needs Fargate/Batch."
+        "explanation": "Lambda hard-stops at 15 minutes. A 45-minute job needs Fargate/Batch.",
+        "lessonId": "cloud-serverless"
       },
       {
         "q": "Your service health watchdog polls an upstream every 5 seconds. The upstream dies for an hour. Why should Slack get exactly one alert instead of 720?",
@@ -952,7 +1024,22 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Notify only when `old != new`: the state machine flips healthy → down once and fires one alert, then stays silent until the next transition. A dead upstream produces one message; its recovery produces one more.",
         "bestPractices": "Add hysteresis — require 2-3 consecutive bad ticks before flipping state — or a single slow request crossing the p99 line will flap your alerts all night.",
-        "explanation": "Alert on transitions, not ticks. One healthy→down message, one down→healthy."
+        "explanation": "Alert on transitions, not ticks. One healthy→down message, one down→healthy.",
+        "lessonId": "health-watchdog"
+      },
+      {
+        "kind": "order",
+        "q": "Order the life of a container — from writing the Dockerfile to a running process.",
+        "items": [
+          "Write the Dockerfile",
+          "docker build produces an image",
+          "The image is pushed to a registry",
+          "The host pulls the image",
+          "docker run starts the container from it"
+        ],
+        "whyWrong": "Run-before-build confuses the image (the frozen recipe) with the container (the live process). Registries hold images, never containers — you can't push something that's running.",
+        "whyCorrect": "Recipe → image → registry → pull → process. The image is immutable and travels; the container is ephemeral and runs where it lands.",
+        "bestPractices": "Tag images immutably (commit SHA, not just :latest) so the thing you tested is provably the thing you ran."
       }
     ],
     "senior": [
@@ -1001,7 +1088,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Each `type: LoadBalancer` Service provisions its own cloud LB — a separate bill and DNS record that scales linearly. Ingress consolidates: one cloud LB, one IP, with L7 host/path rules fanning traffic out to many internal ClusterIP Services.",
         "bestPractices": "Default to ClusterIP for everything inside the cluster. Reserve LoadBalancer for the single edge entry point and let an Ingress controller (nginx, Traefik, Envoy) do the HTTP fanout behind it.",
-        "explanation": "One Ingress + many ClusterIPs replaces N cloud LBs with one."
+        "explanation": "One Ingress + many ClusterIPs replaces N cloud LBs with one.",
+        "lessonId": "sd-loadbalancers-k8s"
       },
       {
         "q": "'Without good metrics, canary is just a slow blue-green.' In the blue-green vs canary decision, what makes that statement true?",
@@ -1017,7 +1105,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Canary's entire value is the observation loop: compare error rate, p99, and business KPIs between cohorts at small traffic percentages, and abort before the blast radius grows. Strip out the metrics and you're deploying to everyone anyway — just slowly.",
         "bestPractices": "Automate the ramp with metric gates (Argo Rollouts or Flagger wired to Prometheus), and define the abort thresholds *before* the deploy starts — during an incident is the wrong time to decide what 'sick' means.",
-        "explanation": "Canary = small blast radius + metrics-driven verdict. Remove the metrics and only the slowness remains."
+        "explanation": "Canary = small blast radius + metrics-driven verdict. Remove the metrics and only the slowness remains.",
+        "lessonId": "sd-blue-green-canary"
       },
       {
         "q": "A payment API times out mid-request and the client safely retries. With Stripe-style idempotency keys, why is the customer charged once, not twice?",
@@ -1033,7 +1122,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "The client generates a UUID per logical operation; the server stores (idempotency key → result) for ~24 hours. The first request executes the charge; any retry with the same key gets the cached result back without re-running the side effect.",
         "bestPractices": "Accept an idempotency key on every side-effect endpoint you own — the cost is one DB row and an index lookup, the payoff is bullet-proof retries. In a distributed system, anything that *can* run twice eventually will.",
-        "explanation": "Key → cached result. Retries return the stored outcome instead of re-charging."
+        "explanation": "Key → cached result. Retries return the stored outcome instead of re-charging.",
+        "lessonId": "sd-idempotency-deploys"
       },
       {
         "q": "Among cloud networking primitives, security groups are 'stateful' and NACLs are 'stateless'. Operationally, what does that difference mean?",
@@ -1049,7 +1139,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Stateful means connection tracking: if the security group allows the inbound request, the reply flows out automatically. Stateless NACLs evaluate every packet in isolation, so you must write explicit return-path rules — forget them and connections half-open and silently drop.",
         "bestPractices": "Use security groups as the daily firewall and reach for NACLs only for subnet-wide blocklists. When you do use NACLs, remember replies come back on ephemeral ports (1024-65535) — the classic missing rule.",
-        "explanation": "Stateful = replies auto-allowed. Stateless NACLs need both directions written out."
+        "explanation": "Stateful = replies auto-allowed. Stateless NACLs need both directions written out.",
+        "lessonId": "cloud-networking"
       },
       {
         "q": "In trunk-based development, half-finished features merge to main daily without breaking users. What makes that safe?",
@@ -1065,7 +1156,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Decoupling deploy from release is the whole trick: unfinished code merges and ships behind a flag that's off, then gets enabled for staff, 1% of users, and finally everyone. The trunk stays releasable while work lands in small daily increments.",
         "bestPractices": "Kill flags within weeks of full rollout — flag debt is dead branching logic rotting in your codebase. And keep branches under 24 hours; a PR that sits overnight is a long-lived branch in disguise.",
-        "explanation": "Feature flags let unfinished code ship dark — deploy and release become separate decisions."
+        "explanation": "Feature flags let unfinished code ship dark — deploy and release become separate decisions.",
+        "lessonId": "agile-trunk-based"
       }
     ],
     "distinguished": [
@@ -1098,7 +1190,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "VXLAN encapsulation adds ~50 bytes, so with a 1500-byte host MTU any inner packet over ~1450 bytes no longer fits after wrapping and silently vanishes. Small packets (SSH keystrokes, health probes) fit; bulk transfers stall — the signature symptom. Lower the overlay MTU.",
         "bestPractices": "When cross-host traffic half-works, tcpdump the bridge and compare packet sizes on both ends, or sweep with `ping -s` to find the size where loss starts. Check the CNI's configured MTU against the host NIC's.",
-        "explanation": "Classic VXLAN MTU trap: small packets pass, near-MTU packets die after encapsulation."
+        "explanation": "Classic VXLAN MTU trap: small packets pass, near-MTU packets die after encapsulation.",
+        "lessonId": "sd-container-networking"
       },
       {
         "q": "To debug faster, an engineer adds `user_id` as a label on every request metric. Months later the observability bill and dashboard query times explode. Why?",
@@ -1114,7 +1207,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "A time-series database keys storage on the unique combination of label values. A million users means a million separate series *per metric* — storage, ingestion, and every query's working set all scale with it. That's the cardinality trap.",
         "bestPractices": "Label metrics with low-cardinality dimensions only (service, route, status class). Per-user context belongs in traces and structured logs, where you can correlate back via trace IDs or exemplars.",
-        "explanation": "Every unique label value is its own time series — user_id explodes cardinality."
+        "explanation": "Every unique label value is its own time series — user_id explodes cardinality.",
+        "lessonId": "cloud-observability"
       },
       {
         "q": "Under FinOps cost models, which workload actually belongs on spot instances at 60-90% off?",
@@ -1130,7 +1224,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "Spot is unused capacity the cloud can yank back with two minutes' notice. Work that checkpoints often and holds no client connections — training runs, batch ETL — loses nothing when preempted and pockets the 60-90% discount.",
         "bestPractices": "Match pricing mode to workload shape: on-demand for spikes, reserved/savings plans for steady baseline, spot for interruptible compute. And set budget alarms at 50/80/100% of forecast so leaks surface before invoice day.",
-        "explanation": "Spot = deep discount, 2-minute yank risk. Only interruptible, checkpointed work qualifies."
+        "explanation": "Spot = deep discount, 2-minute yank risk. Only interruptible, checkpointed work qualifies.",
+        "lessonId": "cloud-cost"
       },
       {
         "q": "A service has a 99.9% availability SLO (~43 minutes/month of error budget) and burned it all by mid-month. In the SRE model, what does the team do?",
@@ -1146,7 +1241,8 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "The error budget is a control loop you spend deliberately: inside budget, ship faster; budget burned, releases freeze and engineering effort shifts to the reliability work that earns it back. That math — not heroics — is what makes SRE a discipline instead of rebadged ops.",
         "bestPractices": "Publish budget burn on a dashboard everyone can see, and agree on the freeze rule *before* you need it — then enforcing it is arithmetic, not an argument between product and on-call.",
-        "explanation": "Burned budget = release freeze + reliability work. The budget is the contract."
+        "explanation": "Burned budget = release freeze + reliability work. The budget is the contract.",
+        "lessonId": "cloud-models"
       }
     ]
   },
@@ -1225,7 +1321,8 @@ export const DAILY_QUESTIONS = {
           "2": "Leakage inflates offline scores rather than hurting them — it makes validation look too GOOD, and the disappointment arrives in production. Uniformly high error points at capacity, not contamination."
         },
         "whyCorrect": "High error on the training set itself means the model lacks the capacity to represent the pattern — high bias. Since it never fit the data it trained on, it cannot do better on held-out data either.",
-        "bestPractices": "Fix underfitting by adding capacity or better features before touching regularization — regularizing an already-too-simple model pushes it further into high bias."
+        "bestPractices": "Fix underfitting by adding capacity or better features before touching regularization — regularizing an already-too-simple model pushes it further into high bias.",
+        "lessonId": "training-eval"
       },
       {
         "q": "Per 'What ML actually does', which of these problems should stay as rule-based code rather than become an ML model?",
@@ -1255,7 +1352,8 @@ export const DAILY_QUESTIONS = {
           "2": "RL's giveaway is an agent stepping through an environment collecting rewards — `env.step`, `reward`, a policy updated over time. K-means has no actions, no environment, and no delayed feedback."
         },
         "whyCorrect": "The lesson's sniff test: if `.fit` takes a `y`, it's supervised; if it takes only `X`, it's unsupervised; if you see `env.step` and `reward`, it's RL. K-means groups similar rows with no answer key — the kid alone with the Lego pile.",
-        "bestPractices": "Reach for unsupervised methods when labels are expensive — clustering or self-supervised pretraining can give you 80% of the signal before you fund a labeling project."
+        "bestPractices": "Reach for unsupervised methods when labels are expensive — clustering or self-supervised pretraining can give you 80% of the signal before you fund a labeling project.",
+        "lessonId": "ml-intro-paradigms"
       },
       {
         "q": "Problem framing turns the business wish 'reduce churn' into what?",
@@ -1270,7 +1368,8 @@ export const DAILY_QUESTIONS = {
           "2": "Architecture is one of the last decisions. The lesson's detective analogy applies: pick the wrong question and every clue collected afterward is wasted effort — model choice included."
         },
         "whyCorrect": "A well-framed problem reads like a sentence: 'Given a user's activity in the last 14 days, predict the probability they cancel in the next 7.' That answers the four framing questions — target, inputs, horizon, granularity — and gives the pipeline a contract to honor.",
-        "bestPractices": "Write the framing sentence down before touching data, and record a baseline (a simple rule or last-week's-value). If the model can't beat the baseline, you haven't solved the framed task — you've just built a model."
+        "bestPractices": "Write the framing sentence down before touching data, and record a baseline (a simple rule or last-week's-value). If the model can't beat the baseline, you haven't solved the framed task — you've just built a model.",
+        "lessonId": "ml-intro-framing"
       },
       {
         "q": "In linear regression, why does the loss square the errors instead of just summing the raw differences?",
@@ -1285,7 +1384,8 @@ export const DAILY_QUESTIONS = {
           "1": "Squaring bounds nothing — a miss of 10 becomes 100. Rescaling inputs to a range is feature scaling (standardization / min-max), a preprocessing step entirely separate from the loss function."
         },
         "whyCorrect": "The lesson defines 'as close as possible' as minimizing the sum of SQUARED distances: squaring stops positive and negative misses from cancelling, and it makes large misses cost disproportionately more — the line gets pulled hard toward big outliers in error.",
-        "bestPractices": "If linear regression fits your problem, ship it — interpretability and speed beat a 0.3% accuracy bump from a model you can't debug. It's the null hypothesis every fancier model must beat."
+        "bestPractices": "If linear regression fits your problem, ship it — interpretability and speed beat a 0.3% accuracy bump from a model you can't debug. It's the null hypothesis every fancier model must beat.",
+        "lessonId": "ml-core-linear-regression"
       },
       {
         "q": "One of your numerical features — follower count — spans from 3 to 30 million. What does the numerical features lesson say to do before feeding it to a gradient-based model?",
@@ -1300,7 +1400,8 @@ export const DAILY_QUESTIONS = {
           "2": "Heavy-tailed features like income, file sizes, and follower counts are often among the STRONGEST signals. The fix is transforming the scale, not throwing the information away."
         },
         "whyCorrect": "When a feature spans many orders of magnitude, the lesson's standard first move is log(1+x): it compresses the long tail and makes the relationship more linear, which gradient-based models need.",
-        "bestPractices": "Fit scaling statistics on the training set only, then apply that same transform to validation and test — computing them on the full dataset leaks test information into training."
+        "bestPractices": "Fit scaling statistics on the training set only, then apply that same transform to validation and test — computing them on the full dataset leaks test information into training.",
+        "lessonId": "ml-data-numerical"
       },
       {
         "q": "A teammate encodes the categorical feature `country` as integers — JP=1, BR=2, KE=3 — and trains a linear model on it. What just went wrong?",
@@ -1315,7 +1416,22 @@ export const DAILY_QUESTIONS = {
           "2": "That's exactly backwards. Ordinal categories (small < medium < large, bronze < silver < gold) are where integers give the model useful structure for free; nominal ones like country are where integers invent lies."
         },
         "whyCorrect": "Country labels don't have a size — Japan isn't bigger than Brazil. Categorical encoding is the job of turning names into numbers WITHOUT inventing an order that isn't there, which is why one-hot is the safe default for nominal features.",
-        "bestPractices": "Fit the encoder on training data only, then persist and version it so serving applies the identical mapping — and decide the policy for unseen categories (an `unknown` bucket) at training time, not at 3am."
+        "bestPractices": "Fit the encoder on training data only, then persist and version it so serving applies the identical mapping — and decide the policy for unseen categories (an `unknown` bucket) at training time, not at 3am.",
+        "lessonId": "ml-data-categorical"
+      },
+      {
+        "kind": "order",
+        "q": "Put the ML lifecycle stages in order — from a business wish to a model you can trust in production.",
+        "items": [
+          "Frame the problem as a measurable prediction task",
+          "Collect and validate the data",
+          "Train and evaluate candidate models",
+          "Deploy the winner behind an API",
+          "Monitor predictions and drift in production"
+        ],
+        "whyWrong": "Teams that start at 'train' ship models that answer the wrong question — framing decides the label, the metric, and whether the project can succeed at all. And a deploy without monitoring is a model you've agreed to stop understanding.",
+        "whyCorrect": "Frame → data → train/eval → deploy → monitor, and the loop repeats: monitoring findings become the next round's training data. The loop, not the model, is the product.",
+        "bestPractices": "Write the monitoring plan when you frame the problem — if you can't say how you'd detect the model going stale, the framing isn't done."
       }
     ],
     "junior": [
@@ -1332,7 +1448,8 @@ export const DAILY_QUESTIONS = {
           "1": "Visualizing weights is a debugging / interpretability activity. Useful, but not what \"serving\" means."
         },
         "whyCorrect": "Serving puts a trained model behind an API (REST, gRPC, batch job) so other systems can send inputs and get predictions back — usually with latency, throughput, and version constraints.",
-        "bestPractices": "Wrap models with versioned APIs (e.g. `/v1/predict`). Roll new models out behind A/B or shadow traffic before flipping 100%."
+        "bestPractices": "Wrap models with versioned APIs (e.g. `/v1/predict`). Roll new models out behind A/B or shadow traffic before flipping 100%.",
+        "lessonId": "mlops-serving-apis"
       },
       {
         "q": "You randomly shuffle a time-series dataset into train/test splits and the metrics look amazing. Which kind of leakage did you most likely just create?",
@@ -1347,7 +1464,8 @@ export const DAILY_QUESTIONS = {
           "1": "Preprocessing leakage comes from fitting transforms (scaler, imputer) on ALL rows before splitting — a separate mistake. Shuffling by itself doesn't touch your scaler."
         },
         "whyCorrect": "Random splits on time-series data let the model peek at tomorrow to predict yesterday, inflating offline metrics with information that won't exist at serve time. The lesson's rule: always split by time — rolling or expanding windows, e.g. TimeSeriesSplit.",
-        "bestPractices": "Treat suspiciously high scores as a leak alarm, not a win — 99% on a hard problem almost always means leakage. Investigate before you celebrate."
+        "bestPractices": "Treat suspiciously high scores as a leak alarm, not a win — 99% on a hard problem almost always means leakage. Investigate before you celebrate.",
+        "lessonId": "ml-data-splits-leakage"
       },
       {
         "q": "Your fraud classifier reports 99% accuracy and the team wants to ship. Per the classification & metrics lesson, what do you check first?",
@@ -1362,7 +1480,8 @@ export const DAILY_QUESTIONS = {
           "2": "More rows don't fix a broken metric — 'never fraud' scores 99% on a million examples too. The problem is what accuracy measures on imbalanced data, not how much data measured it."
         },
         "whyCorrect": "Accuracy is misleading on imbalanced data: at 1% fraud, the do-nothing classifier gets 99%. For fraud, missing a positive is the expensive failure, so the lesson points you at recall — and PR-AUC when ranking on imbalanced classes matters.",
-        "bestPractices": "Never ship a classifier with one number. Ship the confusion matrix, the threshold you chose, and the cost assumption behind it — that's the artifact a stakeholder can actually argue with."
+        "bestPractices": "Never ship a classifier with one number. Ship the confusion matrix, the threshold you chose, and the cost assumption behind it — that's the artifact a stakeholder can actually argue with.",
+        "lessonId": "ml-core-classification-metrics"
       },
       {
         "q": "When serving models as APIs with FastAPI, why does the lesson insist on loading the model at module scope instead of inside the request handler?",
@@ -1377,7 +1496,8 @@ export const DAILY_QUESTIONS = {
           "2": "Per-request copies would be garbage-collected, so 'leak' is the wrong mental model. The documented failure is repeated disk/S3 reads on the hot path — every request pays the load time again."
         },
         "whyCorrect": "The lesson's watch-list names it directly: 'loading the model inside the handler — every request re-reads from disk.' Load once in module scope so the model is hot on every request; the related trap is cold start, where the first request after deploy pulls weights from S3 and can take 30s+.",
-        "bestPractices": "Pre-warm replicas before shifting traffic to them (canary, autoscale) and run a worker pool — one model copy per worker. Add a batch endpoint: 100 single calls cost far more than one batch of 100."
+        "bestPractices": "Pre-warm replicas before shifting traffic to them (canary, autoscale) and run a worker pool — one model copy per worker. Add a batch endpoint: 100 single calls cost far more than one batch of 100.",
+        "lessonId": "mlops-serving-apis"
       },
       {
         "q": "You retrain the churn model on fresh data — request and response fields are completely unchanged. Per API contracts for ML services, what gets bumped?",
@@ -1392,7 +1512,8 @@ export const DAILY_QUESTIONS = {
           "1": "Hiding the model version costs you debuggability. The lesson says echo model_version and request_id in every response, so during an incident you can answer 'which model gave this score?'"
         },
         "whyCorrect": "Model version and API version are different axes. A retrain on fresh data bumps model_version in the response body; the /v1 route only becomes /v2 when the contract's shape breaks — a renamed required field or a removed response key.",
-        "bestPractices": "Give new request fields defaults so old clients keep working without a redeploy, and validate outputs too — a NaN score crashing the client is still your bug."
+        "bestPractices": "Give new request fields defaults so old clients keep working without a redeploy, and validate outputs too — a NaN score crashing the client is still your bug.",
+        "lessonId": "mlops-api-contracts"
       },
       {
         "q": "After a crash, your change-data-capture consumer replays and processes some Kafka events twice. Which delivery semantics are you seeing?",
@@ -1407,7 +1528,8 @@ export const DAILY_QUESTIONS = {
           "2": "Kafka's exactly-once holds WITHIN Kafka (transactional read-process-write loops). The moment your consumer writes to an external sink like Postgres, you're back to at-least-once unless the sink is idempotent — the lesson calls the marketing claim 'effectively-once if you design for it'."
         },
         "whyCorrect": "At-least-once is the default for CDC + Kafka: commit the offset only after the side-effect lands, so a crash between the write and the commit means the same event is re-delivered. Nothing is lost — but retries duplicate.",
-        "bestPractices": "Make the sink idempotent: an upsert keyed on a stable id plus a monotonic source-LSN guard, so a replay can't double-count and an out-of-order event can't overwrite newer data with older data."
+        "bestPractices": "Make the sink idempotent: an upsert keyed on a stable id plus a monotonic source-LSN guard, so a replay can't double-count and an out-of-order event can't overwrite newer data with older data.",
+        "lessonId": "mlops-cdc-semantics"
       },
       {
         "q": "Your A/B test for a new ML ranker hits p < 0.05 on day two, and the PM wants to stop early and ship. What's wrong with that?",
@@ -1437,7 +1559,22 @@ export const DAILY_QUESTIONS = {
           "1": "Retraining cadence is one tool, not the discipline — and a blind weekly retrain can happily refit on drifted or poisoned data. You still need monitoring, eval gates, and versioned data around it."
         },
         "whyCorrect": "The lesson's core line: 'In software, the artifact rots when you change it. In ML, the artifact rots when you don't.' Fraudsters changed tactics, so the identical model quietly stopped matching reality — the bug lives between the code and the world.",
-        "bestPractices": "Build drift monitors before you build the model, and decide the retraining policy up front — scheduled, drift-triggered, or continuous. Never the unspoken fourth option: 'when someone complains.'"
+        "bestPractices": "Build drift monitors before you build the model, and decide the retraining policy up front — scheduled, drift-triggered, or continuous. Never the unspoken fourth option: 'when someone complains.'",
+        "lessonId": "m1"
+      },
+      {
+        "kind": "order",
+        "q": "Order the journey of a feature value for a real-time prediction — offline to online.",
+        "items": [
+          "Raw events land in the warehouse",
+          "A pipeline computes the feature offline",
+          "The value is materialized into the online store",
+          "The serving API fetches it at request time",
+          "The same value is logged for training parity"
+        ],
+        "whyWrong": "Fetching from the warehouse at request time is the tempting shortcut that adds seconds of latency — the whole point of the online store is precomputed lookups in milliseconds. Skipping the parity log is how training/serving skew sneaks in.",
+        "whyCorrect": "Warehouse → offline compute → online materialization → low-latency fetch → parity logging. One definition of the feature, two synchronized homes.",
+        "bestPractices": "Any feature served online must be reproducible offline from the same code path — if the two definitions can drift, they will."
       }
     ],
     "senior": [
@@ -1484,7 +1621,8 @@ export const DAILY_QUESTIONS = {
           "2": "Accuracy is a trailing indicator: labels arrive days or weeks after predictions (chargebacks, churn outcomes). By the time that dashboard dips, you have already been wrong for a while."
         },
         "whyCorrect": "Prediction drift watches the shape of the model's outputs over a sliding window — no labels needed, computed directly from the X, ŷ, timestamp log — which is why it is often the first alarm to fire when something upstream changes.",
-        "bestPractices": "Page on hard signals: PSI > 0.25 sustained on a required feature, prediction-rate cliffs, null-rate spikes. Leave per-feature distribution charts and confusion matrices on dashboards for the weekly review."
+        "bestPractices": "Page on hard signals: PSI > 0.25 sustained on a required feature, prediction-rate cliffs, null-rate spikes. Leave per-feature distribution charts and confusion matrices on dashboards for the weekly review.",
+        "lessonId": "mlops-monitoring"
       },
       {
         "q": "Your model shows a big generalization gap — train error near zero, validation error high. Which lever does the overfitting lesson call the cleanest fix?",
@@ -1499,7 +1637,8 @@ export const DAILY_QUESTIONS = {
           "1": "Capacity is the accelerant, not the cure. Overfitting means the model is already flexible enough to model the noise; the listed lever is a SIMPLER model — fewer parameters, shallower trees."
         },
         "whyCorrect": "The lesson orders the levers and puts more data first as 'the cleanest fix — hard to memorize a million examples.' Then: simpler model, regularization (L1/L2, dropout), early stopping, augmentation, and cross-validation for a stable estimate.",
-        "bestPractices": "If validation looks great but production collapses, suspect leakage — it's overfitting in disguise. Hunt for features that secretly encode the label before blaming the architecture."
+        "bestPractices": "If validation looks great but production collapses, suspect leakage — it's overfitting in disguise. Hunt for features that secretly encode the label before blaming the architecture.",
+        "lessonId": "ml-data-overfitting"
       },
       {
         "q": "The training/serving skew lesson insists skew is 'not a model problem.' What is the actual root-cause fix?",
@@ -1514,7 +1653,8 @@ export const DAILY_QUESTIONS = {
           "2": "Offline metrics are computed with the offline pipeline, so they are structurally blind to it — the lesson's whole tagline is 'the bug your offline metrics can't see.' Detection requires logging served features and replaying them through training code."
         },
         "whyCorrect": "Skew is a software engineering problem: 'two implementations of the same thing.' The fix is the same as for any duplicated-logic bug — collapse to one implementation (share the exact function, or serve and train from a feature store) and then continuously verify it.",
-        "bestPractices": "Log the exact feature vector served with each prediction, and run a daily job that replays those vectors through the training transform and diffs the results — a cheap, always-on skew alarm."
+        "bestPractices": "Log the exact feature vector served with each prediction, and run a daily job that replays those vectors through the training transform and diffs the results — a cheap, always-on skew alarm.",
+        "lessonId": "sd-training-serving-skew"
       }
     ],
     "distinguished": [
@@ -1546,7 +1686,8 @@ export const DAILY_QUESTIONS = {
           "2": "The embedder and the generator are separate models, picked separately. The answering LLM never sees vectors — only retrieved text — so no prompt change can repair a geometry mismatch inside the index."
         },
         "whyCorrect": "This is embedding drift: 'when you upgrade the embedder, every old vector in the index is now in the wrong space.' New embedder = full reindex — budget that cost up front instead of discovering it in production.",
-        "bestPractices": "Keep an eval set of ~50 (question, ground-truth chunk) pairs and re-measure recall@k after any retrieval change. RAG fails silently — confident answers from confidently wrong chunks — so without eval, every change is vibes."
+        "bestPractices": "Keep an eval set of ~50 (question, ground-truth chunk) pairs and re-measure recall@k after any retrieval change. RAG fails silently — confident answers from confidently wrong chunks — so without eval, every change is vibes.",
+        "lessonId": "llm-rag"
       },
       {
         "q": "With a model registry as the source of truth, what does 'promote v17 to production' actually mean mechanically?",
@@ -1561,7 +1702,8 @@ export const DAILY_QUESTIONS = {
           "1": "Pointing servers at a magic S3 path recreates the pickle-on-a-laptop problem — no stages, no approvals, no lineage, and rollback becomes a nervous file copy. Serving should ask the registry for a URI, not trust a path."
         },
         "whyCorrect": "Promotion is a registry call — e.g. MLflow's transition_model_version_stage to Production with archive_existing_versions — and serving loads 'models:/name/Production'. Rollback is the inverse call. The release surface shrinks to one audited API call.",
-        "bestPractices": "Never auto-promote to Production from CI — keep the human approval on the canary-to-prod hop. Registry lineage is what answers the incident question: which model, trained on what data, served this request?"
+        "bestPractices": "Never auto-promote to Production from CI — keep the human approval on the canary-to-prod hop. Registry lineage is what answers the incident question: which model, trained on what data, served this request?",
+        "lessonId": "sd-model-registry-source-of-truth"
       },
       {
         "q": "Day three of a 50/50 A/B test between two models in production: across 400,000 users the assignment counts read 48/52. What's the correct call?",
@@ -1610,7 +1752,8 @@ export const DAILY_QUESTIONS = {
           "2": "A tree is hierarchical (parent → children), not ordered as a single in/out line."
         },
         "whyCorrect": "A queue is First In, First Out — the first thing pushed is the first thing popped. Like a line at a checkout.",
-        "bestPractices": "Use queues for work item processing (job queues, message queues). Use stacks for backtracking, parsing, and recursion-style state."
+        "bestPractices": "Use queues for work item processing (job queues, message queues). Use stacks for backtracking, parsing, and recursion-style state.",
+        "lessonId": "s1"
       },
       {
         "q": "Big-O describes...",
@@ -1640,7 +1783,8 @@ export const DAILY_QUESTIONS = {
           "2": "Big O ignores constant *factors*, not growth. The shape of the curve is exactly what it predicts — and n² at 100× the input is a 10,000× blowup."
         },
         "whyCorrect": "O(n²) means work scales with the square of the input. 100× more items → 100² = 10,000× more work, so ~1 second becomes ~10,000 seconds (about 2.8 hours). The fix is structural — replace the nested loop with a hash lookup or sort-then-sweep, because no micro-optimization rescues a quadratic at n=100k.",
-        "bestPractices": "When you see a nested loop, estimate outer × inner at production n before shipping. Catching a quadratic at design time is far cheaper than catching it in prod at n=1M."
+        "bestPractices": "When you see a nested loop, estimate outer × inner at production n before shipping. Catching a quadratic at design time is far cheaper than catching it in prod at n=1M.",
+        "lessonId": "cs-bigo"
       },
       {
         "q": "A loop runs `if x in my_list` for every element of another list and it's crawling. Which data structures change fixes the complexity?",
@@ -1655,7 +1799,8 @@ export const DAILY_QUESTIONS = {
           "2": "A tuple is essentially an immutable list — membership is still a front-to-back O(n) scan. Immutability affects what you can change, not lookup cost."
         },
         "whyCorrect": "A set hashes its elements, so `x in my_set` is O(1) average. The whole loop drops from O(n²) to O(n) — the classic one-line fix for the most common accidental quadratic.",
-        "bestPractices": "Any `in list` inside a loop is a smell. Build the set once before the loop; the O(n) conversion cost pays for itself on the second lookup."
+        "bestPractices": "Any `in list` inside a loop is a smell. Build the set once before the loop; the O(n) conversion cost pays for itself on the second lookup.",
+        "lessonId": "s1"
       },
       {
         "q": "In SQL basics, why does `HAVING COUNT(*) >= 10` work but `WHERE COUNT(*) >= 10` throw an error?",
@@ -1700,7 +1845,8 @@ export const DAILY_QUESTIONS = {
           "1": "os.replace knows nothing about JSON — it just atomically swaps directory entries. Validation, if any, is your code's job before the rename."
         },
         "whyCorrect": "`open(path, 'w')` truncates the file to zero bytes before writing, so a crash mid-write has already destroyed the old data. Writing to a temp file, fsync-ing, then `os.replace`-ing swaps in a complete file atomically — the store is always the old version or the new one, never half of each.",
-        "bestPractices": "Keep the temp file in the same directory as the target — same-directory rename is the only atomicity POSIX guarantees. Cross-filesystem renames silently degrade to copy + delete."
+        "bestPractices": "Keep the temp file in the same directory as the target — same-directory rename is the only atomicity POSIX guarantees. Cross-filesystem renames silently degrade to copy + delete.",
+        "lessonId": "cli-todo"
       },
       {
         "q": "The Agile Manifesto prefers 'working software over comprehensive documentation.' What does agile actually mean by 'over'?",
@@ -1715,7 +1861,8 @@ export const DAILY_QUESTIONS = {
           "2": "Deferring docs indefinitely is the same mistake with a schedule attached. The values rank priorities for trade-offs; they don't sequence the work."
         },
         "whyCorrect": "The four values are tie-breakers, not bans. Process, docs, contracts, and plans all still matter — they simply lose when they conflict with individuals, working software, customer collaboration, or responding to change.",
-        "bestPractices": "In a debate over 'is this agile?', check whether a preference is being read as a prohibition. Most Agile Theater starts by deleting the right-hand side of the manifesto instead of de-prioritizing it."
+        "bestPractices": "In a debate over 'is this agile?', check whether a preference is being read as a prohibition. Most Agile Theater starts by deleting the right-hand side of the manifesto instead of de-prioritizing it.",
+        "lessonId": "agile-mindset-what"
       },
       {
         "q": "What separates a real Kanban board from a glorified to-do list?",
@@ -1730,7 +1877,8 @@ export const DAILY_QUESTIONS = {
           "2": "Kanban drops story points and velocity entirely. Its core metric is cycle time — how long a card takes from pull to done."
         },
         "whyCorrect": "WIP limits force finish-before-start. When a column hits its cap, the team swarms the bottleneck instead of piling up more half-done work — Little's Law in action: cut WIP, cut cycle time.",
-        "bestPractices": "Set caps that actually pinch (In Progress ≤ 3, Review ≤ 2) and track cycle time weekly. If it creeps up, the bottleneck has moved and the column caps need retuning."
+        "bestPractices": "Set caps that actually pinch (In Progress ≤ 3, Review ≤ 2) and track cycle time weekly. If it creeps up, the bottleneck has moved and the column caps need retuning.",
+        "lessonId": "agile-kanban"
       },
       {
         "q": "A charge request times out, so the client retries. In how Stripe prevents duplicate charges, what does the retry send?",
@@ -1745,7 +1893,22 @@ export const DAILY_QUESTIONS = {
           "2": "The body fingerprint exists only to catch a key being *reused with different params* (which must error). Replay detection is driven by the key the client supplies."
         },
         "whyCorrect": "The key identifies one logical operation across all its retries. Same key → the server finds the stored result and replays the cached response, byte-identical, without touching the card again.",
-        "bestPractices": "Generate the UUID when the user confirms the action, not when the HTTP call fires — every retry of that intent then naturally reuses it. Stripe keeps keys ~24h; a retry after the TTL will re-execute."
+        "bestPractices": "Generate the UUID when the user confirms the action, not when the HTTP call fires — every retry of that intent then naturally reuses it. Stripe keeps keys ~24h; a retry after the TTL will re-execute.",
+        "lessonId": "stripe-idempotency"
+      },
+      {
+        "kind": "order",
+        "q": "Order these time complexities from fastest-growing... wait — from SLOWEST-growing (best) to fastest-growing (worst).",
+        "items": [
+          "O(1) — constant",
+          "O(log n) — binary search",
+          "O(n) — one pass",
+          "O(n log n) — good sorting",
+          "O(n²) — nested loops"
+        ],
+        "whyWrong": "The common slip is placing O(log n) above O(1) or below O(n log n) — remember log n barely grows (log of a billion is ~30), while n² at a million items is a trillion operations.",
+        "whyCorrect": "Constant, then logarithmic, then linear, then linearithmic, then quadratic. Each step up means the input size hurts you more.",
+        "bestPractices": "When an interviewer asks 'can you do better?', they're usually pointing one rung down this ladder — n² → n log n via sorting, n → log n via binary search, n → 1 via a hash map."
       }
     ],
     "junior": [
@@ -1777,7 +1940,8 @@ export const DAILY_QUESTIONS = {
           "1": "Redis happily runs HMSET/HSET from any client. That restriction doesn't exist — what Lua uniquely provides is executing the whole sequence without interleaving."
         },
         "whyCorrect": "Redis runs a Lua script as one atomic unit — no other command interleaves. If read-modify-write were separate calls, two servers could read the same token count and both spend it, leaking traffic well past the configured limit.",
-        "bestPractices": "Load the script once with SCRIPT LOAD and call it via EVALSHA, but catch the NOSCRIPT error and fall back to EVAL — after a Redis restart the cached script is gone."
+        "bestPractices": "Load the script once with SCRIPT LOAD and call it via EVALSHA, but catch the NOSCRIPT error and fall back to EVAL — after a Redis restart the cached script is gone.",
+        "lessonId": "rate-limiter"
       },
       {
         "q": "In waterfall vs agile, when does waterfall genuinely win?",
@@ -1792,7 +1956,8 @@ export const DAILY_QUESTIONS = {
           "2": "The lesson is explicit that agile isn't universally correct: you cannot iterate on a flying plane, and fixed-bid contracts need a signed scope before funds release."
         },
         "whyCorrect": "Waterfall's up-front spec pays off when requirements genuinely won't change and late course-correction is unaffordable — regulated hardware, avionics, fixed-bid contracts, migrations with a known endpoint.",
-        "bestPractices": "Before picking a process, ask two questions: how fixed are the requirements really, and what does being wrong late cost? Software usually answers 'not fixed' and 'recoverable' — that's why agile dominates it."
+        "bestPractices": "Before picking a process, ask two questions: how fixed are the requirements really, and what does being wrong late cost? Software usually answers 'not fixed' and 'recoverable' — that's why agile dominates it.",
+        "lessonId": "agile-mindset-waterfall-vs"
       },
       {
         "q": "Why do feedback loops win even when no individual decision gets any smarter?",
@@ -1807,7 +1972,8 @@ export const DAILY_QUESTIONS = {
           "1": "The lesson's claim is the opposite: each call is *no smarter*. The win is volume — more shipped decisions means more learning, even at the same error rate."
         },
         "whyCorrect": "Cut the loop from 5 hours to 5 minutes and you make 60× more decisions per week. Learning scales with decision count, so the faster loop compounds even if each individual judgment is only average.",
-        "bestPractices": "Treat loop latency as a first-class metric. Find the slowest loop on your critical path — usually model promotion or deploy, not unit tests — and attack that one."
+        "bestPractices": "Treat loop latency as a first-class metric. Find the slowest loop on your critical path — usually model promotion or deploy, not unit tests — and attack that one.",
+        "lessonId": "agile-mindset-feedback-loops"
       },
       {
         "q": "In the Scrum framework, which event actually changes how the team works — and is the first one skipped when 'too busy'?",
@@ -1822,7 +1988,8 @@ export const DAILY_QUESTIONS = {
           "2": "Standup syncs the team on the current plan and surfaces blockers — it coordinates within the process rather than revising the process itself."
         },
         "whyCorrect": "The retro is the only Scrum event whose output is a change to the team's own way of working. Skip it and every process problem freezes in place — which is why skipping it when busy is the classic mistake the lesson flags.",
-        "bestPractices": "Make retro actions real backlog tickets with an owner and a due date. If the same item resurfaces three sprints running, the retro has become theater."
+        "bestPractices": "Make retro actions real backlog tickets with an owner and a due date. If the same item resurfaces three sprints running, the retro has become theater.",
+        "lessonId": "agile-scrum-framework"
       },
       {
         "q": "Why does a well-run daily standup walk the board right-to-left instead of going around the room?",
@@ -1837,7 +2004,8 @@ export const DAILY_QUESTIONS = {
           "2": "Standup isn't for stakeholders at all — they're silent observers. And the point is surfacing stuck work loudly, not hiding it."
         },
         "whyCorrect": "Right-to-left starts with tickets closest to Done, so the team's energy goes into pulling work across the line before starting anything new — the same finish-first instinct as a WIP limit.",
-        "bestPractices": "Name blockers out loud, then park the fix — the two people who care solve it after the meeting. Hard stop at 15 minutes, same time every day."
+        "bestPractices": "Name blockers out loud, then park the fix — the two people who care solve it after the meeting. Hard stop at 15 minutes, same time every day.",
+        "lessonId": "agile-daily-standup"
       },
       {
         "q": "Sprint planning keeps blowing its time-box and the team is estimating stories it has never seen. What's the real problem?",
@@ -1852,7 +2020,8 @@ export const DAILY_QUESTIONS = {
           "1": "Estimation technique can't rescue stories nobody has interrogated. Planning poker on an unrefined story just produces confident-looking noise."
         },
         "whyCorrect": "Stories should arrive at planning already refined — sliced, clarified, estimable. Refinement front-loads the thinking so planning is just picking from a ready queue; when it isn't, planning degenerates into a discovery workshop.",
-        "bestPractices": "Reserve 1-2 hours weekly for backlog refinement and enforce a Definition of Ready. If planning exceeds two hours per week of sprint, refine more, plan faster."
+        "bestPractices": "Reserve 1-2 hours weekly for backlog refinement and enforce a Definition of Ready. If planning exceeds two hours per week of sprint, refine more, plan faster.",
+        "lessonId": "agile-sprint-planning"
       },
       {
         "q": "A user story is too big for one sprint. Per user stories & acceptance criteria, how do you split it?",
@@ -1867,7 +2036,22 @@ export const DAILY_QUESTIONS = {
           "2": "Stories that span sprints break velocity's honesty (no partial credit) and hide risk. 'Small' is the S in INVEST for a reason."
         },
         "whyCorrect": "Vertical slices cut through DB, API, and UI at once, so each piece is independently shippable and valuable — even if barely. Users touch something real every sprint, and every slice teaches you something.",
-        "bestPractices": "Slice by user journey: one role, one goal, one path. If a slice can't demo end-to-end, it's a task, not a story."
+        "bestPractices": "Slice by user journey: one role, one goal, one path. If a slice can't demo end-to-end, it's a task, not a story.",
+        "lessonId": "agile-user-stories"
+      },
+      {
+        "kind": "order",
+        "q": "Put the TDD loop in order — one full cycle.",
+        "items": [
+          "Write a failing test for the next behavior",
+          "Watch it fail for the RIGHT reason",
+          "Write the smallest code that passes",
+          "Refactor with the test staying green",
+          "Commit and pick the next behavior"
+        ],
+        "whyWrong": "Skipping 'watch it fail' is the silent killer — a test that passes before you write the code is testing nothing. Refactor-before-green means changing two things at once with no safety net.",
+        "whyCorrect": "Red for the right reason → minimal green → refactor under protection → commit. The failing test proves the test works; the green test protects the cleanup.",
+        "bestPractices": "Keep the loop under ten minutes. If a cycle takes an hour, the behavior you picked was too big — split it."
       }
     ],
     "senior": [
@@ -1884,7 +2068,8 @@ export const DAILY_QUESTIONS = {
           "2": "Network latency is solved with CDNs, connection pooling, or moving compute closer. Memoization caches *function results*, not network calls (though it can cache responses)."
         },
         "whyCorrect": "Memoization caches the result of f(x) keyed by x, so the next call with the same input returns instantly. Classic win for overlapping subproblems in recursion (e.g. naive Fibonacci is O(2^n), memoized is O(n)).",
-        "bestPractices": "Memoize only pure functions (same input → same output). Mind the cache key — mutable args defeat memoization or, worse, return stale results."
+        "bestPractices": "Memoize only pure functions (same input → same output). Mind the cache key — mutable args defeat memoization or, worse, return stale results.",
+        "lessonId": "sd-n-plus-one"
       },
       {
         "q": "Sprint ends with a 5-point story at 80% done. Under story points & velocity rules, what does it contribute?",
@@ -1899,7 +2084,8 @@ export const DAILY_QUESTIONS = {
           "2": "Velocity measures *completed, Definition-of-Done-meeting* work, not effort expended. Counting spent effort rewards starting things rather than finishing them."
         },
         "whyCorrect": "Only stories that hit the Definition of Done count. The zero stings, but it keeps the rolling average a truthful forecast — and it pressures the team to slice stories small enough to actually finish.",
-        "bestPractices": "Forecast next sprint from the rolling average of the last 3-5 sprints. If the must-haves exceed that number, cut scope at planning — not in week two."
+        "bestPractices": "Forecast next sprint from the rolling average of the last 3-5 sprints. If the must-haves exceed that number, cut scope at planning — not in week two.",
+        "lessonId": "agile-story-points-velocity"
       },
       {
         "q": "In MVP & incremental delivery, what's the line between a real MVP and a mockup?",
@@ -1914,7 +2100,8 @@ export const DAILY_QUESTIONS = {
           "2": "One user, one job, one path — no settings page, no admin panel. Scope breadth is exactly what an MVP cuts so the riskiest assumption gets tested sooner."
         },
         "whyCorrect": "The MVP bar is 'real is required': a working slice a real user can complete end-to-end, even if refunds are processed by hand for the first 20 customers. If no one can actually use it, it's a mockup, not an MVP.",
-        "bestPractices": "Write down the riskiest assumption first, then design the smallest slice that tests exactly that. After 2-3 increments, stop calling it an MVP — it's the product; maintain it like one."
+        "bestPractices": "Write down the riskiest assumption first, then design the smallest slice that tests exactly that. After 2-3 increments, stop calling it an MVP — it's the product; maintain it like one.",
+        "lessonId": "agile-mvp-incremental"
       },
       {
         "q": "A page fires 5,001 queries — one for 5,000 users, then one per user for their team. What's the N+1 queries fix?",
@@ -1944,7 +2131,8 @@ export const DAILY_QUESTIONS = {
           "2": "Each index is its own B-tree with its own pages and its own splits. There's no merged update — every index touched is a separate physical write."
         },
         "whyCorrect": "Write amplification = 1 + indexes touched. Eight secondary indexes turn one logical INSERT into nine physical writes — plus WAL and replication on top. On hot tables this write tax dominates IOPS.",
-        "bestPractices": "Audit ORM-generated indexes on every foreign key, and drop `(a)` when `(a, b)` exists — the composite serves both. In a design review, removing an index is usually the more senior move."
+        "bestPractices": "Audit ORM-generated indexes on every foreign key, and drop `(a)` when `(a, b)` exists — the composite serves both. In a design review, removing an index is usually the more senior move.",
+        "lessonId": "sd-index-write-cost"
       }
     ],
     "distinguished": [
@@ -1976,7 +2164,8 @@ export const DAILY_QUESTIONS = {
           "2": "Silently redirecting to v2 hides the breaking change: v2's response shape differs, so old clients get 200s with payloads they can't parse. Failing loudly is kinder."
         },
         "whyCorrect": "410 Gone is the machine-readable 'deliberately retired' signal, and pairing it with a migration-guide link turns a hard failure into a self-service fix. The contract ends loudly, on the date you promised.",
-        "bestPractices": "Run the full playbook: announce on day 0, dual-run for months, ship Sunset (RFC 8594) and Deprecation headers well before cutoff, then 410. Skipping any step burns integrator trust for years."
+        "bestPractices": "Run the full playbook: announce on day 0, dual-run for months, ship Sunset (RFC 8594) and Deprecation headers well before cutoff, then 410. Skipping any step burns integrator trust for years.",
+        "lessonId": "api-versioning"
       },
       {
         "q": "Per idempotency and retries, which PATCH body is safe for a client to retry blindly?",
@@ -1991,7 +2180,8 @@ export const DAILY_QUESTIONS = {
           "1": "PATCH isn't categorically unsafe — it's *slippery*. Deltas double-apply on retry; absolute updates don't. The body's semantics decide, not the verb."
         },
         "whyCorrect": "Setting a field to an absolute value is naturally idempotent: run it once or five times, the row still ends at value=7. That's why the lesson says to prefer absolute updates over deltas whenever you can.",
-        "bestPractices": "Design mutations so a retry lands on the same end state; where you truly need deltas (counters, balances), require an Idempotency-Key and dedupe server-side."
+        "bestPractices": "Design mutations so a retry lands on the same end state; where you truly need deltas (counters, balances), require an Idempotency-Key and dedupe server-side.",
+        "lessonId": "api-idempotency"
       },
       {
         "q": "Per rate limiting and quotas, why is raw client IP usually the wrong rate-limit key?",
@@ -2006,7 +2196,8 @@ export const DAILY_QUESTIONS = {
           "1": "Counter cost is roughly identical either way — one key and one integer. The problem with IP keys is fairness, not memory."
         },
         "whyCorrect": "Behind corporate NAT, hundreds of legitimate users present as a single IP. One noisy neighbor drains the shared bucket and everyone in the building gets 429s. Prefer API key, user ID, or tenant ID — identities that map to actual customers.",
-        "bestPractices": "Key authenticated traffic by user or tenant, fall back to IP only for anonymous routes, and use compound keys (user + endpoint) to protect expensive operations."
+        "bestPractices": "Key authenticated traffic by user or tenant, fall back to IP only for anonymous routes, and use compound keys (user + endpoint) to protect expensive operations.",
+        "lessonId": "api-rate-limiting"
       }
     ]
   },
@@ -2025,7 +2216,8 @@ export const DAILY_QUESTIONS = {
           "1": "Phone networks route calls between subscribers. The graph structure differs and there's no learning involved."
         },
         "whyCorrect": "Neural nets borrow the metaphor of neurons firing through weighted connections. The math (weighted sums + nonlinearity) is a vastly simplified abstraction, but the inspiration is biological.",
-        "bestPractices": "Don't over-extend the brain analogy when debugging. NNs are matrix multiplications + activations — the math, not the metaphor, is what predicts behavior."
+        "bestPractices": "Don't over-extend the brain analogy when debugging. NNs are matrix multiplications + activations — the math, not the metaphor, is what predicts behavior.",
+        "lessonId": "ml-nn-fundamentals"
       },
       {
         "q": "What's an \"epoch\" in training?",
@@ -2055,7 +2247,8 @@ export const DAILY_QUESTIONS = {
           "1": "Perpendicular vectors have a dot product of exactly ZERO — that's the opposite of a large value. Zero means 'unrelated', not 'aligned'."
         },
         "whyCorrect": "The dot product is the sum of elementwise products, and it measures alignment: large positive = pointing the same way, zero = perpendicular, negative = opposing. This is exactly why attention scores are computed as q · k — 'how relevant is this key to this query' is an alignment question.",
-        "bestPractices": "Read `W @ x` as 'W transforms x' and `q @ k` as 'how aligned are these'. Treating dot product as alignment is the single mental model that makes attention, cosine similarity, and embeddings click."
+        "bestPractices": "Read `W @ x` as 'W transforms x' and `q @ k` as 'how aligned are these'. Treating dot product as alignment is the single mental model that makes attention, cosine similarity, and embeddings click.",
+        "lessonId": "math-linalg"
       },
       {
         "q": "In Calculus for ML, why does the SGD update subtract the gradient instead of adding it?",
@@ -2070,7 +2263,8 @@ export const DAILY_QUESTIONS = {
           "2": "The learning rate scales the step identically whether you add or subtract. Adding wouldn't double-count anything — it would walk you uphill and MAXIMIZE the loss."
         },
         "whyCorrect": "∇L points in the direction of steepest ASCENT — the compass that always points uphill. Training wants to minimize loss, so you step the opposite way: w = w − η·∇L. It's not a trick, it's a sign.",
-        "bestPractices": "When training diverges, check the two halves of that one line: the sign (direction is pure math) and η (step size is art — too large and you overshoot the valley and bounce off the opposite wall)."
+        "bestPractices": "When training diverges, check the two halves of that one line: the sign (direction is pure math) and η (step size is art — too large and you overshoot the valley and bounce off the opposite wall).",
+        "lessonId": "math-calculus"
       },
       {
         "q": "Probability for ML: a disease test is 99% accurate, but only 0.1% of people are sick. You test positive. Why is your real chance of being sick only ~9%?",
@@ -2085,7 +2279,8 @@ export const DAILY_QUESTIONS = {
           "2": "The 99% applies both ways in this setup, and a positive DOES carry signal — it lifts your probability from 0.1% to ~9%, a 90× update. It just doesn't lift it to 99%."
         },
         "whyCorrect": "Bayes: for every 1 sick person there are ~999 healthy ones, and a 1% false-positive rate on 999 people produces ~10 false alarms per true positive. The tiny prior crushes the strong likelihood — posterior ≈ 9%.",
-        "bestPractices": "The ML version bites constantly: a classifier with 99% accuracy on a 0.1% positive class is still mostly wrong about positives. Do the Bayes arithmetic before celebrating accuracy on imbalanced data."
+        "bestPractices": "The ML version bites constantly: a classifier with 99% accuracy on a 0.1% positive class is still mostly wrong about positives. Do the Bayes arithmetic before celebrating accuracy on imbalanced data.",
+        "lessonId": "math-probability"
       },
       {
         "q": "In neural network fundamentals, what would happen if you removed every activation function from a 10-layer network?",
@@ -2100,7 +2295,8 @@ export const DAILY_QUESTIONS = {
           "1": "Gradients flow perfectly well through linear layers — that's the easy case for backprop. The problem is what the network can express, not whether it can train."
         },
         "whyCorrect": "Composition of linear maps is linear: W₃(W₂(W₁x)) is just (W₃W₂W₁)x — one matrix. The nonlinear squash between layers is what lets the network bend space and learn curves; it's the entire reason 'deep' means anything.",
-        "bestPractices": "Default to ReLU (or GELU in transformers) for hidden layers. Sigmoid and tanh saturate — their gradients flatten to zero in deep stacks, which is why they lost."
+        "bestPractices": "Default to ReLU (or GELU in transformers) for hidden layers. Sigmoid and tanh saturate — their gradients flatten to zero in deep stacks, which is why they lost.",
+        "lessonId": "ml-nn-fundamentals"
       },
       {
         "q": "In convolutional networks, why does sliding one shared kernel across the whole image beat a dense layer for vision?",
@@ -2115,7 +2311,8 @@ export const DAILY_QUESTIONS = {
           "2": "CNNs are NOT rotation-invariant — a sideways cat looks alien unless you augment with rotations and flips. Translation is the symmetry weight sharing buys you, not rotation."
         },
         "whyCorrect": "Weight sharing gives translation equivariance: a cat detector trained on the left side fires on the right too. And the parameter savings are brutal — a dense neuron on a 224×224 RGB image needs ~150K weights; a 3×3×3 kernel needs 27.",
-        "bestPractices": "Count your receptive field: if the object is bigger than what the deepest neuron can see, the model can't reason about it. And augment with rotations/flips, since the architecture won't cover those for free."
+        "bestPractices": "Count your receptive field: if the object is bigger than what the deepest neuron can see, the model can't reason about it. And augment with rotations/flips, since the architecture won't cover those for free.",
+        "lessonId": "ml-nn-cnn"
       },
       {
         "q": "When comparing two embeddings, why is cosine similarity usually preferred over Euclidean distance?",
@@ -2160,7 +2357,8 @@ export const DAILY_QUESTIONS = {
           "1": "Backwards — a square matrix is invertible only at FULL rank (1000 here). Rank 3 means it squashes 1000-dimensional space down to 3 dimensions, destroying information; there's no inverse."
         },
         "whyCorrect": "Rank counts the independent directions a matrix actually uses. A 1000×1000 matrix with rank 3 is 'secretly tiny' — it can be written as the product of a 1000×3 and a 3×1000 matrix. That low-rank structure is exactly what LoRA, PCA, and embeddings exploit.",
-        "bestPractices": "Never assume a square matrix is invertible — check the rank. And when you find low rank in a big matrix, exploit it: the real signal lives in few directions."
+        "bestPractices": "Never assume a square matrix is invertible — check the rank. And when you find low rank in a big matrix, exploit it: the real signal lives in few directions.",
+        "lessonId": "math-linalg"
       }
     ],
     "junior": [
@@ -2207,7 +2405,8 @@ export const DAILY_QUESTIONS = {
           "1": "Residual connections preserve information — they're a gradient highway, and they have nothing to do with token order. Position isn't something residuals could lose, because attention never had it."
         },
         "whyCorrect": "Attention treats its input as a set: shuffle the tokens and you get the shuffled output. Language needs order, so a position-dependent vector is added to each embedding before attention sees it — sinusoidal, learned, or (the modern default) RoPE.",
-        "bestPractices": "Position handling limits context extension: models trained at 4k tokens degrade hard at 32k unless you use RoPE scaling or ALiBi, or fine-tune for the longer window."
+        "bestPractices": "Position handling limits context extension: models trained at 4k tokens degrade hard at 32k unless you use RoPE scaling or ALiBi, or fine-tune for the longer window.",
+        "lessonId": "ml-nn-transformers"
       },
       {
         "q": "In backprop & training with PyTorch, what happens if you forget `optimizer.zero_grad()` between steps?",
@@ -2222,7 +2421,8 @@ export const DAILY_QUESTIONS = {
           "2": "LR schedulers track their own step count and never touch gradient buffers. The corruption is in `.grad`, not in the learning rate."
         },
         "whyCorrect": "PyTorch accumulates gradients by default: `.backward()` adds into `.grad` rather than overwriting it. Skip the zero and each step applies the sum of every gradient since the last reset — training silently corrupts with no exception thrown.",
-        "bestPractices": "The accumulate-by-default behavior is a feature when used deliberately: gradient accumulation divides the loss by accum_steps and calls `optimizer.step()` every N batches to fake a large batch in small memory."
+        "bestPractices": "The accumulate-by-default behavior is a feature when used deliberately: gradient accumulation divides the loss by accum_steps and calls `optimizer.step()` every N batches to fake a large batch in small memory.",
+        "lessonId": "ml-nn-backprop"
       },
       {
         "q": "Your fraud model scores 0.98 ROC-AUC on data where 1 in 1000 transactions is fraud. In ML model evaluation terms, why check PR-AUC before celebrating?",
@@ -2252,7 +2452,8 @@ export const DAILY_QUESTIONS = {
           "2": "Instructions can't grant knowledge the model doesn't have. It will still emit plausible-looking stale prices, because the failure is missing facts, not disobedience."
         },
         "whyCorrect": "RAG wins on freshness because the INDEX changes, not the weights: update the docs, re-embed, ship in minutes with citations attached. The rule of thumb: prompt for policy, retrieve for facts, fine-tune for behavior.",
-        "bestPractices": "Whichever knob you turn, keep a frozen eval set (~100 graded examples). Without it you can't tell whether your change helped or quietly regressed something else."
+        "bestPractices": "Whichever knob you turn, keep a frozen eval set (~100 graded examples). Without it you can't tell whether your change helped or quietly regressed something else.",
+        "lessonId": "ai-finetuning"
       },
       {
         "q": "In 'How Models Represent Meaning' terms, what's the tradeoff when jumping from 768-dim to 3072-dim embeddings?",
@@ -2267,7 +2468,36 @@ export const DAILY_QUESTIONS = {
           "1": "Dimension absolutely affects quality — 128-dim is measurably rougher than 768. The point is that the curve FLATTENS at the high end, not that it's flat everywhere."
         },
         "whyCorrect": "More dimensions ≠ better: past ~768 you hit diminishing returns while paying linearly more for RAM (~12 GB per million docs at 3072-D), network, and every similarity computation. 3072-D is 'marginal gain — only if eval proves it wins'.",
-        "bestPractices": "Measure recall on YOUR data before paying for bigger vectors. And version the index by embedding-model name — vectors from different models live in different spaces, and cosine between them is meaningless."
+        "bestPractices": "Measure recall on YOUR data before paying for bigger vectors. And version the index by embedding-model name — vectors from different models live in different spaces, and cosine between them is meaningless.",
+        "lessonId": "ai-embeddings"
+      },
+      {
+        "kind": "order",
+        "q": "Order a RAG pipeline's handling of one user question — from question to cited answer.",
+        "items": [
+          "Embed the user's question into a vector",
+          "Search the index for nearest chunks",
+          "Assemble the top chunks into the prompt context",
+          "The LLM generates an answer grounded in that context",
+          "The answer cites which chunks it used"
+        ],
+        "whyWrong": "Generating before retrieving is just a chatbot with extra steps — the model answers from stale weights and hallucinates. Retrieval must land in the prompt BEFORE generation, or the 'grounding' is decoration.",
+        "whyCorrect": "Embed → retrieve → assemble → generate → cite. The question becomes a vector, the vector finds the facts, the facts constrain the model.",
+        "bestPractices": "Log which chunks were retrieved for every answer — when RAG is wrong, the first question is always 'did retrieval fail or did generation ignore it?'"
+      },
+      {
+        "kind": "order",
+        "q": "Order one training step of a neural network — what happens between feeding a batch and better weights.",
+        "items": [
+          "The batch is tokenized into tensors",
+          "The forward pass computes predictions",
+          "The loss measures how wrong they were",
+          "Backpropagation computes gradients",
+          "The optimizer updates the weights"
+        ],
+        "whyWrong": "Gradients-before-loss is the usual flip — backprop differentiates THE LOSS, so there's nothing to propagate until the error is measured. The optimizer never sees data, only gradients.",
+        "whyCorrect": "Tokenize → forward → loss → backward → step. Data flows forward to make a guess; error flows backward to assign blame; the optimizer cashes the blame into updates.",
+        "bestPractices": "When training diverges, inspect in this order too: data batch first (garbage in?), then loss curve, then gradient norms — most 'model bugs' are data bugs."
       }
     ],
     "senior": [
@@ -2299,7 +2529,8 @@ export const DAILY_QUESTIONS = {
           "2": "float32 represents values down to ~1e-38, so tiny probabilities are fine. The epoch-1 killer is overflow to inf, not underflow of small numbers."
         },
         "whyCorrect": "exp(logit) overflows to inf the moment any logit exceeds ~88, and inf/inf poisons the whole row into NaN. Subtracting the row max before exponentiating leaves softmax mathematically identical but numerically sane — it's non-negotiable.",
-        "bestPractices": "Know the debug table: NaN at epoch 1 = softmax overflow; loss flat at 2.30 = log(10), you're guessing randomly; accuracy stuck at 10% = sign error in dz2 — check (probs − Y), not (Y − probs)."
+        "bestPractices": "Know the debug table: NaN at epoch 1 = softmax overflow; loss flat at 2.30 = log(10), you're guessing randomly; accuracy stuck at 10% = sign error in dz2 — check (probs − Y), not (Y − probs).",
+        "lessonId": "lab-numpy-mlp"
       },
       {
         "q": "In distributed training at scale, what does ZeRO do differently from vanilla data parallelism?",
@@ -2314,7 +2545,8 @@ export const DAILY_QUESTIONS = {
           "2": "Gradient compression is a real but separate technique. ZeRO's insight is about redundant STORAGE: with 32 data-parallel GPUs, why keep 32 identical copies of the Adam state?"
         },
         "whyCorrect": "Vanilla data parallelism replicates params + gradients + optimizer state on every GPU. ZeRO shards them instead: stage 1 shards optimizer state (the biggest consumer, ~4× saving), stage 2 adds gradients, stage 3 adds the parameters themselves. FSDP is the same idea built into PyTorch.",
-        "bestPractices": "Reach for ZeRO-3/FSDP when memory is the bottleneck AND you have fast interconnect — the price of sharding is extra communication to gather slices during forward/backward."
+        "bestPractices": "Reach for ZeRO-3/FSDP when memory is the bottleneck AND you have fast interconnect — the price of sharding is extra communication to gather slices during forward/backward.",
+        "lessonId": "ai-distributed-training"
       },
       {
         "q": "After you fine-tune an LLM with LoRA, the saved artifact is ~30 MB instead of 14 GB. Why?",
@@ -2329,7 +2561,8 @@ export const DAILY_QUESTIONS = {
           "1": "No such dedup exists — every attention layer has its own distinct learned weights. Sharing them across layers would be a different architecture entirely."
         },
         "whyCorrect": "LoRA freezes the base and trains only tiny rank-decomposed matrices (ΔW = B·A, r typically 8-16) injected into the attention projections — under 1% of parameters. `save_pretrained` writes just that adapter, which reloads on top of the untouched base in one line.",
-        "bestPractices": "Remember α/r is the real learning-rate multiplier — doubling r without adjusting α changes your effective LR. And rollback is free: the base is bit-identical, so 'undo' is just not loading the adapter."
+        "bestPractices": "Remember α/r is the real learning-rate multiplier — doubling r without adjusting α changes your effective LR. And rollback is free: the base is bit-identical, so 'undo' is just not loading the adapter.",
+        "lessonId": "lab-lora-finetune"
       },
       {
         "q": "In retrieval-augmented generation, why do production teams cap retrieval at top-k of 3-8 chunks instead of stuffing 50 into the prompt?",
@@ -2344,7 +2577,8 @@ export const DAILY_QUESTIONS = {
           "2": "Modern 128k+ context windows fit far more than ten chunks with room to spare. The problem is attention quality and cost, not whether the tokens physically fit."
         },
         "whyCorrect": "Two compounding reasons: the 'lost in the middle' effect — past ~10 chunks the model under-attends to mid-context evidence — and economics, since every chunk is input tokens billed on every call. Context-stuffing tanks accuracy AND the bill at once.",
-        "bestPractices": "Use two-stage retrieval: pull top-50 by cheap ANN, re-rank with a cross-encoder down to top-5. Add BM25 hybrid search for proper nouns and IDs, and force citations ([doc-N]) so hallucinations are auditable."
+        "bestPractices": "Use two-stage retrieval: pull top-50 by cheap ANN, re-rank with a cross-encoder down to top-5. Add BM25 hybrid search for proper nouns and IDs, and force citations ([doc-N]) so hallucinations are auditable.",
+        "lessonId": "mleng-rag"
       },
       {
         "q": "In tool use and function calling, your tool throws an exception mid-agent-loop. What does the production pattern do next?",
@@ -2359,7 +2593,8 @@ export const DAILY_QUESTIONS = {
           "2": "Blindly retrying an identical call repeats the identical failure — and for side-effecting tools it's actively dangerous. The model needs to SEE the error so it can change its arguments or approach."
         },
         "whyCorrect": "Errors are inputs too: package the exception text as the tool_result and loop again. The model reads what failed and adapts — retries with fixed arguments, picks a different tool, or asks the user. That recovery loop is what makes agents robust.",
-        "bestPractices": "Cap the loop (5-8 iterations) so a confused model can't burn budget chasing its tail, and gate side-effecting tools (refunds, deletes, emails) behind a confirm step — reads are safe to loop, writes are not."
+        "bestPractices": "Cap the loop (5-8 iterations) so a confused model can't burn budget chasing its tail, and gate side-effecting tools (refunds, deletes, emails) behind a confirm step — reads are safe to loop, writes are not.",
+        "lessonId": "mleng-tool-use"
       }
     ],
     "distinguished": [
@@ -2391,7 +2626,8 @@ export const DAILY_QUESTIONS = {
           "1": "GPipe-style schedules keep weights consistent within a step, so staleness isn't the issue. The bubble is a scheduling gap — GPUs with nothing to chew on — not a correctness problem."
         },
         "whyCorrect": "With layers split across stages, the pipeline must fill before every GPU has work and drain at the end — that dead time is the bubble, roughly (stages − 1) / microbatches. Four stages with eight microbatches wastes ~37%; more microbatches shrink it, though too many starve each one.",
-        "bestPractices": "Map parallelism to the bandwidth hierarchy: tensor parallel needs NVLink within a node, pipeline parallel tolerates InfiniBand across nodes, data parallel survives Ethernet. Mismatch that and a $50M cluster idles at 30% utilization."
+        "bestPractices": "Map parallelism to the bandwidth hierarchy: tensor parallel needs NVLink within a node, pipeline parallel tolerates InfiniBand across nodes, data parallel survives Ethernet. Mismatch that and a $50M cluster idles at 30% utilization.",
+        "lessonId": "sd-parallelism-topologies"
       },
       {
         "q": "Inference and training are different businesses: why is autoregressive LLM serving usually memory-bandwidth-bound while training is FLOPs-bound?",
@@ -2406,7 +2642,8 @@ export const DAILY_QUESTIONS = {
           "2": "Dataset loading is prefetched and pipelined; it isn't what makes training compute-bound. Training's big controllable batches keep arithmetic intensity high — lots of math per byte moved."
         },
         "whyCorrect": "Training batches huge amounts of work per weight-read, saturating FLOPs. Autoregressive decoding generates one token per step, so each step streams the entire model's weights from HBM for a sliver of math — the GPU waits on memory, not compute. That's why vLLM-class engines lean on continuous batching and KV-cache paging.",
-        "bestPractices": "Buy for the workload: training wants interconnect, inference wants HBM bandwidth and int8/fp8. And run the break-even math — most deployments spend more on inference over their lifetime than on training."
+        "bestPractices": "Buy for the workload: training wants interconnect, inference wants HBM bandwidth and int8/fp8. And run the break-even math — most deployments spend more on inference over their lifetime than on training.",
+        "lessonId": "sd-inference-vs-training-cost"
       },
       {
         "q": "When evaluating LLM systems with pairwise preference, why must you run both A-vs-B and B-vs-A orderings?",
@@ -2421,7 +2658,8 @@ export const DAILY_QUESTIONS = {
           "2": "Caching would return an identical response, which is consistency, not bias — and judges run at temperature 0 precisely to BE reproducible. The problem is the verdict depending on presentation order."
         },
         "whyCorrect": "LLM judges carry position bias: the same two answers can win or lose depending on which is shown first. Running A-vs-B and B-vs-A and keeping only agreements (or averaging) cancels the ordering artifact out of your preference data.",
-        "bestPractices": "Stack the judge hygiene: use a judge stronger than the candidate, temperature 0, a strict rubric returning JSON — and remember judges also over-reward verbosity and their own model family. Keep a human-eval gate for high-stakes ships."
+        "bestPractices": "Stack the judge hygiene: use a judge stronger than the candidate, temperature 0, a strict rubric returning JSON — and remember judges also over-reward verbosity and their own model family. Keep a human-eval gate for high-stakes ships.",
+        "lessonId": "mleng-llm-eval"
       }
     ]
   },
@@ -2470,7 +2708,8 @@ export const DAILY_QUESTIONS = {
           "1": "You should end on the Result, but it's a compact payoff — a metric or two. It can't be 60% of the answer because it's the outcome of the Action, not the story itself."
         },
         "whyCorrect": "The Action section is 60% of a strong STAR answer: what YOU did, step by step, with every sentence starting with 'I'. That's where interviewers find the signal they're scoring — ownership and concrete verbs.",
-        "bestPractices": "Pre-load 4-5 stories that each cover 2-3 themes, memorize the numbers, and check you can privately label every sentence S/T/A/R. If a sentence is none of them, cut it."
+        "bestPractices": "Pre-load 4-5 stories that each cover 2-3 themes, memorize the numbers, and check you can privately label every sentence S/T/A/R. If a sentence is none of them, cut it.",
+        "lessonId": "star-framework"
       },
       {
         "q": "In the big tech interview loop, what makes the bar raiser round different from every other round?",
@@ -2485,7 +2724,8 @@ export const DAILY_QUESTIONS = {
           "2": "Level and comp live with the recruiter and hiring manager. The bar raiser is deliberately from outside your target team, so they have no stake in filling the seat quickly."
         },
         "whyCorrect": "The bar raiser (Amazon's term — Meta calls it the jedi) is a cross-org senior IC whose only job is to protect the hiring bar. They can veto the hire even if every other interviewer scored you strong-hire.",
-        "bestPractices": "Bring your A+ stories to the bar raiser, not your B stories. They're asking 'would we regret this hire in two years?', not 'can this person do the job today?'"
+        "bestPractices": "Bring your A+ stories to the bar raiser, not your B stories. They're asking 'would we regret this hire in two years?', not 'can this person do the job today?'",
+        "lessonId": "interview-loop"
       },
       {
         "q": "After the onsite in the interview loop, five interviewers submit scores. How does the debrief turn those into a decision?",
@@ -2500,7 +2740,8 @@ export const DAILY_QUESTIONS = {
           "2": "The hiring manager assesses team fit but gets no double weight — and the bar raiser can veto them entirely. No single positive voice can outvote specific negative evidence."
         },
         "whyCorrect": "Debriefs run on consensus. One strong-no-hire blocks the offer outright, and a single interviewer armed with specific, repeatable evidence will beat several vague 'seemed fine' votes.",
-        "bestPractices": "Your goal in each round: give that interviewer one concrete, quotable reason to fight for you in the debrief. Treat every round as independent — a bad one early doesn't doom you if the rest are strong."
+        "bestPractices": "Your goal in each round: give that interviewer one concrete, quotable reason to fight for you in the debrief. Treat every round as independent — a bad one early doesn't doom you if the rest are strong.",
+        "lessonId": "interview-loop"
       },
       {
         "q": "How Cloudflare's 1.1.1.1 beat Google DNS on latency comes down mostly to what?",
@@ -2515,7 +2756,8 @@ export const DAILY_QUESTIONS = {
           "2": "1.1.1.1 validates DNSSEC exactly like 8.8.8.8 — the comparison table shows both reject spoofed records. The real differentiator was privacy (no logging, refusing ECS), not skipped security."
         },
         "whyCorrect": "Anycasting 1.1.1.1 from 300+ POPs means your query usually lands within ~10ms of you, on a hot cache shared by millions of users — 11ms median globally vs Google's 19ms.",
-        "bestPractices": "'DNS is a latency problem disguised as a lookup problem.' When a lookup-style service is slow, check distance-to-server and cache warmth before you profile the code."
+        "bestPractices": "'DNS is a latency problem disguised as a lookup problem.' When a lookup-style service is slow, check distance-to-server and cache warmth before you profile the code.",
+        "lessonId": "cloudflare-dns"
       },
       {
         "q": "Why did Discord migrate from MongoDB to Cassandra for message storage?",
@@ -2530,7 +2772,8 @@ export const DAILY_QUESTIONS = {
           "2": "Cassandra is famously weaker on transactions than most stores. Discord chose it for the partition-key + clustering-key layout mapping to (channel_id, message_id), not for ACID."
         },
         "whyCorrect": "One @everyone in a busy server made every member request recent messages at once. MongoDB seeked to data that had been pushed out of RAM days earlier, and a single ping could spike p99 latency past 5 seconds across the entire database.",
-        "bestPractices": "Model the access pattern before picking a store. Cassandra clusters recent messages together on disk per channel, so cold scrollback of one channel can't evict every other channel's hot data."
+        "bestPractices": "Model the access pattern before picking a store. Cassandra clusters recent messages together on disk per channel, so cold scrollback of one channel can't evict every other channel's hot data.",
+        "lessonId": "discord-cassandra"
       },
       {
         "q": "What kicked off the 2017 AWS S3 outage that degraded Slack, Trello, Quora, and Medium for about four hours?",
@@ -2545,7 +2788,8 @@ export const DAILY_QUESTIONS = {
           "2": "No data was lost — S3's 11-nines durability held. It was an availability outage, and recovery dragged because critical subsystems hadn't been cold-restarted in years."
         },
         "whyCorrect": "A typo in a routine capacity-removal command took down a large set of servers, including metadata subsystems the rest of S3 depended on. Even AWS's own status page couldn't update — it hosted its assets on S3.",
-        "bestPractices": "Steal the postmortem fixes: cap how much any one command can remove, actually exercise subsystem independence instead of assuming it, and run restart drills so cold-start behavior isn't a surprise."
+        "bestPractices": "Steal the postmortem fixes: cap how much any one command can remove, actually exercise subsystem independence instead of assuming it, and run restart drills so cold-start behavior isn't a surprise.",
+        "lessonId": "aws-s3-outage"
       },
       {
         "q": "Chaos Monkey reshaped reliability at Netflix by killing EC2 instances at a very deliberate time. When, and why?",
@@ -2560,7 +2804,8 @@ export const DAILY_QUESTIONS = {
           "1": "It ran in production on purpose. Staging survival proves nothing about production resilience, and the cultural forcing function only works when the stakes are real."
         },
         "whyCorrect": "Failures will happen; the only question is whether they arrive when engineers can respond. Killing instances at 2pm on a Tuesday means every service MUST be built to fail gracefully — there is no other option.",
-        "bestPractices": "Start smaller than Netflix: kill one process in production during work hours and watch what breaks. If that idea terrifies you, the fear itself is your reliability backlog."
+        "bestPractices": "Start smaller than Netflix: kill one process in production during work hours and watch what breaks. If that idea terrifies you, the fear itself is your reliability backlog.",
+        "lessonId": "netflix-chaos"
       },
       {
         "q": "When GitLab lost 6 hours of customer data in 2017, how many of their five backup mechanisms actually worked?",
@@ -2575,7 +2820,8 @@ export const DAILY_QUESTIONS = {
           "2": "Four of five failed: pg_dump had been silently broken for months with no alerts, Azure snapshots were disabled as 'redundant', S3 uploads went to a nonexistent bucket, and the replication slot was the thing being debugged."
         },
         "whyCorrect": "Exactly one — the LVM snapshot. Five backup mechanisms existed on paper; the postmortem's famous admission is that when they were actually needed, only one had real data in it.",
-        "bestPractices": "A backup you've never restored is folklore. Monitor the backup PROCESS (did the script run? is the output the expected size?), not just the storage — and schedule restore drills."
+        "bestPractices": "A backup you've never restored is folklore. Monitor the backup PROCESS (did the script run? is the output the expected size?), not just the storage — and schedule restore drills.",
+        "lessonId": "gitlab-data-loss"
       },
       {
         "q": "In a system design interview, why spend the first 90 seconds on back-of-envelope math — estimating QPS and storage at the whiteboard?",
@@ -2590,7 +2836,8 @@ export const DAILY_QUESTIONS = {
           "1": "Estimation IS the real work — it's the bridge between requirements and architecture, not filler. Skipping it is exactly what makes candidates look like architecture astronauts."
         },
         "whyCorrect": "Every component must be earned by a number. If reads peak at 1.8M QPS and one Redis node handles ~100k, the math justifies the cache tier. If your numbers don't justify a Kafka cluster, don't draw one.",
-        "bestPractices": "Memorize the ladder: 86,400 s/day rounds to 10^5; 1 KB x 1M = 1 GB; 1 KB x 1B = 1 TB. Peak is 2-3x average — state the multiplier out loud, and re-estimate when a requirement changes."
+        "bestPractices": "Memorize the ladder: 86,400 s/day rounds to 10^5; 1 KB x 1M = 1 GB; 1 KB x 1B = 1 TB. Peak is 2-3x average — state the multiplier out loud, and re-estimate when a requirement changes.",
+        "lessonId": "sd-back-of-envelope"
       }
     ],
     "junior": [
@@ -2622,7 +2869,8 @@ export const DAILY_QUESTIONS = {
           "2": "Vertical scaling alone can't absorb that traffic. The wins were architectural: hundreds of MySQL read replicas, caching at every layer, Sidekiq background jobs, sharded git storage — and yes, the git protocol left Rails."
         },
         "whyCorrect": "The rewrite criterion was surgical: rewrite only where the latency budget or correctness requirements exceed what the framework can give. Git push/pull runs on an internal C-based server talking directly to file storage; the CRUD majority stays in Rails.",
-        "bestPractices": "Before proposing a rewrite, name the specific path whose latency budget the current stack can't meet. Rewriting the hot 10% and keeping the boring 90% beats a big-bang migration."
+        "bestPractices": "Before proposing a rewrite, name the specific path whose latency budget the current stack can't meet. Rewriting the hot 10% and keeping the boring 90% beats a big-bang migration.",
+        "lessonId": "github-scaling"
       },
       {
         "q": "Notion AI runs hybrid search — vector search AND keyword search (BM25) — in its RAG pipeline. Why not pure vector retrieval?",
@@ -2637,7 +2885,8 @@ export const DAILY_QUESTIONS = {
           "2": "There's no cost tiering in the design. The merged hybrid results feed a cross-encoder reranker that picks the top 5 for the LLM regardless of who's asking."
         },
         "whyCorrect": "Embeddings match meaning but fumble exact strings, and cosine similarity alone misses matches like 'rate limit' vs 'throttling'. BM25 nails exact identifiers but misses paraphrases. Fused together, then reranked, they cover each other's failure modes.",
-        "bestPractices": "In RAG postmortems, 'the answer existed but wasn't retrieved' is the top failure. Add keyword search and a reranker before reaching for a bigger model — Notion calls the reranker the unsung hero."
+        "bestPractices": "In RAG postmortems, 'the answer existed but wasn't retrieved' is the top failure. Add keyword search and a reranker before reaching for a bigger model — Notion calls the reranker the unsung hero.",
+        "lessonId": "notion-ai"
       },
       {
         "q": "Spotify's Hendrix platform ships thousands of ML models. What does the platform team actually optimize for?",
@@ -2652,7 +2901,8 @@ export const DAILY_QUESTIONS = {
           "1": "The opposite: Hendrix keeps dozens of teams autonomous. Before it, every team deployed differently and tracked versions in spreadsheets. The fix was shared rails, not a central gatekeeper."
         },
         "whyCorrect": "The platform metric is 'how fast can a new team get to value' — first model shipped in a week instead of a quarter, via hendrix train/deploy/rollback, self-service onboarding, and telemetry shapes that make dashboards work for free.",
-        "bestPractices": "This is platform engineering: you're building the system other engineers build on. Even a 3-person team benefits from one standard deploy path and consistent metric shapes."
+        "bestPractices": "This is platform engineering: you're building the system other engineers build on. Even a 3-person team benefits from one standard deploy path and consistent metric shapes.",
+        "lessonId": "spotify-hendrix"
       },
       {
         "q": "Discord scaled to 19M concurrent users, yet rewrote its Go Read States service in Rust. What was actually wrong with the Go version?",
@@ -2667,7 +2917,8 @@ export const DAILY_QUESTIONS = {
           "2": "Go structs are value types with perfectly workable layouts. The blocker was the garbage collector periodically scanning millions of small heap objects — no struct packing fixes that."
         },
         "whyCorrect": "Go's GC had to scan a multi-gigabyte heap every couple of minutes, spiking p99 from ~10ms to 300ms+. You can't tune under a pause that scales with heap size — removing the GC entirely (Rust) dropped p99 back to ~10ms on the same CPU budget.",
-        "bestPractices": "Discord's own rule: Rust rewrites are not free — only do them when GC is provably the bottleneck, not because Rust is fashionable."
+        "bestPractices": "Discord's own rule: Rust rewrites are not free — only do them when GC is provably the bottleneck, not because Rust is fashionable.",
+        "lessonId": "discord-19m"
       },
       {
         "q": "In Discord's 19M-concurrent-user architecture, every guild lives on exactly one shard. What does that buy them?",
@@ -2682,7 +2933,8 @@ export const DAILY_QUESTIONS = {
           "2": "Presence is explicitly never persisted to disk — it's read-heavy, write-bursty, in-memory state. Sharding here is about routing and ordering, not durability."
         },
         "whyCorrect": "With one process owning each guild, its events are naturally ordered and local. Snowflake IDs plus one-shard-per-guild means no consensus round on the message hot path — 'the shard is the unit of consistency; everything else is eventually consistent and you live with it.'",
-        "bestPractices": "When you need ordering, first try making it local: route all writers for an entity through one owner process before paying for distributed consensus."
+        "bestPractices": "When you need ordering, first try making it local: route all writers for an entity through one owner process before paying for distributed consensus.",
+        "lessonId": "discord-19m"
       },
       {
         "q": "'SQL, NoSQL, KV — pick by access pattern, not by hype.' A KV store gives you sub-ms reads at huge scale. What's the bill?",
@@ -2697,7 +2949,8 @@ export const DAILY_QUESTIONS = {
           "1": "KV writes are typically as fast as reads — that's much of the appeal. There's no table to rewrite; the cost lives on the query side, not the write side."
         },
         "whyCorrect": "KV buys effortless horizontal scale and sub-ms lookups by known key, and you pay by losing secondary indexes: any access that isn't 'by key' means scanning. It's a locker room — great if you know your locker number, useless for 'find all the Smiths'.",
-        "bestPractices": "Name the query first. 'Get user by id at 500k QPS' picks KV; 'refund the line item if the order is unshipped' picks SQL. Architecture follows access."
+        "bestPractices": "Name the query first. 'Get user by id at 500k QPS' picks KV; 'refund the line item if the order is unshipped' picks SQL. Architecture follows access.",
+        "lessonId": "sd-sql-vs-nosql-vs-kv"
       },
       {
         "q": "You solve a dynamic programming problem top-down with @cache memoization. What failure mode pushes production code toward bottom-up tabulation?",
@@ -2727,7 +2980,22 @@ export const DAILY_QUESTIONS = {
           "2": "Also good prep. Written, tagged stories can be remixed across behavioral prompts on the fly; improvising answers cold is the bad-column version."
         },
         "whyCorrect": "Silent grinding trains the wrong skill. Interviewers score what they HEAR, so practice must be timed and narrated aloud — and wrong answers reviewed the same day, not marked solved and abandoned.",
-        "bestPractices": "The behavioral round is technical — loops fail there more than people admit, usually after 200 hours on coding and 2 on stories. Allocate prep time to the rubric, not to what feels comfortable."
+        "bestPractices": "The behavioral round is technical — loops fail there more than people admit, usually after 200 hours on coding and 2 on stories. Allocate prep time to the rubric, not to what feels comfortable.",
+        "lessonId": "g1"
+      },
+      {
+        "kind": "order",
+        "q": "Order the phases of a system design interview the way strong candidates run them.",
+        "items": [
+          "Nail down requirements and explicit non-goals",
+          "Estimate the load — QPS, storage, growth",
+          "Sketch the API and data model",
+          "Draw the high-level architecture",
+          "Deep-dive the bottleneck and scaling story"
+        ],
+        "whyWrong": "Jumping straight to the architecture diagram is the classic fail — without requirements and numbers, every box you draw is unjustifiable. The estimates are what EARN the cache tier and the shards.",
+        "whyCorrect": "Requirements → numbers → contracts → structure → depth. Each phase produces the inputs the next phase needs to be defensible.",
+        "bestPractices": "Say your non-goals out loud in minute one ('no analytics, no multi-region for v1') — scope you cut explicitly is competence; scope you forgot is a red flag."
       }
     ],
     "senior": [
@@ -2759,7 +3027,8 @@ export const DAILY_QUESTIONS = {
           "2": "Both clock reads cost about the same. Performance isn't the distinction — monotonicity is: one value can go backwards, the other never does."
         },
         "whyCorrect": "time.time() can jump when NTP slews or steps the clock, so a deadline computed from it may land instantly in the past — or never arrive. time.monotonic() never goes backwards, which makes elapsed-time and timeout math safe.",
-        "bestPractices": "Wall clock for human-facing timestamps and DB rows; monotonic for every duration, timeout, and rate limit. Mixing them is the #1 source of 'my retry loop fired twice' bugs."
+        "bestPractices": "Wall clock for human-facing timestamps and DB rows; monotonic for every duration, timeout, and rate limit. Mixing them is the #1 source of 'my retry loop fired twice' bugs.",
+        "lessonId": "time-clocks"
       },
       {
         "q": "A user clicks save, sees the success toast, navigates back — and the change is gone. Refreshing brings it back. Classic eventual consistency. What happened?",
@@ -2774,7 +3043,8 @@ export const DAILY_QUESTIONS = {
           "2": "Plausible-sounding, but this bug reproduces with cache-busting requests and never appears on a single-node dev DB — the signature of replication lag on the server side, not browser caching."
         },
         "whyCorrect": "Writes go to the primary; reads load-balance across replicas that lag by milliseconds. The user's read raced the replication and lost. The fix is read-your-writes: pin the session to the primary for a short window after each write, or return the written row in the response so the client skips the re-read.",
-        "bestPractices": "Size the sticky window from data — roughly 2x your p99 replication lag. Too short and users watch their writes vanish; too long and you crush the primary with pinned reads."
+        "bestPractices": "Size the sticky window from data — roughly 2x your p99 replication lag. Too short and users watch their writes vanish; too long and you crush the primary with pinned reads.",
+        "lessonId": "faang-eventual-consistency"
       },
       {
         "q": "Hash, range, directory — the sharding strategies lesson pushes consistent hashing over plain hash(key) % N. What specifically does the ring fix?",
@@ -2789,7 +3059,8 @@ export const DAILY_QUESTIONS = {
           "1": "Neither mod-N nor the ring helps range queries — hashing scatters adjacent keys by design. Fast range scans are what range sharding is for, at the price of hotspots."
         },
         "whyCorrect": "With plain mod-N, going from N to N+1 nodes rehashes nearly every key — effectively a full data migration. On the ring, only the slice that belonged to the displaced neighbor moves: ~1/N of keys. That's the difference between a 5-minute rebalance and a 5-hour outage.",
-        "bestPractices": "Use ~150 virtual nodes per physical node, or a new node's load lands entirely on one neighbor. Staff-level move: start with more logical shards than physical nodes so future splits never rehash keys."
+        "bestPractices": "Use ~150 virtual nodes per physical node, or a new node's load lands entirely on one neighbor. Staff-level move: start with more logical shards than physical nodes so future splits never rehash keys.",
+        "lessonId": "sd-sharding-strategies"
       },
       {
         "q": "Pagination at scale: LIMIT 20 OFFSET 1000000 gets slower the deeper you page. Why?",
@@ -2804,7 +3075,8 @@ export const DAILY_QUESTIONS = {
           "2": "Plain reads don't lock skipped rows under MVCC. The pain is the wasted scan — plus concurrent writes shuffling rows mid-scroll, so users see duplicates and gaps."
         },
         "whyCorrect": "OFFSET means 'compute these rows, then throw them away', so latency grows linearly with page depth. Cursor/keyset pagination encodes (created_at, id) and resumes with an index seek — O(log n), so page 1 and page 50,000 cost the same.",
-        "bestPractices": "Always add a tiebreaker: ORDER BY created_at DESC, id DESC — timestamps tie, and a cursor without a unique key duplicates rows. Ship the cursor as an opaque, versioned token."
+        "bestPractices": "Always add a tiebreaker: ORDER BY created_at DESC, id DESC — timestamps tie, and a cursor without a unique key duplicates rows. Ship the cursor as an opaque, versioned token.",
+        "lessonId": "faang-pagination"
       },
       {
         "q": "Your CDN edge uses LFU cache eviction. Last month's viral content died down and new content is trending — but the hit rate keeps sinking. What's the LFU failure mode?",
@@ -2820,6 +3092,20 @@ export const DAILY_QUESTIONS = {
         },
         "whyCorrect": "LFU evicts the lowest-frequency key, so entries with big historical counts become unevictable even after traffic moves on. New keys enter with a count of 1 and lose every eviction fight. As the lesson puts it: 'LRU forgets the past, LFU worships it.'",
         "bestPractices": "Use decayed/aged counters, or switch to ARC — two adaptive LRU lists that self-tune between recency and frequency. It's the default in ZFS and Postgres's buffer manager for exactly this reason."
+      },
+      {
+        "kind": "order",
+        "q": "Trace a read request through a large-scale web stack — from the user to the source of truth.",
+        "items": [
+          "Client hits the CDN edge",
+          "The load balancer picks an app server",
+          "The app checks the cache tier",
+          "On a miss, the database serves the read",
+          "The result backfills the cache on the way out"
+        ],
+        "whyWrong": "Placing the cache check after the database defeats its purpose — the cache exists to absorb reads BEFORE they cost a DB round trip. The backfill (cache-aside) happens on the response path, not before the read.",
+        "whyCorrect": "Edge → LB → cache → DB → backfill. Every layer exists to stop the request from reaching the expensive layer behind it.",
+        "bestPractices": "Quote the hit-rate math when you design this: at 95% cache hit rate the DB sees 1/20th the traffic — that number is why the layer earns its complexity."
       }
     ],
     "distinguished": [
@@ -2851,7 +3137,8 @@ export const DAILY_QUESTIONS = {
           "2": "Vanilla 2PC has no election. That's what 3PC's pre-commit phase attempts — and it only works assuming bounded network delay, which the real internet refuses to provide."
         },
         "whyCorrect": "After voting yes, a participant is in-doubt: it must hold its locks until it learns the global decision. A dead coordinator means everyone blocks — which is why the coordinator must durably log the decision before notifying anyone, and why sagas trade atomicity for liveness.",
-        "bestPractices": "Reach for 2PC only when participants share trusted infrastructure and operations are short. Cross-service, long-running flows want sagas with compensating actions — and sequence the irreversible steps (like emails) last."
+        "bestPractices": "Reach for 2PC only when participants share trusted infrastructure and operations are short. Cross-service, long-running flows want sagas with compensating actions — and sequence the irreversible steps (like emails) last.",
+        "lessonId": "distributed-txns"
       },
       {
         "q": "In a 3-node distributed KV store built on Raft consensus, a network partition isolates the leader from the other two nodes. What happens to writes?",
@@ -2866,7 +3153,8 @@ export const DAILY_QUESTIONS = {
           "1": "A Raft leader can't commit anything without a majority acknowledging it. Cut off from both followers, its writes never commit, and it steps down once it can't reach a quorum."
         },
         "whyCorrect": "Raft acknowledges a write only after a majority (2 of 3) holds it. The minority side stops accepting writes; the majority side elects a new leader within seconds and continues — no data loss, no split brain. That's the linearizability etcd and Consul are built on.",
-        "bestPractices": "This is exactly what the lab's chaos test verifies with iptables. Also route reads through the leader (or use lease reads) — a lagging follower serving stale reads is the classic Raft footgun."
+        "bestPractices": "This is exactly what the lab's chaos test verifies with iptables. Also route reads through the leader (or use lease reads) — a lagging follower serving stale reads is the classic Raft footgun.",
+        "lessonId": "distributed-kv-store"
       },
       {
         "q": "Your idempotent webhook handler receives an event whose evt_ ID it has already processed. What should it return?",
@@ -2881,7 +3169,8 @@ export const DAILY_QUESTIONS = {
           "2": "Returning 500 on a duplicate creates a retry storm forever: the sender keeps redelivering an event you keep rejecting. A duplicate is normal behavior, not an incident."
         },
         "whyCorrect": "At-least-once is the default webhook contract — the same event WILL arrive twice or thrice. Dedupe with an atomic insert of the event ID under a unique constraint; when the insert collides, return 200 so the sender marks it delivered and goes quiet.",
-        "bestPractices": "Order is verify (HMAC, 5-min window), then dedupe, then apply. Make your dedupe window at least as long as the provider's retry budget — Stripe retries for days, so a short Redis TTL leaks duplicates back in."
+        "bestPractices": "Order is verify (HMAC, 5-min window), then dedupe, then apply. Make your dedupe window at least as long as the provider's retry budget — Stripe retries for days, so a short Redis TTL leaks duplicates back in.",
+        "lessonId": "faang-idempotent-webhooks"
       },
       {
         "q": "You're designing a distributed rate limiter with token buckets. A client idles for an hour, then bursts — and blows straight through its 1,000 req/min budget. Which missing line of code caused it?",
@@ -2896,7 +3185,8 @@ export const DAILY_QUESTIONS = {
           "2": "Fractional-second refill is fine — continuous refill is exactly what defeats the fixed-window boundary attack. Precision isn't the bug; unbounded accumulation is."
         },
         "whyCorrect": "Refill must be tokens = min(capacity, tokens + elapsed * rate). Without the clamp, 60 idle minutes banks 60,000 tokens the client can burst all at once. Capacity IS the burst budget — tokens above it must be discarded, not saved.",
-        "bestPractices": "The lab calls this the most common token-bucket bug in real code reviews. Also run the check-and-decrement inside one Lua script — a GET-then-SET round trip races itself at 100K req/sec across 50 edges."
+        "bestPractices": "The lab calls this the most common token-bucket bug in real code reviews. Also run the check-and-decrement inside one Lua script — a GET-then-SET round trip races itself at 100K req/sec across 50 edges.",
+        "lessonId": "lab-rate-limiter"
       }
     ]
   },
@@ -2915,20 +3205,21 @@ export const DAILY_QUESTIONS = {
           "1": "A `<div>` happily takes an onClick — that's exactly why the trap is so common; it *works* for mouse users while silently excluding everyone else.",
           "2": "Rendering speed is identical — the difference is semantics and accessibility, not performance."
         },
-        "bestPractices": "Run the keyboard test: if you can't Tab to it and press Enter, the markup is wrong."
+        "bestPractices": "Run the keyboard test: if you can't Tab to it and press Enter, the markup is wrong.",
+        "lessonId": "fs-github-actions"
       },
       {
         "q": "With `box-sizing: border-box`, what does `width: 300px` mean?",
         "opts": [
           "The content area alone is 300px; padding and border push the total wider",
-          "Content + padding + border total 300px",
-          "Content + padding + border + margin total 300px"
+          "Content + padding + border + margin total 300px",
+          "Content + padding + border total 300px"
         ],
-        "answer": 1,
+        "answer": 2,
         "whyCorrect": "`border-box` makes `width` the total box including padding and border — the number you actually wanted. That's why the global `*, *::before, *::after { box-sizing: border-box }` reset exists.",
         "whyWrong": {
           "0": "That describes the legacy `content-box` default — the treacherous behavior `border-box` was invented to fix.",
-          "2": "Margin is always outside the box in both models; no sizing mode folds it into `width`."
+          "1": "Margin is always outside the box in both models; no sizing mode folds it into `width`."
         },
         "bestPractices": "Set `box-sizing: border-box` globally once, at the top of your stylesheet, and never think about it again."
       },
@@ -2951,14 +3242,14 @@ export const DAILY_QUESTIONS = {
         "q": "`const user = { name: 'Ada' }; user.name = 'Grace';` — what happens?",
         "opts": [
           "TypeError — const values are frozen",
-          "Legal — const guards the binding, not the value",
-          "Legal only in non-strict mode"
+          "Legal only in non-strict mode",
+          "Legal — const guards the binding, not the value"
         ],
-        "answer": 1,
+        "answer": 2,
         "whyCorrect": "`const` prevents *rebinding* the variable (`user = {}` throws), but the object it points to stays mutable — mutating a property is perfectly legal.",
         "whyWrong": {
           "0": "That's what `Object.freeze` does — `const` never freezes the value, only the binding.",
-          "2": "Strict mode changes nothing here; property mutation on a const-bound object is legal everywhere."
+          "1": "Strict mode changes nothing here; property mutation on a const-bound object is legal everywhere."
         },
         "bestPractices": "Default to `const`, use `let` only when you must rebind, and never use `var` in new code."
       },
@@ -2966,31 +3257,32 @@ export const DAILY_QUESTIONS = {
         "q": "Your `fetch` call gets a 500 from the server. What does the Promise do?",
         "opts": [
           "Rejects — your `.catch` handles it",
-          "Resolves normally — you must check `res.ok` yourself",
-          "Retries once automatically before rejecting"
+          "Retries once automatically before rejecting",
+          "Resolves normally"
         ],
-        "answer": 1,
-        "whyCorrect": "`fetch` only rejects on network failure — a 4xx or 5xx is a *successful* HTTP exchange as far as fetch is concerned, so `res.ok` is your job. Forgetting this is the most common bug in a first React app.",
+        "answer": 2,
+        "whyCorrect": "`fetch` only rejects on network failure — a 4xx or 5xx is a *successful* HTTP exchange as far as fetch is concerned, so `res.ok` is your job. Forgetting this is the most common bug in a first React app. You must check `res.ok` yourself.",
         "whyWrong": {
           "0": "The catch only fires for network-level failures (DNS, offline, aborted) — an error status code sails straight into your `.then`.",
-          "2": "fetch has no retry logic at all; retries come from libraries like React Query, not the platform."
+          "1": "fetch has no retry logic at all; retries come from libraries like React Query, not the platform."
         },
         "bestPractices": "Every fetch wrapper starts with `if (!res.ok) throw new Error(\\`HTTP ${res.status}\\`)` — make it muscle memory."
       },
       {
         "q": "A closure remembers variables from...",
         "opts": [
-          "Where the function was defined — a live link, not a copy",
+          "Where the function was defined",
           "Where the function is called",
           "A frozen snapshot taken at definition time"
         ],
         "answer": 0,
-        "whyCorrect": "A closure keeps a live reference to the variables in the scope where it was *defined* — that's how `makeCounter`'s inner function keeps incrementing the same `count` across calls.",
+        "whyCorrect": "A closure keeps a live reference to the variables in the scope where it was *defined* — that's how `makeCounter`'s inner function keeps incrementing the same `count` across calls. A live link, not a copy.",
         "whyWrong": {
           "1": "Call site is irrelevant — that confusion is about `this` in old-style functions, not closures.",
           "2": "Closures capture *by reference*, not by value — that's exactly why loop counters and stale React state bite."
         },
-        "bestPractices": "When a React value seems 'stuck' at an old value inside an effect, suspect a closure capturing stale state."
+        "bestPractices": "When a React value seems 'stuck' at an old value inside an effect, suspect a closure capturing stale state.",
+        "lessonId": "fs-env-secrets"
       }
     ],
     "junior": [
@@ -2998,14 +3290,14 @@ export const DAILY_QUESTIONS = {
         "q": "An Express middleware runs its logic but never calls `next()` and never responds. What happens to the request?",
         "opts": [
           "Express advances to the next middleware when the function returns",
-          "It hangs until the client times out",
-          "Express throws and routes to the error handler"
+          "Express throws and routes to the error handler",
+          "It hangs until the client times out"
         ],
-        "answer": 1,
+        "answer": 2,
         "whyCorrect": "Control in the middleware chain is explicit — each middleware either responds or calls `next()`. Do neither and the request just sits there until the client gives up.",
         "whyWrong": {
           "0": "Express never auto-advances; returning from the function without `next()` leaves the chain parked forever.",
-          "2": "The error handler only fires on a thrown error or `next(err)` — silently doing nothing triggers nothing."
+          "1": "The error handler only fires on a thrown error or `next(err)` — silently doing nothing triggers nothing."
         },
         "bestPractices": "Every middleware ends in exactly one of two ways: a response, or `next()`. Audit for the third way — neither."
       },
@@ -3013,14 +3305,14 @@ export const DAILY_QUESTIONS = {
         "q": "A `useEffect` with an empty `[]` deps array reads a prop inside its body. What's the bug?",
         "opts": [
           "The effect re-runs on every render anyway",
-          "The effect captured a stale closure — the prop is frozen at its first-render value",
-          "React automatically adds the prop to the deps for you"
+          "React automatically adds the prop to the deps for you",
+          "The effect captured a stale closure"
         ],
-        "answer": 1,
-        "whyCorrect": "`[]` means run once, and the effect closes over whatever the prop was on that first render — future prop changes never reach it. This is the classic stale-closure trap the exhaustive-deps lint exists to catch.",
+        "answer": 2,
+        "whyCorrect": "`[]` means run once, and the effect closes over whatever the prop was on that first render — future prop changes never reach it. This is the classic stale-closure trap the exhaustive-deps lint exists to catch. The prop is frozen at its first-render value.",
         "whyWrong": {
           "0": "Empty array genuinely means once — the problem isn't extra runs, it's the frozen value inside the one run.",
-          "2": "React never edits your deps array; the lint rule *warns* you, but the code ships broken if you ignore it."
+          "1": "React never edits your deps array; the lint rule *warns* you, but the code ships broken if you ignore it."
         },
         "bestPractices": "Trust the exhaustive-deps lint. If a dep makes the effect run too often, fix the dep's stability (useRef, functional setters), don't delete it."
       },
@@ -3028,14 +3320,14 @@ export const DAILY_QUESTIONS = {
         "q": "Your POST endpoint creates a new user. Which response is the contract?",
         "opts": [
           "`200 OK` with the user in the body",
-          "`201 Created` with a `Location` header pointing at the new resource",
-          "`204 No Content` — creation implies nothing to return"
+          "`204 No Content` — creation implies nothing to return",
+          "`201 Created` with a `Location` header pointing at the new resource"
         ],
-        "answer": 1,
+        "answer": 2,
         "whyCorrect": "`201` says something new exists, and the paired `Location` header tells the client exactly where to find it — clients can follow it without parsing your body shape.",
         "whyWrong": {
           "0": "`200` works but wastes the signal — clients can't distinguish 'created' from 'read', and you skip the Location convention.",
-          "2": "`204` is for operations with genuinely nothing to say, like DELETE — a create has a new resource to point at."
+          "1": "`204` is for operations with genuinely nothing to say, like DELETE — a create has a new resource to point at."
         },
         "bestPractices": "Pair every `201` with a `Location` header; return `204` from DELETE with no body."
       },
@@ -3052,7 +3344,8 @@ export const DAILY_QUESTIONS = {
           "1": "Child listeners fire fine — the problem is N registrations, N teardowns, and N leaks if you forget one, not reliability.",
           "2": "Delegation rides the *bubble* phase; capture is the top-down phase you rarely need."
         },
-        "bestPractices": "One listener at the root beats a thousand at the leaves — and `closest()` beats manual parent-walking loops."
+        "bestPractices": "One listener at the root beats a thousand at the leaves — and `closest()` beats manual parent-walking loops.",
+        "lessonId": "fs-dom-events"
       },
       {
         "q": "What's the core win of 'parse, don't validate' with a schema (Zod) at the route edge?",
@@ -3072,14 +3365,14 @@ export const DAILY_QUESTIONS = {
       {
         "q": "You want only users with 5 or more posts in a grouped query. Where does that filter go?",
         "opts": [
-          "`WHERE count(p.id) >= 5`",
           "`HAVING count(p.id) >= 5`",
+          "`WHERE count(p.id) >= 5`",
           "Either — WHERE and HAVING are interchangeable with aggregates"
         ],
-        "answer": 1,
+        "answer": 0,
         "whyCorrect": "`WHERE` filters rows *before* grouping; `HAVING` filters groups *after* aggregation — a condition on `count()` can only exist once groups exist, so it must be HAVING.",
         "whyWrong": {
-          "0": "Postgres rejects aggregates in WHERE outright, because WHERE runs before GROUP BY has produced anything to count.",
+          "1": "Postgres rejects aggregates in WHERE outright, because WHERE runs before GROUP BY has produced anything to count.",
           "2": "They run at different stages of execution and are never interchangeable — mixing them up is how dashboards lie."
         },
         "bestPractices": "Read queries in execution order — FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY — and most 'why didn't my filter work' bugs dissolve."
@@ -3087,31 +3380,59 @@ export const DAILY_QUESTIONS = {
       {
         "q": "You curl a POST with a JSON body but forget the `Content-Type: application/json` header. What does `req.body` contain?",
         "opts": [
-          "Nothing useful — `express.json()` only parses when the header matches",
+          "Nothing useful",
           "The parsed object — Express sniffs the body format",
           "Express returns 415 Unsupported Media Type automatically"
         ],
         "answer": 0,
-        "whyCorrect": "`express.json()` keys off the Content-Type header; without it the parser skips the body entirely and `req.body` arrives undefined/empty.",
+        "whyCorrect": "`express.json()` keys off the Content-Type header; without it the parser skips the body entirely and `req.body` arrives undefined/empty. `express.json()` only parses when the header matches.",
         "whyWrong": {
           "1": "There's no content sniffing — the middleware trusts the header, full stop.",
           "2": "Express does nothing automatic here; your handler just sees a missing body and probably 400s for the wrong reason."
         },
         "bestPractices": "When an API 'ignores' your payload, check the Content-Type header before anything else — `curl -i` shows you both sides."
+      },
+      {
+        "kind": "order",
+        "q": "Order what happens when a user submits a form in a modern full-stack app — click to updated UI.",
+        "items": [
+          "preventDefault stops the full-page reload",
+          "fetch POSTs the JSON to the API",
+          "The server validates the input at the boundary",
+          "The database insert runs with parameterized SQL",
+          "The UI re-renders from the API's response"
+        ],
+        "whyWrong": "Trusting client-side validation and skipping the server check is the ordering mistake that becomes a security hole — the browser's checks are a courtesy, the server's are the law. The DOM updates LAST, from the response, never optimistically-and-forgotten.",
+        "whyCorrect": "Intercept → send → validate → persist → re-render. The database is the source of truth; the UI is a projection of the response.",
+        "bestPractices": "Validate twice on purpose: client-side for fast feedback, server-side for safety. They're different jobs, not duplication."
+      },
+      {
+        "kind": "order",
+        "q": "Order a password-auth flow — from a new user signing up to their first authorized request.",
+        "items": [
+          "User submits email + password over HTTPS",
+          "The server hashes the password with a salt",
+          "The hash (never the password) is stored",
+          "Login compares a fresh hash against the stored one",
+          "A session cookie authorizes later requests"
+        ],
+        "whyWrong": "Storing before hashing — even 'temporarily' — is the breach headline. And comparing plaintext at login means you stored plaintext somewhere; the comparison must be hash-to-hash.",
+        "whyCorrect": "Transport encrypted → hash with salt → store the hash → compare hashes → session carries the proof. The plaintext password exists only in transit and in memory, never at rest.",
+        "bestPractices": "Use a purpose-built KDF (bcrypt/argon2), not a fast hash — the slowness is the security feature."
       }
     ],
     "senior": [
       {
         "q": "A `/users` list page that also shows each user's posts takes 3 seconds. What's the right first move?",
         "opts": [
-          "Add indexes to every column on the posts table",
           "Confirm and fix the N+1 with eager-loading first, then `EXPLAIN ANALYZE` and index the FK",
+          "Add indexes to every column on the posts table",
           "Raise the DB connection pool size so the queries run in parallel"
         ],
-        "answer": 1,
+        "answer": 0,
         "whyCorrect": "Round-trip count and per-query speed are different problems, fixed in that order — a perfect index on a query you run N times is still N round trips. Collapse the N+1 with a JOIN or ORM `include`, then let EXPLAIN tell you if the remaining query needs an index.",
         "whyWrong": {
-          "0": "Blanket indexing taxes every write and doesn't touch the real bottleneck: N separate network hops.",
+          "1": "Blanket indexing taxes every write and doesn't touch the real bottleneck: N separate network hops.",
           "2": "Parallelizing N+1 queries hides the symptom while multiplying DB load — the structural fix is one query, not fifty concurrent ones."
         },
         "bestPractices": "Diagnose by counting queries in the log, not by guessing. Your slow page is usually N+1; your second-slowest is a missing FK index."
@@ -3119,14 +3440,14 @@ export const DAILY_QUESTIONS = {
       {
         "q": "Why not add an index to every column 'just in case'?",
         "opts": [
-          "Postgres limits how many indexes a table can carry",
           "Every INSERT and UPDATE must maintain every index touching the changed column — reads get faster, writes pay for it",
+          "Postgres limits how many indexes a table can carry",
           "B-tree indexes only work on primary key columns"
         ],
-        "answer": 1,
+        "answer": 0,
         "whyCorrect": "Indexes are a read/write trade: five indexes on a hot table turns every write into six disk writes. Index foreign keys and the columns hot queries filter or sort on — and measure with `EXPLAIN ANALYZE` before adding more.",
         "whyWrong": {
-          "0": "There's no meaningful cap — the cost is per-write maintenance, not a hard limit.",
+          "1": "There's no meaningful cap — the cost is per-write maintenance, not a hard limit.",
           "2": "You can index any column; PRIMARY KEY and UNIQUE just happen to get one for free."
         },
         "bestPractices": "A 'Seq Scan' in EXPLAIN on a big table means no usable index; on a tiny table it means the index would have been pure write cost."
@@ -3134,12 +3455,12 @@ export const DAILY_QUESTIONS = {
       {
         "q": "You add `WHERE p.published = true` to a query that LEFT JOINs users to posts. What actually happens?",
         "opts": [
-          "The LEFT JOIN is silently demoted to INNER — users with zero posts vanish from the result",
+          "The LEFT JOIN is silently demoted to INNER",
           "Nothing changes semantically — it just filters earlier",
           "Postgres raises an error because WHERE can't reference the right table of a LEFT JOIN"
         ],
         "answer": 0,
-        "whyCorrect": "For matchless users the right side is all NULLs, so `p.published = true` evaluates false and the row is filtered out — exactly the rows the LEFT JOIN existed to keep. Put the condition in the JOIN's ON clause instead.",
+        "whyCorrect": "For matchless users the right side is all NULLs, so `p.published = true` evaluates false and the row is filtered out — exactly the rows the LEFT JOIN existed to keep. Put the condition in the JOIN's ON clause instead. Users with zero posts vanish from the result.",
         "whyWrong": {
           "1": "The semantics change completely — zero-post users disappear, which is how half of all dashboard undercounts happen.",
           "2": "It's perfectly legal SQL, which is what makes the bug so quiet."
@@ -3150,11 +3471,11 @@ export const DAILY_QUESTIONS = {
         "q": "A user clicks logout, but your auth is a self-contained JWT. What's the honest situation?",
         "opts": [
           "Delete the token server-side and it's revoked",
-          "You can't un-issue it — you wait for `exp` or keep a blocklist, which is just stateful sessions in disguise",
+          "You can't un-issue it",
           "Rotate the signing secret to invalidate that one user's token"
         ],
         "answer": 1,
-        "whyCorrect": "The token IS the state, signed and self-contained — the server has nothing to delete. That's why the practical compromise is short-lived access tokens (5–15 min) plus a revocable refresh token in the DB.",
+        "whyCorrect": "The token IS the state, signed and self-contained — the server has nothing to delete. That's why the practical compromise is short-lived access tokens (5–15 min) plus a revocable refresh token in the DB. You wait for `exp` or keep a blocklist, which is just stateful sessions in disguise.",
         "whyWrong": {
           "0": "There's no server-side row to delete — that's the session model, and it's exactly the property JWTs traded away for statelessness.",
           "2": "Rotating the secret invalidates *every* user's token at once — a global logout, not a targeted one."
@@ -3165,26 +3486,27 @@ export const DAILY_QUESTIONS = {
         "q": "Why is SHA-256 the wrong tool for password storage even with a salt?",
         "opts": [
           "SHA-256 output is too short to be secure",
-          "It's too fast — GPUs try billions of hashes per second, so a leaked DB gets cracked overnight",
+          "It's too fast",
           "SHA-256 is reversible with enough compute"
         ],
         "answer": 1,
-        "whyCorrect": "Password hashing must be *intentionally slow* — bcrypt, Argon2, and scrypt all take a tunable work factor precisely so each guess costs real money. Speed, not output size, is the vulnerability.",
+        "whyCorrect": "Password hashing must be *intentionally slow* — bcrypt, Argon2, and scrypt all take a tunable work factor precisely so each guess costs real money. Speed, not output size, is the vulnerability. GPUs try billions of hashes per second, so a leaked DB gets cracked overnight.",
         "whyWrong": {
           "0": "256 bits is plenty of output; the problem is how cheaply an attacker can compute candidates.",
           "2": "SHA-256 isn't reversible — attackers don't reverse it, they brute-force forward at GPU speed, which fast hashes make economical."
         },
-        "bestPractices": "bcrypt cost 12+ or Argon2id, use the library's `compare` (timing-safe), and re-hash on login when the stored cost is below your floor."
+        "bestPractices": "bcrypt cost 12+ or Argon2id, use the library's `compare` (timing-safe), and re-hash on login when the stored cost is below your floor.",
+        "lessonId": "fs-password-hashing"
       },
       {
         "q": "In cache-aside, why does `updateUser` DELETE the Redis key instead of overwriting it with the new value?",
         "opts": [
           "DEL is a cheaper Redis operation than SET",
-          "Overwriting risks caching a half-updated object — deleting lets the next reader refill from the canonical DB row",
+          "Overwriting risks caching a half-updated object",
           "Redis refuses to overwrite keys that carry a TTL"
         ],
         "answer": 1,
-        "whyCorrect": "The DB is the source of truth; writing your patched object back to the cache risks shipping an incomplete or stale composite. Delete-and-refill keeps consistency biased toward the DB.",
+        "whyCorrect": "The DB is the source of truth; writing your patched object back to the cache risks shipping an incomplete or stale composite. Delete-and-refill keeps consistency biased toward the DB. Deleting lets the next reader refill from the canonical DB row.",
         "whyWrong": {
           "0": "The op costs are negligible either way — this is a correctness decision, not a performance one.",
           "2": "Redis happily overwrites keys with TTLs; nothing stops you except the consistency bug you'd be buying."
@@ -3219,19 +3541,20 @@ export const DAILY_QUESTIONS = {
           "0": "Rolling back an applied migration in prod is exactly the untested path that turns one incident into two.",
           "2": "Hand-editing prod breaks the versioned history, and editing an applied migration file causes checksum drift that fails the next deploy."
         },
-        "bestPractices": "The DB is a ratchet, not a yo-yo: every change is a migration, `db push` never touches prod, and applied migration files are immutable."
+        "bestPractices": "The DB is a ratchet, not a yo-yo: every change is a migration, `db push` never touches prod, and applied migration files are immutable.",
+        "lessonId": "fs-orm-migrations"
       }
     ],
     "distinguished": [
       {
         "q": "A JWT verifier is configured with `algorithms: ['HS256', 'RS256']`. What's the risk?",
         "opts": [
-          "Algorithm confusion — letting the token pick between symmetric and asymmetric verification is a classic CVE; pin exactly one",
+          "Algorithm confusion",
           "Only performance — RS256 verification is slower than HS256",
           "None — accepting more algorithms just improves compatibility"
         ],
         "answer": 0,
-        "whyCorrect": "When the verifier accepts multiple algorithm families, an attacker can exploit the mismatch between how HS256 and RS256 keys are used — the same class of real-world CVE as `alg: none`. Pinning one algorithm (as an explicit array of one) is the defense, and it's the exact footgun PASETO removes by versioning the crypto so there's no `alg` field to swap.",
+        "whyCorrect": "When the verifier accepts multiple algorithm families, an attacker can exploit the mismatch between how HS256 and RS256 keys are used — the same class of real-world CVE as `alg: none`. Pinning one algorithm (as an explicit array of one) is the defense, and it's the exact footgun PASETO removes by versioning the crypto so there's no `alg` field to swap. Letting the token pick between symmetric and asymmetric verification is a classic CVE; pin exactly one.",
         "whyWrong": {
           "1": "The cost is a forged-token vulnerability, not milliseconds.",
           "2": "Flexibility here IS the attack surface — the token should never get a vote on how it's verified."
@@ -3257,11 +3580,11 @@ export const DAILY_QUESTIONS = {
         "q": "You build chat fanout on Redis classic Pub/Sub — one channel per group, PUBLISH on send. What's the dominant failure mode?",
         "opts": [
           "Latency — Pub/Sub delivery is multi-second at scale",
-          "It's fire-and-forget: a subscriber whose connection blips for 200ms misses those messages permanently — no durability, no replay",
+          "It's fire-and-forget",
           "Redis caps the number of channels well below your group count"
         ],
         "answer": 1,
-        "whyCorrect": "Classic Pub/Sub delivers to currently-connected subscribers and immediately forgets — lossy by design. For chat that's catastrophic on every reconnect; the durable options are Redis Streams (consumer groups + checkpointing) or Kafka partitioned by conversation.",
+        "whyCorrect": "Classic Pub/Sub delivers to currently-connected subscribers and immediately forgets — lossy by design. For chat that's catastrophic on every reconnect; the durable options are Redis Streams (consumer groups + checkpointing) or Kafka partitioned by conversation. A subscriber whose connection blips for 200ms misses those messages permanently — no durability, no replay.",
         "whyWrong": {
           "0": "Pub/Sub is very fast — speed was never the problem; amnesia is.",
           "2": "Channel count isn't the constraint; the missing property is persistence."
@@ -3296,7 +3619,8 @@ export const DAILY_QUESTIONS = {
           "0": "Write-through is the opposite trade: writes go synchronously through cache to DB, so they're durable but your write latency inherits the DB's.",
           "2": "Write-around loses nothing on a crash — its cost is merely that the first read after every write is a guaranteed miss."
         },
-        "bestPractices": "Pick the pattern whose failure mode you can survive: a cache-aside Redis crash costs latency, never data; a write-back crash costs the data itself."
+        "bestPractices": "Pick the pattern whose failure mode you can survive: a cache-aside Redis crash costs latency, never data; a write-back crash costs the data itself.",
+        "lessonId": "fs-caching-strategies"
       },
       {
         "q": "You drop a database column in the same deploy where the code stops reading it. What breaks?",
@@ -3317,11 +3641,11 @@ export const DAILY_QUESTIONS = {
         "q": "Why does every serious WebSocket server (Slack, Discord) send a ping/pong heartbeat every ~30 seconds?",
         "opts": [
           "To keep per-message latency low on idle connections",
-          "To detect half-open connections — proxies, mobile NAT, and LB idle timeouts silently drop the TCP link while neither end's socket object notices",
+          "To detect half-open connections",
           "The WebSocket spec requires a keepalive to hold the upgrade"
         ],
         "answer": 1,
-        "whyCorrect": "Intermediaries kill idle TCP connections without telling either side — the client thinks it's connected, the server has forgotten it, and messages silently stop flowing. A missed pong lets you `terminate()` and trigger reconnection; it's the single most common production WebSocket bug.",
+        "whyCorrect": "Intermediaries kill idle TCP connections without telling either side — the client thinks it's connected, the server has forgotten it, and messages silently stop flowing. A missed pong lets you `terminate()` and trigger reconnection; it's the single most common production WebSocket bug. Proxies, mobile NAT, and LB idle timeouts silently drop the TCP link while neither end's socket object notices.",
         "whyWrong": {
           "0": "Heartbeats don't make delivery faster — they make dead connections *detectable*.",
           "2": "The spec defines ping/pong frames but mandates no cadence; the 30s rhythm is operational self-defense, not compliance."
@@ -3360,37 +3684,40 @@ export const DAILY_QUESTIONS = {
           "0": "That's authorization — the policy layer decides allow/deny on a resource, and it runs on every request, not once at login.",
           "2": "Encryption in transit is TLS's job — a separate concern from establishing who is on the other end."
         },
-        "bestPractices": "Keep the two gates separate in code: an authn dependency that returns identity or 401, an authz check that returns allow/deny or 403."
+        "bestPractices": "Keep the two gates separate in code: an authn dependency that returns identity or 401, an authz check that returns allow/deny or 403.",
+        "lessonId": "sec-authn-vs-authz"
       },
       {
         "q": "What makes a cryptographic hash different from encryption?",
         "opts": [
-          "A hash is one-way — you can't recover the input from the output",
+          "A hash is one-way",
           "A hash uses a public/private key pair",
           "A hash is just faster encryption"
         ],
         "answer": 0,
-        "whyCorrect": "A hash turns any input into a fixed-size fingerprint with no way back. That's why it's used for integrity checks — and why it's the wrong tool when you ever need the data back.",
+        "whyCorrect": "A hash turns any input into a fixed-size fingerprint with no way back. That's why it's used for integrity checks — and why it's the wrong tool when you ever need the data back. You can't recover the input from the output.",
         "whyWrong": {
           "1": "Key pairs belong to asymmetric encryption (RSA, Ed25519). Hashing uses no key at all — same input, same fingerprint, every time.",
           "2": "Encryption is reversible with the key; a hash is designed to be irreversible. Speed isn't the distinction — direction is."
         },
-        "bestPractices": "Pick the family by the job: hash for fingerprints, symmetric for bulk data, asymmetric for key exchange and signatures."
+        "bestPractices": "Pick the family by the job: hash for fingerprints, symmetric for bulk data, asymmetric for key exchange and signatures.",
+        "lessonId": "sec-kms-encryption"
       },
       {
         "q": "What is the actual fix for SQL injection?",
         "opts": [
           "Strip quote characters from user input",
           "Encrypt the database at rest",
-          "Parameterized queries — input is bound as data, never parsed as code"
+          "Parameterized queries"
         ],
         "answer": 2,
-        "whyCorrect": "Parameterization sends the SQL and the values separately, so user input can never rewrite the query's structure. Every SQLi is the same bug: input that should have been data got parsed as code.",
+        "whyCorrect": "Parameterization sends the SQL and the values separately, so user input can never rewrite the query's structure. Every SQLi is the same bug: input that should have been data got parsed as code. Input is bound as data, never parsed as code.",
         "whyWrong": {
           "0": "Blocklist sanitization always has a bypass — hex encodings and Unicode tricks defeat naive quote filters. Parameterize instead.",
           "1": "Encryption at rest protects against a stolen disk. The injected query runs with the app's own credentials and gets decrypted data like any legitimate query."
         },
-        "bestPractices": "Treat every raw/f-string escape hatch in your ORM (raw(), extra(), cursor.execute) as a hand-rolled query and audit it like one."
+        "bestPractices": "Treat every raw/f-string escape hatch in your ORM (raw(), extra(), cursor.execute) as a hand-rolled query and audit it like one.",
+        "lessonId": "sec-sqli"
       },
       {
         "q": "You accidentally pushed an API key to a public GitHub repo. What's the correct response?",
@@ -3405,7 +3732,8 @@ export const DAILY_QUESTIONS = {
           "1": "Git is content-addressed and append-only — the blob lives on in history, every clone, and every fork. git rm doesn't un-leak it.",
           "2": "Too late — the secret was already public, and scrapers move faster than you do. Privacy going forward doesn't erase the past."
         },
-        "bestPractices": "Add a pre-commit scanner (gitleaks, truffleHog) so secrets are caught before push, not after."
+        "bestPractices": "Add a pre-commit scanner (gitleaks, truffleHog) so secrets are caught before push, not after.",
+        "lessonId": "sec-ir-playbook"
       },
       {
         "q": "Where does an XSS payload actually execute?",
@@ -3444,22 +3772,23 @@ export const DAILY_QUESTIONS = {
         "opts": [
           "SHA-256 is cryptographically broken",
           "Its output is too short to be secure",
-          "It's too fast — GPUs crack low-entropy passwords in milliseconds"
+          "It's too fast"
         ],
         "answer": 2,
-        "whyCorrect": "Passwords are low-entropy human strings, so the defense is making each guess expensive. bcrypt (cost ≥ 12) and Argon2id are deliberately slow, salted, and memory-hard to frustrate GPU/ASIC attackers.",
+        "whyCorrect": "Passwords are low-entropy human strings, so the defense is making each guess expensive. bcrypt (cost ≥ 12) and Argon2id are deliberately slow, salted, and memory-hard to frustrate GPU/ASIC attackers. GPUs crack low-entropy passwords in milliseconds.",
         "whyWrong": {
           "0": "SHA-256 is fine for integrity and fingerprints — it's not broken, it's mis-applied. The problem is speed, not weakness.",
           "1": "256 bits is plenty. The attacker isn't reversing the hash — they're guessing inputs at GPU speed, and a fast hash lets them."
         },
-        "bestPractices": "Use Argon2id for new systems (the OWASP recommendation) and re-hash on login when cost parameters have drifted upward."
+        "bestPractices": "Use Argon2id for new systems (the OWASP recommendation) and re-hash on login when cost parameters have drifted upward.",
+        "lessonId": "sec-project-vault"
       },
       {
         "q": "Why does TLS use asymmetric crypto only to set up the connection, then switch to symmetric?",
         "opts": [
-          "Asymmetric is too slow for bulk data — it's used once to agree on a fast symmetric session key",
-          "Symmetric encryption is more secure",
-          "Symmetric keys are easier to rotate"
+          "Asymmetric is too slow for bulk data — it's only used to agree on a session key",
+          "Symmetric encryption is mathematically stronger, so it protects the real data",
+          "Symmetric keys can be rotated mid-session without a fresh handshake"
         ],
         "answer": 0,
         "whyCorrect": "Asymmetric math is expensive per byte, so TLS uses it to negotiate a fresh symmetric session key, then encrypts the actual traffic with fast AEAD ciphers — all three crypto families working together.",
@@ -3482,7 +3811,8 @@ export const DAILY_QUESTIONS = {
           "1": "SameSite has nothing to do with encryption or reading — it only controls when the browser *sends* the cookie.",
           "2": "Cross-site requests still happen — top-level GET navigations still carry the cookie under Lax. Only cookie attachment on cross-site POSTs is cut."
         },
-        "bestPractices": "Set SameSite explicitly on every session cookie, and watch for GET endpoints with side effects — Lax still allows those across sites."
+        "bestPractices": "Set SameSite explicitly on every session cookie, and watch for GET endpoints with side effects — Lax still allows those across sites.",
+        "lessonId": "sec-csrf"
       },
       {
         "q": "An attacker submits `http://169.254.169.254/latest/meta-data/...` to your image-preview endpoint. What are they after?",
@@ -3502,8 +3832,8 @@ export const DAILY_QUESTIONS = {
       {
         "q": "What does committing a lockfile and installing with `npm ci` actually buy you?",
         "opts": [
-          "Smaller node_modules",
-          "Automatic security patches",
+          "A smaller node_modules containing only production dependencies",
+          "Every install automatically pulls in the latest security patches",
           "Every install gets the exact pinned versions, verified by hash"
         ],
         "answer": 2,
@@ -3518,25 +3848,39 @@ export const DAILY_QUESTIONS = {
         "q": "Adding MFA to your login makes which property stronger?",
         "opts": [
           "Authorization — users can do less damage",
-          "Authentication — impersonating a user gets harder",
+          "Authentication",
           "Both equally"
         ],
         "answer": 1,
-        "whyCorrect": "MFA is stronger authentication: a second factor makes it harder to *be* Alice. It says nothing about what Alice's identity — or her hijacked session — is allowed to touch once inside.",
+        "whyCorrect": "MFA is stronger authentication: a second factor makes it harder to *be* Alice. It says nothing about what Alice's identity — or her hijacked session — is allowed to touch once inside. Impersonating a user gets harder.",
         "whyWrong": {
           "0": "MFA doesn't change what Alice can do after login — a hijacked post-login session carries all her permissions.",
           "2": "MFA lives entirely at the identity gate. Least privilege, deny-default, and RBAC are what strengthen authorization."
         },
         "bestPractices": "Strengthen the two gates independently: MFA/FIDO2 for authn, least-privilege and deny-default for authz."
+      },
+      {
+        "kind": "order",
+        "q": "Order the threat-modeling pipeline from the lesson — the four pieces are a sequence, not a checklist.",
+        "items": [
+          "Profile the attacker — who wants in, and why",
+          "List the assets and tag each with its CIA leg",
+          "Run STRIDE over each component to find threats",
+          "Attach a control that restores the threatened leg",
+          "Accept one trade-off consciously and write it down"
+        ],
+        "whyWrong": "Starting from controls ('we need a WAF!') is security shopping, not threat modeling — without the attacker and asset steps you can't say what the control is FOR, or notice what it fails to cover.",
+        "whyCorrect": "Attacker → assets → threats → controls → accepted risk. Each step scopes the next; the written trade-off at the end is what makes the model a budget instead of a wish list.",
+        "bestPractices": "Re-run the pipeline when the architecture changes, not on a calendar — a threat model of last year's system protects last year's system."
       }
     ],
     "senior": [
       {
         "q": "In envelope encryption, why encrypt data with a DEK and then wrap the DEK with a KMS-held KEK?",
         "opts": [
-          "Two layers of encryption are twice as hard to brute-force",
-          "You can rotate the KEK by re-wrapping one small DEK instead of re-encrypting petabytes",
-          "The DEK provides forward secrecy"
+          "Two layers of encryption doubles the work an attacker must brute-force",
+          "You can rotate the KEK by re-wrapping one small DEK",
+          "The DEK provides forward secrecy if the KEK ever leaks"
         ],
         "answer": 1,
         "whyCorrect": "The KEK never leaves KMS, and each unwrap is IAM-gated, logged, and revocable. Rotating the KEK means re-wrapping the small DEK — the encrypted petabytes never move.",
@@ -3549,12 +3893,12 @@ export const DAILY_QUESTIONS = {
       {
         "q": "Your role has `kms:*` in IAM, but `kms:Decrypt` fails with AccessDenied. What's the likely cause?",
         "opts": [
-          "The key policy doesn't list your role — key policy and IAM must BOTH allow",
+          "The key policy doesn't list your role",
           "KMS requires MFA for decrypt operations",
           "The key was rotated and old ciphertext is unreadable"
         ],
         "answer": 0,
-        "whyCorrect": "Key policies are not IAM policies: the key policy gates the key itself, IAM gates the principal, and the request succeeds only when both allow. 'My role has kms:* but it still fails' is the classic symptom.",
+        "whyCorrect": "Key policies are not IAM policies: the key policy gates the key itself, IAM gates the principal, and the request succeeds only when both allow. 'My role has kms:* but it still fails' is the classic symptom. Key policy and IAM must BOTH allow.",
         "whyWrong": {
           "1": "MFA conditions are optional policy add-ons, not a KMS default behavior.",
           "2": "KMS rotation keeps old backing material precisely so previously encrypted ciphertext still decrypts."
@@ -3564,12 +3908,12 @@ export const DAILY_QUESTIONS = {
       {
         "q": "After adding a NACL to a subnet, outbound requests succeed but the responses never arrive. Why?",
         "opts": [
-          "NACLs are stateless — you must open the return direction explicitly",
+          "NACLs are stateless",
           "The security group is blocking return traffic",
           "NACLs only apply to ingress"
         ],
         "answer": 0,
-        "whyCorrect": "Security groups track connections; NACLs don't. A stateless subnet filter needs explicit allows in both directions or return packets are silently dropped — the classic stateful/stateless mixup.",
+        "whyCorrect": "Security groups track connections; NACLs don't. A stateless subnet filter needs explicit allows in both directions or return packets are silently dropped — the classic stateful/stateless mixup. You must open the return direction explicitly.",
         "whyWrong": {
           "1": "Security groups are stateful — return traffic for an allowed connection is automatic. That's exactly the property NACLs lack.",
           "2": "NACLs filter both directions, evaluated in rule-number order — which is why forgetting the return rule bites."
@@ -3580,11 +3924,11 @@ export const DAILY_QUESTIONS = {
         "q": "Why doesn't CORS protect you from CSRF?",
         "opts": [
           "CORS only applies to GET requests",
-          "CORS gates who can READ the response — the forged request is still sent, and the side effect already happened",
+          "CORS gates who can READ the response",
           "CORS is enforced by the server, which the attacker controls"
         ],
         "answer": 1,
-        "whyCorrect": "A CSRF attacker never needs to see the response — the transfer already executed under the victim's cookie. CORS controls reading responses; SameSite and CSRF tokens control whether the request is honored at all.",
+        "whyCorrect": "A CSRF attacker never needs to see the response — the transfer already executed under the victim's cookie. CORS controls reading responses; SameSite and CSRF tokens control whether the request is honored at all. The forged request is still sent, and the side effect already happened.",
         "whyWrong": {
           "0": "CORS covers all methods — the issue is what it protects (reading), not which verbs it applies to.",
           "2": "CORS is enforced by the *browser*, and the attacker controls neither the victim's browser nor your server."
@@ -3634,7 +3978,22 @@ export const DAILY_QUESTIONS = {
           "0": "Typosquatting fools humans; rebinding fools your validator by answering the same name differently across lookups.",
           "2": "No spoofing needed — the attacker legitimately controls their own DNS server and its TTLs."
         },
-        "bestPractices": "Also disable auto-redirects or re-validate every hop — a safe URL that 302s to the metadata IP is the same bug."
+        "bestPractices": "Also disable auto-redirects or re-validate every hop — a safe URL that 302s to the metadata IP is the same bug.",
+        "lessonId": "sec-ssrf"
+      },
+      {
+        "kind": "order",
+        "q": "Order the incident-response phases — from the first alert to being genuinely better afterward.",
+        "items": [
+          "Detect — the alert fires and is triaged as real",
+          "Contain — isolate the blast radius fast",
+          "Eradicate — remove the attacker's access and artifacts",
+          "Recover — restore systems and verify integrity",
+          "Post-mortem — fix the class of failure, blamelessly"
+        ],
+        "whyWrong": "Eradicating before containing tips the attacker off while they still have reach — they burn your visibility and dig in deeper. Recovery before eradication restores systems the attacker still owns.",
+        "whyCorrect": "Detect → contain → eradicate → recover → learn. Containment freezes the damage so eradication is complete; the post-mortem is what turns an incident into immunity.",
+        "bestPractices": "Practice the order in game days before you need it — the middle of a breach is the worst possible time to design your process."
       }
     ],
     "distinguished": [
@@ -3642,11 +4001,11 @@ export const DAILY_QUESTIONS = {
         "q": "Why do teams run a new IPS rule in alert-only mode for a week before enabling block?",
         "opts": [
           "To collect enough samples to train the anomaly model",
-          "An IPS blocks inline — a noisy rule can knock prod offline faster than the attack it targets",
+          "An IPS blocks inline",
           "Alert-only mode is required by change-management standards"
         ],
         "answer": 1,
-        "whyCorrect": "An IDS that fires wrong wastes an analyst's time; an IPS that fires wrong drops legitimate traffic in-line. The soak period measures the false-positive rate while the blast radius is still zero.",
+        "whyCorrect": "An IDS that fires wrong wastes an analyst's time; an IPS that fires wrong drops legitimate traffic in-line. The soak period measures the false-positive rate while the blast radius is still zero. A noisy rule can knock prod offline faster than the attack it targets.",
         "whyWrong": {
           "0": "Soaking measures false positives on signature rules — it's not ML training.",
           "2": "It's an engineering-risk decision, not paperwork — the inline placement is what turns a false positive into an outage."
@@ -3673,10 +4032,10 @@ export const DAILY_QUESTIONS = {
         "opts": [
           "Reduced throughput from packet inspection",
           "A larger attack surface from the policy engine itself",
-          "Operational friction — every new service-to-service call needs an explicit allow, and a forgotten rule looks like a mysterious 'connection refused'"
+          "Operational friction"
         ],
         "answer": 2,
-        "whyCorrect": "Deny-default fails closed: something's broken and visible, instead of everything reachable and silent. You pay in onboarding speed and confusing timeouts; you get a blast radius of one service instead of the whole flat network.",
+        "whyCorrect": "Deny-default fails closed: something's broken and visible, instead of everything reachable and silent. You pay in onboarding speed and confusing timeouts; you get a blast radius of one service instead of the whole flat network. Every new service-to-service call needs an explicit allow, and a forgotten rule looks like a mysterious 'connection refused'.",
         "whyWrong": {
           "0": "NetworkPolicies are allow/deny matching, not deep packet inspection — the cost is human workflow, not CPU.",
           "1": "The policy layer adds negligible surface; the real cost is the day-to-day tax of 'nothing is allowed until you say so'."
@@ -3718,10 +4077,10 @@ export const DAILY_QUESTIONS = {
         "opts": [
           "Auditors require encryption, not immutability",
           "DBAs aren't authorized to make compliance commitments",
-          "Immutability must be structural — WORM storage or hash chains — because anyone with UPDATE rights makes the log unprovable"
+          "Immutability must be structural"
         ],
         "answer": 2,
-        "whyCorrect": "If you can't prove an entry wasn't edited after the fact, it's a story, not evidence. S3 Object Lock in compliance mode, a hash-chained log, or a write-only separate account make tampering structurally impossible or detectable.",
+        "whyCorrect": "If you can't prove an entry wasn't edited after the fact, it's a story, not evidence. S3 Object Lock in compliance mode, a hash-chained log, or a write-only separate account make tampering structurally impossible or detectable. WORM storage or hash chains — because anyone with UPDATE rights makes the log unprovable.",
         "whyWrong": {
           "0": "Encryption protects confidentiality; the evidentiary property is tamper-evidence — proof the past wasn't rewritten.",
           "1": "It's not about who promises — a promise is policy, and policy can't prove a negative six months later."
@@ -3732,16 +4091,17 @@ export const DAILY_QUESTIONS = {
         "q": "During a secret rotation's dual-accept window, what security cost are you knowingly paying?",
         "opts": [
           "Services must restart twice",
-          "Two valid credentials exist at once — a stolen v1 keeps working until you cut over",
+          "Two valid credentials exist at once",
           "The vault becomes a single point of failure"
         ],
         "answer": 1,
-        "whyCorrect": "Dual-accept trades a wider attack window for a zero-downtime rollout: v1 stays valid while clients migrate to v2. The judgment is sizing the window — long enough that nothing 401s mid-deploy, short enough that a compromised v1 dies fast.",
+        "whyCorrect": "Dual-accept trades a wider attack window for a zero-downtime rollout: v1 stays valid while clients migrate to v2. The judgment is sizing the window — long enough that nothing 401s mid-deploy, short enough that a compromised v1 dies fast. A stolen v1 keeps working until you cut over.",
         "whyWrong": {
           "0": "Well-built clients hot-reload or pick up v2 on their normal rollout — a double restart isn't the cost.",
           "2": "The vault's availability story is real but orthogonal — it's the same before, during, and after rotation."
         },
-        "bestPractices": "Shrink the problem at the root: short TTLs and OIDC/workload identity mean there's rarely a static key to dual-accept at all."
+        "bestPractices": "Shrink the problem at the root: short TTLs and OIDC/workload identity mean there's rarely a static key to dual-accept at all.",
+        "lessonId": "sec-vault-rotation"
       }
     ]
   }

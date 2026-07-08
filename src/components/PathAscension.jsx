@@ -22,8 +22,9 @@
 // AnimatedDiagram) renders Phase 3 as a static card immediately — no timers,
 // no particles, no rays.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { PROVINCES, FIVE_LAPSES } from '../data/lore.js';
 import { PATHS } from '../data/content.js';
 import { BEASTS, ELEMENTS } from '../data/beasts.js';
@@ -203,6 +204,11 @@ function AscensionCinematic({ pathKey }) {
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, []);
 
+  // Tab stays inside the cinematic while it claims aria-modal (Escape-to-
+  // skip is handled above at the capture phase).
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, {});
+
   const species = BEASTS[companion] ? companion : 'dragon';
   const beast = BEASTS[species];
 
@@ -257,6 +263,7 @@ function AscensionCinematic({ pathKey }) {
   if (reduced) {
     return (
       <div
+        ref={trapRef}
         className="ascend-overlay ascend-reduced"
         role="dialog"
         aria-modal="true"
@@ -276,6 +283,7 @@ function AscensionCinematic({ pathKey }) {
 
   return (
     <div
+      ref={trapRef}
       className={overlayCls}
       role="dialog"
       aria-modal="true"

@@ -22,15 +22,11 @@ import cybersec from '../src/data/lessons/cybersec.js';
 // content integrity (a typo'd PATHS id shipped the "hasn't been authored"
 // card with CI green).
 //
-// LEGACY exemptions: the fullstack + cybersec daily banks (authored before
-// these rules) still carry position/length bias. Render-time shuffling
-// (battles normalize(), pickDailySession permuteOptions, MathQuiz
-// shuffleOptions) neutralizes POSITION bias everywhere in-app; LENGTH bias
-// survives shuffling, so rewriting those banks' distractors is the standing
-// TODO. New/expanded banks must pass strict.
-
-const LEGACY_POSITION = new Set(['fullstack']);            // pos dist [9,19,0]
-const LEGACY_LENGTH = new Set(['fullstack', 'cybersec']);  // 82% / 93% longest-correct
+// No legacy exemptions remain: the 2026-07 rewrite trimmed/relocated the
+// verbose correct options (elaborations moved into whyCorrect) and rebalanced
+// the answer slots of the fullstack + mathQuizzes banks, so every bank now
+// passes strict. Render-time shuffling additionally neutralizes position
+// bias in-app; these gates keep the at-rest data honest too.
 
 const flatten = (bank) => Object.values(bank).flat();
 const longestCorrectRate = (qs, optsKey, ansKey) => {
@@ -47,9 +43,11 @@ describe('daily-question banks', () => {
   for (const [pathKey, bank] of Object.entries(DAILY_QUESTIONS)) {
     describe(pathKey, () => {
       const qs = flatten(bank);
+      const mcqs = qs.filter((q) => q.kind !== 'order');
+      const orders = qs.filter((q) => q.kind === 'order');
 
-      it('every question is fully shaped (3 opts, valid answer, full feedback)', () => {
-        for (const q of qs) {
+      it('every MCQ is fully shaped (3 opts, valid answer, full feedback)', () => {
+        for (const q of mcqs) {
           expect(typeof q.q, q.q).toBe('string');
           expect(q.opts, q.q).toHaveLength(3);
           expect([0, 1, 2], q.q).toContain(q.answer);
@@ -63,24 +61,41 @@ describe('daily-question banks', () => {
         }
       });
 
+      it('every order question is fully shaped (3-6 items, full feedback)', () => {
+        for (const q of orders) {
+          expect(typeof q.q, q.q).toBe('string');
+          expect(Array.isArray(q.items), q.q).toBe(true);
+          expect(q.items.length, q.q).toBeGreaterThanOrEqual(3);
+          expect(q.items.length, q.q).toBeLessThanOrEqual(6);
+          for (const item of q.items) expect(typeof item, q.q).toBe('string');
+          expect(new Set(q.items).size, `duplicate items: ${q.q}`).toBe(q.items.length);
+          expect(typeof q.whyCorrect, `whyCorrect missing: ${q.q}`).toBe('string');
+        }
+      });
+
       it('has no duplicate stems', () => {
         const stems = qs.map((q) => q.q);
         expect(new Set(stems).size).toBe(stems.length);
       });
 
+      it('every lessonId tag points at a real lesson in THIS path', () => {
+        const valid = new Set((PATHS[pathKey]?.lessons || []).map((l) => l.id));
+        for (const q of qs) {
+          if (q.lessonId) expect(valid.has(q.lessonId), `${q.lessonId} (${q.q})`).toBe(true);
+        }
+      });
+
       it('answer positions are used and not lopsided', () => {
-        if (LEGACY_POSITION.has(pathKey)) return; // see LEGACY note above
         const dist = [0, 0, 0];
-        for (const q of qs) dist[q.answer] += 1;
+        for (const q of mcqs) dist[q.answer] += 1;
         for (let i = 0; i < 3; i += 1) {
           expect(dist[i], `position ${i} never correct`).toBeGreaterThan(0);
         }
-        expect(Math.max(...dist) / qs.length, `lopsided: ${dist}`).toBeLessThanOrEqual(0.62);
+        expect(Math.max(...dist) / mcqs.length, `lopsided: ${dist}`).toBeLessThanOrEqual(0.62);
       });
 
       it('the correct option is not systematically the longest', () => {
-        if (LEGACY_LENGTH.has(pathKey)) return; // see LEGACY note above
-        expect(longestCorrectRate(qs, 'opts', 'answer')).toBeLessThanOrEqual(0.5);
+        expect(longestCorrectRate(mcqs, 'opts', 'answer')).toBeLessThanOrEqual(0.5);
       });
     });
   }
@@ -116,9 +131,20 @@ describe('math-quiz banks', () => {
       }
     }
   });
-  // Position/length bias in mathQuizzes (answer at B in 49/59) is neutralized
-  // at render by MathQuiz's per-mount option shuffle; a distractor-length
-  // rewrite is the standing content TODO before a strict gate lands here.
+  it('answer positions are spread across all four slots', () => {
+    const qs = banks.flatMap(([, b]) => b.questions || []);
+    const dist = [0, 0, 0, 0];
+    for (const q of qs) dist[q.answer] += 1;
+    for (let i = 0; i < 4; i += 1) {
+      expect(dist[i], `position ${i} never correct`).toBeGreaterThan(0);
+    }
+    expect(Math.max(...dist) / qs.length, `lopsided: ${dist}`).toBeLessThanOrEqual(0.5);
+  });
+
+  it('the correct option is not systematically the longest', () => {
+    const qs = banks.flatMap(([, b]) => b.questions || []);
+    expect(longestCorrectRate(qs, 'options', 'answer')).toBeLessThanOrEqual(0.5);
+  });
 });
 
 describe('content integrity (inverse direction)', () => {

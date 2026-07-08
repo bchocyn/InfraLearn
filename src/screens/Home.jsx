@@ -16,6 +16,7 @@ const STREAK_MILESTONES = new Set([3, 7, 14, 30, 100]);
 // action (journey design §11).
 import CampHero from '../components/CampHero.jsx';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
+import OrderQuestion from '../components/OrderQuestion.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 import NudgeCard from '../components/NudgeCard.jsx';
 // InstallPrompt mounts at the BOTTOM of Home (below the action row) on
@@ -722,8 +723,12 @@ function DailyPractice() {
   const anyCompleted = useStore((st) => Object.keys(st.completed || {}).length > 0);
   // Pull recordActivity off the store directly to keep finalization stable.
   const recordActivity = useStore((st) => st.recordActivity);
-  // recordQuizMiss feeds Review Weak Spots on wrong MCQ answers.
+  // recordQuizMiss feeds Review Weak Spots on wrong answers; clearQuizMiss
+  // is the symmetric half — answering the same prompt right on a later day
+  // clears its weak spot instead of leaving manual-clear residue.
   const recordQuizMiss = useStore((st) => st.recordQuizMiss);
+  const clearQuizMiss = useStore((st) => st.clearQuizMiss);
+  const quizMisses = useStore((st) => st.quizMisses);
   // XP / badge wiring for Engagement Tier B.
   const addXp = useStore((st) => st.addXp);
   const grantBadge = useStore((st) => st.grantBadge);
@@ -775,22 +780,33 @@ function DailyPractice() {
   // One verdict per question per day.
   const correctCount = Object.values(storeAnswered).filter((g) => g === 'right').length;
 
-  // --- MCQ handlers --------------------------------------------------------
-  const submit = (i) => {
-    if (answered) return;
-    setPicks((p) => ({ ...p, [idx]: i }));
-    const verdict = Q && i === Q.answer ? 'right' : 'wrong';
-    // recordDailyAnswer returns true only the FIRST time this question index
-    // is answered today — XP is gated on that edge so a remount can't farm
-    // it. +4 keeps a light daily tap below review:good's +6 (the economy's
-    // law: doing > answering > reading).
+  // --- answer handlers -----------------------------------------------------
+  // Shared bookkeeping for both question kinds: latch the verdict in the
+  // store (XP only on the first answer for this index today), then file or
+  // clear the weak spot under the question's lesson bucket when it's tagged.
+  const settle = (verdict) => {
     const first = recordDailyAnswer?.(idx, verdict) === true;
     if (first && verdict === 'right') addXp?.(4, 'daily:correct');
-    // Wrong answers feed Review Weak Spots (synthetic lessonId — daily
-    // questions aren't anchored to one lesson; WeakSpots keys off prompt).
+    const bucket = Q?.lessonId || '__daily_practice__';
     if (first && verdict === 'wrong' && Q?.q) {
-      recordQuizMiss?.('__daily_practice__', Q.q, null);
+      recordQuizMiss?.(bucket, Q.q, null);
+    } else if (first && verdict === 'right' && Q?.q && quizMisses?.[bucket]?.[Q.q]) {
+      clearQuizMiss?.(bucket, Q.q);
     }
+  };
+
+  const submit = (i) => {
+    if (answered || Q?.kind === 'order') return;
+    setPicks((p) => ({ ...p, [idx]: i }));
+    settle(Q && i === Q.answer ? 'right' : 'wrong');
+  };
+
+  const submitOrder = (correct) => {
+    if (answered) return;
+    // Sentinel pick value: truthy so `answered` flips, non-numeric so no
+    // MCQ option renders as selected.
+    setPicks((p) => ({ ...p, [idx]: correct ? 'o-right' : 'o-wrong' }));
+    settle(correct ? 'right' : 'wrong');
   };
 
   const advance = () => {
@@ -939,39 +955,53 @@ function DailyPractice() {
 
       <p style={{ fontSize: 14, margin: '0 0 12px', fontWeight: 500 }}>{Q.q}</p>
 
-      {!answered && (
-        <div className="caption mono" style={{ fontSize: 11, opacity: 0.6, marginBottom: 8 }}>
-          Press 1 / 2 / 3 or click to answer.
-        </div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {Q.opts.map((o, i) => {
-          const correct = i === Q.answer;
-          const wasPicked = picked === i;
-          let cls = 'btn dp-option';
-          if (answered && correct) cls += ' dp-correct';
-          else if (answered && wasPicked) cls += ' dp-wrong';
-          return (
-            <button key={i} className={cls} disabled={answered} onClick={() => submit(i)}>
-              <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
-              <span className="dp-text">{o}</span>
-              {answered && correct  && <span className="dp-mark">✓</span>}
-              {answered && wasPicked && !correct && <span className="dp-mark">✗</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Feedback reveals only after an option is clicked. */}
-      {answered && (
-        <FeedbackPanel
+      {Q.kind === 'order' ? (
+        /* Drag-to-order question — grading + feedback live in the component.
+           Keyed by day-index slot so state resets between questions; a
+           hydrated verdict renders the canonical order read-only. */
+        <OrderQuestion
+          key={`${today}-${idx}`}
           question={Q}
-          picked={picked !== undefined && picked !== null
-            ? picked
-            // Hydrated answer — the chosen option index isn't persisted,
-            // only the verdict, so synthesize a matching index.
-            : (storeVerdict === 'right' ? Q.answer : -1)}
+          onDone={submitOrder}
+          initialResult={picks[idx] === undefined && (storeVerdict === 'right' || storeVerdict === 'wrong') ? storeVerdict : null}
         />
+      ) : (
+        <>
+          {!answered && (
+            <div className="caption mono" style={{ fontSize: 11, opacity: 0.6, marginBottom: 8 }}>
+              Press 1 / 2 / 3 or click to answer.
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {Q.opts.map((o, i) => {
+              const correct = i === Q.answer;
+              const wasPicked = picked === i;
+              let cls = 'btn dp-option';
+              if (answered && correct) cls += ' dp-correct';
+              else if (answered && wasPicked) cls += ' dp-wrong';
+              return (
+                <button key={i} className={cls} disabled={answered} onClick={() => submit(i)}>
+                  <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
+                  <span className="dp-text">{o}</span>
+                  {answered && correct  && <span className="dp-mark">✓</span>}
+                  {answered && wasPicked && !correct && <span className="dp-mark">✗</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Feedback reveals only after an option is clicked. */}
+          {answered && (
+            <FeedbackPanel
+              question={Q}
+              picked={typeof picked === 'number'
+                ? picked
+                // Hydrated answer — the chosen option index isn't persisted,
+                // only the verdict, so synthesize a matching index.
+                : (storeVerdict === 'right' ? Q.answer : -1)}
+            />
+          )}
+        </>
       )}
 
       {answered && (

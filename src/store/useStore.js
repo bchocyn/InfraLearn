@@ -4,7 +4,7 @@ import { resolveTier, BEASTS, SPECIES_KEYS } from '../data/beasts.js';
 import { PATHS, PATH_KEYS, BACKGROUNDS, pathProgress, badgeFor, labProgress as labProgressFromContent } from '../data/content.js';
 import { PROVINCES, LAPSE_KEYS, JOURNEY_CHAPTERS } from '../data/lore.js';
 import { ACCENT_KEYS, BG_KEYS } from '../screens/settingsThemes.js';
-import { logReviewEvent, setNotifyState, clearEvidence } from '../data/evidenceLog.js';
+import { logReviewEvent, setNotifyState, clearEvidence, mirrorStore } from '../data/evidenceLog.js';
 import { TAMER_KEYS } from '../data/tamers.js';
 import { ARMOR_KEYS } from '../data/armorSets.js';
 
@@ -2082,6 +2082,7 @@ export const useStore = create(
           if (!pending) return;
           const { name, value } = pending;
           pending = null;
+          const json = JSON.stringify(value);
           try {
             // Rotate the last known-good blob to a .bak sibling BEFORE the
             // primary write. A truncated/corrupt primary (browser killed
@@ -2090,7 +2091,7 @@ export const useStore = create(
             // .bak quota failure must never block the primary save.
             const prev = localStorage.getItem(name);
             if (prev) { try { localStorage.setItem(`${name}.bak`, prev); } catch { /* best-effort */ } }
-            localStorage.setItem(name, JSON.stringify(value));
+            localStorage.setItem(name, json);
             // Recovered? Clear the banner (guarded — no set() churn on the hot path).
             if (useStore.getState().persistFailed) useStore.setState({ persistFailed: false });
           } catch (e) {
@@ -2099,6 +2100,12 @@ export const useStore = create(
             // evaporate on reload; the user must be told, not the console.
             try { useStore.setState({ persistFailed: true }); } catch { /* store mid-init */ }
           }
+          // Mirror every flush into IndexedDB (different, less eviction-prone
+          // quota bucket — iOS drops PWA localStorage after ~7 idle days).
+          // Runs on the FAILURE path too: when localStorage is full, the
+          // mirror is the only copy that survives the session. Fire-and-
+          // forget; boot recovery in main.jsx reads it back.
+          mirrorStore(json);
         };
         return {
           getItem: (name) => {

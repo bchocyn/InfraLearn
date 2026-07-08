@@ -72,12 +72,19 @@ export default function DailyChallengeCard() {
 
   // Today's question: deterministic per (concept, calendar day) so remounts
   // re-serve the same challenge, different days draw different probes.
+  // Order-kind picks re-salt a few times — the challenge card's pick →
+  // confidence → verdict flow is built around a single MCQ tap, so drag-to-
+  // order questions stay on the practice/review surfaces.
   const challenge = useMemo(() => {
     if (!conceptMeta) return null;
     if (!pickFn) return { kind: 'loading', title: 'Loading…' };
     const daySalt = Number((dailyChallenge?.date || '').replaceAll('-', '')) || 0;
-    const q = pickFn(conceptId, daySalt);
-    return q ? { kind: 'mcq', q } : { kind: 'review-link' };
+    let q = null;
+    for (let s = 0; s < 4; s += 1) {
+      q = pickFn(conceptId, daySalt + s);
+      if (q && q.kind !== 'order') break;
+    }
+    return q && q.kind !== 'order' ? { kind: 'mcq', q } : { kind: 'review-link' };
   }, [conceptId, conceptMeta, pickFn, dailyChallenge?.date]);
 
   // --- Empty state: zero completions ---------------------------------------
@@ -201,7 +208,9 @@ function ActiveChallenge({ challenge, conceptMeta, onAnswer }) {
       recordQuizMiss(
         q.lessonId || '__daily_practice__',
         q.q,
-        q.lessonId && Number.isInteger(canonical) && canonical <= 3 ? canonical : null,
+        // Only canonical BANK slots are recordable (a borrowed 4th
+        // distractor has no slot in the bank's option list).
+        q.lessonId && Number.isInteger(canonical) && canonical < (q.bankOpts ?? 4) ? canonical : null,
       );
     }
   };

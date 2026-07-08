@@ -24,6 +24,7 @@ import { pickReviewQuestion } from '../data/battles.js';
 import BeastSprite from '../components/BeastSprite.jsx';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
+import OrderQuestion from '../components/OrderQuestion.jsx';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 
 function isoDayString(d = new Date()) {
@@ -70,7 +71,8 @@ export default function Watchfire() {
   const lessonIndex = useMemo(() => buildLessonIndex(), []);
 
   const [idx, setIdx] = useState(0);
-  const [picked, setPicked] = useState(null); // chosen option index this wraith
+  const [picked, setPicked] = useState(null); // chosen option index this wraith (MCQ)
+  const [orderResult, setOrderResult] = useState(null); // 'right'|'wrong' (order kind)
   const [fireHp, setFireHp] = useState(FIRE_HP);
   const [banished, setBanished] = useState(0);
   // 'strike' | 'hit' — one-shot animation class on the stage.
@@ -95,12 +97,18 @@ export default function Watchfire() {
     [conceptIdNow],
   );
 
-  const advance = () => { setPicked(null); setFx(null); setIdx((i) => i + 1); };
+  const advance = () => {
+    // Clear any pending strike timer: Enter during the 550ms strike window
+    // plus the timer firing later would advance TWICE and skip a wraith.
+    if (fxTimer.current) { clearTimeout(fxTimer.current); fxTimer.current = null; }
+    setPicked(null); setOrderResult(null); setFx(null); setIdx((i) => i + 1);
+  };
 
-  const pick = (i) => {
-    if (!q || picked !== null || done) return;
-    setPicked(i);
-    const correct = i === q.answer;
+  const isOrder = q?.kind === 'order';
+
+  // Shared outcome handling for both question kinds — the honest scheduler
+  // call plus the battle theater.
+  const resolve = (correct, canonical) => {
     if (correct) {
       // The honest part: the real scheduler call, identical to Reviews.
       markReviewed(conceptIdNow, 3);
@@ -113,11 +121,12 @@ export default function Watchfire() {
       fxTimer.current = setTimeout(advance, 550);
     } else {
       markReviewed(conceptIdNow, 1);
-      const canonical = q.origIndex?.[i];
       recordQuizMiss(
         q.lessonId || '__daily_practice__',
         q.q,
-        q.lessonId && Number.isInteger(canonical) && canonical <= 3 ? canonical : null,
+        // Only canonical BANK slots are recordable (borrowed 4th options
+        // and order questions have no slot in the bank's option list).
+        q.lessonId && Number.isInteger(canonical) && canonical < (q.bankOpts ?? 4) ? canonical : null,
       );
       setFireHp((hp) => Math.max(0, hp - 1));
       // Hold on the feedback — the why is the learning; Next dismisses.
@@ -128,16 +137,28 @@ export default function Watchfire() {
     }
   };
 
+  const pick = (i) => {
+    if (!q || isOrder || picked !== null || done) return;
+    setPicked(i);
+    resolve(i === q.answer, q.origIndex?.[i]);
+  };
+
+  const onOrderDone = (correct) => {
+    if (!q || !isOrder || orderResult !== null || done) return;
+    setOrderResult(correct ? 'right' : 'wrong');
+    resolve(correct, null);
+  };
+
   useKeyboardShortcuts(
     {
-      Enter: () => { if (!done && picked !== null) advance(); },
-      ' ':   () => { if (!done && picked !== null) advance(); },
+      Enter: () => { if (!done && (picked !== null || orderResult !== null)) advance(); },
+      ' ':   () => { if (!done && (picked !== null || orderResult !== null)) advance(); },
       1: () => pick(0),
       2: () => pick(1),
       3: () => pick(2),
       4: () => pick(3),
     },
-    [idx, done, conceptIdNow, picked, q, reducedMotion],
+    [idx, done, conceptIdNow, picked, orderResult, q, reducedMotion],
   );
 
   const hearts = '♥'.repeat(fireHp) + '♡'.repeat(FIRE_HP - fireHp);
@@ -243,24 +264,31 @@ export default function Watchfire() {
           {pathName} · {lesson.title}
         </div>
         <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>{q.q}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {q.opts.map((o, i) => {
-            let cls = 'btn dp-option';
-            if (picked !== null && i === q.answer) cls += ' dp-correct';
-            else if (picked !== null && i === picked) cls += ' dp-wrong';
-            return (
-              <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
-                <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
-                <span className="dp-text">{o}</span>
-              </button>
-            );
-          })}
-        </div>
-        {/* Wrong answers hold here so the why gets read; correct answers
-            auto-advance after the strike. */}
-        {picked !== null && picked !== q.answer && <FeedbackPanel question={q} picked={picked} />}
+        {isOrder ? (
+          /* Drag-to-order wraith — grading + feedback live in the component. */
+          <OrderQuestion key={conceptIdNow} question={q} onDone={onOrderDone} />
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {q.opts.map((o, i) => {
+                let cls = 'btn dp-option';
+                if (picked !== null && i === q.answer) cls += ' dp-correct';
+                else if (picked !== null && i === picked) cls += ' dp-wrong';
+                return (
+                  <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
+                    <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
+                    <span className="dp-text">{o}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Wrong answers hold here so the why gets read; correct answers
+                auto-advance after the strike. */}
+            {picked !== null && picked !== q.answer && <FeedbackPanel question={q} picked={picked} />}
+          </>
+        )}
       </div>
-      {picked !== null && picked !== q.answer && (
+      {((picked !== null && picked !== q.answer) || orderResult === 'wrong') && (
         <button type="button" className="btn btn-primary btn-block" onClick={advance}>
           The fire holds — next wraith →
         </button>

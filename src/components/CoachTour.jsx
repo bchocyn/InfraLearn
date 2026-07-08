@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
 // CoachTour — first-run "how to use the app" tour.
 //
@@ -82,6 +83,11 @@ export default function CoachTour() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
+  // Tab cycles Skip ↔ Next instead of walking the dimmed page behind the
+  // overlay (Escape is handled above at the window level).
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, { active: active && !!step });
+
   if (!active || !step) return null;
 
   const finish = () => { setActive(false); completeTour(); };
@@ -105,7 +111,7 @@ export default function CoachTour() {
   }
 
   return (
-    <div className={`coach-overlay${rect ? '' : ' coach-overlay-flat'}`} role="dialog" aria-modal="true" aria-label="App tour">
+    <div ref={trapRef} className={`coach-overlay${rect ? '' : ' coach-overlay-flat'}`} role="dialog" aria-modal="true" aria-label="App tour">
       {rect && (
         <div
           className="coach-spot"

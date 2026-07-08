@@ -79,18 +79,43 @@ export function logReviewEvent(conceptId, grade, elapsedDays) {
   }).catch(() => {});
 }
 
-// Wipe everything this module owns — the events log AND the notify-state
-// bridge. Called by resetAll (and the ErrorBoundary nuke): "Reset all
-// progress — cannot be undone" must not leave a pre-reset forgetting curve
-// rendering or a stale streak in the reminder. Resolves true on success.
+// Wipe everything this module owns — the events log AND the whole kv store
+// (notify-state + the localStorage mirror). Called by resetAll (and the
+// ErrorBoundary nuke): "Reset all progress — cannot be undone" must not
+// leave a pre-reset forgetting curve rendering, a stale streak in the
+// reminder, or a mirror that would resurrect the wiped store on next boot.
+// Resolves true on success.
 export function clearEvidence() {
   return openDb().then((db) => new Promise((resolve) => {
     const tx = db.transaction(['events', 'kv'], 'readwrite');
     tx.objectStore('events').clear();
-    tx.objectStore('kv').delete('notify-state');
+    tx.objectStore('kv').clear();
     tx.oncomplete = () => resolve(true);
     tx.onerror = () => resolve(false);
   })).catch(() => false);
+}
+
+// ── localStorage mirror (iOS eviction survival) ─────────────────────────────
+// Safari evicts a PWA's localStorage after ~7 days unused — i.e. the lapsed
+// user the entire streak/forgiveness/comeback machinery exists to win back
+// returns to a blank slate. IndexedDB lives in a different (less aggressively
+// evicted) bucket, so every persist flush mirrors the raw store blob here;
+// boot recovery (main.jsx) restores it when BOTH localStorage copies are gone.
+export function mirrorStore(value) {
+  if (typeof value !== 'string' || value.length === 0) return;
+  openDb().then((db) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(value, 'store-mirror');
+  }).catch(() => {});
+}
+
+export function readStoreMirror() {
+  return openDb().then((db) => new Promise((resolve) => {
+    const tx = db.transaction('kv', 'readonly');
+    const req = tx.objectStore('kv').get('store-mirror');
+    req.onsuccess = () => resolve(typeof req.result === 'string' ? req.result : null);
+    req.onerror = () => resolve(null);
+  })).catch(() => null);
 }
 
 // Restore events from a backup file (Settings → Import). Validates each

@@ -11,9 +11,10 @@
 // router route — the hard constraint forbids touching main.jsx). The user
 // reaches it via the "TROPHIES →" pill near the companion switcher.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore.js';
 import { PATHS, PATH_KEYS } from '../data/content.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
 // ── Badge catalog ────────────────────────────────────────────────────────
 // Static metadata for every badge the system can grant. The store knows the
@@ -127,11 +128,13 @@ export default function Trophies({ onClose }) {
   const activityDays = useStore((s) => s.activityDays) || [];
   const catalog = useMemo(buildCatalog, []);
   const [open, setOpen] = useState(null); // selected badge for the detail modal
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, { onClose });
 
   const unlockedCount = catalog.filter((b) => badges[b.id]).length;
 
   return (
-    <div className="trophies-overlay" role="dialog" aria-modal="true" aria-label="Trophy room">
+    <div ref={trapRef} className="trophies-overlay" role="dialog" aria-modal="true" aria-label="Trophy room">
       <div className="trophies-shell">
         <div className="trophies-header">
           <div>
@@ -192,6 +195,8 @@ export default function Trophies({ onClose }) {
 
 function TrophyDetail({ badge, owned, onClose }) {
   const [copied, setCopied] = useState(false);
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, { onClose });
   const onShare = async () => {
     const text = owned
       ? `I just unlocked "${badge.name}" on InfraLearn 🏆`
@@ -206,6 +211,7 @@ function TrophyDetail({ badge, owned, onClose }) {
   };
   return (
     <div
+      ref={trapRef}
       className="trophy-detail-backdrop"
       onClick={onClose}
       role="dialog"

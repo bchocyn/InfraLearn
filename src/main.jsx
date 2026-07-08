@@ -22,12 +22,36 @@ import { ACCENT_PRESETS, BG_THEMES } from './screens/settingsThemes.js';
 import EvolutionNotice from './components/EvolutionNotice.jsx';
 import PersistWarning from './components/PersistWarning.jsx';
 import { battleBlockForLessonId } from './data/battleMeta.js';
-import { setNotifyState } from './data/evidenceLog.js';
+import { setNotifyState, readStoreMirror } from './data/evidenceLog.js';
 import { getReviewsDue, dueDatesFor } from './store/useStore.js';
 import CoachTour from './components/CoachTour.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import KeyboardHelp from './components/KeyboardHelp.jsx';
 import { useStore } from './store/useStore.js';
+
+// ─── iOS-eviction boot recovery ──────────────────────────────────────────
+// Safari evicts a PWA's localStorage after ~7 idle days — exactly the lapsed
+// user the comeback machinery exists to win back. Every persist flush
+// mirrors the store blob into IndexedDB (different, less eviction-prone
+// bucket — see useStore's PersistStorage); when BOTH localStorage copies are
+// gone but the mirror survives, restore it and reload once. The store has
+// already hydrated fresh by the time this async check lands, so the reload
+// is what actually resurrects the account. sessionStorage guards the loop.
+(() => {
+  try {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+    if (localStorage.getItem('infralearn-store') || localStorage.getItem('infralearn-store.bak')) return;
+    if (sessionStorage.getItem('infralearn-mirror-restored')) return;
+    readStoreMirror().then((mirror) => {
+      if (!mirror) return;
+      try {
+        localStorage.setItem('infralearn-store', mirror);
+        sessionStorage.setItem('infralearn-mirror-restored', '1');
+        window.location.reload();
+      } catch { /* quota — the fresh session continues */ }
+    });
+  } catch { /* privacy modes — nothing to recover into */ }
+})();
 
 // ─── Lazy routes ─────────────────────────────────────────────────────────
 // Each of these becomes its own JS chunk, fetched only when the user
@@ -301,6 +325,14 @@ function App() {
     if (reducedMotion) root.dataset.reducedMotion = '1';
     else delete root.dataset.reducedMotion;
   }, [reducedMotion]);
+
+  // Ask the browser to mark our storage persistent (best-effort, one-shot).
+  // Granted persistence exempts BOTH localStorage and the IndexedDB
+  // mirror/evidence buckets from pressure eviction — the cheapest possible
+  // insurance against the iOS 7-day wipe.
+  useEffect(() => {
+    try { navigator.storage?.persist?.().catch(() => {}); } catch { /* unsupported */ }
+  }, []);
 
   // Refresh the SW reminder bridge on app open: reviews come due overnight
   // with no store write, so dueCount would otherwise go stale in IndexedDB

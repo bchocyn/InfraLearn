@@ -64,7 +64,7 @@ function seededShuffle(arr, rnd) {
 // Normalize both bank shapes to one battle-question shape. `perm` shuffles
 // option order (so the borrowed 4th distractor isn't always in slot D); the
 // answer index and the whyWrong index-keys are remapped through it.
-function normalize({ prompt, options, answer, whyWrong, whyCorrect, explanation, bestPractices, lessonId }, rnd) {
+function normalize({ prompt, options, answer, whyWrong, whyCorrect, explanation, bestPractices, lessonId, _bankOpts }, rnd) {
   const perm = seededShuffle(options.map((_, i) => i), rnd);
   const opts = perm.map((oi) => options[oi]);
   const remappedWhy = {};
@@ -88,6 +88,10 @@ function normalize({ prompt, options, answer, whyWrong, whyCorrect, explanation,
     explanation: explanation || null,
     bestPractices: bestPractices || null,
     lessonId: lessonId || null,
+    // How many options exist in the BANK's canonical entry (a borrowed 4th
+    // distractor has no canonical slot) — surfaces gate weak-spot canonical
+    // indexes on this instead of assuming every bank entry has 4 options.
+    bankOpts: _bankOpts ?? options.length,
   };
 }
 
@@ -111,7 +115,7 @@ export function rawPathPool(pathKey, completed) {
         prompt: mq.prompt, options: mq.options, answer: mq.answer,
         whyWrong: mq.whyWrong, whyCorrect: mq.whyCorrect,
         explanation: mq.explanation, bestPractices: mq.bestPractices,
-        lessonId: l.id,
+        lessonId: l.id, _bankOpts: 4,
       });
     }
   }
@@ -127,16 +131,32 @@ export function rawPathPool(pathKey, completed) {
     }
     const wrongPool = [];
     for (const { e } of entries) {
+      if (e.kind === 'order') continue; // order questions have items, not opts
       for (let i = 0; i < e.opts.length; i++) {
         if (i !== e.answer) wrongPool.push(e.opts[i]);
       }
     }
     for (const { e, level } of entries) {
+      if (e.kind === 'order') {
+        // Drag-to-order entries ride the pool for the REVIEW picker only —
+        // dealBattle filters them out (the battle UI is a 4-option menu).
+        out.push({
+          kind: 'order', prompt: e.q, items: e.items,
+          whyWrong: e.whyWrong, whyCorrect: e.whyCorrect,
+          bestPractices: e.bestPractices,
+          lessonId: e.lessonId || null, _level: level,
+        });
+        continue;
+      }
       out.push({
         prompt: e.q, options: e.opts, answer: e.answer,
         whyWrong: e.whyWrong, whyCorrect: e.whyCorrect,
         explanation: e.explanation, bestPractices: e.bestPractices,
-        lessonId: null, _wrongPool: wrongPool, _level: level,
+        // lessonId: the tagging pass attributes most daily questions to the
+        // lesson they teach — reviews prefer these exact matches over
+        // keyword guesses, and weak spots file under the real lesson.
+        lessonId: e.lessonId || null, _wrongPool: wrongPool, _level: level,
+        _bankOpts: e.opts.length,
       });
     }
   }
@@ -173,7 +193,9 @@ function upgradeTo4(c, rnd) {
 // (pathKey, stage, attempt). Returns [] when the path has no question bank
 // yet — callers hide the encounter in that case.
 export function dealBattle(pathKey, completed, stage, attempt = 0, count = BATTLE_QUESTIONS) {
-  const raw = rawPathPool(pathKey, completed);
+  // Battles are a 4-option Pokémon menu — order-kind questions can't render
+  // there, so they stay in the review/practice surfaces only.
+  const raw = rawPathPool(pathKey, completed).filter((c) => c.kind !== 'order');
   if (raw.length === 0) return [];
   const rnd = mulberry32(hashStr(`${pathKey}:${stage}:${attempt * 17}`));
   // Difficulty band: lesson-anchored questions (Source A) are always fair
@@ -194,13 +216,30 @@ export function dealBattle(pathKey, completed, stage, attempt = 0, count = BATTL
   }).filter((q) => q.opts.length >= 3 && q.answer >= 0);
 }
 
+// Order-kind entries reach surfaces as their own shape — the component
+// shuffles presentation per mount, so the canonical order never leaks.
+function toOrderQuestion(c) {
+  return {
+    kind: 'order',
+    q: c.prompt,
+    items: c.items,
+    whyWrong: c.whyWrong || null,
+    whyCorrect: c.whyCorrect || null,
+    bestPractices: c.bestPractices || null,
+    lessonId: c.lessonId || null,
+  };
+}
+
 // ── Review-mode question picker ─────────────────────────────────────────────
 // The Reviews screen quizzes a DUE lesson with a question from that lesson's
 // own material, so grading the FSRS card on the answer stays honest:
 //   1. mathQuizzes[lessonId] — per-lesson 4-option entries (best evidence);
-//   2. the path's daily bank, filtered to questions sharing title keywords
-//      with the lesson (a cheap but deterministic relevance proxy);
-//   3. the whole path bank (labeled generic — still the same province).
+//   2. daily-bank questions TAGGED with this exact lessonId (the content
+//      pass attributes most questions to the lesson they teach — this is
+//      what makes reviews re-ask the lesson's own quiz material instead of
+//      keyword guesses);
+//   3. keyword-matched questions from the rest of the path bank;
+//   4. the whole path bank (labeled generic — still the same province).
 // Returns null when the lesson's path has no bank at all — callers render a
 // skip card for that concept (free recall was removed by owner decision).
 // `attempt` salts the deterministic pick — callers pass the card's rep count
@@ -225,23 +264,36 @@ export function pickReviewQuestion(lessonId, attempt = 0) {
       prompt: mq.prompt, options: mq.options, answer: mq.answer,
       whyWrong: mq.whyWrong, whyCorrect: mq.whyCorrect,
       explanation: mq.explanation, bestPractices: mq.bestPractices,
-      lessonId,
+      lessonId, _bankOpts: 4,
     }, rnd);
   }
 
-  // 2/3 — the path bank, preferring title-keyword matches.
-  const pool = rawPathPool(pathKey, {}).filter((c) => !c.lessonId);
+  const pool = rawPathPool(pathKey, {});
   if (pool.length === 0) return null;
-  const tokens = (lesson.title || '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
-  const scored = pool
-    .map((c) => ({
-      c,
-      score: tokens.reduce((n, w) => n + (c.prompt.toLowerCase().includes(w) ? 1 : 0), 0),
-    }))
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score);
-  const candidates = scored.length > 0 ? scored.slice(0, 5).map((s) => s.c) : pool;
+
+  // 2 — daily-bank questions tagged to this exact lesson.
+  const exact = pool.filter((c) => c.lessonId === lessonId);
+  // 3 — keyword matches among the rest. 4 — the whole pool.
+  // When only ONE exact match exists, blend in the top keyword matches so
+  // the rep-count salt still has variety to rotate through — a single
+  // frozen question per concept is the exact defect the salt fixed.
+  let candidates = exact;
+  if (candidates.length < 2) {
+    const tokens = (lesson.title || '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+    const scored = pool
+      .filter((c) => c.lessonId !== lessonId)
+      .map((c) => ({
+        c,
+        score: tokens.reduce((n, w) => n + (c.prompt.toLowerCase().includes(w) ? 1 : 0), 0),
+      }))
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score);
+    const related = scored.slice(0, 4).map((s) => s.c);
+    candidates = [...exact, ...related];
+    if (candidates.length === 0) candidates = pool;
+  }
   const chosen = candidates[Math.floor(rnd() * candidates.length)];
+  if (chosen.kind === 'order') return toOrderQuestion(chosen);
   const options = upgradeTo4(chosen, rnd);
   return normalize({ ...chosen, options }, rnd);
 }

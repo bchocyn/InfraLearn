@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { useStore, beastForm, activePathProgress } from '../store/useStore.js';
 import { BEASTS, ELEMENTS, EVO_RULES } from '../data/beasts.js';
 import { BACKGROUNDS, PATH_KEYS, pathProgress } from '../data/content.js';
@@ -288,6 +289,10 @@ function CompanionSwitcher({ current, onClose }) {
   const beastTiers = useStore((s) => s.beastTiers || {});
   const activePath = useStore((s) => s.activePath);
   const [pick, setPick] = useState(current);
+  const trapRef = useRef(null);
+  // Tab stays inside the dialog (aria-modal's missing half); Escape is
+  // handled below at the window level.
+  useFocusTrap(trapRef, {});
 
   // Escape closes; body scroll locks while the window is up.
   useEffect(() => {
@@ -310,6 +315,7 @@ function CompanionSwitcher({ current, onClose }) {
 
   return (
     <div
+      ref={trapRef}
       role="dialog"
       aria-modal="true"
       aria-label="Switch companion"

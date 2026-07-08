@@ -5,6 +5,7 @@ import { PATHS } from '../data/content.js';
 import { pickReviewQuestion } from '../data/battles.js';
 import CelebrationMoment from '../components/CelebrationMoment.jsx';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
+import OrderQuestion from '../components/OrderQuestion.jsx';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 
 // Reviews — the spaced-repetition session screen.
@@ -96,7 +97,8 @@ export default function Reviews() {
   const lessonIndex = useMemo(() => buildLessonIndex(), []);
 
   const [idx, setIdx] = useState(0);
-  const [picked, setPicked] = useState(null); // chosen option index this card
+  const [picked, setPicked] = useState(null); // chosen option index this card (MCQ)
+  const [orderResult, setOrderResult] = useState(null); // 'right'|'wrong' (order kind)
 
   const total = dueIds.length;
   const done = idx >= total;
@@ -120,7 +122,13 @@ export default function Reviews() {
     [conceptIdNow],
   );
 
-  const advance = () => { setPicked(null); setIdx((i) => i + 1); };
+  const advance = () => { setPicked(null); setOrderResult(null); setIdx((i) => i + 1); };
+
+  const isOrder = q?.kind === 'order';
+  // Unified answered state across both question kinds — the continue rows
+  // and keyboard handlers key off these, not off MCQ internals.
+  const answeredCorrect = isOrder ? orderResult === 'right' : (q != null && picked !== null && picked === q.answer);
+  const answeredWrong = isOrder ? orderResult === 'wrong' : (q != null && picked !== null && picked !== q.answer);
 
   // Answer an option. Wrong = grade the FSRS card immediately (miss + weak
   // spot) and hold for Continue so the why gets read. Correct = hold the
@@ -128,7 +136,7 @@ export default function Reviews() {
   // close" grades 2 — the shaky-but-correct signal the scheduler lost when
   // free recall was removed (HANDOFF §4's scoped follow-up).
   const pick = (i) => {
-    if (!q || picked !== null || done) return;
+    if (!q || isOrder || picked !== null || done) return;
     setPicked(i);
     const correct = i === q.answer;
     if (correct) {
@@ -140,14 +148,30 @@ export default function Reviews() {
       recordQuizMiss(
         q.lessonId || '__daily_practice__',
         q.q,
-        q.lessonId && Number.isInteger(canonical) && canonical <= 3 ? canonical : null,
+        // Only canonical BANK slots are recordable (a borrowed 4th
+        // distractor has no slot in the bank's option list).
+        q.lessonId && Number.isInteger(canonical) && canonical < (q.bankOpts ?? 4) ? canonical : null,
       );
+    }
+  };
+
+  // Order-kind check result — same grading contract as pick(): wrong grades
+  // immediately + files the weak spot, right holds for the Held/Close row.
+  const onOrderDone = (correct) => {
+    if (!q || !isOrder || orderResult !== null || done) return;
+    setOrderResult(correct ? 'right' : 'wrong');
+    if (correct) {
+      if (q.lessonId && quizMisses?.[q.lessonId]?.[q.q]) clearQuizMiss(q.lessonId, q.q);
+      else if (!q.lessonId && quizMisses?.__daily_practice__?.[q.q]) clearQuizMiss('__daily_practice__', q.q);
+    } else {
+      markReviewed(conceptIdNow, 1);
+      recordQuizMiss(q.lessonId || '__daily_practice__', q.q, null);
     }
   };
 
   // Continue after a CORRECT answer: grade 3 (held) or 2 (close) then move on.
   const finishCorrect = (grade) => {
-    if (picked === null || done || !q || picked !== q.answer) return;
+    if (done || !answeredCorrect) return;
     markReviewed(conceptIdNow, grade);
     advance();
   };
@@ -155,15 +179,15 @@ export default function Reviews() {
   useKeyboardShortcuts(
     {
       // Enter/Space = the primary continue: "Held it" on a correct answer,
-      // plain advance on a wrong one (already graded at pick time).
-      Enter: () => { if (!done && picked !== null) (picked === q?.answer ? finishCorrect(3) : advance()); },
-      ' ': () => { if (!done && picked !== null) (picked === q?.answer ? finishCorrect(3) : advance()); },
+      // plain advance on a wrong one (already graded at answer time).
+      Enter: () => { if (!done && (answeredCorrect || answeredWrong)) (answeredCorrect ? finishCorrect(3) : advance()); },
+      ' ': () => { if (!done && (answeredCorrect || answeredWrong)) (answeredCorrect ? finishCorrect(3) : advance()); },
       1: () => pick(0),
       2: () => pick(1),
       3: () => pick(2),
       4: () => pick(3),
     },
-    [idx, done, conceptIdNow, picked, q],
+    [idx, done, conceptIdNow, picked, q, orderResult],
   );
 
   // Empty-deck state: render the "all reviewed" card immediately.
@@ -250,22 +274,29 @@ export default function Reviews() {
           {pathName} · {lesson.title}
         </div>
         <p style={{ fontSize: 14.5, fontWeight: 500, margin: '0 0 10px', lineHeight: 1.45 }}>{q.q}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {q.opts.map((o, i) => {
-            let cls = 'btn dp-option';
-            if (picked !== null && i === q.answer) cls += ' dp-correct';
-            else if (picked !== null && i === picked) cls += ' dp-wrong';
-            return (
-              <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
-                <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
-                <span className="dp-text">{o}</span>
-              </button>
-            );
-          })}
-        </div>
-        {picked !== null && <FeedbackPanel question={q} picked={picked} />}
+        {isOrder ? (
+          /* Drag-to-order card — grading + feedback live inside the component. */
+          <OrderQuestion key={conceptIdNow} question={q} onDone={onOrderDone} />
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {q.opts.map((o, i) => {
+                let cls = 'btn dp-option';
+                if (picked !== null && i === q.answer) cls += ' dp-correct';
+                else if (picked !== null && i === picked) cls += ' dp-wrong';
+                return (
+                  <button key={i} type="button" className={cls} disabled={picked !== null} onClick={() => pick(i)}>
+                    <span className="dp-letter">{String.fromCharCode(65 + i)}</span>
+                    <span className="dp-text">{o}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {picked !== null && <FeedbackPanel question={q} picked={picked} />}
+          </>
+        )}
       </div>
-      {picked !== null && (picked === q.answer ? (
+      {(answeredCorrect || answeredWrong) && (answeredCorrect ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <button type="button" className="btn btn-primary btn-block" onClick={() => finishCorrect(3)}>
             Held it — next →

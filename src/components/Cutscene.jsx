@@ -13,8 +13,9 @@
 // Defers to PathAscension: if an Ascension cinematic is queued at the same
 // time, the bigger moment plays first and the cutscene waits its turn.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { getCutscene, parseCutsceneId } from '../data/cutscenes.js';
 import { BEASTS } from '../data/beasts.js';
 import { PATHS } from '../data/content.js';
@@ -95,6 +96,11 @@ function CutsceneOverlay({ sceneId }) {
 
   useEffect(() => { if (!scene) clearPendingCutscene(); }, [scene, clearPendingCutscene]);
 
+  // Tab stays inside the cinematic while it claims aria-modal (Escape-to-
+  // skip is handled above at the capture phase).
+  const trapRef = useRef(null);
+  useFocusTrap(trapRef, {});
+
   // Which character first appears on which panel — so the Lapse isn't on stage
   // before its reveal, and entrances animate when each first walks on.
   const panels = scene?.panels || [];
@@ -137,6 +143,7 @@ function CutsceneOverlay({ sceneId }) {
 
   return (
     <div
+      ref={trapRef}
       className={`cutscene-overlay cutscene-cr${reduced ? ' cutscene-reduced' : ''}`}
       role="dialog"
       aria-modal="true"

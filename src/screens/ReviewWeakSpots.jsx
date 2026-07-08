@@ -2,22 +2,43 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore.js';
 import mathQuizzes from '../data/mathQuizzes.js';
+import { DAILY_QUESTIONS } from '../data/dailyQuestions.js';
 import { PATHS } from '../data/content.js';
 import FeedbackPanel from '../components/FeedbackPanel.jsx';
 
-// ReviewWeakSpots — surfaces every math-quiz question the user has answered
-// wrong, with the same per-choice feedback panel the in-lesson MathQuiz uses.
-// Entries clear automatically when the user retakes that quiz and gets the
-// question right (handled in MathQuiz's submit() via clearQuizMiss).
+// ReviewWeakSpots — surfaces every question the user has answered wrong,
+// with the same per-choice feedback panel the in-lesson MathQuiz uses.
+// Lesson-anchored entries resolve their full question from the lesson's
+// math-quiz bank FIRST, then from the path's daily bank (most daily
+// questions are lessonId-tagged now, so reviews/battles file misses under
+// the real lesson — without the fallback those entries counted on the Home
+// teaser but silently vanished from this screen). Entries clear when the
+// user answers the same prompt right on any testing surface.
 //
-// Misses on questions that aren't anchored to one lesson (daily practice,
-// path-bank review/battle questions) live under the synthetic
-// '__daily_practice__' key. They have no options bank — the prompt string IS
-// the question — so they render in their own group as prompt-only cards
-// with a manual "Got it now" clear action.
+// Misses that aren't anchored to one lesson live under the synthetic
+// '__daily_practice__' key and render as prompt-only cards with a manual
+// "Got it now" clear action.
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 const DAILY_KEY = '__daily_practice__';
+
+// Resolve a prompt against a path's daily bank. Returns a question in the
+// math-quiz shape, an options-less stub for order-kind entries, or null.
+function findDailyQuestion(pathKey, prompt) {
+  const daily = DAILY_QUESTIONS[pathKey];
+  if (!daily) return null;
+  const hit = Object.values(daily).flat().find((e) => e.q === prompt);
+  if (!hit) return null;
+  if (Array.isArray(hit.opts)) {
+    return {
+      prompt: hit.q, options: hit.opts, answer: hit.answer,
+      whyWrong: hit.whyWrong, whyCorrect: hit.whyCorrect,
+      bestPractices: hit.bestPractices,
+    };
+  }
+  // Order-kind entry — no option list to re-render; show prompt + feedback.
+  return { prompt: hit.q, options: [], answer: -1, whyCorrect: hit.whyCorrect, bestPractices: hit.bestPractices };
+}
 
 // Build a flat list of misses joined to the full question + lesson metadata.
 function collectMisses(quizMisses) {
@@ -25,16 +46,16 @@ function collectMisses(quizMisses) {
   for (const [lessonId, byPrompt] of Object.entries(quizMisses || {})) {
     if (lessonId === DAILY_KEY) continue;      // rendered separately below
     const bank = mathQuizzes[lessonId];
-    if (!bank) continue;                       // bank deleted since miss recorded
     const lessonMeta = findLessonMeta(lessonId);
     for (const [prompt, info] of Object.entries(byPrompt || {})) {
-      const question = (bank.questions || []).find((q) => q.prompt === prompt);
+      const question = (bank?.questions || []).find((q) => q.prompt === prompt)
+        || (lessonMeta ? findDailyQuestion(lessonMeta.pathKey, prompt) : null);
       if (!question) continue;                 // question text changed; skip
       out.push({
         lessonId,
         lessonTitle: lessonMeta?.lesson.title || lessonId,
         pathName: lessonMeta?.pathName || '',
-        bankTitle: bank.title || lessonId,
+        bankTitle: bank?.title || lessonMeta?.lesson.title || lessonId,
         question,
         picked: typeof info?.picked === 'number' ? info.picked : null,
       });
@@ -194,7 +215,14 @@ export default function ReviewWeakSpots() {
           </ol>
 
           <div style={{ marginTop: 10 }}>
-            <FeedbackPanel question={m.question} picked={m.picked} />
+            {/* When the picked option wasn't recorded (borrowed 4th options,
+                order questions), fall back to the answer index so the WHY
+                CORRECT + BEST PRACTICE blocks still render — the misses that
+                most need the why used to show none. */}
+            <FeedbackPanel
+              question={m.question}
+              picked={typeof m.picked === 'number' ? m.picked : m.question.answer}
+            />
           </div>
 
           <button
@@ -207,10 +235,10 @@ export default function ReviewWeakSpots() {
         </div>
       ))}
 
-      {/* Daily-practice recall misses — prompt-only cards (no options bank
-          exists for the synthetic key). "Got it now" is the manual clear:
-          unlike math quizzes there's no retake flow that proves the recall,
-          so the learner self-certifies, same as the in-session self-grade. */}
+      {/* Un-anchored misses — prompt-only cards (no options bank exists for
+          the synthetic key). They also auto-clear when the same prompt is
+          answered right on any testing surface; "Got it now" is the manual
+          escape hatch for prompts that stopped appearing. */}
       {dailyMisses.length > 0 && (
         <>
           <div
@@ -235,7 +263,7 @@ export default function ReviewWeakSpots() {
                   textTransform: 'uppercase',
                 }}
               >
-                Daily practice · Free recall
+                Daily practice · Missed question
               </div>
               <div
                 style={{

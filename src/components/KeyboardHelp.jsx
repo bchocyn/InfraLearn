@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
 // KeyboardHelp — global shortcut cheat-sheet overlay.
 //
@@ -83,6 +84,7 @@ function contextualSection(pathname) {
 
 export default function KeyboardHelp({ open, onClose }) {
   const cardRef = useRef(null);
+  const overlayRef = useRef(null);
   const loc = useLocation();
 
   // Escape-to-close lives on document so it fires even if focus is on the
@@ -99,6 +101,10 @@ export default function KeyboardHelp({ open, onClose }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  // Tab stays inside the dialog while it's open (aria-modal's missing half);
+  // Escape is already handled above at the document level.
+  useFocusTrap(overlayRef, { active: open });
+
   if (!open) return null;
 
   const ctx = contextualSection(loc.pathname);
@@ -111,6 +117,7 @@ export default function KeyboardHelp({ open, onClose }) {
 
   return (
     <div
+      ref={overlayRef}
       className="kbd-help-overlay"
       role="dialog"
       aria-modal="true"

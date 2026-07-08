@@ -118,8 +118,10 @@ export default function Battle() {
     // evidence — grade the FSRS card (scheduleReview: scheduler + evidence
     // log, NO XP — battle rewards stay watermark-latched in recordBattleWin).
     // First attempt of a live encounter only: retries and replays are free
-    // practice, not fresh evidence.
-    if (q.lessonId && !replay && attempt === 0) {
+    // practice, not fresh evidence. Completed-lesson cards only: daily-bank
+    // questions are lessonId-tagged now, and grading a lesson the user never
+    // completed would conjure a review card out of thin air.
+    if (q.lessonId && !replay && attempt === 0 && completed?.[q.lessonId]) {
       scheduleReview(q.lessonId, correct ? 3 : 1);
     }
     if (correct) {
@@ -130,12 +132,13 @@ export default function Battle() {
       else if (!q.lessonId && quizMisses?.__daily_practice__?.[q.q]) clearQuizMiss('__daily_practice__', q.q);
     } else {
       // Feed weak spots. Translate the shuffled pick back to the bank's
-      // canonical option index; borrowed 4th options have no canonical slot.
+      // canonical option index; borrowed 4th options have no canonical slot
+      // (bankOpts = the canonical entry's option count, 3 for daily bank).
       const canonical = q.origIndex?.[i];
       recordQuizMiss(
         q.lessonId || '__daily_practice__',
         q.q,
-        q.lessonId && Number.isInteger(canonical) && canonical <= 3 ? canonical : null
+        q.lessonId && Number.isInteger(canonical) && canonical < (q.bankOpts ?? 4) ? canonical : null
       );
       setWrongs((w) => w + 1);
     }
