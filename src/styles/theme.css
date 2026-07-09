@@ -7903,3 +7903,44 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .lesson-deep-toggle:hover { border-color: var(--accent-amber); color: var(--text-primary); }
 .lesson-deep-hint { color: var(--text-tertiary); font-size: 10.5px; }
 .lesson-deep-body { margin-top: 10px; }
+
+/* ── Byte Beast story stage — the "hear the myth" affordance ─────────────── */
+.beast-stage-myth {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(11, 10, 8, 0.62);
+  border: 1px solid var(--accent-amber);
+  color: var(--accent-amber);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+  min-height: 34px;
+}
+.beast-stage-myth:hover { background: rgba(11, 10, 8, 0.78); }
+.beast-stage-myth-pip {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #0B0A08;
+  background: var(--accent-amber);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+:root[data-reduced-motion] .beast-stage-myth-pip { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .beast-stage-myth-pip { animation: myth-pip-pulse 1.6s ease-in-out infinite; }
+}
+@keyframes myth-pip-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}

@@ -482,6 +482,11 @@ const initial = {
   // does daily challenges still gets visible progress on the card.
   dailyChallenge: { date: null, conceptId: null, answered: false, correct: false },
   dailyChallengeStreak: 0,
+  // Highest number of world-myth saga beats the Keeper has viewed. The story
+  // stage compares the currently-UNLOCKED beat count against this to show a
+  // "✦ new" pip when studying has revealed more of the myth. Bumped when the
+  // stage is opened and played to the end.
+  sagaBeatsSeen: 0,
   // Confidence calibration from daily challenges — per stated confidence level,
   // how many were right vs total. Drives the calibration readout in Settings.
   calibration: { guess: { right: 0, total: 0 }, likely: { right: 0, total: 0 }, certain: { right: 0, total: 0 } },
@@ -662,6 +667,12 @@ export const useStore = create(
       setBackground: (beastBackground) => set({ beastBackground }),
       finishOnboarding: () => set({ onboarded: true }),
       completeTour: () => set({ tourSeen: true }),
+      // Record that the Keeper has viewed up to `count` saga beats — only
+      // ever raises the watermark, so it can't be lowered by replaying at a
+      // lower progress level.
+      markSagaSeen: (count) => set((s) => ({
+        sagaBeatsSeen: Math.max(s.sagaBeatsSeen || 0, Number(count) || 0),
+      })),
       resetTour: () => set({ tourSeen: false }),
       setSetting: (k, v) => set((s) => ({ settings: { ...s.settings, [k]: v } })),
       clearPendingEvolution: () => set({ pendingEvolution: null }),
@@ -1641,6 +1652,7 @@ export const useStore = create(
             unlockedBackgrounds: Array.from(new Set(['meadow', ...scrubStringArray(raw.unlockedBackgrounds, VALID_BACKGROUND_IDS)])),
             onboarded:   raw.onboarded === true,
             tourSeen:    raw.tourSeen === true,
+            sagaBeatsSeen: scrubInt(raw.sagaBeatsSeen, 0, 100000, 0),
             pendingEvolution: scrubEnum(raw.pendingEvolution, SPECIES_KEYS, null),
             // Never import a queued cinematic; do import which ones were seen
             // so a restore can't replay every ascension.

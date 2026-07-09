@@ -5,7 +5,11 @@ import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { useStore, beastForm, activePathProgress } from '../store/useStore.js';
 import { BEASTS, ELEMENTS, EVO_RULES } from '../data/beasts.js';
 import { BACKGROUNDS, PATH_KEYS, pathProgress } from '../data/content.js';
+import { unlockedBeatCount } from '../data/storyEngine.js';
 import BeastSprite from '../components/BeastSprite.jsx';
+// The world-myth story stage — the tap-through unlockable saga. Lazy so the
+// ink runtime (~128 KB) only downloads when a Keeper opens the myth.
+const SagaStage = lazy(() => import('../components/SagaStage.jsx'));
 // Same species-pick window as onboarding's "Choose your Byte Beast" step —
 // shared grid + detail card + starfield backdrop.
 import BeastPicker, { Starfield } from '../components/BeastPicker.jsx';
@@ -33,6 +37,34 @@ export default function ByteBeast() {
   })));
   const setAvatar = useStore((st) => st.setAvatar);
   const [tab, setTab] = useState('beast'); // beast | scenes | badges | wardrobe
+  const [sagaOpen, setSagaOpen] = useState(false);
+  // Progress snapshot for the world-myth saga (pushed into ink as variables).
+  // Recomputed from the fields the saga gates on; memoized so opening the
+  // stage doesn't rerun on every unrelated render.
+  const sagaState = useStore(useShallow((st) => {
+    const lessonsTotal = Object.keys(st.completed || {}).length;
+    const provincesReclaimed = PATH_KEYS.filter((k) => pathProgress(k, st.completed || {}).pct >= 1).length;
+    return {
+      beast: st.companion,
+      beastName: (BEASTS[st.companion]?.forms || [])[(st.beastTier || 1) - 1] || 'your companion',
+      beastTier: st.beastTier || 1,
+      lessonsTotal,
+      provincesReclaimed,
+      streak: st.streak || 0,
+      activePath: st.activePath,
+    };
+  }));
+  const sagaBeatsSeen = useStore((st) => st.sagaBeatsSeen || 0);
+  // "✦ new" pip: does the current progress unlock beats beyond what's been
+  // seen? unlockedBeatCount lazy-loads the ink runtime, so this fires once
+  // per mount and never on the eager path.
+  const [unlockedBeats, setUnlockedBeats] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    unlockedBeatCount(sagaState).then((n) => { if (alive) setUnlockedBeats(n); }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sagaState.lessonsTotal, sagaState.provincesReclaimed, sagaState.beastTier]);
+  const hasNewBeats = unlockedBeats !== null && unlockedBeats > sagaBeatsSeen;
   // Trophy room overlay state. Reached via the TROPHIES pill below the title
   // row. Lives here (not in main.jsx) because the routing layer is owned by
   // the lazy-loading agent and we must not collide.
@@ -125,7 +157,25 @@ export default function ByteBeast() {
           <BeastSprite species={s.companion} tier={s.beastTier} size={120} className="beast-stage-sprite-img" />
           <div className="beast-stage-shadow" />
         </div>
+        {/* Tap-through world-myth saga — the beast's story stage. The button
+            sits over the scene; the "✦ new" pip appears when studying has
+            unlocked beats the Keeper hasn't seen yet. */}
+        <button
+          type="button"
+          className="beast-stage-myth"
+          onClick={() => setSagaOpen(true)}
+          aria-label={hasNewBeats ? 'Hear the myth — new story unlocked' : 'Hear the myth of the Long Watch'}
+        >
+          ✦ Hear the myth
+          {hasNewBeats && <span className="beast-stage-myth-pip" aria-hidden="true">new</span>}
+        </button>
       </div>
+
+      {sagaOpen && (
+        <Suspense fallback={null}>
+          <SagaStage state={sagaState} pathKey={sagaState.activePath} onClose={() => setSagaOpen(false)} />
+        </Suspense>
+      )}
 
       {tab === 'scenes' && (
         <>
