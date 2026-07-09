@@ -169,11 +169,15 @@ the live precache manifest).
 
 ## Known follow-ups / not done
 
-- **T3/T4 beast FRAME animations** — the static-tier beasts now breathe (CSS idle, shipped in
-  `274ea45`), which solves "frozen beast." Richer PixelLab frame loops remain OPTIONAL and are
-  scripted (`scripts/animate-beast-tiers.mjs`) but need a `PIXELLAB_API_KEY` run — the MCP path
-  is impractical for 18 sprites (object creation ~8 min each) and risks off-model art. Provide
-  the key → one command runs all 18.
+- ~~**T3/T4 beast FRAME animations**~~ **DONE (2026-07-09):** all 21 static targets (9 species
+  × T3/T4, sphinx's T2 lamassu, plus the previously-unwired pegasus T3/T4) now have real 4-frame
+  64px idle loops wired in `beastAnims.js` at 6 fps — every tier of every species animates.
+  Two PixelLab API gotchas are baked into `scripts/animate-beast-tiers.mjs`: `reference_image`
+  alone regressed (returns valid-but-BLANK frames, intermittently even with the fix), so the
+  reference is pinned as frame 0 via `inpainting_images` with a one-retry + refuse-to-write-blank
+  guard; and the descs were rewritten to describe the actual hero art (the old ones clashed —
+  "molten ember" desc vs jade storm-dragon art). `tests/beast-anims.test.js` now gates manifest
+  ↔ disk integrity (frames exist, none blank).
 - **Extend the world-myth saga** — the ink pipeline is live and thin content is the point of
   growth: more world-spine acts, per-province threads, and eventual tap-a-choice branches. Edit
   `src/story/saga.ink` (see the Sprint G section).
