@@ -251,6 +251,55 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "The most common flip is putting the HTTP request before TLS — but the request would travel unencrypted. Every layer prepares the ground for the one after it: you can't connect before you know the address, and you can't speak privately before the handshake.",
         "whyCorrect": "Name → connection → encryption → request → response. Each step needs the previous one's output: TCP needs the IP from DNS, TLS needs the open TCP pipe, and HTTP rides inside the encrypted channel.",
         "bestPractices": "When a page won't load, debug in this exact order: can you resolve the name (dig), can you connect (ping/curl -v), does TLS succeed, THEN look at the app."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Arrange this script from the Files & I/O lesson so it writes a config dict to disk and reads it back — everything set up before it's used, the write finished before the read.",
+        "items": [
+          "import json",
+          "config = {'host': 'localhost', 'port': 5432}",
+          "with open('config.json', 'w') as f:",
+          "    json.dump(config, f, indent=2)",
+          "with open('config.json') as f:",
+          "    config = json.load(f)"
+        ],
+        "whyWrong": "The classic flips: putting `json.load` before `json.dump` (the file doesn't exist yet — FileNotFoundError), or putting a `dump`/`load` line above the `with open(...)` that creates `f` (NameError — no file handle to write to). The indented lines only make sense inside their `with` block.",
+        "whyCorrect": "Import before use, build the dict before dumping it, open-for-write before writing, and finish the write block before opening for read. Each line consumes something the line above produced: `json` from the import, `config` from the assignment, `f` from each `with open(...)`.",
+        "bestPractices": "Always pair file work with `with` — it auto-closes even on exceptions, and closing is what guarantees the write is flushed before the next reader opens the file.",
+        "lessonId": "py-fileio"
+      },
+      {
+        "q": "In Python file I/O, opening a file with mode ____ truncates it to zero bytes the moment you open it — even if you never call `write()`.",
+        "opts": [
+          "'w' (write)",
+          "'a' (append)",
+          "'x' (create-or-fail)"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "'a' is the safe one — it only ever adds to the end of the file and never destroys existing content.",
+          "2": "'x' is the paranoid one — it refuses to open at all if the file already exists, so it can't wipe anything."
+        },
+        "whyCorrect": "'w' wipes the file at open time, before any write happens. Crash between `open('out.txt', 'w')` and your first `write()` and you've already destroyed the old contents.",
+        "bestPractices": "For files you can't afford to half-destroy, write to `out.txt.tmp` and then `os.replace('out.txt.tmp', 'out.txt')` — the rename is atomic, so readers see either the old file or the new one, never a torn middle.",
+        "lessonId": "py-fileio"
+      },
+      {
+        "q": "A stack is a ____ structure: every function call pushes a frame holding its locals, and returning pops that frame off the top.",
+        "opts": [
+          "first-in, first-out (FIFO)",
+          "random-access, index-anywhere",
+          "last-in, first-out (LIFO)"
+        ],
+        "answer": 2,
+        "whyWrong": {
+          "0": "FIFO is the queue's policy — first item in is first item out. If calls returned FIFO, `main` would have to finish before anything it called.",
+          "1": "Random access is the array's superpower. A stack deliberately restricts you to one end — that restriction IS the structure."
+        },
+        "whyCorrect": "Last in, first out: the most recently pushed frame is the first popped, which is exactly why the innermost function returns first and execution resumes where it left off. Undo history and depth-first search run on the same policy.",
+        "bestPractices": "When you meet a new problem, ask which end you take from. Need most-recent-first (undo, call frames, DFS)? Stack. Need arrival order (jobs, messages, BFS)? Queue. Spot the order, spot the structure.",
+        "lessonId": "fund-stacks-queues"
       }
     ],
     "junior": [
@@ -436,6 +485,69 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Commit-before-add is the classic trip: git only commits what's STAGED, so an unstaged edit silently stays out of the snapshot. Push doesn't send files — it sends commits.",
         "whyCorrect": "Working directory → staging area → local history → remote → everyone else. Each git command moves the change exactly one station down the line.",
         "bestPractices": "Run git status between every step until the flow is muscle memory — it names which station your change is currently sitting at."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Arrange this pytest test into the Arrange · Act · Assert shape — inputs set up first, one call to the thing under test, then the expectation.",
+        "items": [
+          "def test_add_handles_negative_numbers():",
+          "    a, b = -2, 3  # arrange",
+          "    result = add(a, b)  # act",
+          "    assert result == 1  # assert"
+        ],
+        "whyWrong": "Asserting before acting checks a `result` that doesn't exist yet (NameError). Acting before arranging calls `add` on names that haven't been bound. And nothing runs at all until the `def` line opens the test function — pytest discovers tests by that name.",
+        "whyCorrect": "Arrange, Act, Assert is a dependency chain: the assert needs `result`, `result` needs the call, and the call needs its inputs. The `def` line comes first because everything else lives indented inside it.",
+        "bestPractices": "Keep the three parts visually separated — one blank line or a `# arrange / # act / # assert` comment each — and name the test like a sentence (`test_add_handles_negative_numbers`), so a red test tells you what broke before you open the file.",
+        "lessonId": "fund-testing-intro"
+      },
+      {
+        "q": "A hash map finds a value's bucket by computing ____, which is why average lookup is O(1) — you go straight to the slot with no scanning.",
+        "opts": [
+          "a binary search over the sorted key array",
+          "`hash(key)` modulo the bucket count",
+          "a linear walk comparing each stored key"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "Binary search is the sorted array's trick — O(log n), and it needs the keys kept in order. Hash maps keep no order at all; that's part of the bargain.",
+          "2": "A linear walk is O(n) — that's what the hash exists to avoid. The only walking is inside one bucket when two keys collide."
+        },
+        "whyCorrect": "`hash(key) % buckets` turns any key into an array index in constant time. Python `dict` and JS `Map` both work this way: an array of buckets plus a hash function, dressed up as key-value soup.",
+        "bestPractices": "This is why dict keys must be hashable (immutable): mutate a key after insert and its hash no longer points at the bucket it lives in. Reach for a dict whenever the question is 'have I seen this key before?'",
+        "lessonId": "fund-hash-maps"
+      },
+      {
+        "q": "A config loader runs `retries = config.get(\"retries\") or 3`. A user sets `\"retries\": 0` to disable retrying, yet the app still retries 3 times. What's the bug?",
+        "opts": [
+          "`or` evaluates to a boolean, so `retries` ends up as `True` rather than the number the user configured",
+          "`0` is falsy, so `or` throws away the user's explicit value and falls through to the default `3`",
+          "`config.get` raises `KeyError` when the key is missing, so the `or` default can never actually run"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "Python's `or` returns one of its operands, never a coerced boolean — that's exactly what makes it usable as a default-picker (and what makes this trap possible).",
+          "2": "That's the difference between `d[key]` and `d.get(key)` — `.get` returns `None` on a missing key instead of raising, which is why the `or` fallback fires at all."
+        },
+        "whyCorrect": "`x or default` replaces EVERY falsy value — `None`, but also `0`, `\"\"`, and `[]`. The user's explicit `0` is indistinguishable from 'not set', so it silently becomes `3`.",
+        "bestPractices": "When zero or empty is a legal value, use `config.get(\"retries\", 3)` — the second argument only applies when the key is truly missing. Reserve `x or default` for cases where all falsy values really should fall through.",
+        "lessonId": "py-conditionals"
+      },
+      {
+        "q": "This cleanup loop — `for task in tasks:` then `if task.done: tasks.remove(task)` — leaves some finished tasks in the list whenever two of them sit next to each other. What's the bug?",
+        "opts": [
+          "`remove()` shifts every later item one slot left, so the iterator skips the element right after each removal",
+          "Python locks a list while it's being iterated, so each `remove()` raises `RuntimeError` and the loop silently aborts early",
+          "`remove()` matches by identity, so tasks that are equal but not the same object never get deleted"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "That protection exists for dicts and sets — changing their keys mid-iteration raises `RuntimeError`. Lists let you mutate freely and just misbehave quietly, which is worse.",
+          "2": "`remove()` deletes the first item that compares equal (`==`), not identical. Matching isn't the problem here — the shifting indices are."
+        },
+        "whyCorrect": "Removing an item shifts everything after it one position left, but the loop's internal index still advances — so the element that slid into the removed slot is never visited. Adjacent done tasks: the first is removed, the second is skipped.",
+        "bestPractices": "Never mutate a list you're iterating. Build the survivors instead — `tasks = [t for t in tasks if not t.done]` — or iterate a copy (`for task in tasks[:]`) when you must delete in place.",
+        "lessonId": "py-loops"
       }
     ],
     "senior": [
@@ -859,6 +971,38 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Testing after deploy is the order that pages you at 3am — the pipeline exists to catch failures while they're cheap. And you can't test what hasn't been built: every stage gates the next.",
         "whyCorrect": "Push → build → test → publish → deploy. Each stage is a quality gate; a failure stops the line before the blast radius grows.",
         "bestPractices": "Make every stage fail the pipeline loudly. A pipeline where a red test still deploys is theater, not CI/CD."
+      },
+      {
+        "q": "In YAML, `startup: |-` keeps every newline inside the block exactly as written, but ____ the single trailing newline — which matters when a tool compares the value byte-for-byte.",
+        "opts": [
+          "strips",
+          "repeats",
+          "folds"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "Nothing gets duplicated. The chomping indicator only decides the fate of the one newline at the very end of the block — keep it (`|`) or drop it (`|-`).",
+          "2": "Folding is the `>` family's job — it turns inner newlines into spaces. The `-` after `|` doesn't touch inner newlines at all; it only removes the final one."
+        },
+        "whyCorrect": "The `-` is a chomping indicator: `|` keeps inner newlines and one trailing newline, while `|-` keeps the inner newlines but strips that final one. That invisible byte matters for tokens, hashes, and anything compared exactly.",
+        "bestPractices": "Reach for `|-` whenever the value feeds a comparison or a signature — API keys, certs, checksummed configs. A trailing `\\n` you can't see is a miserable bug to find.",
+        "lessonId": "yaml-basics"
+      },
+      {
+        "q": "A deploy config says `app_version: 1.10`, but the pipeline reports it shipped version `1.1`. What is wrong with that line?",
+        "opts": [
+          "YAML read the trailing zero as octal notation — the same trap as `id: 010`",
+          "The parser rounded the number down because floats keep only two significant digits by default",
+          "Unquoted `1.10` parses as the float 1.1 — quote it as `\"1.10\"` to keep the text"
+        ],
+        "answer": 2,
+        "whyWrong": {
+          "0": "The octal trap needs a *leading* zero (`010`), not a trailing one. `1.10` never enters octal territory — it's read as a plain decimal float.",
+          "1": "No rounding happens and YAML has no significant-digit rule. The value is exact — it's just that the number 1.10 and the number 1.1 are the same number."
+        },
+        "whyCorrect": "YAML type-guesses every unquoted scalar. `1.10` looks numeric, so it becomes the float 1.10 — which *equals* 1.1, and the trailing zero is gone the instant the file parses. Version strings and image tags must be quoted to stay text.",
+        "bestPractices": "Quote any scalar that must stay text: versions like `\"1.10\"`, country codes like `\"NO\"`, IDs with leading zeros. Quoting turns the type guessing off — one habit, whole bug category gone.",
+        "lessonId": "yaml-basics"
       }
     ],
     "junior": [
@@ -1040,6 +1184,54 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Run-before-build confuses the image (the frozen recipe) with the container (the live process). Registries hold images, never containers — you can't push something that's running.",
         "whyCorrect": "Recipe → image → registry → pull → process. The image is immutable and travels; the container is ephemeral and runs where it lands.",
         "bestPractices": "Tag images immutably (commit SHA, not just :latest) so the thing you tested is provably the thing you ran."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Arrange the steps of the `lint` job in `.github/workflows/ci.yml` so the job can actually run.",
+        "items": [
+          "- uses: actions/checkout@v4",
+          "- uses: actions/setup-python@v5",
+          "  with: { python-version: '3.12', cache: 'pip' }",
+          "- run: pip install -r requirements-dev.txt",
+          "- run: ruff check ."
+        ],
+        "whyWrong": "Every other order breaks a dependency: without checkout there is no code to lint, `with:` configures nothing unless it sits directly under `setup-python`, `pip install` needs Python on the PATH, and `ruff` isn't installed until the dev requirements are.",
+        "whyCorrect": "Setup before use, top to bottom: check out the source, install the toolchain (`with:` attaches its config to the step above it), install dependencies with that toolchain, then run the linter they provide.",
+        "bestPractices": "Keep lint as its own job, sibling to `test` with no `needs:` between them — they run in parallel and a style slip fails in seconds. Add `cache: 'pip'` so the second run takes 10 s instead of 90.",
+        "lessonId": "gh-actions-ci"
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Order the core lines of `deploy.sh` so a broken image can never take prod down.",
+        "items": [
+          "docker pull \"$IMAGE\"",
+          "IMAGE=\"$IMAGE\" docker compose -f compose.new.yml up -d",
+          "curl -fsS http://localhost:8081/healthz",
+          "IMAGE=\"$IMAGE\" docker compose up -d app",
+          "echo \"$(date -Iseconds) ${SHA} OK\" >> \"$LOG\""
+        ],
+        "whyWrong": "Promote before the health gate and you've deployed untested bytes — the exact 3am page this script exists to prevent. Log before promotion and a failed deploy lands in `deploys.log`, so the next rollback targets a broken SHA.",
+        "whyCorrect": "Acquire, stage, validate, execute, record: pull the image (a bad tag aborts here, prod untouched), start it side-by-side on :8081, gate on `/healthz` with `-f` so a non-2xx exits nonzero, only then swap the prod tag, and append to the audit log strictly after promotion succeeds.",
+        "bestPractices": "The log line is rollback's source of truth — `rollback.sh` reads the previous `OK` SHA from it, so only promoted deploys may ever be written. And never tag `:latest`: a mutable tag means there is no fixed point to roll back to.",
+        "lessonId": "cicd-rollback"
+      },
+      {
+        "q": "A floating base-image tag is a supply-chain hole — a hardened Dockerfile pins its `FROM` line by ____ so every build resolves to exactly the same bytes.",
+        "opts": [
+          "a semver tag such as `:3.12-slim`",
+          "digest, as in `@sha256:abc123...`",
+          "the registry's `:latest` alias"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "Semver tags are still mutable pointers — the registry can re-point `:3.12-slim` at a rebuilt image tomorrow, and your 'reproducible' build silently changes underneath you.",
+          "2": "`:latest` is the most mutable tag of all — it moves on every push. It's the opposite of pinning and the first thing a hardened build removes."
+        },
+        "whyCorrect": "A digest names the content itself: `@sha256:...` is a hash of the image bytes, so the pull either returns exactly those bytes or fails. No registry-side re-tag can swap what your build stands on.",
+        "bestPractices": "Pin by digest, then let renovate or dependabot bump the digests for you — otherwise your base image rots while you sleep. Pinning without a bump-bot trades supply-chain risk for CVE rot.",
+        "lessonId": "hardened-container"
       }
     ],
     "senior": [
@@ -1158,6 +1350,38 @@ export const DAILY_QUESTIONS = {
         "bestPractices": "Kill flags within weeks of full rollout — flag debt is dead branching logic rotting in your codebase. And keep branches under 24 hours; a PR that sits overnight is a long-lived branch in disguise.",
         "explanation": "Feature flags let unfinished code ship dark — deploy and release become separate decisions.",
         "lessonId": "agile-trunk-based"
+      },
+      {
+        "q": "In `.github/workflows/ci.yml`, a top-level `concurrency` group keyed on `${{ github.ref }}` with `cancel-in-progress: true` means a force-push to a branch ____.",
+        "opts": [
+          "queues the new run to start only after the in-flight run has finished",
+          "re-runs the older commit to completion first so the history stays linear",
+          "cancels the superseded in-flight run instead of letting it finish"
+        ],
+        "answer": 2,
+        "whyWrong": {
+          "0": "Queueing is what you get with `cancel-in-progress: false` (or no concurrency at all). The whole point of the `true` flag is to *not* wait — the stale run stops immediately.",
+          "1": "CI never resurrects older commits. The superseded run is killed mid-flight; its commit's results simply stop mattering because a newer ref exists."
+        },
+        "whyCorrect": "The group key `ci-${{ github.ref }}` means one live run per ref: when a new commit lands on the same branch, `cancel-in-progress: true` kills the now-stale run so minutes aren't burned testing code nobody will merge.",
+        "bestPractices": "Key concurrency on `github.ref`, not a fixed string — a fixed string would make unrelated branches cancel each other. Verify it works: force-push a branch and watch the old run flip to 'cancelled'.",
+        "lessonId": "gh-actions-ci"
+      },
+      {
+        "q": "The watchdog's percentile method reads `s = sorted(self.samples)` then `return s[int(len(s) * p)]` — and it crashes at startup, before the first poll completes. What's wrong?",
+        "opts": [
+          "`sorted()` sorts the live deque in place, so concurrent pollers corrupt the sample window",
+          "There is no empty-window guard — with zero samples it indexes into an empty list",
+          "`int()` truncates the index, so on small windows p99 silently returns the p50 sample"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "`sorted()` is the *safe* call — it copies before sorting, which is exactly why the lesson uses it. In-place mutation is `.sort()`, and a deque doesn't even have one.",
+          "2": "Truncation is handled by the clamp (`min(len(s)-1, ...)`) and it never crashes — at worst a tiny window makes p99 and p50 coincide. The startup crash is a different, louder failure."
+        },
+        "whyCorrect": "At startup the ring buffer is empty: `len(s)` is 0, `int(0 * p)` is 0, and `s[0]` on an empty list raises IndexError. The reference version guards first — `if not self.samples: return 0.0` — before it ever indexes.",
+        "bestPractices": "Percentile code has two mandatory guards: an empty-window early return and an index clamp for tiny windows. And always copy-then-sort — sorting a buffer that another task is appending to is a race that only shows up under load.",
+        "lessonId": "health-watchdog"
       }
     ],
     "distinguished": [
@@ -1575,6 +1799,38 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Fetching from the warehouse at request time is the tempting shortcut that adds seconds of latency — the whole point of the online store is precomputed lookups in milliseconds. Skipping the parity log is how training/serving skew sneaks in.",
         "whyCorrect": "Warehouse → offline compute → online materialization → low-latency fetch → parity logging. One definition of the feature, two synchronized homes.",
         "bestPractices": "Any feature served online must be reproducible offline from the same code path — if the two definitions can drift, they will."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Order the body of this idempotent CDC consumer loop — one event, from poll to acknowledgement.",
+        "items": [
+          "msg = c.poll(1.0)  # blocking poll, returns one record",
+          "evt = msg.value()  # {\"user_id\": 42, \"tier\": \"gold\", \"lsn\": 99421}",
+          "cur.execute(UPSERT_SQL, (evt[\"user_id\"], evt[\"tier\"], evt[\"lsn\"]))  # idempotent upsert",
+          "conn.commit()  # write lands first…",
+          "c.commit(msg)  # …THEN acknowledge — crash here = safe replay"
+        ],
+        "whyWrong": "Committing the Kafka offset before the Postgres write flips you from at-least-once to at-most-once — a crash between the two silently drops the event forever. And upstream of that, you can't upsert a payload you haven't polled and parsed yet.",
+        "whyCorrect": "Poll → parse → upsert → commit the write → only then commit the offset. The side-effect must land before the acknowledgement: a crash at any point replays the event instead of losing it, and the idempotent upsert makes the replay harmless.",
+        "bestPractices": "Set `enable.auto.commit: False` so the offset commit is yours to place, and pair it with an idempotent sink — an upsert keyed on a stable id plus a monotonic source-LSN guard so a replay can't double-count.",
+        "lessonId": "mlops-cdc-semantics"
+      },
+      {
+        "q": "Per API contracts for ML services, a realtime endpoint should refuse nulls loudly: a feature missing at serve time usually means an upstream service is ____.",
+        "opts": [
+          "slow",
+          "stale",
+          "down"
+        ],
+        "answer": 2,
+        "whyWrong": {
+          "0": "A slow upstream shows up as latency — your p99 climbs, requests time out. The feature still arrives, just late. A null means the value never came at all.",
+          "1": "Staleness gives you an OLD value, not a missing one — that's a materialization-lag problem for the online store to flag, and the request still carries a number."
+        },
+        "whyCorrect": "The lesson splits the contracts: batch jobs see nulls all the time (a backfill row missing yesterday's count is normal), but in realtime a missing feature means the service that computes it is down — so reject loudly, or return a fallback with `degraded: true`.",
+        "bestPractices": "Give batch and realtime different nullability rules instead of one shared endpoint, and never silently coerce or zero-fill at the edge — the null is your outage signal, and masking it hides real drift.",
+        "lessonId": "mlops-api-contracts"
       }
     ],
     "senior": [
@@ -1655,6 +1911,86 @@ export const DAILY_QUESTIONS = {
         "whyCorrect": "Skew is a software engineering problem: 'two implementations of the same thing.' The fix is the same as for any duplicated-logic bug — collapse to one implementation (share the exact function, or serve and train from a feature store) and then continuously verify it.",
         "bestPractices": "Log the exact feature vector served with each prediction, and run a daily job that replays those vectors through the training transform and diffs the results — a cheap, always-on skew alarm.",
         "lessonId": "sd-training-serving-skew"
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Order this continuous-training run — pinned data to promoted model, with the eval gate holding everything behind it.",
+        "items": [
+          "subprocess.run([\"dvc\", \"pull\", \"data/train.csv.dvc\"], check=True)  # pin the exact data snapshot",
+          "model = train_pipeline(\"data/train.csv\")  # fit on the pinned bytes",
+          "auc = evaluate(model, \"data/holdout.csv\")  # gate metric",
+          "if auc > 0.82:  # the eval gate — bad models stop here",
+          "    client.transition_model_version_stage(name=\"churn\", version=v.version, stage=\"Staging\")  # promote for shadow traffic"
+        ],
+        "whyWrong": "Promoting before the gate pushes an unevaluated model toward live traffic; evaluating before training has nothing to score; and training before `dvc pull` fits on whatever bytes happen to be on disk — the run's lineage is gone.",
+        "whyCorrect": "Pin the data, train on it, measure the gate metric, check the gate, and only inside the passing branch touch the registry. Validate before you execute — the stage transition is the side-effect the whole pipeline exists to guard.",
+        "bestPractices": "CI promotes to Staging, never Production — a human approves the canary→prod hop after online metrics come back. Log the data SHA with the run so 'which bytes trained this model?' has an answer during an incident.",
+        "lessonId": "mlops-continuous-training"
+      },
+      {
+        "q": "In model monitoring, accuracy is a ____ indicator — labels land days or weeks after the predictions, so by the time the number drops you have already been wrong for a while.",
+        "opts": [
+          "leading",
+          "trailing",
+          "real-time"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "Leading signals fire BEFORE the damage is confirmed — that's input and prediction drift, computed from live features and scores with no labels needed. Accuracy is the opposite end of that timeline.",
+          "2": "There is nothing real-time about it: fraud labels are confirmed chargebacks, churn labels are cancellations — outcomes that arrive on their own delayed schedule, not with the request."
+        },
+        "whyCorrect": "Accuracy trails reality because it needs ground truth, and ground truth is late. The lesson's line: by the time accuracy drops, the question is how long you've been wrong — not whether. That's why monitoring watches inputs and outputs in near-real-time instead.",
+        "bestPractices": "Treat input and prediction drift as your leading alarms (PSI, KS on sliding windows) and leave label-based accuracy on the weekly-review dashboard — it confirms incidents, it doesn't catch them.",
+        "lessonId": "mlops-monitoring"
+      },
+      {
+        "q": "In a Feast `FeatureView`, `ttl=timedelta(days=7)` is a freshness contract: an online value older than the TTL is served as ____.",
+        "opts": [
+          "NULL",
+          "0.0",
+          "-1"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "Zero-filling would be worse than missing — `avg_basket_7d = 0.0` looks like a real customer who bought nothing, and the model would happily treat the staleness as signal.",
+          "2": "A -1 sentinel is something YOUR code might choose to substitute downstream, but the store doesn't invent magic numbers — expired values simply stop being returned."
+        },
+        "whyCorrect": "TTL caps how stale a served value can be: past it, the online store returns NULL rather than an outdated number. That forces you to make the missing-feature policy explicit instead of silently serving last month's behavior as today's.",
+        "bestPractices": "Size TTL to the model's cadence — an hour suits a fraud model, while a 7-day TTL would null-out most rows for a slow-cycle churn model. Then monitor materialization lag, because a healthy TTL can't fix a stalled pipeline.",
+        "lessonId": "mlops-feature-stores"
+      },
+      {
+        "q": "A teammate's drift monitor computes `cuts = np.quantile(current, np.linspace(0, 1, bins + 1))` inside `psi(reference, current)`. Why will its scores be misleading?",
+        "opts": [
+          "`np.quantile` with `bins + 1` points creates one bin too many, so the histogram counts are shifted off by one",
+          "The bin edges come from the live window — the yardstick moves with the drift it is supposed to measure",
+          "Quantile-based bins force every bin to hold equal counts, so PSI comes out near zero no matter which sample the edges were derived from"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "`bins + 1` edges define exactly `bins` bins — that part matches the lesson's implementation. Fence-post counting isn't the problem here.",
+          "2": "The equal-count property only holds for the sample the quantiles were fit on. PSI's whole signal is the OTHER sample landing unevenly in those bins — which works, as long as the edges are frozen from the reference."
+        },
+        "whyCorrect": "The lesson computes the cuts from `reference`. Deriving them from `current` re-fits the ruler every window: a shifted live distribution still fills its own quantile bins evenly, so PSI stays near zero while real drift sails past the alarm.",
+        "bestPractices": "Freeze the reference statistics — bin edges, means, category frequencies — as a training-time artifact and version it with the model. And keep the outer edges at ±inf so values outside the training range still get counted.",
+        "lessonId": "mlops-monitoring"
+      },
+      {
+        "q": "Building a training set for predictions made back in May, a teammate writes `entity_df[\"event_ts\"] = pd.Timestamp.now()` before calling `store.get_historical_features(entity_df=entity_df, ...)`. What's wrong?",
+        "opts": [
+          "`event_ts` must be each row's original prediction timestamp — an as-of join against `now` leaks future feature values into training",
+          "`get_historical_features` reads the online store, so every returned value is capped by the feature view's TTL and most rows come back NULL",
+          "The entity dataframe is missing the label column, so the point-in-time join will silently drop every row that has no matching label"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "Historical retrieval runs against the OFFLINE store (warehouse / parquet) — that's the whole point of the two-store split. TTL nulls apply to online lookups at inference time.",
+          "2": "Labels ride along as ordinary columns; the join doesn't require or drop them. The join key is the entity plus its timestamp — which is exactly the field this code corrupts."
+        },
+        "whyCorrect": "Point-in-time correctness means training may only see data that would have been visible at the prediction timestamp. Stamping every row with `now` joins today's feature values onto May's examples — the model trains on the future and the offline metrics inflate, a classic training-serving skew source.",
+        "bestPractices": "Carry the real event timestamp through your prediction logs and use it as `event_ts` when assembling training sets — the as-of join only protects you if you hand it the honest time.",
+        "lessonId": "mlops-feature-stores"
       }
     ],
     "distinguished": [
@@ -1909,6 +2245,54 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "The common slip is placing O(log n) above O(1) or below O(n log n) — remember log n barely grows (log of a billion is ~30), while n² at a million items is a trillion operations.",
         "whyCorrect": "Constant, then logarithmic, then linear, then linearithmic, then quadratic. Each step up means the input size hurts you more.",
         "bestPractices": "When an interviewer asks 'can you do better?', they're usually pointing one rung down this ladder — n² → n log n via sorting, n → log n via binary search, n → 1 via a hash map."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "From the CLI todo build: order the body of `save(tasks)` so a `kill -9` mid-save can never corrupt the store.",
+        "items": [
+          "    tmp = tempfile.NamedTemporaryFile(\"w\", dir=STORE.parent, delete=False)  # same dir = atomic rename",
+          "    json.dump(tasks, tmp, indent=2)",
+          "    tmp.flush(); os.fsync(tmp.fileno())  # force bytes to disk",
+          "    tmp.close()",
+          "    os.replace(tmp.name, STORE)  # atomic on POSIX + NTFS"
+        ],
+        "whyWrong": "The classic slip is calling `os.replace` before the `fsync` — the rename can land while the new bytes still sit in the page cache, so a crash swaps in a hollow file. And you can't dump JSON into a temp file that doesn't exist yet: create, write, sync, close, swap.",
+        "whyCorrect": "Create the temp file next to the target, write the full JSON into it, force the bytes to disk, close the handle, and only then atomically swap it over the real store. At every instant `todos.json` is either the complete old version or the complete new one — never half of each.",
+        "bestPractices": "Keep the temp file in the SAME directory as the target — same-directory rename is the only atomicity POSIX guarantees; a cross-filesystem rename silently degrades to copy + delete. On Windows, close every handle first or `os.replace` is blocked.",
+        "lessonId": "cli-todo"
+      },
+      {
+        "q": "A well-behaved CLI exits ____ so it composes with `&&`, `||`, and `set -e`.",
+        "opts": [
+          "0 on success and non-zero on failure",
+          "1 on success and 0 on every kind of failure",
+          "with its final status printed to stdout"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "Exactly backwards — the shell treats exit code 0 as truthy/success. A tool that exits 1 on success would break every `&&` chain and abort every `set -e` script on its happy path.",
+          "2": "stdout is for data, not status — `todo add | jq` should see JSON, not 'OK'. The shell reads the numeric exit code, which is why the todo build maps bad IDs to `sys.exit(1)` instead of printing 'error' and exiting 0."
+        },
+        "whyCorrect": "Zero means success, anything else means failure — that single convention is what lets `todo add \"ship lab\" && todo list` short-circuit correctly and lets cron or CI detect a broken run. The todo build uses 0 = ok, 1 = user error (bad ID), 2 = argparse usage error.",
+        "bestPractices": "Print errors to stderr, data to stdout, and pick distinct non-zero codes for distinct failures (argparse gives you exit 2 on bad usage for free). Test with `echo $?` in bash or `$LASTEXITCODE` in PowerShell.",
+        "lessonId": "cli-todo"
+      },
+      {
+        "q": "In the CLI todo store, a teammate writes `new_id = len(tasks) + 1` to assign IDs. What's the bug?",
+        "opts": [
+          "It counts completed tasks too, so finished items keep inflating every newly assigned ID",
+          "After a `rm`, the list shrinks and the next new ID collides with a live task's ID",
+          "`len()` walks the whole list, so ID assignment gets slower as the store grows"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "Counting done tasks only makes IDs larger, and large is harmless — IDs just need to be unique and stable. Inflation isn't the failure; collision is.",
+          "2": "Python lists store their length, so `len()` is O(1) — and even if it were slow, slow is a nuisance, not a correctness bug. The real defect hands two tasks the same ID."
+        },
+        "whyCorrect": "With tasks 1, 2, 3 on the board, `rm 1` shrinks the list to length 2 — so the next add computes `2 + 1 = 3` and collides with the still-live task 3. Now `todo done 3` is ambiguous and any script holding the old ID mutates the wrong row. `max((t[\"id\"] for t in tasks), default=0) + 1` never reuses a live ID.",
+        "bestPractices": "Stable IDs are a contract with every script that captured one. Derive new IDs from the IDs themselves (`max(id)+1` or a persisted `next_id` counter), never from the collection's current size.",
+        "lessonId": "cli-todo"
       }
     ],
     "junior": [
@@ -2052,6 +2436,55 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Skipping 'watch it fail' is the silent killer — a test that passes before you write the code is testing nothing. Refactor-before-green means changing two things at once with no safety net.",
         "whyCorrect": "Red for the right reason → minimal green → refactor under protection → commit. The failing test proves the test works; the green test protects the cleanup.",
         "bestPractices": "Keep the loop under ten minutes. If a cycle takes an hour, the behavior you picked was too big — split it."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "From How Stripe Prevents Duplicate Charges: order the `/charges` handler so the key is claimed BEFORE the card is touched.",
+        "items": [
+          "    key = req.headers[\"Idempotency-Key\"]  # client-supplied UUID",
+          "    row = db.fetch(\"SELECT * FROM idem WHERE key=%s FOR UPDATE\", key)",
+          "    if row and row.status == \"done\": return row.code, row.response  # replay, no side effect",
+          "    db.exec(\"INSERT INTO idem(key,fingerprint,status) VALUES(%s,%s,'running')\", key, fp)",
+          "    charge = stripe_charge(req.body)  # the actual side effect",
+          "    db.exec(\"UPDATE idem SET status='done', code=200, response=%s WHERE key=%s\", json(resp), key)"
+        ],
+        "whyWrong": "Charging before the `INSERT` of the 'running' lock row reopens the race — two concurrent retries both pass the replay check and both hit the card. Checking for a stored response AFTER charging defeats the entire mechanism: the duplicate charge already happened.",
+        "whyCorrect": "Read the key, lock its row with `FOR UPDATE`, replay if a finished result exists, claim the key as 'running', and only then run the side effect — persisting the result last so future retries replay it. Validate and acquire before you execute.",
+        "bestPractices": "Only persist 2xx/4xx as final — caching a transient 500 replays that error forever; delete the lock row on failure instead. The `FOR UPDATE` lock is what serializes two parallel retries: one executes, the other waits and replays.",
+        "lessonId": "stripe-idempotency"
+      },
+      {
+        "q": "In the Redis token bucket, prefer ____ so all N app servers judge requests against one clock.",
+        "opts": [
+          "`tonumber(ARGV[3])`, the timestamp each app server passes in",
+          "`math.floor(now_ms / 1000)` computed at the top of the script",
+          "`redis.call('TIME')` from inside the Lua script itself"
+        ],
+        "answer": 2,
+        "whyWrong": {
+          "0": "That IS the skewed design the lesson warns about — `ARGV[3]` is whatever clock the calling pod has, and N pods means N clocks. A pod running 30s fast hands out free refill to every bucket it touches.",
+          "1": "Rounding the caller's milliseconds into seconds is the same skewed clock in a different unit. The math happens in the script, but the time still came from N different app servers."
+        },
+        "whyCorrect": "`redis.call('TIME')` asks Redis itself what time it is, and there is exactly one Redis answering for the bucket — one source of truth. Refill math becomes consistent no matter which app pod sent the request.",
+        "bestPractices": "Any Lua script that takes a caller-supplied timestamp inherits the caller's clock skew. While you're in there: call the script via `EVALSHA`, and catch `NOSCRIPT` with an `EVAL` fallback — the cached SHA dies with a Redis restart.",
+        "lessonId": "rate-limiter"
+      },
+      {
+        "q": "This refill line from the token-bucket Lua script is subtly wrong: `tokens = tokens + delta * refill`. What's the bug?",
+        "opts": [
+          "Nothing caps the sum at `cap`, so an idle key banks unlimited tokens and can burst far past its limit",
+          "`delta` is measured in milliseconds here, so the bucket refills roughly a thousand times too fast",
+          "The refill must run after the decrement, otherwise the request being judged pays for its own new tokens"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "The script already converts: `delta = math.max(0, now_ms - last) / 1000` yields seconds before this line runs. Units are fine — the missing bound is the problem.",
+          "2": "Refill-then-spend is the correct order: the bucket earns everything owed since its last touch, THEN the request asks for its cost. Flipping them just makes the accounting stale by one request."
+        },
+        "whyCorrect": "The real script clamps: `tokens = math.min(cap, tokens + delta * refill)`. Without `math.min`, a key idle for an hour at 10 tokens/sec has 36,000 banked tokens — its next burst blows straight through the limit the bucket exists to enforce. Capacity IS the burst ceiling.",
+        "bestPractices": "When testing a limiter, always include the idle-then-burst case: sleep past several full refill periods, then hammer. Correct behavior is at most `capacity` successes, never `capacity + idle_time * refill`.",
+        "lessonId": "rate-limiter"
       }
     ],
     "senior": [
@@ -2133,6 +2566,22 @@ export const DAILY_QUESTIONS = {
         "whyCorrect": "Write amplification = 1 + indexes touched. Eight secondary indexes turn one logical INSERT into nine physical writes — plus WAL and replication on top. On hot tables this write tax dominates IOPS.",
         "bestPractices": "Audit ORM-generated indexes on every foreign key, and drop `(a)` when `(a, b)` exists — the composite serves both. In a design review, removing an index is usually the more senior move.",
         "lessonId": "sd-index-write-cost"
+      },
+      {
+        "q": "In an at-least-once queue consumer, return ACK ____ — otherwise a crash mid-handler silently drops the message.",
+        "opts": [
+          "as soon as the message is pulled, so the partition keeps moving",
+          "only after the side effects have fully succeeded",
+          "on a fixed timer, so a slow handler can't stall the whole queue"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "ACK-on-receipt converts at-least-once into at-most-once: the broker forgets the message the moment you take it, so a crash between pull and email means the confirmation is gone forever with nothing to retry.",
+          "2": "A timer ACKs work that may not have happened — a handler that's slow because the warehouse API is down gets its message discarded at exactly the moment it needed redelivery."
+        },
+        "whyCorrect": "The unACKed message is your safety net: if the consumer dies after `send_confirmation_email` but before ACK, the broker redelivers and the idempotency-key check (`already_processed`) turns the replay into a no-op. ACK-after-success plus dedupe is the whole at-least-once contract.",
+        "bestPractices": "Pair late ACKs with a dead-letter queue and a hard retry cap — a poison message that can never succeed will otherwise be redelivered forever and block its partition. Alert on queue-depth slope, not absolute depth.",
+        "lessonId": "sd-queue-decoupling"
       }
     ],
     "distinguished": [
@@ -2595,6 +3044,118 @@ export const DAILY_QUESTIONS = {
         "whyCorrect": "Errors are inputs too: package the exception text as the tool_result and loop again. The model reads what failed and adapts — retries with fixed arguments, picks a different tool, or asks the user. That recovery loop is what makes agents robust.",
         "bestPractices": "Cap the loop (5-8 iterations) so a confused model can't burn budget chasing its tail, and gate side-effecting tools (refunds, deletes, emails) behind a confirm step — reads are safe to loop, writes are not.",
         "lessonId": "mleng-tool-use"
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Assemble one turn of the agent loop — from the user's question to the tool result going back to the model.",
+        "items": [
+          "messages = [{\"role\": \"user\", \"content\": \"Weather in Tokyo?\"}]",
+          "resp = client.messages.create(model=\"claude-sonnet-4-6\", max_tokens=400, tools=tools, messages=messages)",
+          "tu = next(b for b in resp.content if b.type == \"tool_use\")",
+          "result = run_tool(tu.name, tu.input)",
+          "messages.append({\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": tu.id, \"content\": result}]})"
+        ],
+        "whyWrong": "You can't hunt for a `tool_use` block before the model has replied, and you can't append a `tool_result` before the tool has actually run — each line consumes what the previous one produced. Running the tool before the API call is the classic flip: the model hasn't asked for anything yet.",
+        "whyCorrect": "Build the conversation → call the model → extract the tool_use block it requested → execute the tool → feed the result back as a tool_result message. Acquire before use, at every step: `tu` needs `resp`, `result` needs `tu`, and the append needs both `tu.id` and `result`.",
+        "bestPractices": "Wrap this turn in a capped loop (`for _ in range(5)`) that exits when `stop_reason != \"tool_use\"` — an uncapped agent loop is how a confused model burns your budget chasing its tail.",
+        "lessonId": "mleng-tool-use"
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Assemble a few-shot prompt: build the `messages` list so the examples teach the format before the real input arrives.",
+        "items": [
+          "messages = []",
+          "for u, a in few_shot:",
+          "    messages.append({\"role\": \"user\", \"content\": u})",
+          "    messages.append({\"role\": \"assistant\", \"content\": a})",
+          "messages.append({\"role\": \"user\", \"content\": user_input})"
+        ],
+        "whyWrong": "Appending `user_input` before the loop buries the real question under the examples — the model answers the last user turn, so it would answer an example instead. Flipping the two appends inside the loop breaks the user→assistant alternation that makes each pair read as question-then-model-answer.",
+        "whyCorrect": "Initialize the list, then alternate user/assistant turns for each example, then put the real input LAST. That final position is the contract: the model continues from the last user turn, with every example pair in front of it locking the output format.",
+        "bestPractices": "Two to five examples is the sweet spot — every example is input tokens billed on every call. Keep the stable rules in the system prompt (cacheable) and let the examples carry the edge cases: show, don't tell.",
+        "lessonId": "mleng-prompting"
+      },
+      {
+        "q": "In production LLM APIs, prompt caching lets you mark a long, stable prefix and pay about ____ of the input rate on cache hits.",
+        "opts": [
+          "~90%",
+          "~10%",
+          "~50%"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "At ~90% the discount would barely matter and nobody would restructure prompts around it. The whole point of caching is that hits are nearly free compared to re-processing the prefix.",
+          "2": "Half price is still a rough deal for a 4k-token system prompt called 100×/min. The real discount is much steeper — steep enough to change how you structure prompts."
+        },
+        "whyCorrect": "Cache hits bill at roughly 10% of the input rate. For a long, stable system prompt (rules, retrieved docs, tool schemas) called at high volume, that's the difference between a real budget and a runaway bill.",
+        "bestPractices": "Caching only pays if the prefix is byte-stable across calls — keep dynamic data out of the system prompt and put it in the user turn, or every call is a cache miss at full price.",
+        "lessonId": "mleng-llm-apis"
+      },
+      {
+        "q": "For read-heavy semantic search under ~50M vectors, ____ is usually the winning index — graph-based with great recall, at the price of RAM.",
+        "opts": [
+          "IVF",
+          "LSH",
+          "HNSW"
+        ],
+        "answer": 2,
+        "whyWrong": {
+          "0": "IVF is the cluster-based one: smaller memory footprint but slower to build and typically lower recall at the same speed. It wins when RAM is tight, not as the read-heavy default.",
+          "1": "LSH hashes vectors into buckets — an older ANN family that generally trails graph-based indexes on the recall/speed curve for text embeddings. It's not what pgvector, Chroma, or Weaviate reach for."
+        },
+        "whyCorrect": "HNSW builds a navigable graph over the vectors: excellent recall and fast queries, paid for in RAM. That trade suits read-heavy workloads under ~50M vectors, which is why it's the default index across pgvector, Chroma, and Weaviate.",
+        "bestPractices": "Pin your metric to your embedding model too — normalized models (OpenAI `text-embedding-3-*`) are fine with dot product, others want cosine. Mixing metrics and models ships silently broken retrieval.",
+        "lessonId": "mleng-embeddings"
+      },
+      {
+        "q": "When bulk-ingesting a million embedded chunks into Postgres, use ____ instead of per-row INSERT — it loads about 10× faster.",
+        "opts": [
+          "COPY",
+          "MERGE",
+          "UPSERT"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "MERGE reconciles two tables row-by-row (update-or-insert logic) — useful for syncing, but it still pays per-row overhead. Fresh bulk ingestion doesn't need reconciliation, it needs throughput.",
+          "2": "UPSERT (`INSERT ... ON CONFLICT`) handles duplicate keys gracefully, but it's still one round-trip of parsing and planning per row. The 10× win comes from skipping that per-row cost entirely."
+        },
+        "whyCorrect": "COPY streams the whole batch into the table in one bulk operation, skipping per-row parse/plan/commit overhead — roughly 10× faster than row-by-row INSERT. It's the difference between a 10k-chunk ingest finishing in seconds versus minutes.",
+        "bestPractices": "Batch the embedder too (~64 chunks per call) so neither side of the pipeline goes row-at-a-time. And if you use an `ivfflat` index, run `ANALYZE` after a big ingest or recall craters — `hnsw` doesn't need it.",
+        "lessonId": "lab-rag-pipeline"
+      },
+      {
+        "q": "This system prompt is marked for prompt caching:\n`system=[{\"type\": \"text\", \"text\": f\"You are a support bot. Open tickets: {ticket_dump}\", \"cache_control\": {\"type\": \"ephemeral\"}}]`\nWhat's wrong?",
+        "opts": [
+          "`cache_control` needs `\"type\": \"persistent\"` — ephemeral entries expire before the next call can ever hit them",
+          "The f-string injects per-request data into the cached prefix, so every call is a cache miss billed at full input rate",
+          "`system` must be a plain string — passing a list of blocks makes the API silently ignore the `cache_control` field"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "`ephemeral` is the correct (and standard) cache type — entries live long enough to serve rapid repeated calls, which is exactly the high-volume case caching targets. The type isn't the bug.",
+          "2": "Backwards — the list-of-blocks form is precisely what unlocks `cache_control` on the system prompt. A plain string is the form that can't carry the cache marker."
+        },
+        "whyCorrect": "Caching matches on the exact prefix bytes. `ticket_dump` changes every request, so the \"cached\" prefix never repeats — 100% cache misses, full input rate, plus the cache-write surcharge. The rule: system prompt holds stable rules and persona; variable data goes in the user turn.",
+        "bestPractices": "Audit cache hit rate, not just the flag: a `cache_control` marker on a prefix that isn't byte-stable is worse than no caching at all. Keep dynamic content strictly below the cache boundary.",
+        "lessonId": "mleng-llm-apis"
+      },
+      {
+        "q": "This retrieval step picks chunks for the LLM:\n`ranked = sorted(docs.items(), key=lambda kv: cosine(q_vec, kv[1][1]))`\n`top = ranked[:2]  # feed the \"best\" 2 chunks to the prompt`\nWhat's wrong?",
+        "opts": [
+          "`sorted` is ascending, so the front slice keeps the two LEAST similar chunks — negate the key or pass `reverse=True`",
+          "`cosine` returns values in [-1, 1], which must be rescaled to [0, 1] before Python can compare them as sort keys",
+          "`kv[1][1]` selects the document's text instead of its vector, so `cosine` is comparing a string with an array"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "Python sorts floats over any range just fine — negative similarity values compare correctly without rescaling. The math is valid; only the sort direction is wrong.",
+          "2": "With `docs` values shaped as `(text, vector)` tuples, `kv[1][1]` is exactly the vector — `kv[1][0]` would be the text. The indexing is correct; the ordering is not."
+        },
+        "whyCorrect": "Higher cosine = more similar, but `sorted` defaults to ascending — so `ranked[:2]` grabs the two chunks LEAST related to the query and feeds the model pure noise. Use `key=lambda kv: -cosine(...)` or `reverse=True`. Retrieval still \"works\", answers just quietly degrade.",
+        "bestPractices": "Silent sort-direction bugs are why you keep a labeled eval set: recall@k craters immediately and points straight at retrieval. Also log which chunks each answer used — the first debugging question is always \"did retrieval fail or did generation ignore it?\"",
+        "lessonId": "mleng-embeddings"
       }
     ],
     "distinguished": [
@@ -3106,6 +3667,119 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Placing the cache check after the database defeats its purpose — the cache exists to absorb reads BEFORE they cost a DB round trip. The backfill (cache-aside) happens on the response path, not before the read.",
         "whyCorrect": "Edge → LB → cache → DB → backfill. Every layer exists to stop the request from reaching the expensive layer behind it.",
         "bestPractices": "Quote the hit-rate math when you design this: at 95% cache hit rate the DB sees 1/20th the traffic — that number is why the layer earns its complexity."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Arrange this Stripe webhook handler so it verifies, dedupes, and applies — in the only safe order.",
+        "items": [
+          "ts, mac = parse(req.headers['Stripe-Signature'])  # split header into timestamp + hmac",
+          "expected = hmac.new(secret, f\"{ts}.{body}\".encode(), hashlib.sha256).hexdigest()",
+          "if not hmac.compare_digest(expected, mac): return 401  # constant-time — forged or tampered",
+          "db.execute(\"INSERT INTO processed_events(id) VALUES (%s)\", (evt['id'],))  # unique constraint = dedupe lock",
+          "apply_business_logic(evt)  # only runs once per event id"
+        ],
+        "whyWrong": "Dedupe before verify lets attackers stuff forged event IDs into processed_events — the genuine event that arrives later no-ops as a 'duplicate' and is silently dropped. Apply before dedupe means every at-least-once retry re-runs the side effect: double charges, double emails.",
+        "whyCorrect": "Verify, then dedupe, then apply. The dataflow forces it too: computing the expected HMAC needs `ts` from the parsed header, the constant-time compare needs `expected`, and only a verified, never-before-seen event may reach business logic.",
+        "bestPractices": "Return 200 on the duplicate path so the sender stops retrying, and let the DB unique constraint — not a Redis TTL shorter than the provider's multi-day retry budget — be the final line of dedupe defense.",
+        "lessonId": "faang-idempotent-webhooks"
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Rebuild `charge_card` so a retried request can never bill the customer twice.",
+        "items": [
+          "def charge_card(user_id, amount, idem_key):",
+          "    cached = db.fetch_one(\"SELECT result FROM charges WHERE idem_key = %s\", (idem_key,))  # seen this key?",
+          "    if cached: return cached['result']  # same key, same answer — never re-charge",
+          "    result = stripe.charge(user_id, amount)  # the real side effect",
+          "    db.execute(\"INSERT INTO charges(idem_key, result) VALUES (%s, %s)\", (idem_key, json(result)))  # cache for the next retry",
+          "    return result"
+        ],
+        "whyWrong": "Charging before checking the cache is the double-billing bug — a retry carrying the same key re-runs the side effect. Inserting the charges row before calling Stripe stores a result you don't have yet, so the next retry returns garbage.",
+        "whyCorrect": "Look up the idempotency key BEFORE the side effect, run the charge exactly once, then record key and result so the next retry short-circuits to the cached answer instead of touching Stripe again.",
+        "bestPractices": "Generate the key once, outside the retry loop, and send it on every attempt. Make lookup-then-insert atomic (one transaction, or INSERT ... ON CONFLICT) so two concurrent retries can't both slip past the cache check and charge.",
+        "lessonId": "faang-resilience-trio"
+      },
+      {
+        "q": "Keyset pagination orders by `created_at DESC, id DESC` — the `id` acts as a ____ so rows with identical timestamps can't duplicate or vanish across pages.",
+        "opts": [
+          "shard-routing key",
+          "unique tiebreaker",
+          "version marker"
+        ],
+        "answer": 1,
+        "whyWrong": {
+          "0": "Keyset pagination is a single index seek on one database — nothing here routes between shards. The `id` in the ORDER BY exists purely to break `created_at` ties.",
+          "2": "Versioning lives in the opaque cursor envelope (the `v` field of the base64 token), not in the ORDER BY clause. The sort key's job is position, not schema evolution."
+        },
+        "whyCorrect": "Timestamps collide. Without a unique secondary sort key, the cursor position 'after created_at X' is ambiguous — several rows share X, so pages can repeat or skip rows. Adding `id` makes every position single and reproducible.",
+        "bestPractices": "Always pair the sort column with a unique tiebreaker, encode BOTH in the cursor, and ship the cursor as an opaque, versioned base64url token so clients can't parse-and-break on it.",
+        "lessonId": "faang-pagination"
+      },
+      {
+        "q": "A distributed rate limiter runs its whole check-and-decrement inside one Redis Lua script because Redis executes the script ____ — no other client's command can interleave mid-check.",
+        "opts": [
+          "atomically",
+          "in parallel",
+          "on a replica"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "The opposite — Redis processes commands on a single thread, and the value of Lua here is exactly that the script runs as one serial, uninterruptible unit.",
+          "2": "Rate-limit state must live on the primary. A replica lags by design, so counting requests there would over-admit during the lag window."
+        },
+        "whyCorrect": "A read-then-write across the network races itself: two edges can both see 99/100 and both admit. Inside a Lua script, the evict-count-add sequence (ZREMRANGEBYSCORE, ZCARD, ZADD) is one indivisible unit and one round trip.",
+        "bestPractices": "Decide fail-open vs fail-closed for a Redis outage before launch, and use server-side time in the script — clock skew between edge POPs shifts the window if callers supply their own timestamps.",
+        "lessonId": "faang-distributed-ratelimit"
+      },
+      {
+        "q": "ARC cache eviction keeps two LRU lists — recently-used-once vs frequently-used — and adapts the split toward whichever side is taking more ____.",
+        "opts": [
+          "cache writes",
+          "ghost memory",
+          "misses"
+        ],
+        "answer": 2,
+        "whyWrong": {
+          "0": "ARC balances on miss pressure, not write volume — the number of writes landing on a list says nothing about which list is mispredicting the workload.",
+          "1": "Ghost entries are the mechanism, not the signal: they are IDs of recently evicted keys, and a hit on a ghost is how ARC learns a list evicted something it shouldn't have."
+        },
+        "whyCorrect": "When one list keeps missing on keys it recently evicted, ARC grows that list's share of the cache. That self-tuning between recency and frequency is why it beats plain LRU and LFU on mixed workloads and ships in ZFS and Postgres's buffer manager.",
+        "bestPractices": "Reach for ARC when the workload mixes a hot set with bursty scans and you can afford the ghost-entry memory. Stick with LRU when recency dominates or the cache sits in a hot inner loop.",
+        "lessonId": "faang-cache-eviction"
+      },
+      {
+        "q": "This read handler implements read-your-writes routing, where `stuck` means the user wrote in the last 5 seconds: `const conn = stuck ? db.replica : db.primary;`. What's wrong?",
+        "opts": [
+          "The cookie check should compare a write timestamp, not a boolean — a boolean flag can never expire",
+          "The routing is fine — the real bug is that a 5-second sticky window is far too long for production",
+          "The ternary branches are swapped — recent writers get the lagging replica while everyone else hammers the primary"
+        ],
+        "answer": 2,
+        "whyWrong": {
+          "0": "The cookie's maxAge already expires the flag — a boolean plus a 5-second TTL is exactly the lesson's sticky-session pattern. Expiry is handled at the cookie layer, not in the value.",
+          "1": "Five seconds is a sane window — the guidance is roughly 2x your p99 replication lag, and replication usually lags by milliseconds. The window size isn't the defect."
+        },
+        "whyCorrect": "It should read `stuck ? db.primary : db.replica`. As written it does the exact opposite of read-your-writes: the one user guaranteed to race replication reads the stale replica, and every cold read pins to the primary you were trying to protect.",
+        "bestPractices": "Size the sticky window from data (about 2x p99 replication lag) and add an integration test that writes then immediately reads under artificial replica lag — this inversion passes every single-node test.",
+        "lessonId": "faang-eventual-consistency"
+      },
+      {
+        "q": "An LRU cache's hit rate keeps sinking, and its lookup is `def get(self, key):` / `    if key not in self.data: return None` / `    return self.data[key]`. What's the bug?",
+        "opts": [
+          "`get` never calls `move_to_end`, so hits don't refresh recency — eviction silently degrades to FIFO",
+          "Returning `None` on a miss is the bug — callers can never distinguish a genuine miss from a stored `None` value",
+          "The `key not in self.data` membership check walks the whole dict, making every lookup O(n) and starving eviction"
+        ],
+        "answer": 0,
+        "whyWrong": {
+          "1": "The None sentinel is a real API nit, but it can't move the hit rate — it changes what a miss looks like to the caller, not which keys survive eviction.",
+          "2": "Dict membership is an O(1) hash lookup, not a scan — and there's no eviction thread to starve; eviction happens inline in `put`."
+        },
+        "whyCorrect": "LRU's contract is that a read counts as a touch. Without `self.data.move_to_end(key)` on a hit, a key read a million times still sits at its insertion position and gets evicted exactly like a cold one — the cache is now FIFO wearing an LRU costume.",
+        "bestPractices": "Touch on every hit, and treat `put` on an existing key as a touch too. Regression test: fill the cache, hit key A repeatedly, insert past capacity, assert A survived.",
+        "lessonId": "faang-cache-eviction"
       }
     ],
     "distinguished": [
@@ -3283,6 +3957,22 @@ export const DAILY_QUESTIONS = {
         },
         "bestPractices": "When a React value seems 'stuck' at an old value inside an effect, suspect a closure capturing stale state.",
         "lessonId": "fs-env-secrets"
+      },
+      {
+        "q": "Screen-reader users skip straight past the nav to the real content because the page's ____ landmark marks where it starts — and there must be exactly one per page.",
+        "opts": [
+          "`<section>`",
+          "`<main>`",
+          "`<header>`"
+        ],
+        "answer": 1,
+        "whyCorrect": "`<main>` is the skip-link target and the one-per-page landmark that says 'the actual content starts here' — one keystroke jumps a screen-reader user past all the chrome.",
+        "whyWrong": {
+          "0": "`<section>` is generic and repeatable — it carries no jump-target role, and a page full of them is just tidier div soup.",
+          "2": "`<header>` exposes the `banner` role — it IS the chrome a skip link exists to skip, not the destination."
+        },
+        "bestPractices": "One `<h1>`, one `<main>`, no skipped heading levels — run the keyboard test before you ship any page.",
+        "lessonId": "fs-html-structure"
       }
     ],
     "junior": [
@@ -3419,6 +4109,70 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Storing before hashing — even 'temporarily' — is the breach headline. And comparing plaintext at login means you stored plaintext somewhere; the comparison must be hash-to-hash.",
         "whyCorrect": "Transport encrypted → hash with salt → store the hash → compare hashes → session carries the proof. The plaintext password exists only in transit and in memory, never at rest.",
         "bestPractices": "Use a purpose-built KDF (bcrypt/argon2), not a fast hash — the slowness is the security feature."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Order the lines of a minimal Express server. Remember: requests walk the chain in registration order.",
+        "items": [
+          "const app = express();  // the app IS the middleware chain",
+          "app.use(express.json());  // parses JSON bodies into req.body",
+          "app.get('/health', (_req, res) => res.json({ ok: true }));",
+          "app.use((err, _req, res, _next) => res.status(500).json({ error: 'server_error' }));",
+          "app.listen(3000);"
+        ],
+        "whyWrong": "Register `express.json()` after the routes and every handler reads an undefined `req.body`. Put the 4-arg error handler before the routes and it catches nothing — errors route DOWN the chain, never back up.",
+        "whyCorrect": "Create the app, register the body parser before any route that reads `req.body`, routes next, the 4-arg error handler after everything it must catch, and `listen()` once the chain is complete. Registration is routing.",
+        "bestPractices": "Read any Express file top to bottom as the request's journey: parser, logger, routes, error handler, listen. If the order surprises you, the bugs will too.",
+        "lessonId": "fs-node-express"
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "q": "Order the body of a `useEffect` fetch that can never set state on an unmounted component.",
+        "items": [
+          "const ctrl = new AbortController();  // one controller per effect run",
+          "fetch(`/api/users/${id}`, { signal: ctrl.signal })",
+          "  .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })",
+          "  .then(setData)",
+          "return () => ctrl.abort();  // cleanup cancels the in-flight request"
+        ],
+        "whyWrong": "Wiring `ctrl.signal` into fetch before the controller exists is a ReferenceError. Parsing JSON before the `res.ok` gate 'succeeds' on error pages. And an abort that isn't the returned cleanup never runs — the ghost-state leak stays.",
+        "whyCorrect": "Acquire the controller first so fetch can borrow its signal, gate on `res.ok` before parsing (fetch never rejects on 4xx/5xx), hand only trusted data to `setData`, and return the abort as the cleanup — React calls it on unmount or id change.",
+        "bestPractices": "Acquire before use, release in cleanup — every effect that starts something must return the function that stops it. Written this hook three times? Switch to React Query.",
+        "lessonId": "fs-fetch-from-react"
+      },
+      {
+        "q": "An HTTP method is ____ when calling it N times leaves the same end state as calling it once — the promise that lets a client retry on timeout without double-charging the card.",
+        "opts": [
+          "idempotent",
+          "cacheable",
+          "stateless"
+        ],
+        "answer": 0,
+        "whyCorrect": "Idempotency is the retry contract: PUT and DELETE promise the same end state no matter how many times they land, so a timed-out client can safely resend. POST makes no such promise — that's the double-charge risk.",
+        "whyWrong": {
+          "1": "Cacheable follows from *safe* methods like GET (no state change at all) — a DELETE is idempotent but you'd never cache it.",
+          "2": "Stateless describes servers that keep no memory between requests — a property of the architecture, not of a method's retry behavior."
+        },
+        "bestPractices": "Honor the verb contract and retries, caching, and predictability come free — a POST that quietly behaves like a PUT breaks every client that trusted the method.",
+        "lessonId": "fs-rest-routes"
+      },
+      {
+        "q": "`router.delete('/:id', (req, res) => {`\n`  users.delete(req.params.id);  // users is a Map keyed by numeric id`\n`  res.status(204).end();`\n`});` — the DELETE returns 204 every time, but the user is still there. What's wrong?",
+        "opts": [
+          "`req.params.id` is a string but the Map keys are numbers, so `delete` silently misses — cast with `Number()` first",
+          "`res.status(204).end()` closes the response before the Map delete flushes, so the mutation is dropped",
+          "Route params like `/:id` only match on GET requests, so this DELETE handler never actually runs"
+        ],
+        "answer": 0,
+        "whyCorrect": "URL params are ALWAYS strings — `'42' !== 42`, so `Map.delete('42')` on a number-keyed Map removes nothing and returns false. The 204 still fires because nothing checked the result. Cast carefully at every param boundary.",
+        "whyWrong": {
+          "1": "`Map.delete` is synchronous — it fully completes before the next line runs; there is no flush or race to lose.",
+          "2": "Params match on every method — `router.delete('/:id')` runs fine; the request reaches the handler and fails quietly inside it."
+        },
+        "bestPractices": "Treat every `req.params` and `req.query` value as a string until you've cast it — or let a schema coerce it at the edge so handlers never see raw params.",
+        "lessonId": "fs-rest-routes"
       }
     ],
     "senior": [
@@ -3543,6 +4297,38 @@ export const DAILY_QUESTIONS = {
         },
         "bestPractices": "The DB is a ratchet, not a yo-yo: every change is a migration, `db push` never touches prod, and applied migration files are immutable.",
         "lessonId": "fs-orm-migrations"
+      },
+      {
+        "q": "A ____ is an app-wide secret kept OUT of the database — if the users table leaks but this doesn't, every stolen hash is useless to the attacker.",
+        "opts": [
+          "salt",
+          "work factor",
+          "pepper"
+        ],
+        "answer": 2,
+        "whyCorrect": "The pepper lives in env or KMS, never beside the hashes — so a DB-only breach hands the attacker hashes they can't even start guessing against. It's defense-in-depth on top of the salt, not a replacement.",
+        "whyWrong": {
+          "0": "The salt is stored ALONGSIDE each hash — it defeats rainbow tables, but it leaks with the database by design.",
+          "1": "The work factor is a public cost knob embedded right in the hash string (`$2b$12$...`) — it slows guessing, it hides nothing."
+        },
+        "bestPractices": "Salt per user (the library handles it), pepper per app (env/KMS, never git, never the DB), work factor cranked until a hash costs ~250ms.",
+        "lessonId": "fs-password-hashing"
+      },
+      {
+        "q": "Login check: `if (stored === await bcrypt.hash(body.password, 12)) return ok();` — it rejects every correct password. What's wrong?",
+        "opts": [
+          "`===` compares the hashes in non-constant time, so the check leaks timing and intermittently rejects valid logins",
+          "`bcrypt.hash` picks a fresh random salt every call, so it can never reproduce the stored hash — use `bcrypt.compare`",
+          "The cost `12` passed at login differs from the cost embedded in the stored hash, so the two outputs never match"
+        ],
+        "answer": 1,
+        "whyCorrect": "`bcrypt.hash` generates a new random salt each time, so hashing the same password twice yields two different strings — the equality is false even for the right password. `bcrypt.compare` reads the salt out of the stored hash and re-derives with it.",
+        "whyWrong": {
+          "0": "Timing side-channels leak information to an attacker — they never make `===` return the wrong boolean. The compare is wrong for a different reason.",
+          "2": "The cost lives inside the stored hash string and `compare` reads it from there — mismatched costs are exactly the case the format was designed to survive."
+        },
+        "bestPractices": "Use the library's `hash` and `compare`, never string equality — and return the same 401 for unknown email and wrong password so nobody can enumerate users.",
+        "lessonId": "fs-password-hashing"
       }
     ],
     "distinguished": [
@@ -3872,6 +4658,54 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Starting from controls ('we need a WAF!') is security shopping, not threat modeling — without the attacker and asset steps you can't say what the control is FOR, or notice what it fails to cover.",
         "whyCorrect": "Attacker → assets → threats → controls → accepted risk. Each step scopes the next; the written trade-off at the end is what makes the model a budget instead of a wish list.",
         "bestPractices": "Re-run the pipeline when the architecture changes, not on a calendar — a threat model of last year's system protects last year's system."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "lessonId": "sec-secure-coding",
+        "q": "Order this password-check handler so nothing untrusted is used before it's proven — each line earns the next.",
+        "items": [
+          "user = db.get_user(request.form.get('email', ''))",
+          "if user is None: return abort(401)",
+          "if not bcrypt.checkpw(password.encode(), user.pw_hash): return abort(401)",
+          "session['user_id'] = user.id",
+          "return redirect('/dashboard')"
+        ],
+        "whyWrong": "Setting the session before the bcrypt check is the ordering that logs in anyone with a valid email — the credential must be PROVEN before any state changes. And both failures must abort with the same 401, or the response leaks which emails exist.",
+        "whyCorrect": "Look up → bail on unknown user → verify the hash → only then grant the session → redirect. Authentication is a gate: nothing on the other side runs until it closes.",
+        "bestPractices": "Return the identical error for 'no such user' and 'wrong password' — different messages turn your login into an email-enumeration oracle."
+      },
+      {
+        "q": "In defense in depth, each layer exists because ____ — that's the whole design assumption.",
+        "opts": [
+          "attackers always target the network first",
+          "some other layer will eventually fail",
+          "auditors require at least three controls"
+        ],
+        "answer": 1,
+        "lessonId": "sec-defense-in-depth",
+        "whyWrong": {
+          "0": "Modern attacks land through phishing, dependencies, and leaked creds at least as often as the network — no layer 'goes first' reliably.",
+          "2": "Compliance may count controls, but the engineering reason for layering is failure tolerance, not checkbox arithmetic."
+        },
+        "whyCorrect": "Every control has a bypass, a misconfiguration, or a bad day. Layers are designed on the assumption that any single one WILL fail — the attacker has to be lucky repeatedly, you only have to be lucky once per layer.",
+        "bestPractices": "For each layer, ask 'what catches the attacker when THIS fails?' — if the answer is nothing, that layer is actually your only wall."
+      },
+      {
+        "q": "What's wrong with this template? `element.innerHTML = '<b>Welcome, ' + user.name + '</b>'`",
+        "opts": [
+          "innerHTML is slower than textContent, so the page repaints twice",
+          "The bold tag should come from CSS, not markup built in JavaScript",
+          "user.name flows into live HTML — a stored XSS if the name contains a script payload"
+        ],
+        "answer": 2,
+        "lessonId": "sec-xss",
+        "whyWrong": {
+          "0": "The performance difference is trivia here — the security hole is what matters, and it exists at any speed.",
+          "1": "Styling taste has nothing to do with it — a CSS class would carry the exact same injected payload."
+        },
+        "whyCorrect": "A user who registered as `<img src=x onerror=steal()>` now executes in every visitor's browser. Untrusted data must be set with `textContent` (or output-encoded for the HTML context), never concatenated into `innerHTML`.",
+        "bestPractices": "Encode for the destination at the moment of output — the same string is safe as text and lethal as markup."
       }
     ],
     "senior": [
@@ -3994,6 +4828,70 @@ export const DAILY_QUESTIONS = {
         "whyWrong": "Eradicating before containing tips the attacker off while they still have reach — they burn your visibility and dig in deeper. Recovery before eradication restores systems the attacker still owns.",
         "whyCorrect": "Detect → contain → eradicate → recover → learn. Containment freezes the damage so eradication is complete; the post-mortem is what turns an incident into immunity.",
         "bestPractices": "Practice the order in game days before you need it — the middle of a breach is the worst possible time to design your process."
+      },
+      {
+        "kind": "order",
+        "code": true,
+        "lessonId": "sec-vault-rotation",
+        "q": "Order a zero-downtime secret rotation — the dual-accept window only works in this sequence.",
+        "items": [
+          "new_key = vault.create_secret_version('db-password')",
+          "deploy_config(accept=[old_key, new_key])",
+          "update_producers(use=new_key)",
+          "verify_no_traffic_uses(old_key)",
+          "vault.revoke(old_key)"
+        ],
+        "whyWrong": "Revoking the old key before every producer has switched is the rotation that causes the outage the runbook was meant to prevent — and switching producers before consumers accept both keys drops every request in between.",
+        "whyCorrect": "Mint the new → accept BOTH → move writers to the new → prove the old is idle → revoke. The dual-accept window is scaffolding: it comes up before the switch and down only after the evidence.",
+        "bestPractices": "During the window two valid credentials exist — treat it as elevated risk, keep it short, and alert on any old-key use after the switch."
+      },
+      {
+        "q": "Your SIEM bill exploded and detections drown in noise. The fix is to ingest ____ rather than everything.",
+        "opts": [
+          "signals mapped to the threats you actually detect on",
+          "only logs from production hosts, never staging",
+          "a random 10% sample of every log stream"
+        ],
+        "answer": 0,
+        "lessonId": "sec-siem",
+        "whyWrong": {
+          "1": "Staging noise isn't the core problem — plenty of production streams (debug logs, heartbeats) are just as useless for detection.",
+          "2": "Random sampling drops the one malicious event with the same probability as the million boring ones — detection needs completeness on the streams that matter."
+        },
+        "whyCorrect": "Work backwards from detections: every alert you actually run names the events it needs, and THOSE streams get ingested completely. Ingest-priced SIEMs punish 'log everything' twice — in dollars and in buried signal.",
+        "bestPractices": "Keep a mapping from each detection rule to its required log sources — anything no rule needs is a candidate for cheap cold storage instead of the SIEM."
+      },
+      {
+        "q": "What's wrong with this audit trail? `UPDATE audit_log SET details = 'corrected' WHERE id = 42`",
+        "opts": [
+          "The statement proves the log is mutable — anyone with UPDATE rights can rewrite history, so it can't attest anything",
+          "The WHERE clause should match on timestamp, because ids can be reused after a vacuum",
+          "Corrections belong in a transaction so the change is atomic across replicas"
+        ],
+        "answer": 0,
+        "lessonId": "sec-audit-logs",
+        "whyWrong": {
+          "1": "Primary-key ids aren't reused in any sane schema — and even a perfectly targeted UPDATE is exactly the problem.",
+          "2": "Atomicity makes the rewrite consistent everywhere — a beautifully replicated falsification is still a falsification."
+        },
+        "whyCorrect": "An audit log's value is that it CANNOT be quietly edited. If UPDATE works, the log is unprovable — corrections must be new append-only entries, with immutability enforced structurally (WORM storage, hash chains), not by policy.",
+        "bestPractices": "Immutability must be structural, not promised — anyone with UPDATE rights makes the log unprovable, DBAs included."
+      },
+      {
+        "q": "In envelope encryption, compromise of a single DEK exposes ____ — that blast-radius math is the design's whole point.",
+        "opts": [
+          "every object the KMS has ever wrapped",
+          "only the data that one key encrypted",
+          "nothing, because DEKs never leave the KMS"
+        ],
+        "answer": 1,
+        "lessonId": "sec-kms-encryption",
+        "whyWrong": {
+          "0": "That's the failure mode envelope encryption PREVENTS — keys are per-object or per-batch precisely so one leak doesn't cascade.",
+          "2": "DEKs do leave the KMS — they do the bulk encryption locally; it's the KEK that never leaves. Mixing the two up inverts the model."
+        },
+        "whyCorrect": "Each DEK encrypts a bounded slice of data and is itself wrapped by the KEK. Lose a DEK and you lose that slice — not the estate. The KEK stays in the KMS, so rotating it means re-wrapping tiny DEKs, not re-encrypting petabytes.",
+        "bestPractices": "Sketch the blast radius before choosing key granularity: 'if this exact key leaks, what exactly is readable?' should have a small, nameable answer."
       }
     ],
     "distinguished": [

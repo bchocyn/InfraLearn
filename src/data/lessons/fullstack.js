@@ -1,8 +1,14 @@
 export default {
   "fs-html-structure": {
+    "objectives": [
+      "Pick semantic tags (`<nav>`, `<main>`, `<button>`) that give screen readers real landmarks instead of div soup",
+      "Trace how your markup becomes the DOM, the accessibility tree, and spoken output",
+      "Audit a page with the keyboard test: one `<h1>`, no skipped heading levels, everything reachable by Tab"
+    ],
     "sections": [
       {
         "heading": "Tags carry meaning",
+        "takeaway": "Screen readers, crawlers, and keyboards only see the tags you chose — semantics is a contract, not decoration.",
         "body": [
           {
             "type": "p",
@@ -53,6 +59,7 @@ export default {
       },
       {
         "heading": "Landmarks beat divs",
+        "takeaway": "Same pixels, different tags: `<header>`, `<nav>`, `<main>`, and `<button>` give assistive tech navigation that divs never will.",
         "body": [
           {
             "type": "p",
@@ -116,9 +123,15 @@ export default {
     ]
   },
   "fs-css-layout": {
+    "objectives": [
+      "Read any element as content–padding–border–margin and make `width` honest with `box-sizing: border-box`",
+      "Pick flexbox for one-axis flows and grid for two-axis layouts — by axis, not by habit",
+      "Spot the classic traps early: margin collapse, `flex: 1` shrinkage, and percentage heights that compute to 0"
+    ],
     "sections": [
       {
         "heading": "Every box is four rectangles",
+        "takeaway": "Set `box-sizing: border-box` globally so `width` means the whole box — the legacy default makes every spacing fix a fight.",
         "body": [
           {
             "type": "p",
@@ -148,6 +161,7 @@ export default {
       },
       {
         "heading": "Flex vs grid: pick by axis",
+        "takeaway": "Flex lays out one axis, grid aligns two — count how many axes must agree and the choice makes itself.",
         "body": [
           {
             "type": "p",
@@ -200,9 +214,15 @@ export default {
     ]
   },
   "fs-js-essentials": {
+    "objectives": [
+      "Predict what a closure captures and why a `const` object can still mutate",
+      "Write an async `fetch` that checks `res.ok` and catches network and parse errors in one place",
+      "Reach for `map`/`filter`/`reduce`, destructuring, and `?.` instead of manual loops and null checks"
+    ],
     "sections": [
       {
         "heading": "Values, scopes, and closures",
+        "takeaway": "A closure remembers the variables from where it was *defined* — that's how handlers keep state and where stale-state bugs begin.",
         "body": [
           {
             "type": "p",
@@ -221,6 +241,7 @@ export default {
       },
       {
         "heading": "Async, fetch, and JSON",
+        "takeaway": "`await` suspends your function, not the runtime — and `fetch` only rejects on network failure, so always check `res.ok`.",
         "body": [
           {
             "type": "p",
@@ -289,9 +310,15 @@ export default {
     ]
   },
   "fs-dom-events": {
+    "objectives": [
+      "Trace a click through the capture, target, and bubble phases",
+      "Replace N per-item listeners with one delegated listener using `closest()` and `dataset`",
+      "Batch DOM reads before writes so a loop doesn't force layout on every iteration"
+    ],
     "sections": [
       {
         "heading": "The DOM is a live tree",
+        "takeaway": "Read every DOM value you need first, *then* write — interleaving reads and writes forces the browser to re-layout on each step.",
         "body": [
           {
             "type": "p",
@@ -321,6 +348,7 @@ export default {
       },
       {
         "heading": "Delegation: one listener, many targets",
+        "takeaway": "Events bubble, so one parent listener plus `event.target.closest()` handles thousands of children with zero extra memory.",
         "body": [
           {
             "type": "p",
@@ -373,9 +401,15 @@ export default {
     ]
   },
   "fs-react-intro": {
+    "objectives": [
+      "Explain UI = function(state) and trace a render from state through the virtual DOM to the screen",
+      "Build components that take props and compose with `children` instead of prop explosions",
+      "Dodge the classic JSX traps: missing keys, `{0}` rendering, and `onClick={handle()}` firing immediately"
+    ],
     "sections": [
       {
         "heading": "UI = function(state)",
+        "takeaway": "You describe what the screen should look like for the current state; React computes the DOM mutations to get there.",
         "body": [
           {
             "type": "p",
@@ -405,6 +439,7 @@ export default {
       },
       {
         "heading": "Props, JSX, composition",
+        "takeaway": "Props flow down and are read-only — a child changes things by calling a callback the parent handed it.",
         "body": [
           {
             "type": "p",
@@ -477,6 +512,11 @@ export default {
     ]
   },
   "fs-react-state": {
+    "objectives": [
+      "Use `useState` with functional updates that stay correct across batched renders",
+      "Write a `useEffect` with honest deps and a cleanup that cancels stale fetches and timers",
+      "Decide when to lift state to a parent — and when to derive a value instead of storing it"
+    ],
     "sections": [
       {
         "heading": "useState: the local memory cell",
@@ -498,6 +538,7 @@ export default {
       },
       {
         "heading": "useEffect and dependencies",
+        "takeaway": "Effects run after paint and clean up before the next run — the deps array decides when, and cleanup is where you cancel.",
         "body": [
           {
             "type": "p",
@@ -550,6 +591,7 @@ export default {
       },
       {
         "heading": "Lifting state, splitting components",
+        "takeaway": "If you can derive it, don't store it — and when two siblings need the same value, the parent owns it.",
         "body": [
           {
             "type": "p",
@@ -592,9 +634,15 @@ export default {
     ]
   },
   "fs-node-express": {
+    "objectives": [
+      "Explain why one blocking synchronous call stalls every request on Node's single thread",
+      "Wire the standard Express chain — parser, logger, routes, 4-arg error handler — in the order that matters",
+      "Smoke-test a running server with `curl -i` GETs and JSON POSTs, reading the status line like an engineer"
+    ],
     "sections": [
       {
         "heading": "Node in one breath",
+        "takeaway": "Node runs your JS on one thread and hands I/O to the kernel — block the loop and every request waits.",
         "body": [
           {
             "type": "p",
@@ -655,6 +703,7 @@ export default {
       },
       {
         "heading": "The middleware chain",
+        "takeaway": "Middleware runs in registration order and must call `next()` — where you `app.use()` something is a routing decision.",
         "body": [
           {
             "type": "p",
@@ -743,9 +792,15 @@ export default {
     ]
   },
   "fs-rest-routes": {
+    "objectives": [
+      "Design resource URLs as nouns and let the HTTP method carry the verb",
+      "State which methods are safe and idempotent — and why that contract makes retries possible",
+      "Pick status codes by blame and state change: `201` + Location, `204`, and the right 4xx for each client mistake"
+    ],
     "sections": [
       {
         "heading": "Resources are nouns",
+        "takeaway": "URLs are nouns (`/users/42`), methods are verbs — `POST /createUser` says create twice and honors it never.",
         "body": [
           {
             "type": "p",
@@ -763,6 +818,7 @@ export default {
       },
       {
         "heading": "Methods and their contract",
+        "takeaway": "Each method promises whether it changes state and whether retrying is safe — honor that and caching and retries come free.",
         "body": [
           {
             "type": "p",
@@ -892,6 +948,11 @@ export default {
     ]
   },
   "fs-request-validation": {
+    "objectives": [
+      "Validate hostile input at the edge with a Zod schema before it touches a handler or a database",
+      "Return a stable 400 shape (`error`, `issues`, `requestId`) that clients can branch on",
+      "Centralize error handling in one 4-arg middleware so stack traces never leak to the client"
+    ],
     "sections": [
       {
         "heading": "Validate at the edge",

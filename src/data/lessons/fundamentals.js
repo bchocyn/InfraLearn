@@ -1,5 +1,10 @@
 export default {
   "python-basics": {
+    "objectives": [
+      "Predict when two Python names share one object — and when mutating through one changes the other",
+      "Spot the mutable-default-argument trap and fix it with a `None` sentinel",
+      "Use comprehensions, unpacking, truthiness, and `with` blocks the way fluent Python reads"
+    ],
     "sections": [
       {
         "heading": "Python in one breath",
@@ -60,7 +65,8 @@ export default {
               ]
             ]
           }
-        ]
+        ],
+        "takeaway": "Assignment binds a label to an object — whether that object is mutable decides if two labels can bite each other."
       },
       {
         "heading": "Control flow and the whitespace rule",
@@ -96,7 +102,8 @@ export default {
             "type": "p",
             "text": "Type hints are **documentation the interpreter ignores**. Tools like `mypy` and `pyright` check them statically. At runtime, `typed(\"x\", \"oops\")` runs fine until the `*` blows up."
           }
-        ]
+        ],
+        "takeaway": "Defaults are evaluated ONCE at def time — a mutable default is silently shared across every call."
       },
       {
         "heading": "Idioms that mark you as fluent",
@@ -164,6 +171,11 @@ export default {
     ]
   },
   "python-idioms": {
+    "objectives": [
+      "Choose eager comprehension vs lazy generator by memory cost — and stream a huge file in constant memory",
+      "Replace group-by and counting boilerplate with `defaultdict` and `Counter`",
+      "Use `with`, unpacking, and the walrus operator to cut cleanup and duplicate-call boilerplate"
+    ],
     "sections": [
       {
         "heading": "Why idioms matter",
@@ -194,7 +206,8 @@ export default {
             "type": "p",
             "text": "Rule of thumb: comprehensions beat `map`/`filter` for **readability** and equal them for **speed**. Reach for them whenever the result fits comfortably in RAM."
           }
-        ]
+        ],
+        "takeaway": "A comprehension allocates the entire result in memory before you get it — fine for small data, lethal for streams."
       },
       {
         "heading": "Generators: lazy or you die",
@@ -249,7 +262,8 @@ export default {
               "left"
             ]
           }
-        ]
+        ],
+        "takeaway": "Swap `[]` for `()` and nothing computes until you iterate — that's how you stream gigabytes in O(1) memory."
       },
       {
         "heading": "Context managers, unpacking, walrus",
@@ -329,6 +343,11 @@ export default {
     ]
   },
   "processes-threads": {
+    "objectives": [
+      "Decide threads vs processes for a workload by what it's bound on — I/O or CPU",
+      "Explain why the GIL blocks CPU parallelism in Python threads but still allows I/O concurrency",
+      "Name what threads share (heap, globals) vs what they own (stack) — and why `counter += 1` races"
+    ],
     "sections": [
       {
         "heading": "The two shapes of concurrency",
@@ -445,7 +464,8 @@ export default {
             "type": "p",
             "text": "Crash one thread by dereferencing a bad pointer and the **whole process dies** — the heap is one fate. Crash one process and the others keep running, untouched."
           }
-        ]
+        ],
+        "takeaway": "Threads share the heap and globals inside one process; each owns only its stack — that sharing is both the speed and the danger."
       },
       {
         "heading": "The tradeoff, accounted for",
@@ -525,7 +545,8 @@ export default {
               }
             ]
           }
-        ]
+        ],
+        "takeaway": "Under the GIL, threads only help while you wait on I/O — CPU-bound Python needs processes."
       },
       {
         "heading": "Pros and cons, side by side",
@@ -591,6 +612,11 @@ export default {
     ]
   },
   "virtual-memory": {
+    "objectives": [
+      "Trace a memory access through TLB hit, page walk, and page fault — and rank their costs",
+      "Read `RSS` vs `VSZ` correctly and explain why 'available' memory includes page cache",
+      "Predict when the OOM killer fires and what overcommit means for a huge `malloc`"
+    ],
     "sections": [
       {
         "heading": "Why virtual memory exists",
@@ -726,7 +752,8 @@ export default {
             "type": "p",
             "text": "Every load and store goes through this. A **TLB hit** is ~1 cycle and invisible. A **TLB miss** triggers a **page walk** — the MMU reads 4 levels of page-table entries from RAM, costing 100+ cycles. A **page fault** (entry missing or swapped out) traps into the kernel and can cost milliseconds if disk is involved."
           }
-        ]
+        ],
+        "takeaway": "Every load and store is translated: a TLB hit is invisible, a miss costs a page walk, a page fault drops into the kernel."
       },
       {
         "heading": "Vocabulary that actually matters",
@@ -778,7 +805,8 @@ export default {
             "type": "p",
             "text": "Contrast with `read()` into a buffer: that **copies** every byte through the page cache into your heap, doubling RAM. With `mmap`, the page cache *is* your memory."
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "When RAM runs out: the OOM killer",
@@ -803,7 +831,8 @@ export default {
               "`malloc` returning non-null is meaningless; you only know on first page fault"
             ]
           }
-        ]
+        ],
+        "takeaway": "Linux overcommits — the bill arrives on first touch, and when RAM runs out the kernel kills by score, not by guilt."
       },
       {
         "heading": "Watch out for",
@@ -844,6 +873,11 @@ export default {
     ]
   },
   "file-systems": {
+    "objectives": [
+      "Trace a `write()` from syscall through VFS and page cache to the block device — and say where the bytes are when it returns",
+      "Explain why a 'successful' write isn't durable until `fsync`, and design a crash-safe save",
+      "Distinguish a file (inode) from its name (dentry) — and explain hardlinks and why same-disk `mv` is free"
+    ],
     "sections": [
       {
         "heading": "The stack between your write() and the platter",
@@ -1003,7 +1037,8 @@ export default {
             "type": "p",
             "text": "This is also why `mv` inside one filesystem is **free** — it rewrites one dentry. Across filesystems it becomes a copy-then-delete, because inode numbers don't survive the trip."
           }
-        ]
+        ],
+        "takeaway": "A file IS its inode; the name is just a directory entry pointing at it."
       },
       {
         "heading": "Durability — the page cache is lying to you",
@@ -1021,7 +1056,8 @@ export default {
             "type": "p",
             "text": "Every committed transaction in Postgres, MySQL, SQLite calls `fsync` on the WAL. That single syscall is why **transaction throughput is bounded by your disk's fsync latency** — and why moving the WAL to a fast NVMe is the cheapest perf win in the database playbook."
           }
-        ]
+        ],
+        "takeaway": "A successful `write()` only means the page cache took the bytes — nothing survives a power cut until `fsync`."
       },
       {
         "heading": "Journaling — surviving a power cut mid-write",
@@ -1191,7 +1227,8 @@ export default {
               "Free-space accounting gets weird near full"
             ]
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Watch out for",
@@ -1235,6 +1272,11 @@ export default {
     ]
   },
   "py-variables": {
+    "objectives": [
+      "Explain a variable as a label pointing at a value — not a box containing it",
+      "Predict what a name points at after a chain of reassignments",
+      "Pick legal, readable variable names and spot the illegal ones"
+    ],
     "sections": [
       {
         "heading": "The idea",
@@ -1410,6 +1452,11 @@ export default {
     ]
   },
   "py-types": {
+    "objectives": [
+      "Name the type of any literal (`int`, `float`, `str`, `bool`) and what operations it allows",
+      "Spot type-confusion bugs like `'2' + 2` before running the code",
+      "Convert between types with `int()`, `float()`, `str()` — and predict when conversion fails"
+    ],
     "sections": [
       {
         "heading": "The three primitive families",
@@ -1615,6 +1662,12 @@ export default {
     ]
   },
   "py-strings": {
+    "objectives": [
+      "Format any value cleanly with an f-string",
+      "Slice any string with `[start:stop:step]` and predict the result",
+      "Explain why strings never change — and what every 'edit' really builds",
+      "Pick the right str method (`strip`, `split`, `join`, `replace`) for a cleanup job"
+    ],
     "sections": [
       {
         "heading": "Strings are immutable sequences",
@@ -1887,6 +1940,11 @@ export default {
     ]
   },
   "py-lists": {
+    "objectives": [
+      "Predict the cost of a list operation — append is cheap, front-insert is not",
+      "Spot aliasing bugs (two names, one list) and copy on purpose when you need to",
+      "Run the five everyday operations: index, append, pop, `in`, slice"
+    ],
     "cliffhanger": "So what happens when you need to pop from the front a million times — what data structure handles that?",
     "sections": [
       {
@@ -2110,6 +2168,11 @@ export default {
     ]
   },
   "py-conditionals": {
+    "objectives": [
+      "Predict which branch runs by evaluating truthiness — `if x` really asks `bool(x)`",
+      "Recite the short falsy list and classify any value as truthy or falsy",
+      "Use short-circuit `and`/`or` and the one-line ternary without surprises"
+    ],
     "sections": [
       {
         "heading": "Branching is just truthiness in disguise",
@@ -2320,6 +2383,11 @@ export default {
     ]
   },
   "py-loops": {
+    "objectives": [
+      "Choose `for` vs `while` by whether the collection already exists",
+      "Replace manual index bookkeeping with `enumerate` and `zip`",
+      "Steer a loop with `break`, `continue`, and the for/else clause"
+    ],
     "sections": [
       {
         "heading": "Two loops, one job",
@@ -2538,6 +2606,11 @@ export default {
     ]
   },
   "py-functions": {
+    "objectives": [
+      "Treat a function as a value — store it, pass it, return it",
+      "Read and write any signature: positional, defaults, `*args`, `**kwargs`, keyword-only",
+      "Spot and fix the mutable-default trap with a `None` sentinel"
+    ],
     "sections": [
       {
         "heading": "Functions are first-class — treat them that way",
@@ -2716,6 +2789,11 @@ export default {
     ]
   },
   "py-dicts": {
+    "objectives": [
+      "Use a dict for O(1) lookups and explain the hashable-key rule",
+      "Pick the right missing-key strategy: `get`, `setdefault`, or `defaultdict`",
+      "Build dicts from pairs, comprehensions, and `|` merges"
+    ],
     "sections": [
       {
         "heading": "Dictionaries are Python's hash table",

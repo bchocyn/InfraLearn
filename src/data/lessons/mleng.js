@@ -1,5 +1,10 @@
 export default {
   "math-linalg": {
+    "objectives": [
+      "Read `W @ x` as a transformation and predict output shapes with the rule `(B, in) @ (in, out) → (B, out)`",
+      "Use the dot product as an alignment measure and compute cosine similarity in NumPy",
+      "Explain rank, determinant, and eigenvectors geometrically — and why low rank is what makes LoRA work"
+    ],
     "sections": [
       {
         "heading": "Why linear algebra runs ML",
@@ -220,6 +225,11 @@ export default {
     ]
   },
   "math-calculus": {
+    "objectives": [
+      "Explain why SGD subtracts the gradient and what the learning rate `η` actually controls",
+      "Apply the chain rule to nested functions the way backprop does",
+      "Write a central-difference gradient check and use it to debug a hand-written backward pass"
+    ],
     "sections": [
       {
         "heading": "Derivatives are just slopes",
@@ -456,6 +466,11 @@ export default {
     ]
   },
   "math-probability": {
+    "objectives": [
+      "Run the Bayes arithmetic on a rare-event test and explain why 99% accuracy can mean a 9% posterior",
+      "Match the common distributions (Bernoulli, Categorical, Gaussian…) to where they appear in ML",
+      "Explain why training maximizes log-likelihood — and how MSE and cross-entropy are MLE in disguise"
+    ],
     "sections": [
       {
         "heading": "Probability is the language ML speaks",
@@ -633,6 +648,11 @@ export default {
     ]
   },
   "ai-transformers": {
+    "objectives": [
+      "Implement scaled dot-product attention in ~20 lines and explain what Q, K, and V each do",
+      "Justify the `√d_k` scaling and masking with `-inf` before softmax, not after",
+      "Predict how compute, memory, and KV cache scale with sequence length — and why doubling context 4×es attention cost"
+    ],
     "sections": [
       {
         "heading": "Attention is just weighted averaging",
@@ -867,6 +887,11 @@ export default {
     ]
   },
   "ai-embeddings": {
+    "objectives": [
+      "Compare embeddings with cosine similarity and explain why direction carries meaning, not magnitude",
+      "Pre-normalize vectors so similarity search collapses to one matrix multiply",
+      "Build a brute-force and a FAISS index and pick an embedding dimension a workload can afford"
+    ],
     "cliffhanger": "Two sentences mean the same thing but have different embeddings. Why — and how do you fix it?",
     "sections": [
       {
@@ -1089,6 +1114,11 @@ export default {
     ]
   },
   "ai-finetuning": {
+    "objectives": [
+      "Route a failing requirement to prompting, RAG, or fine-tuning based on what each one actually changes",
+      "Explain why facts belong in the index and behavior belongs in the weights",
+      "Design a stacked prompt + RAG + LoRA system for a support bot and defend the trade-offs"
+    ],
     "sections": [
       {
         "heading": "Three knobs, three failure modes",
@@ -1420,6 +1450,12 @@ export default {
     ]
   },
   "ai-evaluation": {
+    "objectives": [
+      "Split train/val/test without leakage — transforms fit on train only, test opened exactly once",
+      "Derive precision, recall, and F1 from a confusion matrix you built yourself",
+      "Pick PR-AUC over ROC-AUC on imbalanced data and explain why ROC flatters rare positives",
+      "Set a decision threshold from business costs and check calibration with a reliability diagram"
+    ],
     "sections": [
       {
         "heading": "Accuracy is a liar",
@@ -1637,6 +1673,11 @@ export default {
     ]
   },
   "ai-distributed-training": {
+    "objectives": [
+      "Compute why a 70B model needs ~840GB of training state and cannot fit on one 80GB GPU",
+      "Choose between data, tensor, and pipeline parallelism for a given model size",
+      "Explain what each ZeRO stage shards and when to reach for ZeRO-3 / FSDP"
+    ],
     "sections": [
       {
         "heading": "Why this is a hard problem",
@@ -1758,6 +1799,11 @@ export default {
     ]
   },
   "lab-numpy-mlp": {
+    "objectives": [
+      "Build a 2-layer MLP in raw NumPy that hits 95%+ test accuracy on MNIST",
+      "Derive the softmax + cross-entropy gradient `dz2 = probs − Y` on paper before coding it",
+      "Debug NaN losses and stuck accuracy from their symptoms — max-subtraction, sign errors, learning rate"
+    ],
     "sections": [
       {
         "heading": "Why hand-roll a network when PyTorch exists",
@@ -2001,6 +2047,11 @@ export default {
     ]
   },
   "lab-rag-pipeline": {
+    "objectives": [
+      "Stand up a chunk → embed → store → retrieve → rerank → generate pipeline on Postgres + pgvector",
+      "Enforce cite-or-refuse generation that returns JSON with citations from the retrieved set only",
+      "Build a 30-question eval set and move `recall@k` and `mrr` by tuning one knob at a time"
+    ],
     "sections": [
       {
         "heading": "Summary",
@@ -2201,6 +2252,11 @@ export default {
     ]
   },
   "lab-lora-finetune": {
+    "objectives": [
+      "Fine-tune a 4-bit 7B base model with a LoRA adapter on a single 24GB GPU",
+      "Configure `r`, `lora_alpha`, and `target_modules` — and explain how `α/r` scales the effective learning rate",
+      "Prove the tune worked with a before/after eval on held-out prompts written before training"
+    ],
     "sections": [
       {
         "heading": "Summary",
@@ -2429,6 +2485,11 @@ export default {
     ]
   },
   "ml-nn-fundamentals": {
+    "objectives": [
+      "Explain a neural net as matrix-multiply → squash → repeat, and why removing the squash collapses depth",
+      "Trace a forward pass through linear layers, ReLU, and softmax",
+      "Pick the right activation per layer and spot dying-ReLU symptoms"
+    ],
     "sections": [
       {
         "heading": "What a neural network actually is",
@@ -2662,6 +2723,11 @@ export default {
 
   // ─── ADVANCED APPLIED (mleng — first is gan-gen) ──────────────────────────
   "ml-applied-gan-gen": {
+    "objectives": [
+      "Explain the generator-vs-discriminator game and read its min-max objective",
+      "Name the classic GAN failure modes — mode collapse and a too-strong discriminator",
+      "Say when diffusion beats GANs and why it dominates modern image generation"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -2708,6 +2774,12 @@ export default {
 
   // ─── AGILE MINDSET (swe — first is what) ──────────────────────────────────
   "ml-nn-backprop": {
+    "objectives": [
+      "Trace one training round trip: forward to a scalar loss, backward to every weight",
+      "Apply `w -= η·∇L` and explain the minus sign and mini-batch SGD",
+      "Diagnose vanishing gradients, exploding gradients, and dead ReLUs from their symptoms",
+      "Use autodiff (`requires_grad`, `.backward()`) instead of hand-deriving gradients"
+    ],
     "sections": [
       {
         "heading": "Forward, then backward",
@@ -2942,6 +3014,11 @@ export default {
     ]
   },
   "ml-nn-embeddings": {
+    "objectives": [
+      "Explain an embedding table as a learned lookup shaped by the downstream task",
+      "Measure similarity with cosine or dot product — and say why not Euclidean",
+      "Spot embedding pitfalls before they ship: cold start, drift, inherited bias"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3030,6 +3107,11 @@ export default {
     ]
   },
   "ml-nn-cnn": {
+    "objectives": [
+      "Explain convolution as one shared filter sliding across the whole image",
+      "Read a conv → ReLU → pool block and track the spatial dimensions through it",
+      "Argue why weight sharing and local connectivity make CNNs parameter-efficient"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3110,6 +3192,11 @@ export default {
     ]
   },
   "ml-nn-transformers": {
+    "objectives": [
+      "Read `softmax(QKᵀ/√d_k)·V` and explain the role of each projection",
+      "Describe a transformer block: attention wrapped in residuals, layer norm, and a feed-forward net",
+      "Name the O(n²) cost and the positional-encoding requirement — and what breaks without each"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3190,6 +3277,11 @@ export default {
     ]
   },
   "ml-nn-llm-intro": {
+    "objectives": [
+      "Define an LLM as next-token prediction at scale — and what that does and doesn't buy you",
+      "Explain the three training stages: pretraining, SFT, preference tuning",
+      "List the production gotchas: hallucination, context limits, stale knowledge, prompt injection"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3279,6 +3371,12 @@ export default {
     ]
   },
   "ml-applied-rl": {
+    "objectives": [
+      "Frame a problem as an MDP: states, actions, rewards, discounted return",
+      "Read a Q-learning update and explain the TD error as surprise",
+      "Balance exploration vs exploitation and recognize reward hacking",
+      "Decide when RL is the wrong tool and supervised learning wins"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3364,6 +3462,11 @@ export default {
   },
   // Agile (swe) stubs
   "sd-gpu-memory-budget": {
+    "objectives": [
+      "Break training VRAM into its four buckets and estimate ~12N bytes for Adam in mixed precision",
+      "Use gradient accumulation to fake a large batch in small memory",
+      "Match each OOM flavor to the right lever — checkpointing, 8-bit Adam, ZeRO, or real parallelism"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3440,6 +3543,11 @@ export default {
     ]
   },
   "sd-parallelism-topologies": {
+    "objectives": [
+      "Distinguish data, pipeline, and tensor parallelism by what gets split",
+      "Estimate the pipeline bubble and shrink it with microbatches",
+      "Map each parallelism axis to the right interconnect: TP → NVLink, PP → InfiniBand, DP → Ethernet"
+    ],
     "sections": [
       {
         "heading": "The default bridge",
@@ -3540,6 +3648,11 @@ export default {
     ]
   },
   "sd-batch-size-lr-coupling": {
+    "objectives": [
+      "Apply the linear scaling rule when moving a run between batch sizes",
+      "Explain where the rule breaks — the critical batch size",
+      "Add LR warmup so large-batch training survives its first 1000 steps"
+    ],
     "sections": [
       {
         "heading": "The hidden coupling",
@@ -3623,6 +3736,11 @@ export default {
     ]
   },
   "sd-inference-vs-training-cost": {
+    "objectives": [
+      "Contrast the two cost shapes: training is bursty and compute-bound, inference runs forever and is latency-bound",
+      "Explain continuous batching and KV-cache paging — the two ideas training stacks don't have",
+      "Run the break-even arithmetic that shows lifetime inference out-costing training"
+    ],
     "sections": [
       {
         "heading": "The two cost shapes",
@@ -3710,6 +3828,11 @@ export default {
     ]
   },
   "mleng-llm-apis": {
+    "objectives": [
+      "Shape a production LLM request: `messages`, `system`, `temperature`, `max_tokens`",
+      "Decide streaming vs non-streaming and handle 429s with capped, jittered backoff",
+      "Cut the bill with prompt caching and difficulty-based model routing"
+    ],
     "sections": [
       {
         "heading": "LLM APIs in production",
@@ -3826,6 +3949,11 @@ export default {
     ]
   },
   "mleng-prompting": {
+    "objectives": [
+      "Split stable rules into the system prompt (cacheable) and variable input into user turns",
+      "Choose zero-shot, few-shot, or chain-of-thought by task type and token cost",
+      "Lock output to parseable JSON with a schema instruction plus 2-5 examples"
+    ],
     "sections": [
       {
         "heading": "Prompt engineering techniques",
@@ -3949,6 +4077,11 @@ export default {
     ]
   },
   "mleng-rag": {
+    "objectives": [
+      "Trace a question end-to-end: embed → search → top-k → stuff prompt → cited answer",
+      "Pick a chunking strategy and defend a top-k of 3-8 against 'more context is better'",
+      "Enforce inline citations so hallucinations stay auditable"
+    ],
     "sections": [
       {
         "heading": "RAG: retrieval-augmented generation",
@@ -4106,6 +4239,11 @@ export default {
     ]
   },
   "mleng-embeddings": {
+    "objectives": [
+      "Pin a distance metric that matches the embedding model — and never mix models in one index",
+      "Choose a vector DB and index type (HNSW vs IVF) for the workload",
+      "Know when to add BM25 because pure-dense retrieval whiffs on exact strings"
+    ],
     "sections": [
       {
         "heading": "Embeddings and vector search",
@@ -4191,6 +4329,11 @@ export default {
     ]
   },
   "mleng-tool-use": {
+    "objectives": [
+      "Write a tool schema whose description tells the model exactly when to call it",
+      "Run the agent loop until `stop_reason != tool_use` with a hard iteration cap",
+      "Feed errors back as tool results, and guard side-effecting tools behind a confirm step"
+    ],
     "sections": [
       {
         "heading": "Tool use and function calling",
@@ -4313,6 +4456,11 @@ export default {
     ]
   },
   "mleng-llm-eval": {
+    "objectives": [
+      "Build a 50-100 case golden set from the hardest, most ambiguous real cases",
+      "Prompt an LLM judge with a strict rubric at `temperature=0`",
+      "Catch per-case regressions on every prompt change instead of trusting the average"
+    ],
     "sections": [
       {
         "heading": "Evaluating LLM systems",
@@ -4419,6 +4567,11 @@ export default {
     ]
   },
   "mleng-cap-rag": {
+    "objectives": [
+      "Ship a two-file RAG app: `ingest.py` (chunk → embed → store) and `ask.py` (retrieve → grounded answer)",
+      "Ground the LLM so every answer cites its source file or says \"I don't know\"",
+      "Verify grounding with the refusal test and feel the top-k dial degrade an answer"
+    ],
     "sections": [
       {
         "heading": "What you're **shipping**",
@@ -4757,6 +4910,12 @@ export default {
     ]
   },
   "mleng-cap-evals": {
+    "objectives": [
+      "Design a 12+ question golden set in the answerable / multi-chunk / unanswerable mix",
+      "Measure retrieval with LLM-free hit-rate@k and MRR",
+      "Grade answers with a golden-referenced LLM judge that returns strict JSON",
+      "Localize a regression to retrieval or generation from two runs in `runs.jsonl`"
+    ],
     "sections": [
       {
         "heading": "The brief — no steps this time",
@@ -4939,6 +5098,12 @@ export default {
     ]
   },
   "mleng-cap-design": {
+    "objectives": [
+      "Design a 50K-ticket/day support AI on paper: architecture, models, freshness, rollout",
+      "Do the token arithmetic and pull the levers (cascade, caching, lazy drafting) that fit $3K/month",
+      "Gate risk with cite-or-refuse plus unconditional human routing for refunds and legal",
+      "Plan a shadow → canary → ramp rollout with one named halting metric"
+    ],
     "sections": [
       {
         "heading": "The brief — design it on **paper**",

@@ -1,8 +1,15 @@
 export default {
   "ci-cd": {
+    "objectives": [
+      "Trace a commit through the pipeline gates — lint → test → build → deploy — and say why each stage refuses to pass a red one",
+      "Tell CI, Continuous Delivery, and Continuous Deployment apart by who pulls the release lever",
+      "Read a real GitHub Actions workflow and spot the branch gate, the `needs:` chain, and the layer cache",
+      "Pick a deployment strategy (rolling, blue-green, canary) by rollback budget, not ambition"
+    ],
     "sections": [
       {
         "heading": "The factory line",
+        "takeaway": "A pipeline exists to force every change through the same gauntlet, so the version on prod was never touched by human hands.",
         "body": [
           {
             "type": "p",
@@ -96,6 +103,7 @@ export default {
       },
       {
         "heading": "CI vs Delivery vs Deployment",
+        "takeaway": "CI, Delivery, and Deployment differ only in who pulls the release lever at the end — a human or the pipeline.",
         "body": [
           {
             "type": "p",
@@ -192,6 +200,7 @@ export default {
       },
       {
         "heading": "Deployment strategies",
+        "takeaway": "Pick the strategy that matches your rollback budget: canary caps the blast radius, blue-green flips everyone at once but rolls back in seconds.",
         "body": [
           {
             "type": "p",
@@ -365,6 +374,12 @@ export default {
     ]
   },
   "yaml-basics": {
+    "objectives": [
+      "Read any YAML file as three shapes — scalars, lists, and maps — nested by indentation",
+      "Spot the type-coercion traps (`NO`, `1.10`, `off`) and kill them by quoting",
+      "Pick between `|`, `>`, `|-`, and `>-` for multiline strings on purpose",
+      "Assemble a valid two-service `docker-compose.yml` from scratch"
+    ],
     "sections": [
       {
         "heading": "Why you keep seeing YAML",
@@ -390,6 +405,7 @@ export default {
       },
       {
         "heading": "The three shapes",
+        "takeaway": "Everything in YAML is scalars, lists, and maps — nesting them by indentation is the whole language.",
         "body": [
           {
             "type": "p",
@@ -408,6 +424,7 @@ export default {
       },
       {
         "heading": "Indentation IS the syntax",
+        "takeaway": "Indentation is structure, not style: spaces only, two per level, or the file silently re-parents your keys.",
         "body": [
           {
             "type": "p",
@@ -437,6 +454,7 @@ export default {
       },
       {
         "heading": "Types and the traps",
+        "takeaway": "When a value must stay text — versions, country codes, anything yes/no-ish — quote it and the type-guessing stops.",
         "body": [
           {
             "type": "p",
@@ -504,6 +522,7 @@ export default {
       },
       {
         "heading": "Anchors & aliases (don't repeat yourself)",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -592,9 +611,16 @@ export default {
     ]
   },
   "health-watchdog": {
+    "objectives": [
+      "Poll a fleet of `/healthz` endpoints concurrently with hard timeouts",
+      "Compute rolling p50/p99 latency over a ring buffer without racing the live data",
+      "Wire a healthy → degraded → down state machine with hysteresis so a single blip never pages",
+      "Alert on state transitions only — one Slack message per flip, not ten thousand"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "The hard part isn't the polling — it's the state machine plus percentiles over a rolling window, so you page on trends, not blips.",
         "body": [
           {
             "type": "p",
@@ -733,6 +759,7 @@ export default {
       },
       {
         "heading": "The heart of it: poll + percentile + flip",
+        "takeaway": "Copy-then-sort the sample window and notify only when `old != new` — those two lines are what keep alerts correct and quiet.",
         "body": [
           {
             "type": "p",
@@ -793,9 +820,16 @@ export default {
     ]
   },
   "hardened-container": {
+    "objectives": [
+      "Build a distroless, non-root container from a multi-stage Dockerfile pinned by digest",
+      "Wire a Trivy CVE scan into the build and fail on HIGH/CRITICAL",
+      "Generate an SBOM with `syft` and attach it to the image as an OCI artifact",
+      "Sign keyless with `cosign` and verify the whole chain before deploy"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "Most prod CVEs live in the base image, not your code — strip to distroless and you delete whole CVE classes before they exist.",
         "body": [
           {
             "type": "p",
@@ -937,6 +971,7 @@ export default {
       },
       {
         "heading": "The Dockerfile that earns the badge",
+        "takeaway": "Fat builder stage, tiny distroless final stage, everything pinned by digest and owned by UID 65532 — that's the whole hardening recipe.",
         "body": [
           {
             "type": "code",
@@ -989,9 +1024,16 @@ export default {
     ]
   },
   "cicd-rollback": {
+    "objectives": [
+      "Tag every deploy with an immutable commit SHA — never `latest`",
+      "Gate promotion behind a smoke test that hits a real endpoint, not just `/healthz`",
+      "Roll back to the previous known-good image with one command and no rebuild",
+      "Keep an auditable `deploys.log` that rollback reads its target from"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "Rollback is a metadata flip to a previous SHA-tagged image — seconds, no rebuild, no panic.",
         "body": [
           {
             "type": "p",
@@ -1134,6 +1176,7 @@ export default {
       },
       {
         "heading": "Deploy script — the heart of it",
+        "takeaway": "Start the new version side-by-side, smoke-test it, and only append the SHA to the log after promotion succeeds — that log is what rollback reads.",
         "body": [
           {
             "type": "code",
@@ -1181,9 +1224,16 @@ export default {
     ]
   },
   "k8s-lab": {
+    "objectives": [
+      "Deploy an app to a local cluster with a Deployment, Service, and Ingress",
+      "Wire readiness and liveness probes so traffic only reaches pods that can serve",
+      "Prove a zero-downtime rolling update (`maxSurge: 1`, `maxUnavailable: 0`) under live load",
+      "Break it on purpose and watch the failed requests appear — so you know what saved you"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "Readiness probes are the whole trick — the Service routes only to pods that pass them, so a rolling update never drops a request.",
         "body": [
           {
             "type": "reveal",
@@ -1324,6 +1374,7 @@ export default {
       },
       {
         "heading": "Deployment + Service + Ingress",
+        "takeaway": "The lines that matter are the probe ports, the RollingUpdate budget, and the ingress class — everything else is boilerplate.",
         "body": [
           {
             "type": "p",
@@ -1397,9 +1448,16 @@ export default {
     ]
   },
   "compose-stack": {
+    "objectives": [
+      "Wire a web app, Postgres, and Redis into one `docker-compose.yml` that boots with a single command",
+      "Gate startup order with healthchecks plus `depends_on: { condition: service_healthy }`",
+      "Persist data across restarts with a named volume and keep secrets out of the YAML via `.env`",
+      "Connect services by service name (`db:5432`), never `localhost`"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "One command brings the whole stack up — the YAML is the contract that kills 'works on my machine'.",
         "body": [
           { "type": "p", "text": "Build a small web app that depends on Postgres (data) and Redis (cache), all running together via Docker Compose. **One command brings the whole stack up.** This is what every backend developer touches in their first week at a job — wiring services together, getting them to find each other, and tearing them down cleanly when you're done." },
           {
@@ -1435,6 +1493,7 @@ export default {
       },
       {
         "heading": "The compose file",
+        "takeaway": "`depends_on` only waits for readiness when the dependency defines a healthcheck and you ask for `service_healthy` — otherwise it just waits for start.",
         "body": [
           { "type": "p", "text": "The single source of truth for the whole stack. Read it top to bottom — every block is one service:" },
           { "type": "p", "text": "**The `api` service** — built from a local Dockerfile, waits on the data services until their healthchecks pass." },

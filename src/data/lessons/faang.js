@@ -1,5 +1,11 @@
 export default {
   "time-clocks": {
+    "objectives": [
+      "Pick the right clock: monotonic for timeouts and durations, wall clock only for human-facing timestamps",
+      "Order events across nodes with a Lamport clock and explain why it gives only a partial order",
+      "Detect truly concurrent writes with vector clocks and say what HLC buys over both",
+      "Name the NTP and leap-second failure modes that break naive `time.time()` comparisons"
+    ],
     "sections": [
       {
         "heading": "Time is a lie distributed systems tell themselves",
@@ -16,6 +22,7 @@ export default {
       },
       {
         "heading": "Wall clock vs monotonic clock",
+        "takeaway": "Monotonic for durations and timeouts, wall clock only for human-facing timestamps — mixing them is the #1 'my retry fired twice' bug.",
         "body": [
           {
             "type": "p",
@@ -34,6 +41,7 @@ export default {
       },
       {
         "heading": "NTP and leap seconds — the wall-clock gremlins",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -128,6 +136,7 @@ export default {
       },
       {
         "heading": "Vector clocks and HLC — knowing what is concurrent",
+        "takeaway": "When neither vector dominates, the writes are truly concurrent — that's a conflict no wall clock or Lamport counter can detect.",
         "body": [
           {
             "type": "p",
@@ -267,9 +276,15 @@ export default {
     ]
   },
   "consistency-models": {
+    "objectives": [
+      "Place linearizable, causal, read-your-writes, and eventual on the cost spectrum and say what each buys",
+      "Assign a consistency level per field — balance vs like count vs 'your post is live' — instead of per database",
+      "Implement read-your-writes with a sticky window sized to 2× your p99 replication lag"
+    ],
     "sections": [
       {
         "heading": "Consistency is a dial, not a setting",
+        "takeaway": "Pick the weakest model your use case tolerates — the mistake isn't picking eventual, it's picking eventual for the wrong field.",
         "body": [
           {
             "type": "p",
@@ -513,6 +528,7 @@ export default {
       },
       {
         "heading": "When it matters",
+        "takeaway": "Consistency is per-field, not per-database — the same Postgres can serve a linearizable balance and an eventually-consistent like count.",
         "body": [
           {
             "type": "pros-cons",
@@ -556,6 +572,11 @@ export default {
     ]
   },
   "distributed-txns": {
+    "objectives": [
+      "Choose between 2PC and sagas for a cross-service workflow and defend the trade-off out loud",
+      "Design a saga whose irreversible steps (email, shipment) run last, after every compensable step",
+      "Make retries safe with idempotency keys and make 'commit + publish' atomic with the outbox pattern"
+    ],
     "sections": [
       {
         "heading": "The problem with distributed state",
@@ -572,6 +593,7 @@ export default {
       },
       {
         "heading": "Two-phase commit (2PC)",
+        "takeaway": "2PC's killer flaw: a coordinator crash after the votes leaves every participant blocked, holding locks forever.",
         "body": [
           {
             "type": "p",
@@ -662,6 +684,7 @@ export default {
       },
       {
         "heading": "Sagas: trade atomicity for liveness",
+        "takeaway": "A saga trades all-or-nothing isolation for liveness — compensations are new facts, not rollbacks, and readers can briefly see intermediate state.",
         "body": [
           {
             "type": "p",
@@ -702,6 +725,7 @@ export default {
       },
       {
         "heading": "Idempotency keys and the Outbox",
+        "takeaway": "Write the event to an outbox row in the same DB transaction as the data — that's the only atomic 'commit AND publish'.",
         "body": [
           {
             "type": "p",
@@ -777,9 +801,15 @@ export default {
     ]
   },
   "star-framework": {
+    "objectives": [
+      "Structure any behavioral answer as Situation → Task → Action → Result without reciting the labels",
+      "Spend ~60% of the answer on first-person Actions with concrete verbs and defensible numbers",
+      "End on a measurable Result — immediate, durable, and compounding if you have all three"
+    ],
     "sections": [
       {
         "heading": "Why STAR exists",
+        "takeaway": "STAR is scaffolding, not a script — if you can't privately label each sentence S/T/A/R, a piece is missing.",
         "body": [
           {
             "type": "p",
@@ -819,6 +849,7 @@ export default {
       },
       {
         "heading": "Strong vs weak signal",
+        "takeaway": "Specific numbers, first person, concrete verbs — weak answers drift into 'we' and abstractions.",
         "body": [
           {
             "type": "compare",
@@ -891,6 +922,11 @@ export default {
     ]
   },
   "interview-loop": {
+    "objectives": [
+      "Walk the FAANG pipeline — recruiter screen, tech screen, onsite, debrief — and name what each stage filters for",
+      "Explain why the debrief is a consensus vote where one detailed detractor beats three vague positives",
+      "Treat rounds as independent: reset after a bad one instead of carrying the spiral forward"
+    ],
     "sections": [
       {
         "heading": "The loop, demystified",
@@ -995,6 +1031,7 @@ export default {
       },
       {
         "heading": "What each round actually tests",
+        "takeaway": "The bar raiser is a senior from a different org whose only job is to say no — they can veto five strong-hires.",
         "body": [
           {
             "type": "table",
@@ -1044,6 +1081,7 @@ export default {
       },
       {
         "heading": "The scoring math",
+        "takeaway": "The debrief is a consensus, not an average — one strong-no-hire or two lean-no-hires usually kills the offer.",
         "body": [
           {
             "type": "p",
@@ -1103,6 +1141,11 @@ export default {
     ]
   },
   "cloudflare-dns": {
+    "objectives": [
+      "Explain how anycast advertises one IP from 300+ POPs and why that beats the ISP-resolver path",
+      "Compare 1.1.1.1 and 8.8.8.8 on the ECS trade: CDN routing speed vs subnet privacy",
+      "Measure resolver latency yourself with `dig +stats` and a DoH `curl`"
+    ],
     "sections": [
       {
         "heading": "The race nobody expected Cloudflare to win",
@@ -1119,6 +1162,7 @@ export default {
       },
       {
         "heading": "Traditional DNS vs Cloudflare's anycast path",
+        "takeaway": "Anycast advertises the same IP from 300+ POPs, so BGP lands you on a cache usually within 10ms — geography is the speed trick.",
         "body": [
           {
             "type": "p",
@@ -1256,6 +1300,7 @@ export default {
       },
       {
         "heading": "What surprised them in production",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -1286,6 +1331,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Picking a resolver is picking a trade-off: ECS routing speed (Google) vs query privacy (Cloudflare) — both correct, for different threat models.",
         "body": [
           {
             "type": "quote",
@@ -1301,6 +1347,11 @@ export default {
     ]
   },
   "discord-cassandra": {
+    "objectives": [
+      "Explain why chat's scroll-back access pattern breaks MongoDB's hot working set",
+      "Map `(channel_id, message_id)` onto Cassandra's partition-key + clustering-key model",
+      "Run a zero-downtime migration in four phases: dual-write, backfill, dual-read, cutover"
+    ],
     "sections": [
       {
         "heading": "The original system",
@@ -1317,6 +1368,7 @@ export default {
       },
       {
         "heading": "The breaking point",
+        "takeaway": "One @everyone ping forced cold reads that evicted the hot working set — a single event could spike latency across the whole database.",
         "body": [
           {
             "type": "p",
@@ -1356,6 +1408,7 @@ export default {
       },
       {
         "heading": "The migration",
+        "takeaway": "Dual-write, backfill, dual-read, cutover — each phase catches bugs before reads ever depend on the new store.",
         "body": [
           {
             "type": "p",
@@ -1379,6 +1432,11 @@ export default {
     ]
   },
   "aws-s3-outage": {
+    "objectives": [
+      "Trace how one typo'd command cascaded into a 4-hour S3 outage that broke half the internet",
+      "List the postmortem fixes: rate-limited tooling, exercised partitions, an S3-independent status page, restart drills",
+      "Explain why the real lesson is dependency design, not S3 durability"
+    ],
     "sections": [
       {
         "heading": "What happened",
@@ -1408,6 +1466,7 @@ export default {
       },
       {
         "heading": "What we learned (the official postmortem)",
+        "takeaway": "Guard powerful commands with minimum increments and rate limits — one operator should never be able to take down that much.",
         "body": [
           {
             "type": "p",
@@ -1426,6 +1485,7 @@ export default {
       },
       {
         "heading": "The deeper lesson",
+        "takeaway": "The problem wasn't S3's 11-nines durability — it was thousands of services treating S3 like a local filesystem.",
         "body": [
           {
             "type": "p",
@@ -1440,9 +1500,15 @@ export default {
     ]
   },
   "netflix-chaos": {
+    "objectives": [
+      "Explain why Netflix kills instances in production during business hours on purpose",
+      "Describe how Chaos Kong proves an entire AWS region can vanish without users noticing",
+      "State the cultural shift chaos engineering forces: from 'don't fail' to 'fail gracefully'"
+    ],
     "sections": [
       {
         "heading": "The intuition",
+        "takeaway": "Failures are inevitable — forcing them at 2pm on a Tuesday means the system MUST be built to survive them.",
         "body": [
           {
             "type": "p",
@@ -1469,6 +1535,7 @@ export default {
       },
       {
         "heading": "The cultural shift",
+        "takeaway": "The tools didn't change reliability — making unhandled failure impossible to ship did.",
         "body": [
           {
             "type": "p",

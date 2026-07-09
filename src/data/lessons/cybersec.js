@@ -1,8 +1,15 @@
 export default {
   "sec-cia-triad": {
+    "objectives": [
+      "Map any security control to the CIA leg it protects (confidentiality, integrity, or availability)",
+      "Run a STRIDE pass over a component and name a concrete threat for each of the six categories",
+      "Threat-model a component start-to-finish: attacker → asset → STRIDE → control",
+      "Justify one security trade-off you consciously accept by naming which attacker you underspend on"
+    ],
     "sections": [
       {
         "heading": "The only three things you protect",
+        "takeaway": "Every security control defends confidentiality, integrity, or availability — if a control maps to none of the three, it protects nothing.",
         "body": [
           {
             "type": "p",
@@ -41,6 +48,7 @@ export default {
       },
       {
         "heading": "Who attacks you, and what do they want?",
+        "takeaway": "Threat modeling starts from the attacker, not the asset: name who's after you and it decides which controls are worth the money.",
         "body": [
           {
             "type": "p",
@@ -106,9 +114,16 @@ export default {
     ]
   },
   "sec-authn-vs-authz": {
+    "objectives": [
+      "Separate authentication (`who are you?`) from authorization (`are you allowed?`) in a request path",
+      "Spot an IDOR: a missing server-side ownership check that hands one user another's data",
+      "Wire authn and authz as distinct layers, running authz on every request rather than once at login",
+      "Return the right status: `401` for unknown identity, `403` for known-but-forbidden"
+    ],
     "sections": [
       {
         "heading": "Two questions, never confuse them",
+        "takeaway": "Authentication proves who you are; authorization decides what you may do — a valid session is never a permission slip.",
         "body": [
           {
             "type": "p",
@@ -183,6 +198,7 @@ export default {
       },
       {
         "heading": "Where teams trip",
+        "takeaway": "Broken access control is OWASP #1 because apps authenticate perfectly then let any logged-in user hit any URL — check ownership server-side on every mutation.",
         "body": [
           {
             "type": "p",
@@ -228,9 +244,16 @@ export default {
     ]
   },
   "sec-crypto-basics": {
+    "objectives": [
+      "Pick the right crypto family for a job: hashing, symmetric, or asymmetric",
+      "Explain why passwords need a slow salted KDF (bcrypt/Argon2id), not a plain hash",
+      "Trace the TLS 1.3 handshake and where the shared session key gets derived without crossing the wire",
+      "Name the crypto anti-patterns that break systems: rolling your own, MD5/SHA-1, nonce reuse in GCM"
+    ],
     "sections": [
       {
         "heading": "Three families, three jobs",
+        "takeaway": "Hashing, symmetric, and asymmetric each do a different job — modern systems use all three together, so pick by the job, not the buzzword.",
         "body": [
           {
             "type": "p",
@@ -244,6 +267,7 @@ export default {
       },
       {
         "heading": "The crypto cheat sheet",
+        "takeaway": "Passwords are low-entropy — never plain-hash them; use a slow salted KDF (bcrypt cost ≥12 or Argon2id).",
         "body": [
           {
             "type": "terms",
@@ -384,9 +408,16 @@ export default {
     ]
   },
   "sec-owasp-top-10": {
+    "objectives": [
+      "Recall the OWASP Top 10 categories and name the primary defense for each",
+      "Apply the `default secure` mindset: validate every input path, deny-default every action",
+      "Fix injection by treating untrusted input as data via parameterization, never string-concat",
+      "Choose validation at the input gate and authorization at the action gate as separate deny-default checks"
+    ],
     "sections": [
       {
         "heading": "Ten ways your app is already broken",
+        "takeaway": "The OWASP Top 10 is the ten breach classes that recur every year — if you can't say how you defend each, your app ships with known pre-installed exploits.",
         "body": [
           {
             "type": "p",
@@ -439,6 +470,7 @@ export default {
       },
       {
         "heading": "Injection is still champion",
+        "takeaway": "Every injection family has one fix: treat untrusted input as data, never code, via the driver's parameterization primitive.",
         "body": [
           {
             "type": "p",
@@ -492,9 +524,16 @@ export default {
     ]
   },
   "sec-secrets-mgmt": {
+    "objectives": [
+      "React to a leaked secret correctly: rotate first, investigate after, and assume it's already scraped",
+      "Store secrets in a KMS → vault → app hierarchy instead of in git or container images",
+      "Run a zero-downtime rotation using the dual-accept overlap window (issue → dual-accept → cut over)",
+      "Generate CSPRNG-backed tokens with `openssl rand` rather than a language RNG"
+    ],
     "sections": [
       {
         "heading": "A secret in git is forever",
+        "takeaway": "Git history is append-only and forever, so a secret pushed even briefly must be rotated immediately and treated as leaked.",
         "body": [
           {
             "type": "p",
@@ -508,6 +547,7 @@ export default {
       },
       {
         "heading": "Where to put them instead",
+        "takeaway": "Use a hierarchy: a KMS holds root keys, a vault holds app secrets encrypted by KMS, and apps fetch over short-lived tokens — never logging the value.",
         "body": [
           {
             "type": "table",
@@ -640,9 +680,16 @@ export default {
     ]
   },
   "sec-defense-in-depth": {
+    "objectives": [
+      "Design controls in layers (network → host → app → data) so no single control is the whole breach",
+      "Adopt an `assume breach` posture that limits blast radius and generates detectable signal",
+      "Write deny-default Kubernetes NetworkPolicies: deny-all, narrow ingress, DB-only egress",
+      "Tell real depth from anti-patterns that only look like security (one firewall, a flat network, VPN-only authn)"
+    ],
     "sections": [
       {
         "heading": "Onion architecture for security",
+        "takeaway": "Defense in depth means every layer must be defeated to reach the data, so each breach buys time and visibility instead of instant loss.",
         "body": [
           {
             "type": "p",
@@ -656,6 +703,7 @@ export default {
       },
       {
         "heading": "Layers, controls, and what they cost",
+        "takeaway": "Least privilege at every layer keeps the blast radius of one compromised credential to 'one row, one service, one minute' instead of the whole database.",
         "body": [
           {
             "type": "diagram",
@@ -773,9 +821,16 @@ export default {
     ]
   },
   "sec-sqli": {
+    "objectives": [
+      "Explain why `1' OR 1=1--` bypasses auth when input is concatenated into a query string",
+      "Distinguish classical, blind, and second-order SQL injection by how the response behaves",
+      "Rewrite a vulnerable query as a parameterized one, and whitelist identifiers where placeholders can't go",
+      "Audit ORM escape hatches (`raw()`, `.extra()`, f-string cursors) as hand-rolled SQL"
+    ],
     "sections": [
       {
         "heading": "The string-concat that ate your database",
+        "takeaway": "SQL injection is always input crossing the code/data boundary — the quote closes the literal, `OR 1=1` makes WHERE true, `--` comments out the rest.",
         "body": [
           {
             "type": "p",
@@ -789,6 +844,7 @@ export default {
       },
       {
         "heading": "Vulnerable vs parameterized — the only real fix",
+        "takeaway": "Parameterized queries send SQL and arguments separately, so bound values never reach the parser as code — that's the one real fix.",
         "body": [
           {
             "type": "walkthrough",
@@ -890,9 +946,16 @@ export default {
     ]
   },
   "sec-xss": {
+    "objectives": [
+      "Distinguish reflected, stored, and DOM-based XSS by where the payload lives and fires",
+      "Encode output for its destination context (HTML body, attribute, JS string, URL) rather than sanitizing input",
+      "Fix a vulnerable sink by choosing `textContent`/auto-escaping over `innerHTML`/`dangerouslySetInnerHTML`",
+      "Add a strict CSP as defense-in-depth so a missed encoding doesn't become code execution"
+    ],
     "sections": [
       {
         "heading": "Three XSS flavors, one root cause",
+        "takeaway": "All XSS is untrusted text written into a context that runs it — one model, 'encode for the destination, not the source', beats every regex blocklist.",
         "body": [
           {
             "type": "p",
@@ -906,6 +969,7 @@ export default {
       },
       {
         "heading": "Encoding by context",
+        "takeaway": "The same string is safe in one context and a payload in another — HTML, attributes, JS, and URLs each need their own encoder.",
         "body": [
           {
             "type": "diagram",
@@ -978,9 +1042,16 @@ export default {
     ]
   },
   "sec-csrf": {
+    "objectives": [
+      "Explain how CSRF abuses the browser auto-attaching cookies to cross-site requests",
+      "Pick the right `SameSite` value (Strict / Lax / None) for a given cookie",
+      "Defend a state-changing endpoint with the synchronizer-token / double-submit pattern",
+      "Distinguish what CORS protects (reading responses) from what SameSite protects (sending requests)"
+    ],
     "sections": [
       {
         "heading": "Why your browser is too helpful",
+        "takeaway": "CSRF works because the browser attaches your cookies to requests other sites trigger — the attacker never sees the response, the side effect already happened.",
         "body": [
           {
             "type": "p",
@@ -994,6 +1065,7 @@ export default {
       },
       {
         "heading": "SameSite values + the synchronizer token pattern",
+        "takeaway": "SameSite=Lax cookies plus a per-session CSRF token on every state-changing endpoint is the durable fix; bearer-token auth sidesteps CSRF entirely.",
         "body": [
           {
             "type": "diagram",
@@ -1066,9 +1138,16 @@ export default {
     ]
   },
   "sec-ssrf": {
+    "objectives": [
+      "Recognize every server-side URL fetch (webhook, image proxy, OG preview) as a potential SSRF portal",
+      "Trace the Capital One metadata-theft chain: attacker URL → blind fetch → `169.254.169.254` → IAM creds",
+      "Defend a fetcher by resolving the host once, rejecting internal IPs, then connecting to the resolved IP",
+      "Enforce IMDSv2 with `hop-limit=1` so metadata theft fails even when SSRF lands"
+    ],
     "sections": [
       {
         "heading": "Your image fetcher is a backdoor",
+        "takeaway": "Any endpoint that fetches a user-supplied URL can reach your internal network — the attacker just needs a hostname that resolves to something internal.",
         "body": [
           {
             "type": "p",
@@ -1082,6 +1161,7 @@ export default {
       },
       {
         "heading": "Allowlist, allowlist, allowlist",
+        "takeaway": "Resolve the host once, refuse internal IP ranges, then connect to that exact IP — the only defense that also beats DNS rebinding.",
         "body": [
           {
             "type": "walkthrough",
@@ -1218,9 +1298,16 @@ export default {
     ]
   },
   "sec-secure-coding": {
+    "objectives": [
+      "Apply the four secure-coding habits: validate at the boundary, encode at render, least privilege, fail closed",
+      "Parse untrusted input into a typed model instead of sanitizing it by stripping characters",
+      "Recognize concentric trust boundaries — internal services and persisted data lie too, so re-verify",
+      "Spot the fail-open anti-pattern where an error returns success and hides a silent data loss"
+    ],
     "sections": [
       {
         "heading": "Four patterns, one mindset",
+        "takeaway": "Secure coding is four habits at every layer: parse-don't-sanitize at the boundary, encode per-context at render, default to least privilege, and fail closed.",
         "body": [
           {
             "type": "p",
@@ -1234,6 +1321,7 @@ export default {
       },
       {
         "heading": "Parse, don't sanitize — and other rules",
+        "takeaway": "Parsing has a type; sanitization has a vibe — turn input into a typed domain object at the edge and let inner layers work on trusted data.",
         "body": [
           {
             "type": "diagram",
@@ -1328,9 +1416,16 @@ export default {
     ]
   },
   "sec-dependency-vulns": {
+    "objectives": [
+      "Explain why the transitive dependency, not the direct one, is the real supply-chain risk",
+      "Use a committed lockfile + `npm ci` / `--require-hashes` to install byte-for-byte identical graphs",
+      "Gate CI on a CVE scan and generate an SBOM you can query when the next CVE drops",
+      "Trace a transitive CVE to its dependency path and force-bump it via overrides"
+    ],
     "sections": [
       {
         "heading": "Your code is 3% yours",
+        "takeaway": "You ship far more vendor code than your own, and the un-audited transitive dependency is where supply-chain attacks actually land.",
         "body": [
           {
             "type": "p",
@@ -1344,6 +1439,7 @@ export default {
       },
       {
         "heading": "Lockfiles, hashes, and SBOMs",
+        "takeaway": "A lockfile pins every package to one version and hash so `npm ci` installs the exact same graph every time — without it, tomorrow's build pulls different bytes.",
         "body": [
           {
             "type": "walkthrough",
@@ -1467,9 +1563,16 @@ export default {
     ]
   },
   "sec-iam-hardening": {
+    "objectives": [
+      "Explain why over-permissioned roles, not zero-days, cause most cloud breaches",
+      "Rewrite a wildcard `s3:*` on `*` policy to scoped verbs, exact ARNs, and conditions",
+      "Add an explicit `Deny` that survives future `Allow` statements, plus TLS/VPC-endpoint conditions",
+      "Use Access Analyzer / Access Advisor to trim unused permissions and prefer short-lived credentials"
+    ],
     "sections": [
       {
         "heading": "Wildcards are how clouds get owned",
+        "takeaway": "Every `Action: \"*\"` and `Resource: \"*\"` is a future incident waiting on one leaked credential — scope to the exact verb on the exact ARN.",
         "body": [
           {
             "type": "p",

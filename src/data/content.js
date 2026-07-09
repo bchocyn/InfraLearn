@@ -34,6 +34,8 @@ export const BACKGROUNDS = [
 //                                     the relevant entries.
 export const PATHS = {
   fundamentals: {
+    // "By the end you can …" — shown on the un-started trail's preview card.
+    outcomes: ["Write and debug small Python programs — variables, functions, dicts — without copying from a tutorial","Drive a terminal and git like daily tools: navigate, search with grep, branch, commit, resolve a merge","Explain what actually happens between typing a URL and seeing a page (DNS → TCP → TLS → HTTP)","Ship your first complete tool: a CLI task tracker built by you, with tests"],
     name: 'Fundamentals', icon: '◆',
     desc: 'The bedrock every engineer stands on — programming, data structures, and how computers actually work.',
     lessons: [
@@ -177,6 +179,8 @@ export const PATHS = {
     ],
   },
   devops: {
+    // "By the end you can …" — shown on the un-started trail's preview card.
+    outcomes: ["Containerize a real service and explain what a container actually is (namespaces + cgroups, not magic)","Build a CI/CD pipeline that gates on tests and rolls back a bad deploy","Deploy to Kubernetes with health checks, and debug it when a pod won't start","Set up monitoring that pages on symptoms, not noise"],
     name: 'DevOps', icon: '🛠',
     desc: 'Ship and run software reliably — containers, CI/CD, cloud infrastructure, and keeping systems alive at scale.',
     lessons: [
@@ -262,6 +266,8 @@ export const PATHS = {
     ],
   },
   mlops: {
+    // "By the end you can …" — shown on the un-started trail's preview card.
+    outcomes: ["Frame a business wish as a measurable prediction task with the right metric","Take a model from notebook to production API — containerized, versioned, monitored for drift","Explain training/serving skew and design a feature pipeline that prevents it","Run an honest A/B test on a model change and know when to ship it"],
     name: 'MLOps', icon: '🧠',
     desc: 'Put machine learning into production — model serving, pipelines, monitoring, and the data infrastructure behind it.',
     lessons: [
@@ -402,6 +408,8 @@ export const PATHS = {
     ],
   },
   swe: {
+    // "By the end you can …" — shown on the un-started trail's preview card.
+    outcomes: ["Reason about time complexity and pick the right data structure before writing a loop","Design REST APIs with real-world guardrails: idempotency, rate limiting, caching","Write SQL joins and indexes that stay fast at a million rows","Practice TDD end to end: red, green, refactor — and ship a tested library"],
     name: 'SWE', icon: '⌨',
     desc: 'The craft of building software — clean code, systems design, and the day-to-day of a working software engineer.',
     lessons: [
@@ -529,6 +537,8 @@ export const PATHS = {
     ],
   },
   mleng: {
+    // "By the end you can …" — shown on the un-started trail's preview card.
+    outcomes: ["Explain how transformers, embeddings and attention actually work — beneath the API calls","Build a RAG application end to end: embed, retrieve, ground, cite","Choose between prompting, RAG and fine-tuning for a real requirement, and defend it","Design evaluation harnesses so your LLM features improve on evidence, not vibes"],
     name: 'ML Eng', icon: '⚙',
     desc: 'Build the models themselves — training, fine-tuning, evaluation, and the math that powers modern AI.',
     lessons: [
@@ -612,6 +622,8 @@ export const PATHS = {
     ],
   },
   faang: {
+    // "By the end you can …" — shown on the un-started trail's preview card.
+    outcomes: ["Run a system design interview like a senior: requirements → estimates → API → architecture → deep-dive","Reason about distributed systems failures: clocks, consistency, partitions, retries","Design caching, sharding and rate-limiting layers and defend the trade-offs","Learn from real architectures — how Discord, Netflix and GitHub actually scaled"],
     name: 'FAANG', icon: '◈',
     desc: 'Crack the big-tech interview — algorithms, data structures, and system design under real pressure.',
     lessons: [
@@ -652,6 +664,8 @@ export const PATHS = {
     ],
   },
   fullstack: {
+    // "By the end you can …" — shown on the un-started trail's preview card.
+    outcomes: ["Build a complete web app: Express API, SQL database, and a frontend that talks to both","Implement auth the right way: hashed passwords, sessions, and routes that fail closed","Make it fast and observable: caching, monitoring, and deploys that don't require prayer","Architect a multi-tenant SaaS and defend the isolation model in a design review"],
     name: 'Full Stack', icon: '⌘',
     desc: 'End-to-end product engineering — front-end, back-end, databases, and shipping whole features yourself.',
     lessons: [
@@ -772,6 +786,8 @@ export const PATHS = {
     ],
   },
   cybersec: {
+    // "By the end you can …" — shown on the un-started trail's preview card.
+    outcomes: ["Threat-model any system: attacker → asset → STRIDE → control, plus the trade-off you accept","Find and fix the classic web vulnerabilities: injection, XSS, CSRF, SSRF","Handle secrets, keys and TLS like they're production-critical — because they are","Respond to an incident in the right order: detect, contain, eradicate, recover, learn"],
     name: 'Cybersecurity', icon: '▣',
     desc: 'Defend systems and break them ethically — threats, hardening, supply-chain security, and secure-by-design.',
     lessons: [
