@@ -2999,6 +2999,11 @@ export default {
     ]
   },
   "cli-navigate": {
+    "objectives": [
+      "Anchor with `pwd`, look with `ls -la`, and move with `cd` — including `cd -` to toggle back",
+      "Pick between absolute, relative, `~`, and `..` paths and predict exactly what each resolves to",
+      "Dodge the classic traps: spaces in names, symlinked parents, and dotfiles that `ls` hides"
+    ],
     "sections": [
       {
         "heading": "Where am I, and where can I go?",
@@ -3090,7 +3095,8 @@ export default {
             "type": "p",
             "text": "The tilde `~` is **expanded by the shell**, not the program — that's why `\"~/file\"` inside quotes sometimes fails. `.` means **here**, `..` means **one level up**, and they chain: `../../..` is three up."
           }
-        ]
+        ],
+        "takeaway": "Relative paths resolve against your CWD — when a command says 'no such file', check `pwd` before anything else."
       },
       {
         "heading": "A real workflow: find a bug log in a sibling service",
@@ -3104,7 +3110,8 @@ export default {
             "type": "p",
             "text": "Two habits worth burning in: **anchor with `pwd`** before any destructive command, and prefer **`./name`** over bare `name` when invoking scripts — it documents intent and dodges `$PATH` surprises."
           }
-        ]
+        ],
+        "takeaway": "Anchor with `pwd` before anything destructive — two seconds of confirming beats ten minutes of recovery."
       },
       {
         "heading": "Mental model of the lookup",
@@ -3234,7 +3241,8 @@ export default {
             "type": "p",
             "text": "Every relative path becomes an absolute path **before** it hits the kernel. The shell does the prep work; the filesystem only speaks absolute."
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Watch out for",
@@ -3258,6 +3266,12 @@ export default {
     ]
   },
   "cli-files": {
+    "objectives": [
+      "Read, copy, move, and delete files with the core eight (`ls`, `cat`, `head`, `tail -f`, `cp`, `mv`, `rm`, `touch`)",
+      "Chain commands into a pipeline (`find | grep | wc`) so no intermediate file ever touches disk",
+      "Write a log-crunching loop that fails loudly — `set -euo pipefail` plus quoted `\"$var\"`",
+      "Dry-run any recursive delete with `ls` or `echo` before swapping in `rm -rf`"
+    ],
     "sections": [
       {
         "heading": "Files are how Unix talks to itself",
@@ -3329,7 +3343,8 @@ export default {
               ]
             ]
           }
-        ]
+        ],
+        "takeaway": "`mv` is atomic and safe; `rm` has no trash and no undo — of the core eight, only one deserves fear."
       },
       {
         "heading": "How a pipeline flows",
@@ -3447,7 +3462,8 @@ export default {
               }
             ]
           }
-        ]
+        ],
+        "takeaway": "`set -euo pipefail` and quoted `\"$var\"` turn silent script failures into loud ones — put them in every loop you write."
       },
       {
         "heading": "Watch out for rm -rf",
@@ -3476,11 +3492,18 @@ export default {
             "type": "p",
             "text": "**Key insight:** when you're about to delete recursively, run the same command with `ls` or `echo` first. If `ls -la $VAR/` shows the right tree, then — and only then — swap in `rm -rf`."
           }
-        ]
+        ],
+        "takeaway": "Before any recursive delete, run the exact same line with `ls` — only when it shows the right tree do you swap in `rm -rf`."
       }
     ]
   },
   "git-first-commit": {
+    "objectives": [
+      "Name the three zones (working tree, index, repository) and the command that moves files between each",
+      "Make your first commits with the edit → `add` → `commit` rhythm, checking `status` and `log` as you go",
+      "Use staging deliberately — commit part of your changes and review with `git diff --staged` first",
+      "Avoid the first-week classics: blind `git add .`, stale staged copies, nested repos"
+    ],
     "sections": [
       {
         "heading": "What git actually is",
@@ -3560,7 +3583,8 @@ export default {
             "type": "p",
             "text": "The **working tree** is just your folder. The **index** is a draft of what your next commit will look like — staging exists so you can commit *part* of your changes. The **repository** is the permanent graph hidden in `.git/`."
           }
-        ]
+        ],
+        "takeaway": "Files move one way — working tree → index (`add`) → repository (`commit`) — and that picture is 80% of git."
       },
       {
         "heading": "Your first five commands",
@@ -3631,7 +3655,8 @@ export default {
               "`git diff` shows working tree vs index; `git diff --staged` shows index vs HEAD. Mix them up and you'll panic"
             ]
           }
-        ]
+        ],
+        "takeaway": "The index is your editing room: stage only the changes that belong in this commit's story, and re-`add` after any edit."
       },
       {
         "heading": "Watch out for",
@@ -3676,6 +3701,12 @@ export default {
     ]
   },
   "git-remote-basics": {
+    "objectives": [
+      "Wire a fresh local repo to an empty GitHub repo and push with `-u` so plain `git push` works forever after",
+      "Explain what `origin/main` is — a cached snapshot — and name the only operations that move it",
+      "Choose between `fetch`, `merge`, and `pull`, and inspect incoming commits before merging",
+      "Recover from a rejected non-fast-forward push without reaching for `--force`"
+    ],
     "sections": [
       {
         "heading": "Local is not enough",
@@ -3790,7 +3821,8 @@ export default {
             "type": "p",
             "text": "Notice the local `.git` holds **two** branch pointers: `main` (yours) and `origin/main` (your snapshot of theirs). `origin/main` only moves when you `fetch` or `push` — it is a cache, not a live mirror."
           }
-        ]
+        ],
+        "takeaway": "`origin/main` is a cached photograph of the remote — it only updates when you `fetch` or `push`, never on its own."
       },
       {
         "heading": "fetch vs pull — the one that bites everyone",
@@ -3843,7 +3875,8 @@ export default {
             "type": "p",
             "text": "**`origin/main`** is a **remote-tracking branch** — read-only, updated only by network ops. **`main`** is your local branch, the one commits attach to. They diverge whenever you commit without pushing, or someone else pushes without you pulling."
           }
-        ]
+        ],
+        "takeaway": "`pull` = `fetch` + `merge` — fetch first when you want to look (`git log main..origin/main`) before you leap."
       },
       {
         "heading": "Vocabulary that prevents confusion",
@@ -3905,6 +3938,12 @@ export default {
     ]
   },
   "py-oop": {
+    "objectives": [
+      "Write a class with `__init__`, instance attributes, and methods — and explain why `self` is just the auto-passed instance",
+      "Extend a parent with `super()` so you reuse its logic instead of re-implementing it",
+      "Decide when a problem deserves a class and when a plain function is more honest",
+      "Spot the shared mutable class attribute bug before it bites"
+    ],
     "sections": [
       {
         "heading": "Why classes exist",
@@ -3931,7 +3970,8 @@ export default {
             "type": "p",
             "text": "**`self` is not magic** — it's the instance, passed as the first arg by the dot. `v.drive(100)` is sugar for `Vehicle.drive(v, 100)`. That's the whole trick."
           }
-        ]
+        ],
+        "takeaway": "`v.drive(100)` is sugar for `Vehicle.drive(v, 100)` — `self` is just the instance, auto-passed by the dot."
       },
       {
         "heading": "Inheritance with super()",
@@ -3997,7 +4037,8 @@ export default {
               "You're inheriting 4 levels deep to share two lines — composition beats inheritance."
             ]
           }
-        ]
+        ],
+        "takeaway": "Reach for a class only when state and behavior belong together — a one-method class is a function with extra steps."
       },
       {
         "heading": "Watch out for",
@@ -4016,6 +4057,12 @@ export default {
     ]
   },
   "py-exceptions": {
+    "objectives": [
+      "Use all four clauses of `try` — `except`, `else`, `finally` — for their distinct jobs",
+      "Choose EAFP over LBYL when the check duplicates the work, and know when to look first",
+      "Raise custom exceptions chained with `from e` so tracebacks keep the original cause",
+      "Catch the narrowest exception you can name — never bare `except:` or a silent `pass`"
+    ],
     "sections": [
       {
         "heading": "Errors are values, not vibes",
@@ -4046,7 +4093,8 @@ export default {
             "type": "p",
             "text": "The **else** clause is the underused one. Code that depends on the try succeeding goes there, *not* at the bottom of the `try` block — otherwise you accidentally catch exceptions from the success path too. The **finally** clause runs on success, on exception, on `return`, on `break`. Use it for cleanup that must happen."
           }
-        ]
+        ],
+        "takeaway": "Success-path code goes in `else`, cleanup goes in `finally` — keeping both OUT of the `try` block is what makes the catch narrow."
       },
       {
         "heading": "EAFP beats LBYL",
@@ -4082,7 +4130,8 @@ export default {
             "type": "p",
             "text": "Custom exceptions should subclass the **closest stdlib base** — `LookupError`, `ValueError`, `OSError` — not bare `Exception`. That way `except LookupError` still catches yours, and callers get sensible defaults."
           }
-        ]
+        ],
+        "takeaway": "When you catch one exception and raise another, `raise X from e` keeps the original cause in the traceback."
       },
       {
         "heading": "Built-in hierarchy",
@@ -4120,7 +4169,8 @@ export default {
               }
             ]
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Watch out for",
@@ -4178,6 +4228,11 @@ export default {
     ]
   },
   "py-fileio": {
+    "objectives": [
+      "Read a file three ways — whole string, line iterator, list — and pick by file size",
+      "Write and append safely, knowing `'w'` truncates the instant the file opens",
+      "Round-trip a dict through `json.dump`/`json.load` and predict what the format mangles"
+    ],
     "sections": [
       {
         "heading": "Read a file",
@@ -4195,7 +4250,8 @@ export default {
             "type": "p",
             "text": "**Modes** are passed as the second argument: `'r'` read (default), `'rb'` read binary, `'w'` write (truncates!), `'a'` append, `'x'` create-or-fail. Add `'b'` for binary, leave it off for text decoded as UTF-8."
           }
-        ]
+        ],
+        "takeaway": "Always open with `with` — it closes the file even when an exception fires mid-read."
       },
       {
         "heading": "Write a file",
@@ -4213,7 +4269,8 @@ export default {
             "type": "p",
             "text": "For atomic writes — so a crashed process can't leave a half-written file — write to `out.txt.tmp` and then `os.replace('out.txt.tmp', 'out.txt')`. The rename is atomic on POSIX and on Windows since 3.3."
           }
-        ]
+        ],
+        "takeaway": "`'w'` wipes the file the moment you open it — append with `'a'`, and write-tmp-then-`os.replace` when a half-written file would hurt."
       },
       {
         "heading": "JSON files",
@@ -4236,7 +4293,8 @@ export default {
               "**Use `json.JSONDecodeError`** to catch malformed input separately from I/O errors."
             ]
           }
-        ]
+        ],
+        "takeaway": "JSON round-trips mangle things: tuples become lists, dict keys become strings, datetimes don't serialize at all."
       },
       {
         "heading": "Round-trip — write then read",
@@ -4255,6 +4313,12 @@ export default {
     ]
   },
   "py-modules": {
+    "objectives": [
+      "Trace `import X` through `sys.modules` and `sys.path` to predict which file actually loads",
+      "Pick the right import form for the job — and never `from x import *`",
+      "Structure a package with a cheap `__init__.py` that re-exports its public API",
+      "Diagnose the classics: stdlib shadowing, circular imports, the forgotten venv"
+    ],
     "sections": [
       {
         "heading": "What's a module, really",
@@ -4267,7 +4331,8 @@ export default {
             "type": "p",
             "text": "When you write `import requests`, Python walks **sys.path** looking for a matching name. The first hit wins. That's why your local `email.py` will silently shadow the stdlib `email` module and break your day."
           }
-        ]
+        ],
+        "takeaway": "`import` takes the FIRST match on `sys.path` — a local `email.py` silently shadows the stdlib and breaks your day."
       },
       {
         "heading": "Where imports come from",
@@ -4417,7 +4482,8 @@ export default {
             "type": "p",
             "text": "Keep `__init__.py` cheap. Heavy imports here run *every time anything in the package is imported* — a slow init bloats your CLI startup."
           }
-        ]
+        ],
+        "takeaway": "Keep `__init__.py` cheap — everything in it runs on every import of anything in the package."
       },
       {
         "heading": "Vocabulary that trips people up",
@@ -4487,7 +4553,8 @@ export default {
               ]
             ]
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Watch out for",
@@ -4507,6 +4574,12 @@ export default {
     ]
   },
   "cli-pipes": {
+    "objectives": [
+      "Wire commands together with `|` and predict which bytes flow where — stdout piped, stderr not",
+      "Redirect streams to files with `>`, `>>`, `2>`, and the portable `> out.log 2>&1`",
+      "Explain why `2>&1` must come after the stdout redirect — redirections evaluate left to right",
+      "Make pipelines fail loudly with `set -o pipefail` instead of hiding a dead stage"
+    ],
     "sections": [
       {
         "heading": "Everything is a stream",
@@ -4603,7 +4676,8 @@ export default {
             "type": "p",
             "text": "The crucial split: **stdout carries the answer, stderr carries the complaints**. A pipe only forwards stdout. Errors keep flying to your terminal unless you say otherwise — which is exactly what you want when debugging a pipeline."
           }
-        ]
+        ],
+        "takeaway": "stdout carries the answer, stderr carries the complaints — and a pipe forwards only stdout."
       },
       {
         "heading": "The operators that earn their keep",
@@ -4676,7 +4750,8 @@ export default {
             "type": "p",
             "text": "Modern bash gives you `&>` and `&>>` as shortcuts, but learn the long form — it's what you'll see in every Dockerfile, systemd unit, and CI script ever written."
           }
-        ]
+        ],
+        "takeaway": "`2>&1` copies fd 2 to wherever fd 1 points RIGHT NOW — so it only works AFTER the stdout redirect."
       },
       {
         "heading": "The Unix philosophy in one quote",
@@ -4690,7 +4765,8 @@ export default {
             "type": "p",
             "text": "Every tool you'll meet — `grep`, `awk`, `sed`, `jq`, `cut`, `sort`, `uniq`, `xargs` — was designed assuming someone else's stdout would be its stdin. That's why a five-stage pipeline often beats a fifty-line script."
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Watch out for",
@@ -4710,6 +4786,12 @@ export default {
     ]
   },
   "cli-grep": {
+    "objectives": [
+      "Filter logs and codebases with the flags you'll actually type: `-i`, `-r`, `-v`, `-n`, `-E`",
+      "Write just-enough regex — anchors, `.*`, character classes, word boundaries",
+      "Slot grep into pipelines (`tail -f app.log | grep -i error`) and branch scripts on its exit code",
+      "Know when to switch to ripgrep for repo-wide searches"
+    ],
     "sections": [
       {
         "heading": "What grep actually does",
@@ -4732,7 +4814,8 @@ export default {
             "lang": "bash",
             "text": "grep \"ERROR\" app.log  # literal match, case-sensitive\ngrep -i \"error\" app.log  # -i ignores case (Error, ERROR, error)\ngrep -r \"TODO\" ./src  # -r recurses into directories\ngrep -v \"DEBUG\" app.log  # -v inverts — lines NOT matching\ngrep -n \"timeout\" config.yaml  # -n prefixes line numbers\n\n# extended regex unlocks alternation and grouping\ngrep -E \"WARN|ERROR|FATAL\" app.log    # -E means | works without backslash escaping\n\n# the killer combo: recursive + case-insensitive + line numbers\ngrep -rin \"api_key\" .  # find leaked secrets across a repo"
           }
-        ]
+        ],
+        "takeaway": "Five flags cover 90% of real grep: `-i` case, `-r` recurse, `-v` invert, `-n` line numbers, `-E` real regex."
       },
       {
         "heading": "Flag reference",
@@ -4802,7 +4885,8 @@ export default {
               ]
             ]
           }
-        ]
+        ],
+        "deep": true
       },
       {
         "heading": "Regex, just enough to be dangerous",
@@ -4920,11 +5004,18 @@ export default {
             "type": "p",
             "text": "For searching codebases, **ripgrep (`rg`)** is faster, respects `.gitignore` by default, and uses sane regex out of the box. Keep grep in your fingers for one-off log work and piping — reach for `rg` when you're grepping a repo."
           }
-        ]
+        ],
+        "takeaway": "Always quote the pattern — unquoted `*` and `$` get eaten by the shell before grep ever sees them."
       }
     ]
   },
   "cli-env": {
+    "objectives": [
+      "Set, export, read, and unset env vars — and explain what `export` actually changes",
+      "Use `${VAR:-default}` and `${VAR:?required}` to fall back or fail fast in scripts",
+      "Read config from Python: `os.environ[]` for required keys, `os.getenv` + explicit cast for optional ones",
+      "Name the places env-borne secrets leak: `ps`, `/proc`, crash reporters, `docker inspect`"
+    ],
     "sections": [
       {
         "heading": "What they are",
@@ -4951,7 +5042,8 @@ export default {
             "type": "p",
             "text": "The `export` distinction trips everyone up once. A bare assignment lives only in the current shell; **export** promotes it into the environment block that `fork()` copies into children."
           }
-        ]
+        ],
+        "takeaway": "A bare assignment stays in the current shell; `export` promotes it into the block that `fork()` copies to every child."
       },
       {
         "heading": "The ones you'll actually meet",
@@ -5010,7 +5102,8 @@ export default {
             "type": "p",
             "text": "Prefer `os.environ[\"X\"]` for **required** config (crash on boot beats silent misbehavior) and `os.getenv(\"X\", default)` for genuinely optional knobs. Always cast — `PORT=\"8000\"` is a string, and `\"8000\" + 1` is a runtime error you'll hit in production at 2am."
           }
-        ]
+        ],
+        "takeaway": "Env values are ALWAYS strings — required keys crash loudly via `os.environ[]`, optional knobs use `os.getenv` plus an explicit cast."
       },
       {
         "heading": "Secrets in env: the honest tradeoff",
@@ -5058,6 +5151,12 @@ export default {
     ]
   },
   "cli-ssh": {
+    "objectives": [
+      "Generate a keypair, install it with `ssh-copy-id`, and log in without a password",
+      "Explain what happens between `ssh host` and a shell prompt — key exchange, host check, auth",
+      "Keep the private key private: passphrase + agent, never copied to a server",
+      "Debug the classics: `Permission denied (publickey)`, changed host keys, refused connections"
+    ],
     "sections": [
       {
         "heading": "What SSH actually is",
@@ -5256,6 +5355,11 @@ export default {
     ]
   },
   "git-branches": {
+    "objectives": [
+      "Create, switch, merge, and safely delete branches with `git switch -c` and `git branch -d`",
+      "Predict whether a merge fast-forwards or makes a merge commit, and force either with `--ff-only` / `--no-ff`",
+      "Recover from `switch`-blocking dirty changes and know why `-D` is the dangerous option"
+    ],
     "sections": [
       {
         "heading": "Branches are cheap pointers, not copies",
@@ -5492,6 +5596,11 @@ export default {
     ]
   },
   "git-conflicts": {
+    "objectives": [
+      "Read `<<<<<<<`/`=======`/`>>>>>>>` markers and tell ours from theirs",
+      "Resolve a conflict end to end: edit, test, `git add`, then `--continue` (or bail with `--abort`)",
+      "Cut future conflicts by shipping small PRs, rebasing daily, and catching silent semantic conflicts with the test suite"
+    ],
     "sections": [
       {
         "heading": "What a conflict actually is",
@@ -5623,6 +5732,11 @@ export default {
     ]
   },
   "net-http": {
+    "objectives": [
+      "Name the parts of a request and response, and classify a status code by its first digit",
+      "Decide whether a call is safe to retry using the method's safety and idempotency",
+      "Inspect a live request with `curl -v` and spot the headers that break things (Host, Content-Type, Authorization)"
+    ],
     "sections": [
       {
         "heading": "The request/response contract",
@@ -5869,6 +5983,11 @@ export default {
     ]
   },
   "net-dns": {
+    "objectives": [
+      "Trace a cold-cache lookup from stub resolver to root, TLD, and authoritative server",
+      "Pick the right record type (A, AAAA, CNAME, MX, TXT, NS) for a given task",
+      "Debug DNS from the terminal with `dig +trace` and avoid the TTL trap when migrating"
+    ],
     "sections": [
       {
         "heading": "DNS in one breath",
@@ -6092,6 +6211,11 @@ export default {
     ]
   },
   "net-tls": {
+    "objectives": [
+      "Walk the TLS 1.3 handshake step by step and explain why it finishes in one round trip",
+      "Read a cipher suite and reject ones that lack forward secrecy (no ECDHE) or use CBC",
+      "Triage a broken handshake with `openssl s_client`, starting from the `Verify return code` line"
+    ],
     "sections": [
       {
         "heading": "Why TLS exists",
@@ -6356,6 +6480,11 @@ export default {
     ]
   },
   "f1": {
+    "objectives": [
+      "Name what the CPU, RAM, disk, and network card each do when a program runs",
+      "Order the access-cost ladder from register to cross-country network round-trip",
+      "Point a slow program at the layer it's actually stuck on — usually disk or network"
+    ],
     "sections": [
       {
         "heading": "The idea",
@@ -6429,6 +6558,11 @@ export default {
     ]
   },
   "f2": {
+    "objectives": [
+      "Explain why the GIL lets I/O-bound threads speed up but not CPU-bound ones",
+      "Pick between threading, asyncio, and multiprocessing for a given workload",
+      "Spot why `counter += 1` races across threads even with the GIL, and fix it with a lock or queue"
+    ],
     "sections": [
       {
         "heading": "The GIL is a mutex on the interpreter itself",
@@ -6648,6 +6782,11 @@ export default {
     ]
   },
   "f3": {
+    "objectives": [
+      "Reach for the right `ls`/`cd`/`pwd` flag by memory (`-lah`, `-t`, `cd -`, `pwd -P`)",
+      "Tell an absolute path from a relative one and predict how each resolves after a `cd`",
+      "Avoid the symlink `cd ..` surprise and quote paths that contain spaces"
+    ],
     "sections": [
       {
         "heading": "The three commands, sharpened",
@@ -6821,6 +6960,11 @@ export default {
     ]
   },
   "f4": {
+    "objectives": [
+      "Look up any HTTP method's safety and idempotency and any status code's family fast",
+      "Write an annotated `curl` that shows headers (`-i`), fails loud (`-sS`), and times out (`--max-time`)",
+      "Avoid the retry footgun: never blindly retry a POST on a 5xx without an idempotency key"
+    ],
     "sections": [
       {
         "heading": "What this page is",
@@ -7090,6 +7234,11 @@ export default {
     ]
   },
   "f5": {
+    "objectives": [
+      "Label any process as client or server by who initiates versus who waits",
+      "Trace one request across dual-role hops where a server to one side is a client to another",
+      "Design graceful degradation for a dead dependency instead of retrying in a tight loop"
+    ],
     "sections": [
       {
         "heading": "Role, not machine",
@@ -7316,6 +7465,11 @@ export default {
     ]
   },
   "f6": {
+    "objectives": [
+      "Explain how Git stores whole-tree snapshots, not diffs, and where diffs actually come from",
+      "Walk the commit -> tree -> blob object graph yourself with `git cat-file`",
+      "Explain why branching and cherry-pick are nearly free thanks to content-addressed dedup"
+    ],
     "sections": [
       {
         "heading": "The misconception that breaks your mental model",
@@ -7494,6 +7648,11 @@ export default {
     ]
   },
   "d2": {
+    "objectives": [
+      "Write and run a small bash script with a shebang, variables, conditionals, and loops",
+      "Start every script with `set -euo pipefail` and quote variables to dodge the classic footguns",
+      "Read exit codes with `$?` and prefer `[[ ]]` and `$(cmd)` over their older forms"
+    ],
     "sections": [
       {
         "heading": "The idea",
@@ -7566,6 +7725,11 @@ export default {
     ]
   },
   "fund-functions-scope": {
+    "objectives": [
+      "Resolve any name by the LEGB rule and explain why assignment triggers `UnboundLocalError`",
+      "Write a closure that keeps state after its outer function returns, using `nonlocal` to mutate it",
+      "Spot the late-binding loop trap and fix it by binding the value as a default argument"
+    ],
     "sections": [
       {
         "heading": "A function is a value",
@@ -7731,6 +7895,11 @@ export default {
     ]
   },
   "fund-error-handling": {
+    "objectives": [
+      "Decide per function whether to throw, catch, or let an error bubble to a caller that can act",
+      "Catch the narrowest exception type and let programmer-bugs crash loudly instead",
+      "Recognize `except: pass` as a bug and replace it with a specific, logged handler"
+    ],
     "sections": [
       {
         "heading": "Three philosophies",
@@ -7888,6 +8057,11 @@ export default {
     ]
   },
   "fund-testing-intro": {
+    "objectives": [
+      "Structure any test as Arrange, Act, Assert with one expectation per test",
+      "Name a test as a full sentence so a failure tells you what broke before you open the file",
+      "Pick the golden path plus 2-3 edge cases, and keep tests fast, focused, and few"
+    ],
     "sections": [
       {
         "heading": "What a test actually proves",
@@ -7987,6 +8161,11 @@ export default {
     ]
   },
   "fund-debugging": {
+    "objectives": [
+      "Drop a `breakpoint()` and inspect state with pdb's `p`, `n`, `s`, `c`, `w`",
+      "Find a regression's exact commit with `git bisect` in `log2(n)` steps",
+      "Debug with a hypothesis first, and change one thing at a time instead of shotgun-printing"
+    ],
     "sections": [
       {
         "heading": "Print works — until it doesn't",
@@ -8157,6 +8336,11 @@ export default {
     ]
   },
   "fund-arrays-lists": {
+    "objectives": [
+      "Explain why indexed reads are O(1) but front-inserts and `pop(0)` are O(n)",
+      "Justify why `append` is amortized O(1) through the resize-and-copy of a dynamic array",
+      "Reach for `collections.deque`, a `set`, or a `dict` when a list is the wrong tool"
+    ],
     "sections": [
       {
         "heading": "Contiguous memory, one box at a time",
@@ -8340,6 +8524,11 @@ export default {
     ]
   },
   "fund-hash-maps": {
+    "objectives": [
+      "Explain how `hash(key) % n` turns a key into a bucket for O(1) average lookup",
+      "Describe how collisions and load factor trigger resizing, and when O(1) degrades to O(n)",
+      "Pick a dict or set for lookup, counting, dedup, or grouping, and avoid unhashable keys"
+    ],
     "sections": [
       {
         "heading": "An array with math on the keys",
@@ -8500,6 +8689,11 @@ export default {
     ]
   },
   "fund-trees-recursion": {
+    "objectives": [
+      "Recognize trees in file systems, the DOM, and JSON, and walk them with recursion",
+      "Choose BFS or DFS, and among DFS pick preorder, inorder, or postorder for the task",
+      "Write a recursive function with a base case plus reduction step, and switch to an explicit stack before Python's recursion limit bites"
+    ],
     "sections": [
       {
         "heading": "Each node is a tiny problem",
@@ -8779,6 +8973,11 @@ export default {
     ]
   },
   "fund-stacks-queues": {
+    "objectives": [
+      "Tell a stack (LIFO) from a queue (FIFO) and match each to problems like undo, DFS, and BFS",
+      "Implement a stack with a list and a queue with `collections.deque` for O(1) at both ends",
+      "Avoid `list.pop(0)` as a queue, and mark nodes seen in BFS to dodge infinite loops"
+    ],
     "sections": [
       {
         "heading": "Order is the structure",
@@ -8963,6 +9162,11 @@ export default {
     ]
   },
   "fund-capstone-tasktracker": {
+    "objectives": [
+      "Build a working CLI task tracker with argparse subcommands and JSON that survives restarts",
+      "Split pure logic from I/O so `main()` is the only function touching argv, files, and printing",
+      "Prove the tool with pytest that calls your functions on plain lists and never touches the real file"
+    ],
     "sections": [
       {
         "heading": "What you're building",
@@ -9346,12 +9550,55 @@ export default {
               "answer": 1,
               "why": "Same shape as the other three commands: logic in a small testable function, `main()` just routes to it. `build_parser()` only *declares* the interface — it never does the work."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "fund-capstone-tasktracker-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "Survives a restart",
+                "prompt": "Quit the tool, reopen a fresh terminal, and run `python tasker.py list` — do the tasks you added earlier still show up?",
+                "blocks": [],
+                "reference": "A strong build saves to `tasks.json` after every mutation, so state outlives the process. `add` and `done` both call `save_tasks(tasks)` right after the change succeeds, and `load_tasks()` reads the file at the start of every run."
+              },
+              {
+                "title": "First run doesn't crash",
+                "prompt": "Delete `tasks.json`, then run `python tasker.py add \"first task\"` — does it work instead of throwing a file-not-found error?",
+                "blocks": [],
+                "reference": "`load_tasks()` treats a missing file as the empty-list case (`if not TASKS_FILE.exists(): return []`) rather than an error, so the very first run just works with no setup step."
+              },
+              {
+                "title": "Logic is separate from I/O",
+                "prompt": "Open `tasker.py` — do `add_task`, `list_tasks`, and `complete_task` avoid opening files or reading argv, leaving all of that to `main()`?",
+                "blocks": [],
+                "reference": "In a strong build `main()` is the only function that touches argv, the JSON file, and (for the CLI) exit codes. Each command function takes plain values (a list, a string, an int) and returns plain values, which is exactly why the tests can call them directly."
+              },
+              {
+                "title": "A bad id fails cleanly",
+                "prompt": "Run `python tasker.py done 999` on a small task list — do you get a one-line message and exit code 1, not a raw traceback?",
+                "blocks": [],
+                "reference": "`complete_task` returns `None` for an unknown id instead of crashing, and `main()` turns that into `raise SystemExit(\"No task #999\")` — a clean message plus exit code 1, no stack trace. Check the code with `echo $?` after the command."
+              },
+              {
+                "title": "Tests prove it without real files",
+                "prompt": "Run `pytest -v` — are all four tests green, and does the file test use `tmp_path`/`monkeypatch` so it never touches your real `tasks.json`?",
+                "blocks": [],
+                "reference": "A strong build has logic tests that run on in-memory lists (no file at all) plus one round-trip test that redirects `TASKS_FILE` into pytest's throwaway `tmp_path`. Your real data is never at risk, and the whole tool is covered."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
     ]
   },
   "fund-capstone-logdigest": {
+    "objectives": [
+      "Build a log-digest CLI from a written contract, matching its exact counts and time range",
+      "Parse messy logs so malformed lines are counted, never crash, and a missing file exits with code 1",
+      "Keep parsing and counting in functions that take lists of strings, then test them without any file I/O"
+    ],
     "sections": [
       {
         "heading": "Your mission",
@@ -9593,12 +9840,55 @@ export default {
               "answer": 1,
               "why": "I/O at the edges pays off exactly here: `main()` swaps `open()` for `gzip.open()`, still hands the same list of strings down, and every function — and every test — is untouched."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "fund-capstone-logdigest-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "The digest numbers match the contract",
+                "prompt": "Run `python logdigest.py app.log` — do you get exactly 4 INFO, 2 WARN, 3 ERROR, 1 malformed, and the range `09:14:02 -> 09:31:47`?",
+                "blocks": [],
+                "reference": "A strong build counts levels with a `Counter` (or plain dict) and derives the range from `min()`/`max()` over the parsed timestamps, which sort correctly as fixed-width strings. The malformed line is counted, not dropped, so the totals reconcile against the 10-line fixture."
+              },
+              {
+                "title": "A broken line never crashes the tool",
+                "prompt": "Confirm line 7 of `app.log` (no timestamp, no level) is reported as malformed rather than throwing — does the tool finish the whole file every time?",
+                "blocks": [],
+                "reference": "`parse_line` returns `None` for any line it can't split into date/time/level/message or whose level isn't INFO/WARN/ERROR. `main()` counts those `None`s as malformed and moves on, so one bad line can never take down the run."
+              },
+              {
+                "title": "Top errors are ranked by count",
+                "prompt": "In the digest, does `2x Database connection refused` print BEFORE `1x Timeout calling billing service`?",
+                "blocks": [],
+                "reference": "A strong build collects every ERROR message into a list and calls `Counter(messages).most_common(3)`, which returns `(message, count)` pairs already sorted most-frequent-first — no manual sorting required."
+              },
+              {
+                "title": "A missing file exits with code 1",
+                "prompt": "Run `python logdigest.py missing.log`, then `echo $?` — do you see one human-readable error line and an exit code of 1, with no traceback?",
+                "blocks": [],
+                "reference": "`raise SystemExit(\"logdigest: missing.log not found\")` prints the message to stderr and exits with code 1 in one line. A raw `FileNotFoundError` traceback is a fail — an unattended caller reads the exit code, not the stack trace."
+              },
+              {
+                "title": "Tests feed lists of strings, not files",
+                "prompt": "Run `pytest -v` — are there at least 4 green tests, and does every one hand a hand-built list of strings to your functions instead of reading `app.log` from disk?",
+                "blocks": [],
+                "reference": "Because parsing and counting take lists of strings and only `main()` opens files, each test is a two-liner: pass sample lines, assert on the return value. No fixture files, no temp dirs, no cleanup — the filesystem, the slowest and flakiest thing a test can touch, never appears."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
     ]
   },
   "fund-capstone-backup-design": {
+    "objectives": [
+      "Design a nightly backup tool on paper, defending six trade-offs against hard constraints",
+      "Apply the data-first, manifest-last rule so a mid-run crash never corrupts a past backup",
+      "Draw the drive layout after several nights and write a restore path someone else could follow"
+    ],
     "sections": [
       {
         "heading": "The brief",
@@ -9752,6 +10042,50 @@ export default {
               "Could your rename-heavy constraint survive — or does moving a folder re-copy gigabytes?",
               "If you answered yes twice and defended three trade-offs: that's an architecture review, and you just passed your first one."
             ]
+          },
+          {
+            "type": "system-design-lab",
+            "id": "fund-capstone-backup-design-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "A crash never corrupts a past backup",
+                "prompt": "Trace your failure story: the drive unplugs at file 200 of 300 — is every previous night's backup still complete and readable, untouched by the crashed run?",
+                "blocks": [],
+                "reference": "A strong design writes new data into an in-progress area and never modifies old backups in place. Data-first, manifest-last means the crashed night simply has no manifest, so it doesn't count as a backup — the past nights were never at risk."
+              },
+              {
+                "title": "The manifest is the commit point",
+                "prompt": "In your design, is the night's manifest the LAST thing written — so its presence is the only signal that a run truly finished?",
+                "blocks": [],
+                "reference": "Writing the manifest last makes finishing atomic: no manifest, no backup. The next run keys off \"last completed manifest\" to decide what to re-copy, the same write-ahead idea that keeps databases and git safe, scaled down to a folder of photos."
+              },
+              {
+                "title": "The next run heals itself, unattended",
+                "prompt": "Does the following night's run detect the incomplete state and finish the job with NO human intervention — no lock file a person must clear, no manual cleanup?",
+                "blocks": [],
+                "reference": "A strong design re-scans, compares against the last completed manifest, and re-copies only what's missing. Files already in a hash-keyed store are skipped for free, so the crash costs minutes, not a full re-copy — and the 3 AM unattended constraint holds."
+              },
+              {
+                "title": "Renames don't re-copy gigabytes",
+                "prompt": "In your layout, does renaming or moving a 4 GB file avoid a full re-copy — or does your change detection treat it as brand-new data?",
+                "blocks": [],
+                "reference": "Content hashing (not mtime) plus a hash-keyed content store means a renamed file has the same hash, so it's already stored — only the manifest's path entry changes. mtime- or size-based detection would re-copy the whole file on a rename."
+              },
+              {
+                "title": "Retention survives the arithmetic",
+                "prompt": "Do the math for your retention plan: at 40 GB and growing on a 500 GB drive, does your history actually fit — or does the drive fill in about 12 nights of full snapshots?",
+                "blocks": [],
+                "reference": "A strong design reconciles retention with capacity: incremental copies plus dedup, or a nightly/weekly/monthly ladder, so weeks of history fit. \"Keep everything forever\" as full snapshots fills the drive in ~12 nights — the anchor number has to drive the layout."
+              },
+              {
+                "title": "The restore path is real",
+                "prompt": "Could Maya restore a file she deleted last week using only your written notes — is there a concrete, followable restore procedure, not just a backup procedure?",
+                "blocks": [],
+                "reference": "A strong design documents restore as a first-class path: which manifest to read, how to map a wanted path to its stored content, and the exact steps to copy it back. A backup you can't restore from is worthless — the restore story is half the tool, and it only matters on the worst day."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }

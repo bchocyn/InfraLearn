@@ -1550,9 +1550,15 @@ export default {
     ]
   },
   "github-scaling": {
+    "objectives": [
+      "Explain why \"Rails doesn't scale\" is wrong — and name the five architectural moves that scale it",
+      "Decide when a hot path earns a rewrite in a faster language and when CRUD should stay in the framework",
+      "Describe how a hard performance budget plus refactor-validation tooling keeps regressions from shipping"
+    ],
     "sections": [
       {
         "heading": "The unlikely truth",
+        "takeaway": "What scales is your architecture, not your framework — GitHub serves 100M+ requests/second from Ruby on Rails.",
         "body": [
           {
             "type": "p",
@@ -1566,6 +1572,7 @@ export default {
       },
       {
         "heading": "Where GitHub puts its work",
+        "takeaway": "Read replicas, layered caches, background jobs, and sharded git storage do the scaling — Rails just serves the CRUD.",
         "body": [
           {
             "type": "p",
@@ -1598,6 +1605,7 @@ export default {
       },
       {
         "heading": "The cultural part",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -1608,6 +1616,11 @@ export default {
     ]
   },
   "notion-ai": {
+    "objectives": [
+      "List the four failure modes that kill naive RAG: permission leaks, chunk irrelevance, no recency, synonym misses",
+      "Sketch a production RAG pipeline: permission-aware index, hybrid search, reranking, grounded prompting",
+      "Explain the cost-vs-staleness trade in batched re-embedding at billion-document scale"
+    ],
     "sections": [
       {
         "heading": "The product",
@@ -1620,6 +1633,7 @@ export default {
       },
       {
         "heading": "The naive version that did NOT work",
+        "takeaway": "Naive top-K RAG breaks on the boring stuff first — permission leaks, recency, and synonyms — not on model quality.",
         "body": [
           {
             "type": "p",
@@ -1642,6 +1656,7 @@ export default {
       },
       {
         "heading": "The production architecture",
+        "takeaway": "Hybrid vector + keyword search feeding a cross-encoder reranker is what makes retrieval production-grade — the reranker is the unsung hero.",
         "body": [
           {
             "type": "p",
@@ -1662,6 +1677,7 @@ export default {
       },
       {
         "heading": "The operational reality",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -1676,9 +1692,15 @@ export default {
     ]
   },
   "spotify-hendrix": {
+    "objectives": [
+      "Explain why 200 engineers shipping models their own way is an org failure a platform fixes",
+      "Judge a platform by its real metric: how fast a new team gets to production value",
+      "Apply Hendrix-style standardization — one CLI, shared telemetry, approval flows — even on a 3-person team"
+    ],
     "sections": [
       {
         "heading": "The org problem",
+        "takeaway": "Model versions tracked in spreadsheets is what \"no platform\" looks like — centralize deployment before anything else.",
         "body": [
           {
             "type": "p",
@@ -1701,6 +1723,7 @@ export default {
       },
       {
         "heading": "The crucial insight: it's not about ML",
+        "takeaway": "The platform's value isn't the ML pipeline — it's the developer-experience layer that gets a new team shipping in a week instead of a quarter.",
         "body": [
           {
             "type": "p",
@@ -1733,9 +1756,15 @@ export default {
     ]
   },
   "gitlab-data-loss": {
+    "objectives": [
+      "Trace how five backup mechanisms all silently failed — and name the check that would have caught each one",
+      "Run a blameless postmortem: fix the system that allowed the command, assign action items with owners",
+      "Argue why a backup you have never restored is folklore, and monitor the backup process, not just the storage"
+    ],
     "sections": [
       {
         "heading": "The chain of failures",
+        "takeaway": "Five backup mechanisms existed and only one worked — a backup you've never restored is folklore, not a backup.",
         "body": [
           {
             "type": "p",
@@ -1767,6 +1796,7 @@ export default {
       },
       {
         "heading": "The radical move: live-stream the recovery",
+        "takeaway": "Blameless and public beats hidden — the system allowed the destructive command, so the postmortem fixes the system, not the engineer.",
         "body": [
           {
             "type": "p",
@@ -1792,6 +1822,7 @@ export default {
       },
       {
         "heading": "What changed industry-wide",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -1811,6 +1842,11 @@ export default {
     ]
   },
   "discord-19m": {
+    "objectives": [
+      "Diagram Discord's gateway → session → guild-shard topology and explain why one shard owns each guild",
+      "Explain why presence fan-out (one change → N deliveries) is the hard problem, and the subscribe-on-view fix",
+      "Justify a Rust rewrite with GC tail-latency evidence — and say when a rewrite is NOT warranted"
+    ],
     "sections": [
       {
         "heading": "19 million people in one chatroom",
@@ -1827,6 +1863,7 @@ export default {
       },
       {
         "heading": "The topology",
+        "takeaway": "Sharding by guild routes every event for a server through one process — ordering for free, no consensus on the hot path.",
         "body": [
           {
             "type": "diagram",
@@ -1937,6 +1974,7 @@ export default {
       },
       {
         "heading": "Why presence ate a Go service alive",
+        "takeaway": "Discord rewrote Read States in Rust not for raw speed but because no GC means no scan pauses — p99 fell from ~300ms to ~10ms.",
         "body": [
           {
             "type": "p",
@@ -2020,9 +2058,16 @@ export default {
     ]
   },
   "distributed-kv-store": {
+    "objectives": [
+      "Stand up a 3-node Raft cluster in Docker Compose that elects one leader and survives a node kill",
+      "Wire writes through `raft.Apply` so nothing acks before a majority commits and the WAL is fsync'd",
+      "Implement follower `307` leader hints plus a smart client that retries through elections",
+      "Chaos-test the cluster and prove every written key survives a full restart"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "Raft trades throughput for linearizability — a write only acks after a majority has it durably, which is why one dead node can't lose data or split the truth.",
         "body": [
           {
             "type": "p",
@@ -2155,6 +2200,7 @@ export default {
       },
       {
         "heading": "The heart of it: the FSM apply loop",
+        "takeaway": "The FSM must be deterministic — every node replays the same log in the same order, so any nondeterminism forks the cluster.",
         "body": [
           {
             "type": "p",
@@ -2219,9 +2265,15 @@ export default {
     ]
   },
   "g1": {
+    "objectives": [
+      "Prep each of the five loop rounds against its own rubric instead of grinding uniformly",
+      "Lay out a 12-week timeline that covers coding, system design, and behavioral in the right ratio",
+      "Narrate a coding interview end-to-end with the 10-step talking-aloud script"
+    ],
     "sections": [
       {
         "heading": "The loop is five different interviews",
+        "takeaway": "The loop is five separate exams with five rubrics — candidates who prep uniformly lose to candidates who optimize per round.",
         "body": [
           {
             "type": "p",
@@ -2322,6 +2374,7 @@ export default {
       },
       {
         "heading": "The talking-aloud script",
+        "takeaway": "Interviewers score what they hear, not what you think — never type in silence for more than 30 seconds.",
         "body": [
           {
             "type": "p",
@@ -2351,9 +2404,15 @@ export default {
     ]
   },
   "g2": {
+    "objectives": [
+      "Spot the two signals that mark a problem as DP: overlapping subproblems and optimal substructure",
+      "Turn an exponential recursion into O(n) with a one-line `@cache` memoization",
+      "Choose top-down vs bottom-up by recursion depth and production constraints"
+    ],
     "sections": [
       {
         "heading": "The idea",
+        "takeaway": "DP is one trick — cache answers to repeated subproblems; a one-line `@cache` turns O(2ⁿ) Fibonacci into O(n).",
         "body": [
           {
             "type": "p",
@@ -2381,6 +2440,7 @@ export default {
       },
       {
         "heading": "When to reach for it",
+        "takeaway": "Two signals fire together on every DP problem: overlapping subproblems and optimal substructure — if both are there, memoize.",
         "body": [
           {
             "type": "p",
@@ -2419,6 +2479,11 @@ export default {
     ]
   },
   "sd-back-of-envelope": {
+    "objectives": [
+      "Pull QPS, peak QPS, and storage from DAU × actions × payload in under 90 seconds",
+      "Round with powers of ten and state assumptions out loud instead of fumbling exact arithmetic",
+      "Use the estimates to justify — or strike — each architecture box before you draw it"
+    ],
     "sections": [
       {
         "heading": "The marker-cap moment",
@@ -2435,6 +2500,7 @@ export default {
       },
       {
         "heading": "The three numbers you always pull",
+        "takeaway": "DAU, actions per user per day, and payload size — every other number in the interview falls out of those three.",
         "body": [
           {
             "type": "p",
@@ -2488,6 +2554,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Estimation is the bridge from requirements to architecture — if your numbers don't justify a Kafka cluster, don't draw one.",
         "body": [
           {
             "type": "p",
@@ -2502,6 +2569,11 @@ export default {
     ]
   },
   "sd-sql-vs-nosql-vs-kv": {
+    "objectives": [
+      "Name the access pattern first, then walk the decision tree to SQL, KV, document, or columnar",
+      "State what each store costs: SQL's scaling ceiling, KV's missing secondary indexes, documents' weak cross-doc transactions",
+      "Split one product across two or three stores without forcing everything into one — or sprawling to five"
+    ],
     "sections": [
       {
         "heading": "The default answer trap",
@@ -2518,6 +2590,7 @@ export default {
       },
       {
         "heading": "The decision tree",
+        "takeaway": "Transactions or joins → SQL; known-key sub-ms lookups → KV; nested flexible docs → document; time-ordered scans → columnar.",
         "body": [
           {
             "type": "ol",
@@ -2564,6 +2637,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Name the query first — \"get user by id at 500k QPS\" picks KV, \"refund if unshipped\" picks SQL. Architecture follows access.",
         "body": [
           {
             "type": "p",
@@ -2578,6 +2652,11 @@ export default {
     ]
   },
   "sd-sharding-strategies": {
+    "objectives": [
+      "Choose hash, range, or directory sharding by naming the failure mode you accept",
+      "Pick a shard key on cardinality, distribution, dominant query, and stability",
+      "Explain why consistent hashing moves only ~1/N keys when the cluster resizes — and why vnodes matter"
+    ],
     "sections": [
       {
         "heading": "The shard-key decision",
@@ -2594,6 +2673,7 @@ export default {
       },
       {
         "heading": "The three strategies",
+        "takeaway": "Hash kills range scans, range creates hotspots, directory adds a SPOF — you're choosing a failure mode, not a winner.",
         "body": [
           {
             "type": "p",
@@ -2648,6 +2728,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Staff signal: raise resharding unprompted — \"64 logical shards on 8 physical nodes\" means splits never move keys.",
         "body": [
           {
             "type": "p",
@@ -2662,9 +2743,15 @@ export default {
     ]
   },
   "faang-pagination": {
+    "objectives": [
+      "Explain why `OFFSET` costs O(N) and shuffles under writes, then replace it with an O(log n) keyset seek",
+      "Write a keyset query with a stable sort plus an `id` tiebreaker",
+      "Ship versioned, opaque, base64 cursors that don't brick old clients on schema change"
+    ],
     "sections": [
       {
         "heading": "Why offset pagination dies at scale",
+        "takeaway": "Offset walks and discards a million rows; a cursor resumes from an indexed position — page 1 and page 50,000 cost the same.",
         "body": [
           {
             "type": "p",
@@ -2716,6 +2803,7 @@ export default {
       },
       {
         "heading": "Pick the right strategy",
+        "takeaway": "A stable sort plus an `id` tiebreaker is non-negotiable — timestamps tie, and ties duplicate rows across pages.",
         "body": [
           {
             "type": "p",
@@ -2781,6 +2869,11 @@ export default {
     ]
   },
   "faang-distributed-ratelimit": {
+    "objectives": [
+      "Explain why splitting `limit/N` across edges fails and when you need shared counter state",
+      "Rank fixed window, sliding log, sliding counter, and token bucket by memory, accuracy, and burst tolerance",
+      "Write the atomic Redis Lua check and decide fail-open vs fail-closed before launch"
+    ],
     "sections": [
       {
         "heading": "Single-node bucket is the easy case",
@@ -2816,6 +2909,7 @@ export default {
       },
       {
         "heading": "Algorithms, ranked by FAANG taste",
+        "takeaway": "Sliding-window counter is the production default; token bucket wins when bursts are a feature — the real trade is strictness vs latency.",
         "body": [
           {
             "type": "p",
@@ -2840,6 +2934,7 @@ export default {
       },
       {
         "heading": "The Redis script that doesn't lie",
+        "takeaway": "Read-then-write across the network races itself — the check-and-decrement must run atomically inside Redis via a Lua script.",
         "body": [
           {
             "type": "p",
@@ -2875,9 +2970,15 @@ export default {
     ]
   },
   "faang-eventual-consistency": {
+    "objectives": [
+      "Diagnose the \"I just saved it\" bug as a read racing replication onto a stale replica",
+      "Rank consistency levels by cost and pick the weakest one that still feels correct to the user",
+      "Implement read-your-writes with a sticky cookie or a return-the-write response envelope"
+    ],
     "sections": [
       {
         "heading": "The 'I just saved it' bug",
+        "takeaway": "The write hits the primary and the read-back hits a lagging replica — that split path is the whole bug.",
         "body": [
           {
             "type": "p",
@@ -2930,6 +3031,7 @@ export default {
       },
       {
         "heading": "Consistency levels, ranked",
+        "takeaway": "Pick the weakest level that still feels correct to the user — read-your-writes is the sweet spot for user-owned data.",
         "body": [
           {
             "type": "p",
@@ -2996,9 +3098,15 @@ export default {
     ]
   },
   "faang-idempotent-webhooks": {
+    "objectives": [
+      "Treat at-least-once delivery as the contract and make duplicate events harmless",
+      "Structure a handler as verify → dedupe → apply, and say what breaks if you flip any two steps",
+      "Pick a dedupe window that matches the provider's retry budget, with a DB unique constraint as the last line"
+    ],
     "sections": [
       {
         "heading": "At-least-once is the default",
+        "takeaway": "The same event WILL arrive twice — if a duplicate double-charges a card, the bug is in your handler, not the sender.",
         "body": [
           {
             "type": "p",
@@ -3074,6 +3182,7 @@ export default {
       },
       {
         "heading": "A handler that survives the double-tap",
+        "takeaway": "Verify, dedupe, apply — in that order — and always return 200 on duplicates so the sender stops retrying.",
         "body": [
           {
             "type": "p",
@@ -3125,6 +3234,12 @@ export default {
     ]
   },
   "faang-resilience-trio": {
+    "objectives": [
+      "Make retries safe with caller-generated idempotency keys cached server-side",
+      "Implement full-jitter exponential backoff bounded by both max attempts and wall-clock budget",
+      "Walk the circuit breaker's closed → open → half-open state machine and size the cooldown",
+      "Compose the trio in the only correct order: breaker check → idempotency key → retry loop"
+    ],
     "sections": [
       {
         "heading": "The three things between you and a retry storm",
@@ -3141,6 +3256,7 @@ export default {
       },
       {
         "heading": "Idempotency — the foundation everything else stands on",
+        "takeaway": "Idempotency comes first — without it, every retry storm multiplies charges, emails, and inventory decrements.",
         "body": [
           {
             "type": "p",
@@ -3159,6 +3275,7 @@ export default {
       },
       {
         "heading": "Retry strategies — backoff is non-negotiable",
+        "takeaway": "Jittered exponential is the production default — unjittered backoff synchronizes a thousand clients into a thundering herd.",
         "body": [
           {
             "type": "p",
@@ -3184,6 +3301,7 @@ export default {
       },
       {
         "heading": "Circuit breakers — stop retrying when the downstream is dead",
+        "takeaway": "Retries help blips and worsen outages — the breaker fails fast so a dying downstream gets room to recover.",
         "body": [
           {
             "type": "p",
@@ -3311,10 +3429,16 @@ export default {
     ]
   },
   "faang-cache-eviction": {
+    "objectives": [
+      "Implement an O(1) LRU with a hashmap + linked list and trace hits, misses, and evictions through it",
+      "Pick LRU, LFU, or ARC by workload shape — temporal locality, dominant hot set, or mixed",
+      "Instrument hit rate and treat it as the number that decides whether a cache earns its memory"
+    ],
     "cliffhanger": "What happens when your cache hit rate drops from 95% to 80%? Where does that load go?",
     "sections": [
       {
         "heading": "The eviction question",
+        "takeaway": "The eviction policy quietly decides your hit rate — policies that look interchangeable in a benchmark diverge wildly under real workloads.",
         "body": [
           {
             "type": "p",
@@ -3383,6 +3507,7 @@ export default {
       },
       {
         "heading": "**LFU vs ARC** — when recency lies",
+        "takeaway": "LRU forgets the past, LFU worships it, ARC adapts — scans blow away LRU, stale-hot keys poison LFU.",
         "body": [
           {
             "type": "p",
@@ -3457,9 +3582,16 @@ export default {
     ]
   },
   "lab-url-shortener": {
+    "objectives": [
+      "Drive a full whiteboard pass — requirements, estimates, API, ID generation, read scaling — in 25 minutes",
+      "Defend counter + base62 codes over hash or random, with the collision math to back it",
+      "Kill a cache stampede with single-flight or probabilistic early expiration",
+      "Ship the walking skeleton: `POST /shorten` and a 302 redirect, before any caching layer"
+    ],
     "sections": [
       {
         "heading": "Design a URL shortener",
+        "takeaway": "ID generation is the heart of this design — counter + base62 beats hash (privacy leak) and random (1-in-200 collisions), and 302 not 301 keeps analytics alive.",
         "body": [
           {
             "type": "system-design-lab",
@@ -3682,9 +3814,16 @@ export default {
     ]
   },
   "lab-rate-limiter": {
+    "objectives": [
+      "Spec fail-open vs fail-closed per route as a business decision, not a technical default",
+      "Defend token bucket over fixed and sliding windows with the boundary-attack and memory math",
+      "Design the hybrid: central Redis Lua for hot keys, edge-local approximation for the long tail",
+      "Prove atomicity for real: single-node middleware that 429s a concurrent hammer with no 2x overshoot"
+    ],
     "sections": [
       {
         "heading": "Design a distributed rate limiter",
+        "takeaway": "Rate limiting is a distributed-systems problem disguised as an if-statement — atomic Lua for correctness, edge-local for speed, and fail-open vs fail-closed decided before launch.",
         "body": [
           {
             "type": "system-design-lab",

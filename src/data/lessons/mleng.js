@@ -4904,6 +4904,44 @@ export default {
             "type": "quote",
             "text": "RAG is four cheap parts and one expensive lesson: the system prompt is part of the architecture.",
             "cite": "every team after their first hallucination incident"
+          },
+          {
+            "type": "system-design-lab",
+            "id": "mleng-cap-rag-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "Ingest and ask agree on the embedding model",
+                "prompt": "Do `ingest.py` and `ask.py` load the *same* model with the *same* `normalize_embeddings` setting?",
+                "blocks": [],
+                "reference": "Both files construct `SentenceTransformer(\"all-MiniLM-L6-v2\")` and encode with `normalize_embeddings=True`. Vectors from two different models — or one normalized and one not — live in unrelated spaces, so similarity scores become noise with no error message. A strong build makes the model name a single shared constant so they can't drift apart."
+              },
+              {
+                "title": "The refusal test passes",
+                "prompt": "Ask something your docs clearly cannot answer (`python ask.py \"who won the 1998 World Cup?\"`). Does it say \"I don't know\" instead of inventing an answer?",
+                "blocks": [],
+                "reference": "A grounded app refuses out-of-scope questions. If it answers confidently, the system prompt isn't holding — the \"answer ONLY from context\" and \"say you don't know\" rules are what convert confident fabrication into an honest refusal. This is the single test that separates real RAG from an LLM with pasted text."
+              },
+              {
+                "title": "Answers cite their source file",
+                "prompt": "On an answerable question, does the reply name the `[source]` file the fact came from?",
+                "blocks": [],
+                "reference": "Each retrieved chunk is prefixed with its `[filename]` tag before it enters the prompt, and the system prompt requires citing the tags used. That trail is what makes an answer auditable — you can open the named file and check it. No citation means no way to tell a grounded answer from a lucky guess."
+              },
+              {
+                "title": "The store survives without re-ingesting",
+                "prompt": "Close your terminal, reopen it, and run `ask.py` *without* re-running `ingest.py`. Does it still answer?",
+                "blocks": [],
+                "reference": "`PersistentClient(path=\"store\")` writes the index to disk, so `ask.py` reads it back on a fresh process. If ask.py raises because the collection is missing, the store wasn't persisted — the whole point of separating the write path from the read path is that ingest runs once per docs change, not once per question."
+              },
+              {
+                "title": "Re-ingesting doesn't duplicate chunks",
+                "prompt": "Run `ingest.py` twice in a row. Does the collection hold one copy of each chunk, not two?",
+                "blocks": [],
+                "reference": "Stable ids of the form `f\"{name}-{i}\"` make a second ingest *upsert* over the same rows instead of appending duplicates. Duplicate chunks quietly skew retrieval — the same passage can fill several of your top-k slots and crowd out other relevant context."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
@@ -5092,6 +5130,44 @@ export default {
               "answer": 1,
               "why": "Identical hit-rate means the expected sources still arrive in the top k — retrieval is fine. What changed is the *content* of those chunks: new boundaries can chop ideas mid-thought, so the LLM answers from degraded context. That's exactly the fault-localization layered metrics exist to give you."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "mleng-cap-evals-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "The golden set has the right shape",
+                "prompt": "Does `golden.jsonl` hold at least 12 questions in the 6 answerable / 3 multi-chunk / 3 not-in-docs mix, each with a golden answer and an expected source?",
+                "blocks": [],
+                "reference": "Every question was written by opening a doc and pointing at the sentence that answers it — never from memory. Golden answers are one sentence each, so a real answer isn't scored \"partial\" just for being shorter than a paragraph. The three unanswerable questions carry no expected source; they exist to test refusals."
+              },
+              {
+                "title": "Retrieval metrics run with zero LLM calls",
+                "prompt": "Can `eval.py` compute hit-rate@k and MRR without a single call to any model?",
+                "blocks": [],
+                "reference": "Retrieval scoring compares retrieved chunk ids against expected ids — pure set/rank math, deterministic and free. Hit-rate@k is the fraction of questions whose expected source lands anywhere in the top k; MRR averages 1/rank of the first relevant hit. Keeping this layer LLM-free gives you a stable floor: if it drops, retrieval broke, no judge needed."
+              },
+              {
+                "title": "The judge returns strict JSON and gets the reference",
+                "prompt": "Does the judge receive the *golden answer* and return a parseable JSON verdict — with a parse failure counted as an error, never a pass?",
+                "blocks": [],
+                "reference": "The judge is told to respond with only `{\"verdict\": \"correct|partial|wrong\", \"reason\": \"...\"}`, parsed inside a `try`/`except` where a `json.loads` failure scores as an eval error. Handing it the golden answer turns open-ended fact-checking into text comparison — a task LLMs do reliably — and pinning the rubric (partial vs wrong) fights the judge's drift toward leniency."
+              },
+              {
+                "title": "Refusals are scored as wins, confident wrong answers as zero",
+                "prompt": "Do all three not-in-docs questions score as refusals — and does a fluent, confident answer there score zero?",
+                "blocks": [],
+                "reference": "The refusal check tests the grounding rules specifically. A confident, well-written, *wrong* answer on an unanswerable question is the exact failure RAG exists to prevent, so it must score zero rather than sneak by as \"partial\". Refusals passing here proves the app's \"I don't know\" path is intact under evaluation, not just in casual testing."
+              },
+              {
+                "title": "Two runs localize a regression by layer",
+                "prompt": "Change `n_results` from 4 to 2, run twice, and read `runs.jsonl`: can you say which run was better *and* which layer moved?",
+                "blocks": [],
+                "reference": "Each run appends one `json.dumps` line (timestamp, k, hit-rate, MRR, judge tallies) to an append-only `runs.jsonl`. Two lines are your first regression test. Because metrics are layered, the diff self-localizes: hit-rate moved → retrieval/chunking; hit-rate flat but verdicts dropped → generation/prompt; refusals broke → grounding. Without layers, every regression is just \"the vibes got worse\"."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
@@ -5267,6 +5343,44 @@ export default {
           {
             "type": "p",
             "text": "Done? Compare your design against the model answer above — not for a match, but for *coverage*: did you have an answer for every constraint it had to dodge? Where your design differs and you can say why, that's not a mistake — that's the job."
+          },
+          {
+            "type": "system-design-lab",
+            "id": "mleng-cap-design-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "The cost math is shown, not asserted",
+                "prompt": "Does your doc show tokens/ticket × 50K/day × price as actual arithmetic that lands inside the $3,000/month ceiling?",
+                "blocks": [],
+                "reference": "The naive frontier-model plan comes out roughly 4x over budget (~150M input tokens/day at frontier prices ≈ $13.5K/month). A strong design writes that number down, then shows the levers that cut it — a cascade routing most volume to a cheap model, prompt caching on the repeated system prefix, and lazy drafting — arriving in the $2-3K envelope with headroom. Wrong-but-explicit numbers beat a vague \"we'll optimize later\"."
+              },
+              {
+                "title": "Refund and legal route to a human unconditionally",
+                "prompt": "In your design, can a refund or legal ticket *ever* be auto-answered, under any confidence score?",
+                "blocks": [],
+                "reference": "The gate is category-based *before* it is confidence-based: a blocklist sends refunds and legal to a human every time, no matter how confident the model is. The brief names a wrong refund answer as an incident, so no confidence threshold is allowed to override it. A gate that only keys on score has left the highest-risk category exposed."
+              },
+              {
+                "title": "Freshness lives in retrieval, not in weights",
+                "prompt": "When an article changes on Tuesday, does your design serve the new answer that day — without retraining anything?",
+                "blocks": [],
+                "reference": "Articles change weekly, so knowledge stays in the retrieval layer: a publish webhook re-chunks and upserts the changed article (with a weekly full re-index as a backstop for missed events). Fine-tuning, if used at all, is trained on agent-edited drafts for tone and format only — never for facts, because baked-in weights would serve last week's refund policy."
+              },
+              {
+                "title": "Auto-answers cite or refuse",
+                "prompt": "Can any auto-sent reply leave the system without a citation that resolves to a retrieved chunk?",
+                "blocks": [],
+                "reference": "Cite-or-refuse is a hard rule: an auto-answer must contain citations that actually map back to the chunks that were retrieved, or it doesn't send. This checked on *every* auto-send, not just escalated tickets, because the cascade adds a failure mode where a hard ticket gets judged easy — the citation and retrieval-score checks are the net under that."
+              },
+              {
+                "title": "The rollout has one named halting metric",
+                "prompt": "Does your plan go shadow → canary → ramp, and name the single metric that stops the rollout cold?",
+                "blocks": [],
+                "reference": "Drafts always look fine in demos, so the plan runs shadow (drafts generated invisibly, diffed against what agents actually sent) → canary on ~5% of agents → ramp, watching agent edit-distance, deflection, and false-accept rate. The halting metric is the stated incident condition: any wrong auto-answer in the refund category halts the rollout. One unambiguous tripwire beats a dashboard of metrics nobody agreed to act on."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }

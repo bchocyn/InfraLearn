@@ -1,5 +1,11 @@
 export default {
   "cs-bigo": {
+    "objectives": [
+      "Predict how runtime scales as input grows — e.g. 100× more items on an `O(n²)` function costs 10,000× the time",
+      "Assign a Big O class by reading code: sequential blocks add, nested loops multiply, halving gives `log n`",
+      "Spot the `O(n²)` nested loop in review and name the hash-map or sort-and-sweep fix",
+      "Say where Big O lies — constants, cache effects, amortized costs — and reach for the profiler before rewriting"
+    ],
     "sections": [
       {
         "heading": "What Big O actually measures",
@@ -16,6 +22,7 @@ export default {
       },
       {
         "heading": "The complexity zoo",
+        "takeaway": "At n = 1M the gap between O(log n) and O(n²) is a millisecond versus a week — class beats constants.",
         "body": [
           {
             "type": "p",
@@ -100,6 +107,7 @@ export default {
       },
       {
         "heading": "How the curves diverge",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -222,6 +230,7 @@ export default {
       },
       {
         "heading": "Reading code for Big O",
+        "takeaway": "Count how often the inner work runs: sequential blocks add, nested loops multiply, halving gives log n — and you usually buy speed with space.",
         "body": [
           {
             "type": "p",
@@ -284,6 +293,7 @@ export default {
       },
       {
         "heading": "When it matters",
+        "takeaway": "Big O tells you where to look; the profiler is the final judge — measure before you rewrite.",
         "body": [
           {
             "type": "quote",
@@ -303,9 +313,15 @@ export default {
     ]
   },
   "cs-recursion": {
+    "objectives": [
+      "Write a recursive function with an explicit base case and a recursive case that shrinks the input",
+      "Recognize tree-shaped problems — file systems, divide-and-conquer, backtracking — where recursion is the natural fit",
+      "Turn an exponential recursion linear by caching subproblems with `@lru_cache`"
+    ],
     "sections": [
       {
         "heading": "Base case + recursive case",
+        "takeaway": "Every recursive function needs a base case that stops and a recursive case that shrinks the input toward it.",
         "body": [
           {
             "type": "p",
@@ -336,6 +352,7 @@ export default {
       },
       {
         "heading": "Memoization",
+        "takeaway": "Cache repeated subproblems and exponential recursion becomes linear — that's the heart of dynamic programming.",
         "body": [
           {
             "type": "p",
@@ -358,6 +375,12 @@ export default {
     ]
   },
   "sql-basics": {
+    "objectives": [
+      "Write a query that filters, joins, groups, sorts, and limits — with each job in the right clause",
+      "Explain why `HAVING COUNT(*)` can't move into `WHERE`, using the logical execution order",
+      "Predict when a JOIN multiplies rows and defend your counts with `COUNT(DISTINCT ...)`",
+      "Run `EXPLAIN ANALYZE` before optimizing and name the index that makes a slow query fast"
+    ],
     "sections": [
       {
         "heading": "Why SQL still wins",
@@ -374,6 +397,7 @@ export default {
       },
       {
         "heading": "The clause pipeline",
+        "takeaway": "SQL executes FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY: WHERE filters rows before grouping, HAVING filters groups after.",
         "body": [
           {
             "type": "p",
@@ -451,6 +475,7 @@ export default {
       },
       {
         "heading": "How a JOIN actually works",
+        "takeaway": "A JOIN emits one row per match, so a user with 3 orders becomes 3 rows — count people with `COUNT(DISTINCT u.id)`.",
         "body": [
           {
             "type": "p",
@@ -522,6 +547,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Indexes silently decide your speed — `EXPLAIN ANALYZE` before you optimize, and never put a function on an indexed column.",
         "body": [
           {
             "type": "terms",
@@ -574,9 +600,15 @@ export default {
     ]
   },
   "rate-limiter": {
+    "objectives": [
+      "Explain how a token bucket refills and why one atomic Redis Lua call keeps the limit honest across N app servers",
+      "Build ASGI middleware that gates every request and returns `429` with a truthful `Retry-After`",
+      "Prove per-key isolation under load: the noisy key gets throttled, the quiet one never notices"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "One atomic `EVAL` against Redis decides every request — that single round trip is what stops N app servers from racing each other.",
         "body": [
           {
             "type": "p",
@@ -727,6 +759,7 @@ export default {
       },
       {
         "heading": "The Lua script (the heart of it)",
+        "takeaway": "Refill from elapsed time, spend only if the budget covers the cost, persist, and expire idle keys — all inside one script so no race can leak traffic.",
         "body": [
           {
             "type": "code",
@@ -774,6 +807,11 @@ export default {
     ]
   },
   "stripe-idempotency": {
+    "objectives": [
+      "Explain why retries are mandatory: request-lost and response-lost look identical from the client",
+      "Implement the idempotency-key contract — one UUID per intent, a `FOR UPDATE` lock row, replay of the cached response",
+      "Dodge the classic traps: per-retry UUIDs, cached transient errors, and key reuse with a different body"
+    ],
     "sections": [
       {
         "heading": "The problem: networks lie",
@@ -795,6 +833,7 @@ export default {
       },
       {
         "heading": "The idempotency key contract",
+        "takeaway": "The UUID belongs to the intent, not the attempt — all five retries carry the same key; a new key means a new charge.",
         "body": [
           {
             "type": "p",
@@ -857,6 +896,7 @@ export default {
       },
       {
         "heading": "Minimal idempotent endpoint",
+        "takeaway": "The `FOR UPDATE` lock row is what makes concurrent retries safe — one executes, the other waits and replays.",
         "body": [
           {
             "type": "p",
@@ -884,6 +924,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Never persist a transient error as the final response, or every future retry replays a stale 503 forever.",
         "body": [
           {
             "type": "table",
@@ -929,9 +970,15 @@ export default {
     ]
   },
   "cli-todo": {
+    "objectives": [
+      "Ship a `todo` CLI whose `add` is idempotent per day and whose exit codes compose with `&&` and `set -e`",
+      "Write crash-safe saves — temp file, `fsync`, then `os.replace` — so `kill -9` mid-write never corrupts the store",
+      "Cover the store with a `tmp_path`-isolated pytest suite that passes in under a second"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "A good CLI exits 0/1/2 honestly and survives partial writes — that's what makes it compose with the shell.",
         "body": [
           {
             "type": "p",
@@ -1073,6 +1120,7 @@ export default {
       },
       {
         "heading": "Atomic save + idempotent add",
+        "takeaway": "Write to a temp file in the same directory, `fsync`, then `os.replace` — same-directory rename is the only atomicity POSIX guarantees.",
         "body": [
           {
             "type": "p",
@@ -1133,9 +1181,15 @@ export default {
     ]
   },
   "s1": {
+    "objectives": [
+      "Pick the structure where your hottest operation is cheap — dict for membership, deque for recent-N, heap for smallest",
+      "Recite the cost cheat sheet: O(1) dict/set lookup, O(1) list append, O(n) insert in the middle",
+      "Spot `if x in my_list` inside a loop and fix the hidden O(n²) with a set"
+    ],
     "sections": [
       {
         "heading": "The idea",
+        "takeaway": "A data structure is a bet on which operation you'll do most — pick the one where that operation is cheap.",
         "body": [
           {
             "type": "p",
@@ -1166,6 +1220,7 @@ export default {
       },
       {
         "heading": "Why this matters",
+        "takeaway": "`if x in my_list` inside a loop is O(n²) in disguise; convert the list to a set and it collapses to O(n).",
         "body": [
           {
             "type": "p",
@@ -1198,9 +1253,15 @@ export default {
     ]
   },
   "s2": {
+    "objectives": [
+      "Pattern-match code to its class on sight: nested loop → n², halving → log n, sort + scan → n log n",
+      "Apply the classic refactor — nested loop becomes a single pass with a hashmap",
+      "Know which built-ins betray you: `in list` vs `in set`, `insert(0, x)`, string concat in a loop"
+    ],
     "sections": [
       {
         "heading": "The only table you need",
+        "takeaway": "The gap between O(n) and O(n²) at a million items is six orders of magnitude — 'loads instantly' versus 'times out'.",
         "body": [
           {
             "type": "p",
@@ -1271,6 +1332,7 @@ export default {
       },
       {
         "heading": "The O(n²) → O(n) refactor",
+        "takeaway": "Trade memory for time: a hashmap remembers what the inner loop would have rescanned.",
         "body": [
           {
             "type": "p",
@@ -1368,9 +1430,15 @@ export default {
     ]
   },
   "agile-mindset-what": {
+    "objectives": [
+      "Tell real agility from Agile Theater with one question: how long from a code change to a real user touching it?",
+      "Read the four Manifesto values as tie-breakers ('over'), not bans on process and docs",
+      "Use feature flags to decouple deploy from release and shrink the feedback loop to hours"
+    ],
     "sections": [
       {
         "heading": "Mindset, not a methodology",
+        "takeaway": "Agile treats the plan as a hypothesis — ship small, watch real users, let reality rewrite the roadmap.",
         "body": [
           {
             "type": "p",
@@ -1472,6 +1540,7 @@ export default {
       },
       {
         "heading": "The litmus test",
+        "takeaway": "Hours from commit to real user means agile; weeks means waterfall in sprint costumes.",
         "body": [
           {
             "type": "p",
@@ -1584,6 +1653,7 @@ export default {
       },
       {
         "heading": "Watch out for Agile Theater",
+        "takeaway": "Ceremonies without a shorter loop are tax with no return — the point is the loop, not the ritual.",
         "body": [
           {
             "type": "p",
@@ -1621,9 +1691,15 @@ export default {
 
   // ─── SCRUM & KANBAN (swe — first is scrum framework) ──────────────────────
   "agile-scrum-framework": {
+    "objectives": [
+      "Name Scrum's three roles, three artifacts, and five events — and what each exists to protect",
+      "Explain why the sprint time-box and the retro are the two pieces a team must not drop",
+      "Spot the failure modes: standup as status report, mid-sprint scope changes, skipped retros"
+    ],
     "sections": [
       {
         "heading": "What Scrum is",
+        "takeaway": "Scrum's entire design goal is a guaranteed feedback loop every two weeks at the latest.",
         "body": [
           { "type": "p", "text": "Scrum is a lightweight team framework built around fixed-length **sprints** (usually 2 weeks), three roles, three artifacts, and five events. Pick a small slice of work, commit to finishing it in the sprint, demo it, retro it, repeat. The whole thing is designed to give you a feedback loop every two weeks at the latest." }
         ]
@@ -1662,6 +1738,7 @@ export default {
       },
       {
         "heading": "Where teams go wrong",
+        "takeaway": "The retro is the only event that changes how the team works — skip it and every other problem stays frozen.",
         "body": [
           { "type": "ul", "items": [
             "Treating standup as a status report to a manager instead of a team sync.",
@@ -1676,6 +1753,11 @@ export default {
 
   // ─── CEREMONIES (swe — first is sprint planning) ──────────────────────────
   "agile-sprint-planning": {
+    "objectives": [
+      "Run planning in two parts: agree a Sprint Goal with the PO, then decompose stories and sanity-check capacity",
+      "Bring the right inputs — a refined backlog, historical velocity, real capacity — so planning is selection, not discovery",
+      "Call the smells: never-seen stories, 'finish these tickets' goals, stretch goals 'just in case'"
+    ],
     "sections": [
       {
         "heading": "What it's for",
@@ -1695,6 +1777,7 @@ export default {
       },
       {
         "heading": "The two-part meeting",
+        "takeaway": "Part 1 agrees the what (a one-sentence Sprint Goal); part 2 works out the how — decompose, check capacity, commit.",
         "body": [
           { "type": "ol", "items": [
             "**Part 1 — What.** PO walks the top of the backlog. Team asks questions, splits stories, confirms acceptance criteria. Together they agree on a Sprint Goal.",
@@ -1710,6 +1793,7 @@ export default {
       },
       {
         "heading": "Smells",
+        "takeaway": "Estimating stories you've never seen means refinement failed last week — planning should be selection, not discovery.",
         "body": [
           { "type": "ul", "items": [
             "Estimating stories you've never seen before — they should have been refined last week.",
@@ -1724,9 +1808,15 @@ export default {
 
   // ─── ARTIFACTS & ESTIMATION (swe — first is user stories) ─────────────────
   "agile-user-stories": {
+    "objectives": [
+      "Write a story as role / goal / benefit and treat it as a placeholder for a conversation, not a spec",
+      "Grade a story against INVEST and write acceptance criteria both sides can check at demo time",
+      "Split oversized stories vertically — a thin slice of the full stack, not 'just the backend'"
+    ],
     "sections": [
       {
         "heading": "The format",
+        "takeaway": "The story isn't the spec — it's a placeholder for a conversation between the team and the product owner.",
         "body": [
           { "type": "p", "text": "A user story is a short description of a feature from the perspective of someone who wants it. The classic template:" },
           { "type": "code", "lang": "txt", "text": "As a <role>,\nI want <goal>,\nso that <benefit>." },
@@ -1757,12 +1847,14 @@ export default {
       },
       {
         "heading": "Splitting stories",
+        "takeaway": "Split vertically: each slice cuts through the whole stack and is independently shippable, even if barely.",
         "body": [
           { "type": "p", "text": "When a story is too big for a sprint, split *vertically* (slim slice of the full stack) rather than *horizontally* (just the backend, just the UI). Each slice should be independently shippable and valuable, even if barely so." }
         ]
       },
       {
         "heading": "When stories don't fit",
+        "deep": true,
         "body": [
           { "type": "p", "text": "Not every work item is a user story. Bugs are bugs. Spikes (time-boxed investigations) are spikes. Tech debt and refactors are themselves; don't contort them into the story format just because the template demands it." }
         ]
@@ -1772,6 +1864,11 @@ export default {
 
   // ─── AGILE × DEVOPS (devops — first is continuous) ────────────────────────
   "agile-mindset-waterfall-vs": {
+    "objectives": [
+      "Contrast how waterfall and agile absorb a changed requirement in month four",
+      "Name where waterfall genuinely wins: regulated hardware, fixed-bid contracts, known-endpoint migrations",
+      "Explain why software defaults to agile — requirement drift is the normal state, not a project failure"
+    ],
     "sections": [
       {
         "heading": "What it is",
@@ -1788,6 +1885,7 @@ export default {
       },
       {
         "heading": "Side by side",
+        "takeaway": "The real difference is the month-4 change: waterfall re-specs and slips the date; agile picks it up next sprint.",
         "body": [
           {
             "type": "p",
@@ -1802,6 +1900,7 @@ export default {
       },
       {
         "heading": "When Waterfall actually wins",
+        "takeaway": "Waterfall wins when being wrong late is catastrophic and requirements truly are fixed — pacemakers, not web apps.",
         "body": [
           {
             "type": "p",
@@ -1847,6 +1946,11 @@ export default {
     ]
   },
   "agile-mindset-feedback-loops": {
+    "objectives": [
+      "Rank feedback loops by latency and fidelity, and invest in the fastest one that still tells the truth",
+      "Cut loop latency mechanically: cache aggressively, subsample the inner loop, fail loud and fast",
+      "Spot dead loops — CI that never fails, dashboards nobody owns — and attack the slowest loop on the critical path"
+    ],
     "sections": [
       {
         "heading": "What it is",
@@ -1863,6 +1967,7 @@ export default {
       },
       {
         "heading": "Why short loops win",
+        "takeaway": "A 5-minute deploy loop instead of 5 hours means 60× more decisions per week — learning compounds even if each call is no smarter.",
         "body": [
           {
             "type": "p",
@@ -1884,6 +1989,7 @@ export default {
       },
       {
         "heading": "The loops that matter in MLOps",
+        "takeaway": "Use the fastest loop that still tells the truth about the decision in front of you — don't run a week-long A/B to pick a logging library.",
         "body": [
           {
             "type": "p",
@@ -1947,6 +2053,11 @@ export default {
     ]
   },
   "agile-kanban": {
+    "objectives": [
+      "Run a Kanban board on its three rules: visualize everything, cap WIP, manage flow",
+      "Use Little's Law — `cycle time = WIP / throughput` — to argue for cutting work in progress",
+      "Choose Kanban vs Scrum by the shape of the work: interrupts and ops versus plannable features"
+    ],
     "sections": [
       {
         "heading": "What it is",
@@ -1963,6 +2074,7 @@ export default {
       },
       {
         "heading": "The core rules",
+        "takeaway": "The discipline lives in the WIP limits — a Kanban board without caps is just a to-do list.",
         "body": [
           {
             "type": "p",
@@ -1984,6 +2096,7 @@ export default {
       },
       {
         "heading": "Why WIP limits matter",
+        "takeaway": "Little's Law: cycle time = WIP / throughput — finishing before starting is the single biggest lever on throughput.",
         "body": [
           {
             "type": "p",
@@ -2038,6 +2151,11 @@ export default {
     ]
   },
   "agile-scrumban": {
+    "objectives": [
+      "Assemble Scrumban: keep the board, standup, and retro; swap the sprint commitment for WIP-limited pull with trigger-based replenishment",
+      "Decide between pure Scrum, pure Kanban, or the hybrid based on your interrupt load",
+      "Audit every ritual quarterly — if it doesn't change a decision, cut it"
+    ],
     "sections": [
       {
         "heading": "What it is",
@@ -2054,6 +2172,7 @@ export default {
       },
       {
         "heading": "How it works",
+        "takeaway": "Replace the sprint commitment with pull: WIP limits per column, cycle time as the metric, replenish on a trigger instead of a date.",
         "body": [
           {
             "type": "p",
@@ -2089,6 +2208,7 @@ export default {
       },
       {
         "heading": "Other useful hybrids",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -2120,6 +2240,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Copying the columns without enforcing WIP limits is Scrum with extra steps — and if leadership still asks for velocity, you haven't switched.",
         "body": [
           {
             "type": "ul",
@@ -2139,6 +2260,11 @@ export default {
     ]
   },
   "agile-daily-standup": {
+    "objectives": [
+      "Run a 15-minute standup that walks the board right-to-left and parks blocker-solving for afterwards",
+      "Answer the three prompts crisply: since yesterday, today, blockers",
+      "Catch the anti-patterns — reporting up to a manager, round-robin by seat order, the 30-minute drift"
+    ],
     "sections": [
       {
         "heading": "What it is",
@@ -2155,6 +2281,7 @@ export default {
       },
       {
         "heading": "How it runs",
+        "takeaway": "Walk the board right-to-left — finish work before starting more — and hard-stop at 15 minutes.",
         "body": [
           {
             "type": "p",
@@ -2178,6 +2305,7 @@ export default {
       },
       {
         "heading": "The anti-patterns",
+        "takeaway": "Standup dies the moment people report up to a manager instead of coordinating across the team.",
         "body": [
           {
             "type": "p",
@@ -2210,6 +2338,11 @@ export default {
     ]
   },
   "agile-backlog-refinement": {
+    "objectives": [
+      "Refine continuously so the top of the backlog always passes the Definition of Ready",
+      "Slice epics into INVEST stories with `Given / When / Then` acceptance criteria and honest estimates",
+      "Refine about two sprints deep and no further — requirements drift past that"
+    ],
     "sections": [
       {
         "heading": "What it is",
@@ -2245,6 +2378,7 @@ export default {
       },
       {
         "heading": "A ready story",
+        "takeaway": "If the team cannot estimate it, it is not ready.",
         "body": [
           {
             "type": "p",
@@ -2259,6 +2393,7 @@ export default {
       },
       {
         "heading": "Why it matters",
+        "takeaway": "Refinement front-loads the thinking so sprint planning becomes selection, not discovery.",
         "body": [
           {
             "type": "p",
@@ -2295,9 +2430,15 @@ export default {
     ]
   },
   "agile-review-retro": {
+    "objectives": [
+      "Keep the two meetings apart: review inspects the product with stakeholders, retro inspects the team alone",
+      "Demo working software against acceptance criteria — no slides, no pre-recorded theater",
+      "Leave every retro with one or two owned, dated actions that become real backlog tickets"
+    ],
     "sections": [
       {
         "heading": "What it is",
+        "takeaway": "Review faces outward at the product; retro faces inward at the team — different audience, different outcome.",
         "body": [
           {
             "type": "p",
@@ -2333,6 +2474,7 @@ export default {
       },
       {
         "heading": "Retrospective",
+        "takeaway": "A retro's output is one or two concrete actions with an owner and a date — vague resolutions like 'communicate better' die quietly.",
         "body": [
           {
             "type": "p",
@@ -2384,6 +2526,11 @@ export default {
     ]
   },
   "agile-story-points-velocity": {
+    "objectives": [
+      "Estimate relatively with planning poker against a reference story — points measure effort and uncertainty, not hours",
+      "Forecast the next sprint from rolling-average velocity, with zero partial credit for unfinished work",
+      "Refuse the abuses: points as a performance KPI, cross-team comparison, converting points back to hours"
+    ],
     "sections": [
       {
         "heading": "What it is",
@@ -2418,6 +2565,7 @@ export default {
       },
       {
         "heading": "How velocity works",
+        "takeaway": "Only Done counts — a 5-point story at 80% is zero, and that honesty is exactly what makes velocity a usable forecast.",
         "body": [
           {
             "type": "p",
@@ -2436,6 +2584,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "The moment velocity becomes a performance metric, teams inflate estimates and the signal dies.",
         "body": [
           {
             "type": "ul",
@@ -2464,6 +2613,11 @@ export default {
     ]
   },
   "agile-mvp-incremental": {
+    "objectives": [
+      "Slice vertically — one user journey through every layer — so users can touch something after every increment",
+      "Design the MVP around the riskiest assumption you need to test, not the feature list",
+      "Make each increment answer 'was the last bet right?' with a metric and a decision"
+    ],
     "sections": [
       {
         "heading": "What it is",
@@ -2480,6 +2634,7 @@ export default {
       },
       {
         "heading": "Slice the cake, don't bake the layers",
+        "takeaway": "Horizontal slices leave nothing a user can touch for three sprints; a vertical slice ships end-to-end from week one.",
         "body": [
           {
             "type": "p",
@@ -2498,6 +2653,7 @@ export default {
       },
       {
         "heading": "What makes a slice an MVP",
+        "takeaway": "An MVP is defined by what it lets you learn — manual and ugly are allowed, real is required.",
         "body": [
           {
             "type": "p",
@@ -2546,9 +2702,15 @@ export default {
   },
   // Agile (devops) stubs
   "sd-cache-layers": {
+    "objectives": [
+      "Trace a cache-aside read: check the local LRU, then Redis, then the database, lazily backfilling on a miss",
+      "Pick an invalidation strategy per key — TTL, write-through, write-around, write-behind — and say what each one risks",
+      "Bound staleness deliberately: name who sees stale data, for how long, and why that window is acceptable"
+    ],
     "sections": [
       {
         "heading": "The library you keep forgetting about",
+        "takeaway": "Cache-aside only fills after a miss — a cold cache and a forgotten invalidation both quietly fall back to the database.",
         "body": [
           {
             "type": "p",
@@ -2619,6 +2781,7 @@ export default {
       },
       {
         "heading": "Invalidation strategies",
+        "takeaway": "Write-through + TTL is the safe default: write-through keeps reads fresh, TTL protects you from your own bugs.",
         "body": [
           {
             "type": "p",
@@ -2721,6 +2884,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "A cache is a consistency contract — ask 'how stale am I allowed to be, and who notices?' and the layer chooses itself.",
         "body": [
           {
             "type": "p",
@@ -2747,6 +2911,11 @@ export default {
     ]
   },
   "sd-index-write-cost": {
+    "objectives": [
+      "Account for write amplification: every `INSERT` rewrites every index, every `UPDATE` rewrites each changed one",
+      "Decide when an index pays — query frequency × read savings versus the write tax, weighted by selectivity",
+      "Audit for waste: duplicate indexes, ORM-generated FK indexes, hot-spot monotonic keys"
+    ],
     "sections": [
       {
         "heading": "The book at the back of the textbook",
@@ -2763,6 +2932,7 @@ export default {
       },
       {
         "heading": "The accounting",
+        "takeaway": "Write amplification = 1 + indexes touched — a table with 8 secondary indexes turns one logical write into nine physical ones.",
         "body": [
           {
             "type": "p",
@@ -2808,6 +2978,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "An index is a write tax paid in advance for read latency — in review, removing one is usually the more senior move.",
         "body": [
           {
             "type": "p",
@@ -2818,6 +2989,11 @@ export default {
     ]
   },
   "sd-queue-decoupling": {
+    "objectives": [
+      "Name the four things a queue decouples: time, throughput, failure, and deployment",
+      "Write the minimum pattern — sync write to the source of truth, async publish, idempotent consumer that ACKs only after success",
+      "Operate it honestly: dedupe for at-least-once delivery, alert on queue-depth slope, dead-letter poison messages"
+    ],
     "sections": [
       {
         "heading": "The kitchen ticket rail",
@@ -2834,6 +3010,7 @@ export default {
       },
       {
         "heading": "What you're actually decoupling",
+        "takeaway": "A synchronous call couples time, throughput, failure, and deploys — one slow downstream makes its p99 your p99.",
         "body": [
           {
             "type": "ul",
@@ -2852,6 +3029,7 @@ export default {
       },
       {
         "heading": "The minimum viable pattern",
+        "takeaway": "The source of truth is written synchronously; email, warehouse, and analytics leave the request path via the queue.",
         "body": [
           {
             "type": "code",
@@ -2880,6 +3058,7 @@ export default {
       },
       {
         "heading": "What this is *not*",
+        "takeaway": "A queue is not a database — messages are transient nudges; the order itself lives in Postgres.",
         "body": [
           {
             "type": "p",
@@ -2889,6 +3068,7 @@ export default {
       },
       {
         "heading": "Why this matters: monolith vs microservices",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -2907,6 +3087,11 @@ export default {
     ]
   },
   "sd-n-plus-one": {
+    "objectives": [
+      "Recognize N+1: one query for N parents, then N lazy-loaded child queries hiding behind the ORM",
+      "Fix it with eager loading — `select_related` for joins, `prefetch_related` for one-to-many",
+      "Interrogate 'we need to scale the database' by counting queries per request first"
+    ],
     "sections": [
       {
         "heading": "The grocery list bug",
@@ -2923,6 +3108,7 @@ export default {
       },
       {
         "heading": "Where it hides",
+        "takeaway": "The dev DB has 5 rows so it looks fine; prod has 5,000 and a single page load fires 5,001 queries.",
         "body": [
           {
             "type": "p",
@@ -2964,6 +3150,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Before replicas, sharding, or a bigger box — count queries per request; three digits means the access pattern is the bug, not the architecture.",
         "body": [
           {
             "type": "p",
@@ -2974,6 +3161,11 @@ export default {
     ]
   },
   "api-rest-design": {
+    "objectives": [
+      "Model endpoints as nouns + HTTP verbs: plural collections, singular items, nesting kept to two levels",
+      "Drive an API from the terminal: a `GET` that reads and a `PATCH` that sends only the changed field",
+      "Draw the line where REST stops — streams, action-heavy domains, deeply relational reads — and name the replacement"
+    ],
     "cliffhanger": "What happens when the same request arrives twice — once it succeeded, once it failed in transit?",
     "sections": [
       {
@@ -2987,6 +3179,7 @@ export default {
       },
       {
         "heading": "Resources, not RPC calls",
+        "takeaway": "Nouns in the path, verbs in the method — a client should be able to guess your URLs after seeing three.",
         "body": [
           {
             "type": "p",
@@ -3069,6 +3262,7 @@ export default {
       },
       {
         "heading": "Where REST stops being the right answer",
+        "takeaway": "REST's sweet spot is cacheable CRUD; a continuous low-latency stream is the traffic shape it handles worst.",
         "body": [
           {
             "type": "pros-cons",
@@ -3125,6 +3319,11 @@ export default {
     ]
   },
   "api-versioning": {
+    "objectives": [
+      "Pick one version placement — URI, header, or media type — and defend the trade-off",
+      "Classify a change as safe or breaking by what clients can see, not what you documented",
+      "Run a deprecation end-to-end: announce, dual-run with `Sunset` headers, then enforce with `410 Gone`"
+    ],
     "sections": [
       {
         "heading": "Versioning is a promise, not a label",
@@ -3156,6 +3355,7 @@ export default {
       },
       {
         "heading": "What actually counts as breaking",
+        "takeaway": "Clients depend on what they see, not what you documented — even an undocumented field becomes load-bearing; when in doubt, be additive.",
         "body": [
           {
             "type": "pros-cons",
@@ -3182,6 +3382,7 @@ export default {
       },
       {
         "heading": "The deprecation playbook",
+        "takeaway": "Announce, dual-run, enforce — skip any of the three and integrations break overnight while trust burns for years.",
         "body": [
           {
             "type": "walkthrough",
@@ -3242,6 +3443,11 @@ export default {
     ]
   },
   "api-rate-limiting": {
+    "objectives": [
+      "Choose the algorithm by traffic shape: token bucket for bursty public APIs, leaky bucket for smoothing, sliding window for precise caps",
+      "Key the limit by who should pay — API key, user, or tenant — never raw IP behind a NAT",
+      "Return a usable deny: `429` with `Retry-After` and `RateLimit-*` headers so clients back off cleanly"
+    ],
     "sections": [
       {
         "heading": "Rate limits protect the server from you",
@@ -3254,6 +3460,7 @@ export default {
       },
       {
         "heading": "Three algorithms, three personalities",
+        "takeaway": "Token bucket is the default because real traffic is bursty — spend banked tokens in a spike, refill at the average rate.",
         "body": [
           {
             "type": "table",
@@ -3273,6 +3480,7 @@ export default {
       },
       {
         "heading": "Pick the right key",
+        "takeaway": "Raw IP punishes whole offices behind one NAT — key the limit by the actual customer.",
         "body": [
           {
             "type": "diagram",
@@ -3330,6 +3538,7 @@ export default {
       },
       {
         "heading": "The 429 contract clients actually need",
+        "takeaway": "A 429 without Retry-After is just rude — tell the client when to come back and it will.",
         "body": [
           {
             "type": "code",
@@ -3386,6 +3595,11 @@ export default {
     ]
   },
   "api-idempotency": {
+    "objectives": [
+      "Make `POST` retry-safe with an `Idempotency-Key`: dedupe before the side effect, replay the stored response after",
+      "Classify HTTP methods by idempotency and rewrite delta `PATCH`es as absolute updates",
+      "Retry like an adult: exponential backoff, ±25% jitter, capped attempts, and never on a 4xx"
+    ],
     "sections": [
       {
         "heading": "The network will retry — design for it",
@@ -3398,6 +3612,7 @@ export default {
       },
       {
         "heading": "Idempotency keys: the standard trick",
+        "takeaway": "The dedupe check runs before the side effect — the same key inside the window replays the stored response instead of redoing the work.",
         "body": [
           {
             "type": "p",
@@ -3429,6 +3644,7 @@ export default {
       },
       {
         "heading": "Which methods are idempotent by default",
+        "takeaway": "POST and delta-PATCH are the dangerous ones — prefer absolute updates, and give POST a key.",
         "body": [
           {
             "type": "table",
@@ -3449,6 +3665,7 @@ export default {
       },
       {
         "heading": "Retry like an adult: backoff + jitter + circuit breakers",
+        "takeaway": "Backoff without jitter synchronizes a herd of clients into a stampede — and retrying a 4xx never fixes it.",
         "body": [
           {
             "type": "pros-cons",
@@ -3498,6 +3715,12 @@ export default {
     ]
   },
   "swe-cap-retrykit": {
+    "objectives": [
+      "Ship a pip-installable src-layout package with `pyproject.toml` and an editable install",
+      "Build a three-layer `@retry` decorator with exponential backoff, full jitter, and narrow exception catching",
+      "Test retry logic without sleeping — monkeypatch `time.sleep` into a recorder and assert on the delays",
+      "Gate every push with GitHub Actions, and prove the gate works by making it fail once"
+    ],
     "sections": [
       {
         "heading": "What you're shipping",
@@ -3655,6 +3878,7 @@ export default {
       },
       {
         "heading": "Build the decorator, layer by layer",
+        "takeaway": "A parameterized decorator is three nested functions — config, decorator, wrapper — each handing back the one inside it.",
         "body": [
           {
             "type": "p",
@@ -3717,6 +3941,7 @@ export default {
       },
       {
         "heading": "Test it like you mean it",
+        "takeaway": "Monkeypatch the sleep into a recorder and the backoff curve becomes data you can assert on — the suite never actually waits.",
         "body": [
           {
             "type": "p",
@@ -3769,6 +3994,7 @@ export default {
       },
       {
         "heading": "Wire up CI",
+        "takeaway": "CI's real product is the culture: no green, no merge — proven on a machine your laptop never touched.",
         "body": [
           {
             "type": "p",
@@ -3849,12 +4075,56 @@ export default {
             "type": "quote",
             "text": "A library isn't the code — it's the promise the tests keep.",
             "cite": "the shipping rule"
+          },
+          {
+            "type": "system-design-lab",
+            "id": "swe-cap-retrykit-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "It installs and imports like a real package",
+                "prompt": "In a fresh venv, does `pip install -e .` succeed and `from retrykit import retry` resolve without touching your source path by hand?",
+                "blocks": [],
+                "reference": "src-layout with `pyproject.toml` (`packages.find where = [\"src\"]`); an editable install puts `retrykit` on the path so the import works from any directory, exactly as an end user's would."
+              },
+              {
+                "title": "Backoff actually doubles, with jitter",
+                "prompt": "Does each retry wait roughly twice the last, and is a random component added so a herd of clients doesn't retry in lockstep?",
+                "blocks": [],
+                "reference": "`base_delay * 2 ** (attempt - 1)` gives the exponential curve; full jitter adds `random.uniform(0, delay)` on top. Without jitter, a thousand clients that failed together retry together forever."
+              },
+              {
+                "title": "It catches narrowly and re-raises the original",
+                "prompt": "Does it only retry the exception types the caller opted into, and when attempts run out, re-raise the ORIGINAL error rather than a wrapper?",
+                "blocks": [],
+                "reference": "`except exceptions:` catches only the opted-in tuple (never bare `except`); on the final attempt a plain `raise` surfaces the true error with its real stack trace, so a KeyError bug is never silently retried and hidden."
+              },
+              {
+                "title": "The suite proves timing without ever sleeping",
+                "prompt": "Does `pytest -q` finish in a fraction of a second, and does a test assert on the actual backoff delays rather than trusting the code?",
+                "blocks": [],
+                "reference": "Monkeypatch `retrykit.time.sleep` to a list's `append` and `retrykit.random.uniform` to return 0; the delays become data you assert on (`naps == [0.01, 0.02]`). A slow run means a real sleep is leaking through the patch target."
+              },
+              {
+                "title": "CI gates the push — and you've seen it go red",
+                "prompt": "Does GitHub Actions run the suite on every push AND pull request, and have you deliberately broken a test once to confirm the check actually fails?",
+                "blocks": [],
+                "reference": "A workflow triggering on `push` and `pull_request` installs the package the way a user would (`pip install -e .`) and runs `pytest -q`. A gate you've never watched fail is a gate you can't trust — break the backoff line once, watch CI go red, revert."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
     ]
   },
   "swe-cap-legacy-rescue": {
+    "objectives": [
+      "Pin a legacy script's behavior with characterization tests before changing a single line",
+      "Refactor one smell per commit — globals, magic indexes, duplicated rules, import-time side effects, the O(n²) loop — green before and after",
+      "Keep stdout byte-identical at every commit: the output is the contract",
+      "Finish with the same CI gate you built for retrykit running this suite on every push"
+    ],
     "sections": [
       {
         "heading": "Your mission",
@@ -3876,6 +4146,7 @@ export default {
       },
       {
         "heading": "The patient",
+        "takeaway": "The two output lines are sacred — `652.0` becoming `652.00` is a break, not a cleanup.",
         "body": [
           {
             "type": "p",
@@ -3908,6 +4179,7 @@ export default {
       },
       {
         "heading": "Rules of engagement",
+        "takeaway": "Pin before you touch: tests written after a refactor pin the new behavior, bugs included.",
         "body": [
           {
             "type": "ol",
@@ -4025,6 +4297,7 @@ export default {
       },
       {
         "heading": "Hints — spend them slowly",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -4044,6 +4317,7 @@ export default {
       },
       {
         "heading": "Am I on track?",
+        "takeaway": "Every commit names one smell, fits on one screen, and stays green — resisting the full rewrite is the skill being tested.",
         "body": [
           {
             "type": "pros-cons",
@@ -4065,12 +4339,56 @@ export default {
           {
             "type": "p",
             "text": "Done and green? You've just done the single most common senior-engineer task in existence: **making code safe to change without changing what it does.** Retrykit proved you can build; this proves you can be trusted with what's already built."
+          },
+          {
+            "type": "system-design-lab",
+            "id": "swe-cap-legacy-rescue-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "You pinned behavior before touching a line",
+                "prompt": "Check your commit history: did the characterization test pass against the UNTOUCHED `report.py` before your first refactor commit?",
+                "blocks": [],
+                "reference": "A golden-output test runs the original via `subprocess.run([sys.executable, 'report.py', 'orders.csv'], capture_output=True, text=True)` and pins the exact two lines — no code change needed. Tests written after a refactor pin the new behavior, bugs included."
+              },
+              {
+                "title": "Output is still byte-identical",
+                "prompt": "Does `python report.py orders.csv` still print exactly `total: 652.0` and `top: liam` — no reformatting, no `652.00`, no extra lines?",
+                "blocks": [],
+                "reference": "stdout is the contract. Diff the current output against the captured golden lines at every commit; `652.0` becoming `652.00` is a break, not a cleanup, no matter how much nicer it looks."
+              },
+              {
+                "title": "The import-time side effect and global are gone",
+                "prompt": "Does `import report` now run nothing, and has the module-level `DATA` list disappeared in favor of functions that take inputs and return outputs?",
+                "blocks": [],
+                "reference": "A `if __name__ == '__main__':` guard owns the CLI so importing is side-effect-free; the global mutable `DATA` is replaced by parameters and return values, which is what made the functions testable in isolation in the first place."
+              },
+              {
+                "title": "Rows are named and the VAT rule lives in one place",
+                "prompt": "Is there no bare `p[3]` anywhere, and does the `1.2` VAT multiplier exist in exactly one named location instead of two copies?",
+                "blocks": [],
+                "reference": "Each CSV line parses into an `Order` (dataclass/namedtuple) so `p[3]` becomes `order.region`; a single `line_total(order)` helper holds the `1.2` as a named constant, so the two call sites that used to drift can no longer disagree."
+              },
+              {
+                "title": "The O(n²) rescan is gone and CI is green",
+                "prompt": "Does `top_customer` walk the orders once with a dict accumulator (not a nested loop), and does GitHub Actions run this suite green on push?",
+                "blocks": [],
+                "reference": "One pass: `totals[order.customer] += line_total(order)`, then `max(totals, key=totals.get)` — O(n²) collapses to O(n) and reads like the sentence it should have been. The final commit reuses the retrykit workflow shape so every push runs pytest on a fresh VM."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
     ]
   },
   "swe-cap-webhook-design": {
+    "objectives": [
+      "Design a webhook delivery platform where durability precedes the ACK and zero accepted events are lost",
+      "Size it with back-of-envelope math: workers for 5,000/s at 200 ms each, storage for 7 days of payloads",
+      "Defend at-least-once + idempotency keys and per-endpoint circuit breakers against the exactly-once fiction",
+      "Write failure walkthroughs — endpoint down six hours, worker dies mid-send, 10× burst — and survive each one"
+    ],
     "sections": [
       {
         "heading": "The brief",
@@ -4133,6 +4451,7 @@ export default {
       },
       {
         "heading": "Hard constraints",
+        "takeaway": "Exactly-once to servers you don't own is a fiction — design for duplicates with idempotency keys instead of pretending they won't happen.",
         "body": [
           {
             "type": "ul",
@@ -4148,6 +4467,7 @@ export default {
       },
       {
         "heading": "What you must produce",
+        "takeaway": "Writing it down is the deliverable — a design that lives only in your head can't be challenged.",
         "body": [
           {
             "type": "p",
@@ -4171,6 +4491,7 @@ export default {
       },
       {
         "heading": "Trade-offs you must defend",
+        "takeaway": "A strong answer says no to something — ordering, exactly-once — and pays that price in writing; 'it depends' is a forfeit.",
         "body": [
           {
             "type": "table",
@@ -4244,6 +4565,44 @@ export default {
               "answer": 1,
               "why": "Exactly-once and strict order across a boundary you don't own are fictions — a lost ACK forces a re-send you can't distinguish from a duplicate. The breaker half-opens, probes, then drains with keys the receiver can dedup on; dropping events violates the zero-loss budget outright."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "swe-cap-webhook-design-debrief",
+            "title": "Debrief: grade your design",
+            "phases": [
+              {
+                "title": "Durability comes before the ACK",
+                "prompt": "In your diagram, does the event become durable (appended to a log or queue) BEFORE the ingest API returns 202 — with no arrow where a crash after 'success' would lose an accepted event?",
+                "blocks": [],
+                "reference": "Ingest validates, stamps a sortable id (ULID), appends to a partitioned durable log (Kafka or a cloud queue with payloads in object storage), and only THEN returns 202. That ordering is the entire zero-loss guarantee; the log doubles as the burst shock absorber."
+              },
+              {
+                "title": "At-least-once with idempotency keys, honestly named",
+                "prompt": "Does your DESIGN.md pick at-least-once and say exactly what the receiver does with the key — instead of promising exactly-once across a boundary you don't own?",
+                "blocks": [],
+                "reference": "Every delivery carries the event id as an `X-Event-Id` idempotency key. A lost ACK after a successful send is indistinguishable from a failure, so a duplicate WILL happen — the key lets receivers dedup. Exactly-once across a network you don't control is a fiction; saying so is the strong answer."
+              },
+              {
+                "title": "A slow tenant is isolated from the healthy 19,999",
+                "prompt": "When 400 endpoints are down, does a circuit breaker park them out of the hot path so the healthy endpoints still hit p95 < 5 s — rather than one shared pool where timeouts starve everyone?",
+                "blocks": [],
+                "reference": "After ~5 consecutive failures the endpoint's breaker trips; its events park in a per-endpoint dead-letter set and a low-rate probe checks for recovery. The dead endpoints cost near-zero worker time, so retries never block the main consumer and the healthy fleet keeps its latency."
+              },
+              {
+                "title": "The math sizes the fleet and the burst",
+                "prompt": "Does your back-of-envelope math say how many delivery workers 5,000/s needs at 200 ms each, and how many GB 7 days of ~2 KB payloads costs?",
+                "blocks": [],
+                "reference": "5,000/s × 0.2 s = ~1,000 concurrent deliveries — a few dozen worker processes, not a mainframe. Storage: steady 500/s × 2 KB × 7 days ≈ 600 GB in object storage, cheap. Numbers first exposes the shape; 'the queue handles it' with no depth estimate is a forfeit."
+              },
+              {
+                "title": "You said no to something, and kept the replay story",
+                "prompt": "Did you explicitly decline strict ordering and/or exactly-once and pay that price in writing — and does a replay API cover the 7-day window reusing original event ids?",
+                "blocks": [],
+                "reference": "Best-effort ordering only: guaranteeing per-endpoint order means one in-flight delivery per endpoint, so a single retry stalls everything behind it. Replay re-enqueues a customer's time range reusing the ORIGINAL event ids so dedup still holds. A strong design says no to something and defends the cost."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }

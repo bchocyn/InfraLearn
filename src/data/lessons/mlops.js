@@ -1,5 +1,10 @@
 export default {
   "ml-lifecycle": {
+    "objectives": [
+      "Name the eight stages of the ML lifecycle and the failure mode each one owns",
+      "Explain why an ML system decays after ship while traditional software doesn't",
+      "Trace how drift detection closes the loop back to retraining"
+    ],
     "sections": [
       {
         "heading": "From code to feedback loop",
@@ -294,6 +299,11 @@ export default {
     ]
   },
   "training-eval": {
+    "objectives": [
+      "Split data into train/validation/test and say what each split is allowed to touch",
+      "Diagnose underfit vs overfit from the gap between train and validation scores",
+      "Read a confusion matrix and pick the right metric for the problem"
+    ],
     "sections": [
       {
         "heading": "The training loop, end to end",
@@ -650,6 +660,11 @@ export default {
     ]
   },
   "ab-testing": {
+    "objectives": [
+      "Set up an A/B test for a model change with metrics fixed before you peek",
+      "Spot peeking, novelty effects, and network effects that fake a win",
+      "Decide ship-or-kill from a result instead of eyeballing the dashboard"
+    ],
     "sections": [
       {
         "heading": "Why A/B test ML at all",
@@ -845,6 +860,11 @@ export default {
     ]
   },
   "llm-fundamentals": {
+    "objectives": [
+      "Trace text through tokenize → predict → sample → detokenize, one token at a time",
+      "Explain why an LLM only ever predicts the next token, and what that rules out",
+      "Tune `temperature` and top-p to trade determinism against creativity on purpose"
+    ],
     "sections": [
       {
         "heading": "What an LLM actually does",
@@ -1093,6 +1113,11 @@ export default {
     ]
   },
   "llm-prompting": {
+    "objectives": [
+      "Reach for zero-shot, few-shot, chain-of-thought, or role framing by the task at hand",
+      "Assemble a working prompt from instruction, context, examples, and output format",
+      "Diagnose why a prompt drifts or ignores instructions and fix it"
+    ],
     "sections": [
       {
         "heading": "Prompts are programs",
@@ -1289,6 +1314,11 @@ export default {
     ]
   },
   "llm-rag": {
+    "objectives": [
+      "Separate the index-time and query-time phases of a RAG system and their clocks",
+      "Trace a query through embed → retrieve → rerank → stuff-context → generate",
+      "Choose a chunk size and overlap that keeps retrieved context coherent"
+    ],
     "sections": [
       {
         "heading": "The librarian with a long memory",
@@ -1569,6 +1599,11 @@ export default {
     ]
   },
   "ml-inference-api": {
+    "objectives": [
+      "Wrap a scikit-learn model behind a FastAPI endpoint that returns a prediction",
+      "Validate request bodies with pydantic so junk gets a 422 before it hits the model",
+      "Load the model once at startup instead of per request"
+    ],
     "sections": [
       {
         "heading": "Summary",
@@ -1766,6 +1801,11 @@ export default {
     ]
   },
   "drift-detector": {
+    "objectives": [
+      "Build a background job that windows production features and scores drift on a schedule",
+      "Compute a PSI between a reference and a live distribution and read the number",
+      "Set a threshold that fires an alert instead of silently letting the model rot"
+    ],
     "cliffhanger": "What signal tells you the drift is bad enough to retrain — versus drift that is just normal seasonality?",
     "sections": [
       {
@@ -1952,6 +1992,11 @@ export default {
     ]
   },
   "fastapi-ml-service": {
+    "objectives": [
+      "Wrap any pretrained model in a FastAPI service with typed request and response schemas",
+      "Add a health check and load the model once so the container starts clean",
+      "Return structured errors instead of leaking a stack trace to the caller"
+    ],
     "sections": [
       {
         "heading": "Summary",
@@ -1965,6 +2010,11 @@ export default {
     ]
   },
   "ml-platform": {
+    "objectives": [
+      "Wire a training job that pushes an artifact to a registry the serving layer reads",
+      "Load a model through a registry alias so a promotion needs no redeploy",
+      "Connect train → register → serve → monitor into one end-to-end loop"
+    ],
     "sections": [
       {
         "heading": "Summary",
@@ -2166,6 +2216,11 @@ export default {
     ]
   },
   "m1": {
+    "objectives": [
+      "Give the two-paragraph pitch for what MLOps adds on top of DevOps",
+      "Name the three ML failure modes (drift, skew, silent decay) DevOps never had to",
+      "Map which of your DevOps skills carry over and which don't"
+    ],
     "sections": [
       {
         "heading": "The two-paragraph elevator pitch",
@@ -2269,6 +2324,11 @@ export default {
     ]
   },
   "m4": {
+    "objectives": [
+      "Wrap a pickled sklearn model in a 40-line FastAPI service you can ship today",
+      "Load the model at import time and type the request and response with pydantic",
+      "Pin the sklearn version to the one that trained the model to avoid version skew"
+    ],
     "sections": [
       {
         "heading": "The 40-line wrap",
@@ -2483,6 +2543,11 @@ export default {
     ]
   },
   "m5": {
+    "objectives": [
+      "Break an end-to-end ML project into four milestones instead of one big build",
+      "Name the trap hiding in each milestone before you hit it",
+      "Justify the milestone order by what each step de-risks for the next"
+    ],
     "sections": [
       {
         "heading": "The project plan, not the algorithm",
@@ -2669,6 +2734,11 @@ export default {
     ]
   },
   "ml-intro-what-it-does": {
+    "objectives": [
+      "Tell apart a problem ML fits from one plain rules solve better",
+      "Explain the shift from hand-written rules to patterns learned from data",
+      "State the three signals that say a task is worth reaching for ML"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -2716,6 +2786,11 @@ export default {
 
   // ─── CORE MODELS (mlops) ──────────────────────────────────────────────────
   "ml-core-linear-regression": {
+    "objectives": [
+      "Fit a line to data and read what its weights and intercept mean",
+      "Extend from one feature to many without losing the intuition",
+      "Explain how linear regression is a single neuron with no activation"
+    ],
     "sections": [
       {
         "heading": "The simplest model that actually works",
@@ -2927,6 +3002,11 @@ export default {
 
   // ─── WORKING WITH DATA (mlops) ────────────────────────────────────────────
   "ml-data-numerical": {
+    "objectives": [
+      "Choose between standardization and normalization for a numeric feature",
+      "Apply a log transform to a skewed feature and say why it helps",
+      "Fit scalers on the train split only so no test statistics leak in"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -2967,6 +3047,11 @@ export default {
 
   // ─── APPLIED ML (mlops — first is recsys) ─────────────────────────────────
   "ml-applied-recsys": {
+    "objectives": [
+      "Contrast collaborative filtering with content-based recommendation",
+      "Explain why a hybrid recommender beats either approach alone",
+      "Pick recommendation metrics that reward ranking, not just accuracy"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3009,6 +3094,11 @@ export default {
 
   // ─── PRODUCTION ML (mlops — first is systems) ─────────────────────────────
   "ml-prod-systems": {
+    "objectives": [
+      "Map the stages of a production ML pipeline from raw data to served prediction",
+      "Explain what a feature store buys you and what a serving layer owns",
+      "Name the common failure points where a production ML system breaks"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3056,6 +3146,11 @@ export default {
 
   // ─── NEURAL NETS & BEYOND (mleng — first is fundamentals) ─────────────────
   "ml-intro-paradigms": {
+    "objectives": [
+      "Tell supervised, unsupervised, and reinforcement learning apart by their feedback",
+      "Read a code snippet and name which paradigm it's using",
+      "Pick the right paradigm for a problem from the shape of its labels"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3156,6 +3251,11 @@ export default {
     ]
   },
   "ml-intro-framing": {
+    "objectives": [
+      "Turn a vague business goal into a concrete ML prediction target",
+      "Answer the four framing questions before writing any model code",
+      "Reframe a problem when the first framing makes the model impossible"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3232,6 +3332,11 @@ export default {
     ]
   },
   "ml-core-logistic-regression": {
+    "objectives": [
+      "Explain how logistic regression turns a linear score into a probability",
+      "Read the sigmoid and the decision threshold that splits the classes",
+      "Choose logistic regression as a baseline before reaching for anything fancier"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3314,6 +3419,11 @@ export default {
     ]
   },
   "ml-core-classification-metrics": {
+    "objectives": [
+      "Build a confusion matrix and label its four cells",
+      "Compute precision, recall, and F1 and say when each one matters",
+      "Pick the metric that matches the real cost of a wrong prediction"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3412,6 +3522,11 @@ export default {
     ]
   },
   "ml-core-trees-forests": {
+    "objectives": [
+      "Explain how a decision tree splits data one question at a time",
+      "Say why a random forest of many trees beats a single deep tree",
+      "Reach for trees when features interact and interpretability matters"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3488,6 +3603,11 @@ export default {
     ]
   },
   "ml-data-categorical": {
+    "objectives": [
+      "One-hot encode a nominal feature and explain the columns it creates",
+      "Recognize when one-hot explodes and needs a different encoding",
+      "Tell ordinal from nominal categories and encode each correctly"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3556,6 +3676,11 @@ export default {
     ]
   },
   "ml-data-splits-leakage": {
+    "objectives": [
+      "Split data into train, validation, and test with clean boundaries",
+      "Spot the ways leakage sneaks a peek at test data into training",
+      "Order preprocessing so scalers and encoders never see the test split"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3649,6 +3774,11 @@ export default {
     ]
   },
   "ml-data-overfitting": {
+    "objectives": [
+      "Detect overfitting from a widening train-vs-validation gap",
+      "Apply regularization, more data, or simpler models to fight it",
+      "Explain the bias-variance trade-off behind the fix you chose"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3735,6 +3865,11 @@ export default {
     ]
   },
   "ml-applied-clustering": {
+    "objectives": [
+      "Explain how k-means groups points around moving centroids",
+      "Pick a value of k using the elbow or silhouette instead of guessing",
+      "Decide when clustering is the right unsupervised tool for a task"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3839,6 +3974,11 @@ export default {
     ]
   },
   "ml-prod-automl": {
+    "objectives": [
+      "Say what AutoML actually automates and what it leaves to you",
+      "Describe the search AutoML runs under the hood over models and hyperparameters",
+      "Place AutoML in an MLOps workflow without ceding the judgment calls"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -3934,6 +4074,11 @@ export default {
     ]
   },
   "ml-prod-managing": {
+    "objectives": [
+      "Explain why ML projects break a standard Agile sprint",
+      "Phase an ML project by research risk instead of forcing fixed sprints",
+      "Track the metrics that tell you an ML project is actually progressing"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -4029,6 +4174,11 @@ export default {
     ]
   },
   "ml-prod-fairness": {
+    "objectives": [
+      "Define what fairness means for a model in measurable terms",
+      "Trace the points in the pipeline where bias sneaks into a model",
+      "Run a fairness audit and pick a mitigation for what it surfaces"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -4112,6 +4262,11 @@ export default {
     ]
   },
   "ml-prod-responsible-ai": {
+    "objectives": [
+      "Name the four pillars of responsible AI and what each one guards against",
+      "Translate the pillars into concrete checks in an ML workflow",
+      "Argue why responsible-AI practices are engineering, not paperwork"
+    ],
     "sections": [
       {
         "heading": "The analogy",
@@ -4193,6 +4348,11 @@ export default {
   },
   // ML (mleng) stubs
   "sd-feature-store-vs-serve": {
+    "objectives": [
+      "Explain the two-kitchen problem that a feature store solves",
+      "Contrast computing features at request time with reading them from a store",
+      "Decide when a project is big enough to actually need a feature store"
+    ],
     "sections": [
       {
         "heading": "The two-kitchen problem",
@@ -4264,6 +4424,11 @@ export default {
     ]
   },
   "sd-online-vs-batch-inference": {
+    "objectives": [
+      "Tell online, batch, and streaming inference apart by their latency needs",
+      "Pick an inference regime from the shape of the request and its deadline",
+      "Design a hybrid that batches what it can and serves online what it must"
+    ],
     "sections": [
       {
         "heading": "The pizza-shop choice",
@@ -4334,6 +4499,11 @@ export default {
     ]
   },
   "sd-training-serving-skew": {
+    "objectives": [
+      "Explain how training-serving skew silently regresses a live model",
+      "Point to the transform seams where skew usually creeps in",
+      "Kill skew by sharing one feature transform between training and serving"
+    ],
     "sections": [
       {
         "heading": "The silent regression",
@@ -4406,6 +4576,11 @@ export default {
     ]
   },
   "sd-model-registry-source-of-truth": {
+    "objectives": [
+      "Say what a model registry stores beyond the raw weights",
+      "Argue why promote-by-registry beats promote-by-redeploy",
+      "Reconstruct the audit story of which model served which request when"
+    ],
     "sections": [
       {
         "heading": "The pickle-on-someone's-laptop problem",
@@ -4486,6 +4661,11 @@ export default {
     ]
   },
   "mlops-serving-apis": {
+    "objectives": [
+      "Trace a prediction request through the full serving lifecycle",
+      "Choose between REST and gRPC for a model endpoint by its constraints",
+      "Explain the cold-start trap and how framework choice makes it worse or better"
+    ],
     "sections": [
       {
         "heading": "The request lifecycle",
@@ -4606,6 +4786,11 @@ export default {
     ]
   },
   "mlops-api-contracts": {
+    "objectives": [
+      "Write a request/response schema that rejects bad input before the model runs",
+      "Version the model and the API on separate axes without conflating them",
+      "Sketch a contract that lets clients and the model evolve independently"
+    ],
     "sections": [
       {
         "heading": "Schemas are the cheapest defense you have",
@@ -4686,6 +4871,11 @@ export default {
     ]
   },
   "mlops-cdc-semantics": {
+    "objectives": [
+      "Trace a single row change from source database through CDC to a consumer",
+      "Tell at-most-once, at-least-once, and exactly-once delivery apart",
+      "Make a consumer idempotent so at-least-once delivery is safe to use"
+    ],
     "sections": [
       {
         "heading": "Why CDC, and why semantics matter",
@@ -4838,6 +5028,11 @@ export default {
   },
 
   "mlops-feature-stores": {
+    "objectives": [
+      "Explain why features need their own database separate from the app's",
+      "Distinguish the offline and online stores and what each one serves",
+      "Write a feature definition that both training and serving read from"
+    ],
     "sections": [
       {
         "heading": "Why a feature needs its own database",
@@ -4974,6 +5169,11 @@ export default {
     ]
   },
   "mlops-monitoring": {
+    "objectives": [
+      "Name input drift, prediction drift, and concept drift and watch all three",
+      "Compute a PSI or KS statistic over a sliding window of production data",
+      "Decide what earns a page versus what belongs on a dashboard"
+    ],
     "sections": [
       {
         "heading": "Three things drift, and you have to watch all three",
@@ -5133,6 +5333,11 @@ export default {
     ]
   },
   "mlops-continuous-training": {
+    "objectives": [
+      "List the triggers that should kick off an automatic retrain",
+      "Walk a model through the promotion stages from candidate to production",
+      "Promote a model via the registry and version its data with DVC"
+    ],
     "sections": [
       {
         "heading": "When **retraining** stops being a manual heroic act",
@@ -5317,6 +5522,11 @@ export default {
     ]
   },
   "mlops-ab-testing": {
+    "objectives": [
+      "Explain why a model that wins offline can still lose online",
+      "Climb the shadow → canary → A/B rollout ladder in the right order",
+      "Pick the online metrics that actually decide whether to ship a model"
+    ],
     "sections": [
       {
         "heading": "Why a better offline model can lose **online**",
@@ -5447,6 +5657,11 @@ export default {
 
   // ─── API DESIGN (swe) ─────────────────────────────────────────────────────
   "mlops-capstone-serve": {
+    "objectives": [
+      "Scaffold, train, gate, and save a model, then serve it behind FastAPI",
+      "Containerize the whole train-to-serve chain so it runs the same anywhere",
+      "Prove the chain end-to-end with a request that returns a real prediction"
+    ],
     "sections": [
       {
         "heading": "What you're shipping",
@@ -5826,12 +6041,55 @@ export default {
               "answer": 0,
               "why": "The gate's power is placement: it runs before the artifact exists. Downstream steps (the API, the image) physically can't ship what was never saved — that's a guarantee, not a warning."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "mlops-capstone-serve-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "The eval gate actually gates",
+                "prompt": "Force your holdout accuracy below the threshold (lower the bar or corrupt the labels). Does train.py crash BEFORE writing model.joblib — leaving no artifact behind?",
+                "blocks": [],
+                "reference": "A strong build asserts on held-out accuracy before joblib.dump, so a failing model raises and the script exits non-zero with no file written. The old model.joblib (if any) is untouched, not overwritten by a worse one. The gate's value is placement: nothing downstream can ship what was never saved."
+              },
+              {
+                "title": "Bad input gets a 422, not a 500",
+                "prompt": "POST a request with \"petal_length\": -1 (and separately, a missing field). Does the API return a 422 that names the offending field — instead of a 500 stack trace?",
+                "blocks": [],
+                "reference": "A strong build validates at the edge with a Pydantic schema and bounded Fields, so malformed input is rejected before the model runs. The 422 body points at the exact field, the model never sees garbage, and no unhandled exception reaches the client."
+              },
+              {
+                "title": "The model loads once, not per request",
+                "prompt": "Is joblib.load called at import/startup — module level or a lifespan hook — rather than inside the /predict handler?",
+                "blocks": [],
+                "reference": "A strong build loads the artifact once per process at startup, so the hot path carries zero disk I/O. /healthz reports model_loaded so an orchestrator knows when the process is actually ready to take traffic — the cold-start cost is paid once, deliberately."
+              },
+              {
+                "title": "The container is self-contained",
+                "prompt": "Delete your venv and model.joblib from the host, then docker run the image and curl it. Does it still answer with a real prediction — proving code, model, and deps all shipped inside?",
+                "blocks": [],
+                "reference": "A strong build COPYs both app.py and model.joblib into the image and installs pinned requirements.txt, so the container needs zero host setup. uvicorn binds 0.0.0.0 and the port is published, so curl reaches it — the image runs identically anywhere."
+              },
+              {
+                "title": "Rebuilds respect the layer cache",
+                "prompt": "Change one line in app.py and rebuild. Does the pip-install layer print CACHED instead of re-installing every dependency?",
+                "blocks": [],
+                "reference": "A strong Dockerfile copies requirements.txt and runs pip install before copying code, so a code-only change reuses the expensive deps layer. The rebuild finishes in seconds, and the ordering reflects the principle: put cost where it changes rarely."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
     ]
   },
   "mlops-capstone-monitor": {
+    "objectives": [
+      "Build a drift monitor that meets an explicit demo-script success bar",
+      "Defend the design choices behind your windowing, metric, and threshold",
+      "Turn a fired alert into a decision instead of a silent log line"
+    ],
     "sections": [
       {
         "heading": "Your mission",
@@ -6076,12 +6334,55 @@ export default {
               "answer": 0,
               "why": "Input drift is a leading indicator: it voids the model's assumptions before accuracy visibly moves. Retraining might be the eventual answer, but the alarm itself only says 'the world changed' — and tuning alarms until they're silent is how outages get missed."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "mlops-capstone-monitor-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "Every prediction leaves one parseable trace",
+                "prompt": "Send 20 normal predictions, then read the log. Are there exactly 20 new machine-readable lines — each with timestamp, the four inputs, predicted class, and confidence — written by ONE mechanism, not per-endpoint edits?",
+                "blocks": [],
+                "reference": "A strong build logs in one place — middleware or a decorator wrapping every request — so any new endpoint is covered for free. Each line is structured (JSON or CSV), parses without special-casing, and carries enough to reconstruct the request later."
+              },
+              {
+                "title": "/metrics reports counts and latency honestly",
+                "prompt": "After those 20 calls, curl /metrics. Is the total count 20, do the per-class counts sum to 20, and are real latency numbers present (p50+p95, or at least avg+max)?",
+                "blocks": [],
+                "reference": "A strong build tracks request count, per-class prediction counts, and per-request durations, then serves them as JSON. The percentiles come from timing you already hold in the logging layer — the metrics never disagree with the log."
+              },
+              {
+                "title": "The baseline is a training-time artifact",
+                "prompt": "Open baseline.json. Was it written by train.py (not hand-edited later), and does it hold per-feature mean and std plus the class distribution from the SAME data the model trained on?",
+                "blocks": [],
+                "reference": "A strong build computes the baseline where X_train already lives in memory — inside train.py, right next to joblib.dump — so the model and baseline.json are two artifacts from one run. That guarantees the drift check compares production traffic against exactly what the model saw."
+              },
+              {
+                "title": "The alarm trips on real drift and settles",
+                "prompt": "Send 30 shifted requests (e.g. petal_length ×3). Does that feature's drift score cross your threshold, /healthz flip to \"drift\": true — and then settle back to false once normal traffic resumes?",
+                "blocks": [],
+                "reference": "A strong build scores recent traffic against the baseline (a z-score is enough), trips when the score crosses a threshold you can defend, and recovers when the window refills with normal requests. The threshold was tuned against the fake-drift test, not guessed once."
+              },
+              {
+                "title": "Drift is a signal, not an outage",
+                "prompt": "While the alarm is tripped, hit /predict. Does the API still return 200s and real predictions — treating drift as a warning to investigate, not a reason to stop serving?",
+                "blocks": [],
+                "reference": "A strong build keeps serving through a drift alarm: it logs a warning and flips a health flag, but never rejects traffic. Drift voids the model's assumptions and warrants investigation or retraining — it does not, by itself, mean the current answers are wrong."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
     ]
   },
   "mlops-capstone-platform": {
+    "objectives": [
+      "Design an end-to-end ML platform against hard constraints",
+      "Justify each stack choice and the trade-off it accepts",
+      "Answer the registry, serving, and monitoring questions the brief demands"
+    ],
     "sections": [
       {
         "heading": "The brief",
@@ -6318,6 +6619,44 @@ export default {
               "answer": 1,
               "why": "The workloads are shaped differently and the constraints say so: checkout-path p99 can't share tenancy with anything, and hammering an API two million times to fill a table buys latency machinery ETA never needed. Matching the serving pattern to the workload — not unifying for elegance — is the staff-level call."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "mlops-capstone-platform-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "A registry is the source of truth for 'what is live'",
+                "prompt": "In your design, can you answer 'which model is serving right now' and roll it back — WITHOUT a redeploy? Does one named component own that answer?",
+                "blocks": [],
+                "reference": "A strong design makes a model registry the spine: serving asks the registry what is live, so rollback is a metadata flip, not a redeploy. Both incidents in the brief — the un-rollbackable fraud model and the nine-day audit — are registry-shaped holes, which is why it is the first thing to build."
+              },
+              {
+                "title": "Serving matches the workload, in two lanes",
+                "prompt": "Does fraud's p99 < 150ms checkout path get a dedicated low-latency service, while ETA's 2M nightly rows run as a batch job on the orchestrator — rather than one shared platform for both?",
+                "blocks": [],
+                "reference": "A strong design refuses to unify for elegance: a checkout-path p99 workload can't share tenancy with noisy neighbors, and a nightly batch of 2M rows is a scheduled job writing to a table, not two million API calls. The paved-road template serves the other teams; the two hard-numbered workloads get purpose-fit lanes."
+              },
+              {
+                "title": "The promotion gate answers to the audit constraint",
+                "prompt": "Before a model reaches prod, must it clear an automated eval AND a human sign-off — so a named person owns the promotion when the auditor asks?",
+                "blocks": [],
+                "reference": "A strong design gates in two stages: an automated eval (beat the incumbent on held-out and sliced metrics, or nothing registers) plus a human sign-off on staging→prod. The audit constraint means the fully-automated option is wrong here — someone must own the click that put a model in the checkout path."
+              },
+              {
+                "title": "Every hard constraint maps to a component or a trade",
+                "prompt": "Walk the six constraints — 3 engineers, fraud latency, ETA batch, one-hour auditability, $40k budget, team autonomy. Does each show up in your design as a named component or an explicit trade-off you can point to?",
+                "blocks": [],
+                "reference": "A strong design leaves no constraint unaddressed: the 3-person team forces a paved-road-plus-managed stack over five bespoke ones, autonomy picks the template over shared runtime, the budget puts training on spot GPUs and serving on reserved, and auditability is the registry's lineage. A constraint with no home in the design is a constraint the design ignored."
+              },
+              {
+                "title": "You designed which failures are acceptable",
+                "prompt": "Kill one component of your own design — the registry, say — and trace the blast radius. Can you name what breaks, what degrades gracefully, and what doesn't notice?",
+                "blocks": [],
+                "reference": "A strong design has a failure story: if the registry dies, serving keeps running on its last-known model (cache the answer, degrade gracefully) while promotions and rollbacks freeze — an acceptable, deliberate failure mode. Choosing which failures are tolerable, rather than pretending nothing fails, is the actual platform job."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }

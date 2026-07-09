@@ -1568,9 +1568,16 @@ export default {
     ]
   },
   "gh-actions-ci": {
+    "objectives": [
+      "Wire one workflow file that lints and tests every PR, builds and pushes a Docker image to GHCR on `main`, and deploys only on a `v*` tag",
+      "Authenticate to GHCR with the auto-minted `GITHUB_TOKEN` — no PAT stored anywhere in the repo",
+      "Cut warm-cache CI time with pip caching, buildx layer cache (`mode=max`), and a `concurrency` group that cancels stale runs",
+      "Turn the pipeline into a gate: require green checks in branch protection and deploy the immutable `:sha` image, never `:latest`"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "A good pipeline fails loudly, caches aggressively, and never lets a broken commit reach production — the green checkmark is a side effect.",
         "body": [
           {
             "type": "p",
@@ -1712,6 +1719,7 @@ export default {
       },
       {
         "heading": "The workflow file",
+        "takeaway": "Lint and test run as parallel siblings, build waits on both and pushes `:sha` + `:latest`, and deploy fires only on a `v*` tag — it pulls the already-built image, never rebuilds.",
         "body": [
           {
             "type": "p",
@@ -1790,6 +1798,12 @@ export default {
     ]
   },
   "terraform-vpc": {
+    "objectives": [
+      "Declare a working VPC in minimal HCL — VPC, public subnet, IGW, route table — and explain what each resource contributes",
+      "Spot why a subnet with no route-table association silently has no internet, and fix it",
+      "Choose local vs remote state (S3 + DynamoDB lock) and say exactly when each is safe",
+      "Plan a CIDR layout that won't collide when two VPCs get peered later"
+    ],
     "sections": [
       {
         "heading": "Why a module, not a tangle",
@@ -1896,6 +1910,7 @@ export default {
       },
       {
         "heading": "Minimal HCL",
+        "takeaway": "Four resources make a working network — VPC, subnet, IGW, route table — and the easy-to-forget route-table *association* is the line that actually turns the internet on.",
         "body": [
           {
             "type": "p",
@@ -1923,6 +1938,7 @@ export default {
       },
       {
         "heading": "State: local vs remote",
+        "takeaway": "State goes remote (S3 + DynamoDB lock) the moment a second person touches the repo — and `.tfstate` never goes in git, because it holds secrets in plaintext.",
         "body": [
           {
             "type": "p",
@@ -1948,6 +1964,7 @@ export default {
       },
       {
         "heading": "Terms you'll keep tripping over",
+        "deep": true,
         "body": [
           {
             "type": "terms",
@@ -1997,9 +2014,15 @@ export default {
     ]
   },
   "prometheus-stack": {
+    "objectives": [
+      "Stand up Prometheus, Grafana, and an instrumented service with one Compose file",
+      "Build a Grafana dashboard from metrics Prometheus scraped off your own service",
+      "Configure an alert that fires on an error-rate spike and posts to a Slack webhook"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "Metrics flow one way — the service exposes them, Prometheus scrapes and stores them, Grafana reads the store — and alerts fire on stored data, not on the live service.",
         "body": [
           {
             "type": "p",
@@ -2010,9 +2033,16 @@ export default {
     ]
   },
   "feature-flag-service": {
+    "objectives": [
+      "Build a flag service whose evaluator is a pure O(1) function — targeting first, rollout percentage second, default last",
+      "Make rollouts sticky by salting the bucket hash with the flag key, so the same user gets the same answer across restarts and machines",
+      "Write an SDK shim that never throws: 50ms timeout, one retry, local fallback when the flag service is down",
+      "Hot-reload `flags.json` with an atomic dict swap so in-flight requests never see a torn state"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "Flag eval must be local-fast, rollouts must be sticky, and the SDK must never throw — every commercial flag platform is this same shape under the marketing.",
         "body": [
           {
             "type": "p",
@@ -2149,6 +2179,7 @@ export default {
       },
       {
         "heading": "The evaluator (the heart of it)",
+        "takeaway": "Salt the bucket hash with the flag key — `hash(flag:user) % 100` — so two 10% rollouts don't enable the exact same 10% of users.",
         "body": [
           {
             "type": "p",
@@ -2213,9 +2244,15 @@ export default {
     ]
   },
   "circuit-breaker-mesh": {
+    "objectives": [
+      "Explain which failure mode each resilience pattern stops — circuit breaker, retry with backoff + jitter, timeout, bulkhead",
+      "Implement the four patterns as a reusable Python library instead of copy-pasted `try/except` blocks",
+      "Prove the point in a 4-service demo: kill any one service and show the other three keep answering"
+    ],
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "Resilience patterns exist to stop cascade failure — a service mesh just packages circuit breakers, retries, timeouts, and bulkheads so one dead service can't take down the rest.",
         "body": [
           {
             "type": "p",
@@ -2226,6 +2263,12 @@ export default {
     ]
   },
   "d1": {
+    "objectives": [
+      "Reach for the 13 daily Linux commands with the one flag each that actually matters",
+      "Compose a multi-stage pipeline (`find | xargs | grep | sort | head`) with no temp files, no loops, no script",
+      "Pick the right filter by its unit of work: `grep` keeps lines, `sed` rewrites lines, `awk` splits columns, `tr` maps characters",
+      "Dodge the classics — spaces breaking `xargs`, `uniq` without `sort`, `tail -f` losing rotated logs"
+    ],
     "sections": [
       {
         "heading": "The 13 commands you actually type",
@@ -2335,6 +2378,7 @@ export default {
       },
       {
         "heading": "The one pipeline to internalize",
+        "takeaway": "Every stage reads stdin, transforms, writes stdout — the pipe does all the gluing, so nothing touches disk and every stage is debuggable in isolation.",
         "body": [
           {
             "type": "p",
@@ -2432,6 +2476,7 @@ export default {
       },
       {
         "heading": "awk vs sed vs grep — when each wins",
+        "takeaway": "Pick by unit of work: `grep` keeps matching lines, `sed` rewrites lines, `awk` works on columns, `tr` maps single characters.",
         "body": [
           {
             "type": "p",
@@ -2487,9 +2532,16 @@ export default {
     ]
   },
   "d3": {
+    "objectives": [
+      "Run the full feature-branch loop: fork off `main`, rebase on `origin/main`, merge, then delete the branch locally and remotely",
+      "Choose `git branch -d` vs `-D` deliberately — and explain why a squash merge forces the uppercase one",
+      "Prune stale tracking refs with `git fetch --prune` after the host's delete-branch button",
+      "Recover a wrongly deleted branch from `git reflog`"
+    ],
     "sections": [
       {
         "heading": "The cleanup is the lesson",
+        "takeaway": "A branch is a disposable sticky note pointing at commits — once merged, peel it off locally AND remotely; the commits are the artifact.",
         "body": [
           {
             "type": "p",
@@ -2579,6 +2631,7 @@ export default {
       },
       {
         "heading": "The full sequence, annotated",
+        "takeaway": "`-d` refuses to delete unmerged work; `-D` forces it — reach for uppercase only for branches you abandoned on purpose or squash-merged.",
         "body": [
           {
             "type": "code",
@@ -2676,9 +2729,16 @@ export default {
   },
   "d4": {
     "cliffhanger": "So how do you keep these containers running when one crashes at 3 AM?",
+    "objectives": [
+      "Keep the three nouns straight: image (frozen snapshot), container (running instance), registry (dumb storage)",
+      "Run the full lifecycle by hand: `docker build` → `tag` → `push` → `pull` → `run`",
+      "Parse any image reference into registry, repo, and tag — and say what `docker pull nginx` silently assumes",
+      "Dodge the beginner traps: treating `:latest` as a version, orphaned images filling disk, `run` not re-pulling"
+    ],
     "sections": [
       {
         "heading": "Three nouns, one workflow",
+        "takeaway": "Image = class, container = object, registry = npm for images — keep those three nouns straight and ninety percent of Docker confusion evaporates.",
         "body": [
           {
             "type": "p",
@@ -2801,6 +2861,7 @@ export default {
       },
       {
         "heading": "The four commands that matter",
+        "takeaway": "`--name web` names the container while `myapp:v1` names the image — one image can back ten differently named containers, so never conflate the two in scripts.",
         "body": [
           {
             "type": "p",
@@ -2819,6 +2880,7 @@ export default {
       },
       {
         "heading": "Image names decoded",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -2880,9 +2942,16 @@ export default {
     ]
   },
   "d5": {
+    "objectives": [
+      "Pick kind vs minikube by need — kind for fast manifest testing and CI, minikube for ingress, dashboard, and addons",
+      "Spin up a local cluster and deploy an nginx Deployment with liveness and readiness probes",
+      "Verify the rollout with `kubectl rollout status` and reach the Service via port-forward or `minikube service`",
+      "Tear the cluster down cleanly so it stops eating RAM"
+    ],
     "sections": [
       {
         "heading": "kind vs minikube: pick your poison",
+        "takeaway": "kind for testing manifests fast (CI, low RAM), minikube for exploring K8s features like ingress and the dashboard — install both, they coexist.",
         "body": [
           {
             "type": "p",
@@ -2947,6 +3016,7 @@ export default {
       },
       {
         "heading": "Spin up a cluster, deploy a service",
+        "takeaway": "The probes are the point: liveness restarts a dead pod, readiness gates Service traffic — skip them and you're load-balancing to cold pods.",
         "body": [
           {
             "type": "p",
@@ -3088,6 +3158,11 @@ export default {
     ]
   },
   "d6": {
+    "objectives": [
+      "Separate CI, Continuous Delivery, and Continuous Deployment by the one question that matters: who pushes the prod button",
+      "Point at the exact YAML line (`environment: production`) that turns Delivery into Deployment",
+      "Argue why most companies deliberately stop at Delivery — and name what full Deployment demands: coverage, flags, instant rollback"
+    ],
     "sections": [
       {
         "heading": "Three words, three different things",
@@ -3104,6 +3179,7 @@ export default {
       },
       {
         "heading": "Precise definitions",
+        "takeaway": "The delta between Delivery and Deployment is exactly one manual approval step — everything upstream of the prod button is identical.",
         "body": [
           {
             "type": "terms",
@@ -3272,6 +3348,7 @@ export default {
       },
       {
         "heading": "Why most companies stop at Delivery",
+        "takeaway": "Full Deployment demands excellent tests, feature flags, and instant rollback — the human approval step is the cheap substitute for all three.",
         "body": [
           {
             "type": "pros-cons",
@@ -3313,6 +3390,12 @@ export default {
     ]
   },
   "d7": {
+    "objectives": [
+      "Write a complete 3-AZ VPC in one `main.tf` — subnets, IGW, NAT with an EIP, two route tables, six associations",
+      "Stamp out one subnet per AZ with `count` + `count.index` zipping over locals",
+      "Trace an outbound packet from a private subnet through the NAT and out the IGW",
+      "Debug the silent classic: `apply` succeeds but nothing has internet — a missing route-table association"
+    ],
     "sections": [
       {
         "heading": "The file you actually write",
@@ -3329,6 +3412,7 @@ export default {
       },
       {
         "heading": "main.tf — annotated end to end",
+        "takeaway": "Public subnets route 0.0.0.0/0 through the IGW, private subnets route it through a NAT parked in a public subnet — two route tables and six associations wire the whole network.",
         "body": [
           {
             "type": "p",
@@ -3370,6 +3454,7 @@ export default {
       },
       {
         "heading": "What each block does, at a glance",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -3556,9 +3641,16 @@ export default {
     ]
   },
   "sd-isolation": {
+    "objectives": [
+      "Explain a container as an ordinary process plus namespaces (what it can see) and cgroups (what it can use)",
+      "Fake a container by hand: `unshare --pid --fork --mount-proc bash` and prove you're PID 1 inside",
+      "Predict exactly what `--network host` does and doesn't change — the namespaces are independent dials",
+      "Make the judgment call on untrusted code: one shared kernel means a container is isolation, not a security boundary"
+    ],
     "sections": [
       {
         "heading": "Two questions every process asks",
+        "takeaway": "Namespaces decide what a process can SEE, cgroups decide what it can USE — a container is just a normal process wearing both.",
         "body": [
           {
             "type": "p",
@@ -3754,6 +3846,7 @@ export default {
       },
       {
         "heading": "Terms worth knowing",
+        "deep": true,
         "body": [
           {
             "type": "terms",
@@ -3784,6 +3877,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Isolation is not security: every namespace is enforced by the one shared kernel, so a single kernel exploit escapes every container on the box.",
         "body": [
           {
             "type": "pros-cons",
@@ -3826,6 +3920,12 @@ export default {
     ]
   },
   "sd-container-networking": {
+    "objectives": [
+      "Explain the default bridge: a veth pair into `docker0`, NAT for outbound, nothing inbound until a port is published",
+      "Say what `-p 8080:80` actually installs — an iptables DNAT rule — and why localhost loopback from inside the container fails",
+      "Use Compose's user-defined bridge and embedded DNS so `db:5432` resolves without exposing the database to the host",
+      "Trace a cross-host pod-to-pod packet through veth, bridge, VXLAN overlay, and iptables"
+    ],
     "sections": [
       {
         "heading": "The default bridge — a tiny virtual switch",
@@ -3858,6 +3958,7 @@ export default {
       },
       {
         "heading": "Compose networks — DNS for free",
+        "takeaway": "On a user-defined bridge every service name is a DNS record (resolved at `127.0.0.11`) — that's why `postgres://db:5432` works and the database never needs a published port.",
         "body": [
           {
             "type": "p",
@@ -3913,6 +4014,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Container networking is three Linux pieces — veth pairs, bridges, iptables — composed in standard ways; overlays just add VXLAN encapsulation and DNS on top.",
         "body": [
           {
             "type": "p",
@@ -3939,6 +4041,12 @@ export default {
     ]
   },
   "sd-loadbalancers-k8s": {
+    "objectives": [
+      "Pick the right Service type — ClusterIP, NodePort, LoadBalancer, Ingress — by cost and exposure, not by habit",
+      "Explain why 20 microservices share one Ingress instead of paying for 20 cloud load balancers",
+      "Describe the ClusterIP fiction: kube-proxy programs iptables/IPVS/eBPF DNAT rules, which is why a Service is L4",
+      "Diagnose the classics: gRPC pinning to one pod, and a broken readiness probe silently draining traffic"
+    ],
     "sections": [
       {
         "heading": "Same pattern, different layer",
@@ -3955,6 +4063,7 @@ export default {
       },
       {
         "heading": "The four Service types",
+        "takeaway": "ClusterIP covers 90% of traffic (pod-to-pod), and one Ingress fanning out to many Services beats paying for one cloud LB per Service.",
         "body": [
           {
             "type": "table",
@@ -4012,6 +4121,7 @@ export default {
       },
       {
         "heading": "Who actually moves the packets",
+        "takeaway": "No process listens on a ClusterIP — kube-proxy programs iptables/IPVS/eBPF to DNAT the VIP to a real pod, which is exactly why anything L7 needs a real proxy in the path.",
         "body": [
           {
             "type": "diagram",
@@ -4115,6 +4225,7 @@ export default {
       },
       {
         "heading": "Ingress vs Service mesh",
+        "deep": true,
         "body": [
           {
             "type": "pros-cons",
@@ -4173,6 +4284,11 @@ export default {
     ]
   },
   "sd-blue-green-canary": {
+    "objectives": [
+      "Choose blue-green vs canary by rollback budget and blast radius — and defend the pick",
+      "Explain why both live versions must tolerate the same DB schema during any rollout",
+      "Say what makes a canary metric-driven (auto-ramp, auto-pause) instead of just a slow blue-green"
+    ],
     "sections": [
       {
         "heading": "Why deploys are dangerous",
@@ -4229,6 +4345,7 @@ export default {
       },
       {
         "heading": "Tooling",
+        "deep": true,
         "body": [
           {
             "type": "ul",
@@ -4243,6 +4360,7 @@ export default {
       },
       {
         "heading": "When to pick which",
+        "takeaway": "Start with blue-green for the bulletproof rollback; graduate to canary when the fleet is too big to duplicate or 1% of traffic gives real signal in minutes.",
         "body": [
           {
             "type": "p",
@@ -4256,6 +4374,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Neither strategy prevents bugs — both limit blast radius and speed rollback; without good metrics, a canary is just a slow blue-green.",
         "body": [
           {
             "type": "p",
@@ -4266,9 +4385,15 @@ export default {
     ]
   },
   "sd-idempotency-deploys": {
+    "objectives": [
+      "Define idempotency precisely (`x = 5`, not `x += 1`) and spot it in HTTP verbs, SQL updates, and IaC",
+      "Design CI steps so a retry is boring: deterministic names, upserts, existence checks, durable state",
+      "Apply Stripe-style idempotency keys to intrinsically non-idempotent side effects like charges and emails"
+    ],
     "sections": [
       {
         "heading": "Idempotency — running twice equals running once",
+        "takeaway": "Idempotent means running it N times is indistinguishable from running it once — `x = 5`, not `x += 1` — and it shows up in HTTP verbs, SQL, and IaC alike.",
         "body": [
           {
             "type": "p",
@@ -4343,6 +4468,7 @@ export default {
       },
       {
         "heading": "Best practice",
+        "takeaway": "In a distributed system anything that CAN run twice eventually WILL — use declarative tools where you can, idempotency keys where you can't.",
         "body": [
           {
             "type": "p",
@@ -4377,6 +4503,11 @@ export default {
 
   // ─── ML FUNDAMENTALS (mlops) ──────────────────────────────────────────────
   "agile-continuous": {
+    "objectives": [
+      "Explain what 'continuous everything' automates between commit pushed and value in production",
+      "Distinguish the five continuous layers — integration, delivery, deployment, testing, monitoring — by what each catches",
+      "Spot the four stall patterns: long-lived branches, slow tests, manual gates, scary rollback"
+    ],
     "sections": [
       {
         "heading": "The premise",
@@ -4386,6 +4517,7 @@ export default {
       },
       {
         "heading": "The continuous stack",
+        "takeaway": "CI catches bad commits in minutes, Delivery makes every green commit shippable, Deployment drops the button — continuous testing and monitoring are what hold it all up.",
         "body": [
           { "type": "ul", "items": [
             "**Continuous Integration** — every commit runs the full test suite on a clean build. Bad commits surface in minutes, not weeks.",
@@ -4415,6 +4547,7 @@ export default {
       },
       {
         "heading": "Bottom line",
+        "takeaway": "Without continuous delivery, Agile is rapid planning on top of quarterly waterfall releases — theater.",
         "body": [
           { "type": "p", "text": "Continuous Delivery is what makes Agile *real* outside the standup. Otherwise you have rapid planning followed by quarterly releases — Agile theater on top of waterfall plumbing." }
         ]
@@ -4429,9 +4562,15 @@ export default {
 
   // ML (mlops) stubs
   "agile-trunk-based": {
+    "objectives": [
+      "Explain the trunk-based contract: everyone commits to `main` at least daily, and `main` stays always releasable",
+      "Slice work into small vertical increments and ship unfinished code dark behind feature flags",
+      "Argue why long-lived branches rot — and how tiny reversible batches move the DORA metrics"
+    ],
     "sections": [
       {
         "heading": "What it is",
+        "takeaway": "One shared branch, commits land daily, and `main` stays always releasable — that promise is what makes continuous delivery possible.",
         "body": [
           {
             "type": "p",
@@ -4445,6 +4584,7 @@ export default {
       },
       {
         "heading": "How teams actually do it",
+        "takeaway": "Feature flags decouple deploy from release — unfinished code ships dark, then flips on for staff, 1%, then everyone.",
         "body": [
           {
             "type": "p",
@@ -4509,6 +4649,11 @@ export default {
 
   // ─── SD insights (workflow-generated) ────────────────────────────────────
   "cloud-storage": {
+    "objectives": [
+      "Match a workload to object, block, or file storage and defend the pick against the listing-cost, atomicity, and latency walls",
+      "Translate a storage shape across AWS, GCP, and Azure (`S3` → `GCS` → `Blob`) so you can read any architecture doc",
+      "Write an S3 lifecycle rule that tiers cold data to Glacier and expires it on schedule"
+    ],
     "sections": [
       {
         "heading": "Three shapes, three jobs",
@@ -4614,6 +4759,11 @@ export default {
     ]
   },
   "cloud-databases": {
+    "objectives": [
+      "Decide managed vs self-hosted for a given team size and data volume, naming the cost, lock-in, and version-lag taxes you accept",
+      "Map a database shape (OLTP, NoSQL, warehouse, cache) to its `RDS`/`DynamoDB`/`Redshift` equivalent across all three clouds",
+      "Spot a managed-DB gotcha before it bites: connection ceilings, missing superuser, and per-IOPS bill spikes"
+    ],
     "sections": [
       {
         "heading": "Why managed",
@@ -4703,6 +4853,11 @@ export default {
     ]
   },
   "cloud-serverless": {
+    "objectives": [
+      "Choose between event-driven functions and long-lived containers for a workload, and say why scale-to-zero fits or fails",
+      "Recall the hard ceilings (15-min duration, memory cap, cold-start range) that kill a naive serverless migration before you commit",
+      "Tune reserved and provisioned concurrency to cap blast radius and eliminate cold starts at a known cost"
+    ],
     "sections": [
       {
         "heading": "Two flavors of serverless",
@@ -4821,6 +4976,11 @@ export default {
     ]
   },
   "cloud-cdn": {
+    "objectives": [
+      "Trace a request from user to edge cache-hit to origin, and explain where an edge function intercepts it",
+      "Pick a cache-invalidation strategy (TTL, explicit purge, or content-hashed filenames) and justify why hashing scales best",
+      "Read a CDN response with `curl -I` to tell a cache hit from a miss and diagnose a cache-key explosion"
+    ],
     "sections": [
       {
         "heading": "The edge is the front door",
@@ -4904,6 +5064,11 @@ export default {
     ]
   },
   "cloud-observability": {
+    "objectives": [
+      "Debug a slow request in order — alarm fires *that* it's broken, trace shows *where*, logs reveal *what* — using logs, metrics, and traces together",
+      "Split signals into dashboards (browse on purpose) versus alarms (page you at 3am) so neither goes noisy or useless",
+      "Wire an OpenTelemetry Collector pipeline so you can swap observability backends without re-instrumenting the app"
+    ],
     "sections": [
       {
         "heading": "The three pillars",
@@ -5057,6 +5222,11 @@ export default {
     ]
   },
   "cloud-models": {
+    "objectives": [
+      "Place IaaS, PaaS, FaaS, and SaaS on the control-to-convenience slider by naming who manages the app, runtime, OS, and hardware in each",
+      "Pick the right model for a workload by asking *what do I want to stop caring about?* instead of what's trendy",
+      "Anticipate each model's failure mode — FaaS cold starts, PaaS lock-in, IaaS cost creep, SaaS data egress — before you commit"
+    ],
     "sections": [
       {
         "heading": "The control vs convenience slider",
@@ -5144,6 +5314,11 @@ export default {
     ]
   },
   "cloud-providers": {
+    "objectives": [
+      "Translate a service across AWS, Azure, and GCP (`EC2` → `VM` → `Compute Engine`) so you can read any provider's docs fast",
+      "Recommend a primary cloud from a team's real constraints — existing AD/Office stack, data-warehouse needs, catalog breadth",
+      "Call out where multi-cloud costs more than it saves: egress fees, doubled ops surface, and reserved-instance lock-in"
+    ],
     "sections": [
       {
         "heading": "The big three (and the vocab gap)",
@@ -5226,6 +5401,11 @@ export default {
     ]
   },
   "cloud-regions": {
+    "objectives": [
+      "Explain the region/AZ/edge hierarchy as city/building/curbside box and place a workload in the right tier for its latency and blast-radius needs",
+      "Estimate round-trip latency from the deployment tier — same-AZ under 1ms, cross-region 60-200ms — and design around the speed of light",
+      "Weigh multi-AZ versus multi-region against the real costs: cross-region egress, active-active split-brain, and data-residency rules"
+    ],
     "sections": [
       {
         "heading": "City, building, curbside box",
@@ -5305,6 +5485,11 @@ export default {
     ]
   },
   "cloud-iam": {
+    "objectives": [
+      "Name the four IAM nouns — identity, policy, role, resource — and describe how a principal assumes a role to reach a guarded resource",
+      "Distinguish a trust policy (who can assume) from a permission policy (what they can do), and use that split to debug an `AccessDenied` error",
+      "Write a least-privilege policy — one action set, one resource, no `*` wildcards — and treat root credentials as radioactive"
+    ],
     "sections": [
       {
         "heading": "Identity is the new perimeter",
@@ -5396,6 +5581,11 @@ export default {
     ]
   },
   "cloud-networking": {
+    "objectives": [
+      "Lay out a VPC with public and private subnets and explain how one route-table line flips a subnet's exposure to the internet",
+      "Choose between a stateful security group and a stateless NACL, and remember NACLs need explicit return-path rules",
+      "Trace a private subnet's outbound call through a NAT gateway and spot the `0.0.0.0/0` and CIDR-overlap traps that break real VPCs"
+    ],
     "sections": [
       {
         "heading": "Your private datacenter, rented",
@@ -5490,6 +5680,11 @@ export default {
     ]
   },
   "cloud-cost": {
+    "objectives": [
+      "Match a workload to on-demand, spot, reserved, or savings-plan pricing by trading flexibility against discount and pre-emption risk",
+      "Tag resources with `team`/`env`/`cost-center` at create-time so you can slice the bill and know what to cut",
+      "Set budgets and alarms that catch forgotten resources — an idle GPU, a lingering NAT gateway — before the invoice lands"
+    ],
     "sections": [
       {
         "heading": "Cost is a feature",
@@ -5577,6 +5772,11 @@ export default {
     ]
   },
   "devops-role-map": {
+    "objectives": [
+      "Tell DevOps (culture), SRE (discipline), and Platform Engineering (product team) apart by the SDLC stage and success metric each owns",
+      "Compute an error budget from an SLO and decide from the burn ratio whether to ship faster or freeze releases",
+      "Diagnose an org anti-pattern — DevOps-as-one-job-title, SRE with no SLO, a platform team before it has customers — and say what it recreates"
+    ],
     "sections": [
       {
         "heading": "Three titles, one mission",

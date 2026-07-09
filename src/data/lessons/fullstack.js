@@ -520,6 +520,7 @@ export default {
     "sections": [
       {
         "heading": "useState: the local memory cell",
+        "takeaway": "`useState` gives a component a memory cell — the setter triggers a re-render, and hooks must run in the same order every render, never inside `if` or loops.",
         "body": [
           {
             "type": "p",
@@ -860,6 +861,7 @@ export default {
       },
       {
         "heading": "Picking the right code",
+        "takeaway": "`201` pairs with a `Location` header, `204` means done with no body, and a missing resource is a `404` — never a `200` with `null`.",
         "body": [
           {
             "type": "p",
@@ -956,6 +958,7 @@ export default {
     "sections": [
       {
         "heading": "Validate at the edge",
+        "takeaway": "Parse, don't validate — every network input goes through a schema, so downstream code only ever sees typed, trusted data.",
         "body": [
           {
             "type": "p",
@@ -1010,6 +1013,7 @@ export default {
       },
       {
         "heading": "Error handling that doesn't leak",
+        "takeaway": "One 4-arg error handler at the end of the chain owns the JSON shape, the logging, and the rule that stack traces never reach the client.",
         "body": [
           {
             "type": "p",
@@ -1070,6 +1074,11 @@ export default {
     ]
   },
   "fs-fetch-from-react": {
+    "objectives": [
+      "Render all three states of a request — loading, error, success — instead of only the happy path",
+      "Cancel a stale fetch with `AbortController` in the effect cleanup so unmounted components never set state",
+      "Replace hand-rolled fetch hooks with React Query — `queryKey`, `staleTime`, and retries in one hook"
+    ],
     "sections": [
       {
         "heading": "fetch is the floor",
@@ -1090,6 +1099,7 @@ export default {
       },
       {
         "heading": "The three states + abort",
+        "takeaway": "Wire `AbortController` into the effect cleanup — without it a slow response resolves into an unmounted component and sets state on a ghost.",
         "body": [
           {
             "type": "table",
@@ -1113,6 +1123,7 @@ export default {
       },
       {
         "heading": "Stop writing this by hand",
+        "takeaway": "Once you've hand-written the fetch hook three times, React Query gives you caching, dedupe, retries, and stale-while-revalidate for free.",
         "body": [
           {
             "type": "p",
@@ -1206,6 +1217,11 @@ export default {
     ]
   },
   "fs-api-security": {
+    "objectives": [
+      "Wire the day-one defense stack — `helmet`, CORS allowlist, rate limits, body caps — in the order that rejects bad traffic cheapest",
+      "Explain what CORS does and does not stop — it controls who reads responses, not who sends writes",
+      "Tighten per-route rate limits so `/login` survives password spraying while normal traffic flows"
+    ],
     "sections": [
       {
         "heading": "Day-one threats",
@@ -1226,6 +1242,7 @@ export default {
       },
       {
         "heading": "CORS, rate limits, headers",
+        "takeaway": "CORS is browser-only — it controls who can *read* responses, so it stops `evil.com` reading your API but not `curl` or a cross-site write.",
         "body": [
           {
             "type": "p",
@@ -1286,6 +1303,7 @@ export default {
       },
       {
         "heading": "The starter stack",
+        "takeaway": "Order the chain helmet → CORS → rate limit → parser → routes, so bad traffic gets rejected before you spend cycles parsing its payload.",
         "body": [
           {
             "type": "p",
@@ -1356,9 +1374,15 @@ export default {
     ]
   },
   "fs-postgres-basics": {
+    "objectives": [
+      "Push NOT NULL, UNIQUE, REFERENCES, and CHECK into the schema so bad rows die at the database, not in app code",
+      "Pick the narrowest column type — `timestamptz`, `numeric`, `jsonb` — and say what each buys over `text`",
+      "Write a users + posts schema with a cascading foreign key and defend every clause"
+    ],
     "sections": [
       {
         "heading": "The DB is the source of truth",
+        "takeaway": "App-level validation is a suggestion; a database constraint is a guarantee every framework, intern, and 3am cron job must obey.",
         "body": [
           {
             "type": "p",
@@ -1412,6 +1436,7 @@ export default {
       },
       {
         "heading": "A real users + posts schema",
+        "takeaway": "`REFERENCES ... ON DELETE CASCADE` makes orphan rows impossible instead of merely unlikely — each schema clause is a rule the DB enforces for you.",
         "body": [
           {
             "type": "p",
@@ -1457,9 +1482,15 @@ export default {
     ]
   },
   "fs-sql-essentials": {
+    "objectives": [
+      "Read any SELECT in execution order — FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY — and predict its output",
+      "Choose INNER vs LEFT JOIN by asking whether zero-match rows are data you need",
+      "Write a GROUP BY with the filter on the JOIN so zero-count rows survive"
+    ],
     "sections": [
       {
         "heading": "SELECT is just five clauses",
+        "takeaway": "Postgres runs FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY — read queries in execution order and most \"why didn't my filter work\" bugs dissolve.",
         "body": [
           {
             "type": "p",
@@ -1477,6 +1508,7 @@ export default {
       },
       {
         "heading": "INNER vs LEFT — when each is wrong",
+        "takeaway": "INNER JOIN silently drops users who never posted — when zero is data you want to see, reach for LEFT.",
         "body": [
           {
             "type": "p",
@@ -1565,9 +1597,15 @@ export default {
     ]
   },
   "fs-orm-migrations": {
+    "objectives": [
+      "Ship every schema change as a committed migration — and say why `db push` never touches prod",
+      "Run the Prisma loop: edit `schema.prisma`, `migrate dev` locally, `migrate deploy` in CI",
+      "Model a relation with a real foreign key, a cascade rule, and a composite index for the hot query"
+    ],
     "sections": [
       {
         "heading": "Why you reach for an ORM",
+        "takeaway": "Every schema change is a committed migration — nobody logs into prod and runs `ALTER TABLE`, ever.",
         "body": [
           {
             "type": "p",
@@ -1585,6 +1623,7 @@ export default {
       },
       {
         "heading": "Migrations vs db push",
+        "takeaway": "You roll forward only: a bad migration is fixed by the *next* migration, and `db push` in prod leaves no history to roll forward from.",
         "body": [
           {
             "type": "p",
@@ -1695,9 +1734,15 @@ export default {
     ]
   },
   "fs-indexes-n-plus-one": {
+    "objectives": [
+      "Read `EXPLAIN ANALYZE` output and tell a Seq Scan from an Index Scan",
+      "Index every foreign key and hot filter/sort column — and state what each index costs writes",
+      "Spot N+1 in a loop and collapse it with a JOIN, an ORM `include`, or one batched `IN (...)` query"
+    ],
     "sections": [
       {
         "heading": "Indexes in 90 seconds",
+        "takeaway": "Every index speeds reads and taxes writes — index foreign keys and hot WHERE/ORDER BY columns, never \"just in case\".",
         "body": [
           {
             "type": "p",
@@ -1754,6 +1799,7 @@ export default {
       },
       {
         "heading": "Spotting and killing N+1",
+        "takeaway": "Fix the round-trip count before per-query speed — a perfect index on a query you still run N times is still N round trips.",
         "body": [
           {
             "type": "p",
@@ -1811,9 +1857,15 @@ export default {
     ]
   },
   "fs-password-hashing": {
+    "objectives": [
+      "Explain why bcrypt/Argon2's tunable slowness beats SHA-256 for passwords",
+      "Place the salt (per-user, inside the hash) and the pepper (app secret, outside the DB) correctly",
+      "Wire `bcrypt.hash`/`compare` into a login that leaks neither timing nor which field was wrong"
+    ],
     "sections": [
       {
         "heading": "Why fast hashes are the wrong tool",
+        "takeaway": "Password hashing must be slow on purpose — a tunable work factor is what makes each brute-force guess uneconomical.",
         "body": [
           {
             "type": "p",
@@ -1872,6 +1924,7 @@ export default {
       },
       {
         "heading": "Bcrypt in Node, the right way",
+        "takeaway": "Use the library's `hash` and `compare` (timing-safe), and return the same 401 for unknown email and wrong password.",
         "body": [
           {
             "type": "p",
@@ -1916,9 +1969,15 @@ export default {
     ]
   },
   "fs-sessions-vs-jwt": {
+    "objectives": [
+      "Choose sessions vs JWT by where trust lives and how fast you must be able to revoke",
+      "Explain why logout is one deleted row for sessions and structurally hard for JWTs",
+      "Wire both: a Redis-backed session cookie and a short-TTL JWT paired with a revocable refresh token"
+    ],
     "sections": [
       {
         "heading": "Two ways to remember a user",
+        "takeaway": "Sessions are stateful, JWTs are stateless — that single fact drives revocation cost, scaling shape, and every other trade-off.",
         "body": [
           {
             "type": "p",
@@ -1936,6 +1995,7 @@ export default {
       },
       {
         "heading": "The revocation problem",
+        "takeaway": "You can't un-issue a JWT — logout means short access TTLs plus a refresh token stored server-side, which is your revocation handle.",
         "body": [
           {
             "type": "p",
@@ -2077,9 +2137,15 @@ export default {
     ]
   },
   "fs-oauth-oidc": {
+    "objectives": [
+      "Name the four OAuth roles and trace the Authorization Code + PKCE dance end to end",
+      "Tell ID tokens, access tokens, and refresh tokens apart by audience and purpose",
+      "Request the smallest scope set and validate `state` and the ID-token signature in the callback"
+    ],
     "sections": [
       {
         "heading": "Four roles and a code",
+        "takeaway": "OAuth delegates access, OIDC adds identity on top — and Authorization Code + PKCE is the only flow you should be writing in 2026.",
         "body": [
           {
             "type": "p",
@@ -2097,6 +2163,7 @@ export default {
       },
       {
         "heading": "ID token vs access token vs scopes",
+        "takeaway": "The ID token is for *you* (validate its signature, learn who the user is); the access token is for the API (forward it, never inspect it).",
         "body": [
           {
             "type": "p",
@@ -2262,9 +2329,15 @@ export default {
     ]
   },
   "fs-csrf-cookies": {
+    "objectives": [
+      "Explain how a hidden POST from `evil.com` rides your user's cookies — and which cookie attribute stops it",
+      "Set the three-attribute floor — `HttpOnly` + `Secure` + `SameSite=Lax` — on every auth cookie",
+      "Decide when SameSite alone is enough and when write endpoints still need a CSRF token"
+    ],
     "sections": [
       {
         "heading": "The cross-site request problem",
+        "takeaway": "CSRF works because the browser attaches your cookies to any request aimed at your domain — even one forged by another site.",
         "body": [
           {
             "type": "p",
@@ -2282,6 +2355,7 @@ export default {
       },
       {
         "heading": "Cookie attributes that matter",
+        "takeaway": "Every auth cookie gets `HttpOnly` + `Secure` + `SameSite=Lax` — that three-attribute floor kills JS theft, downgrade, and cross-site POSTs.",
         "body": [
           {
             "type": "p",
@@ -2399,9 +2473,15 @@ export default {
     ]
   },
   "fs-platform-deploy": {
+    "objectives": [
+      "Take a repo to a live URL with `vercel` — preview by default, `--prod` to promote, `rollback` to recover",
+      "Pick a PaaS by its sweet spot — Vercel, Railway, Fly, Render — instead of by habit",
+      "Separate build-time env (baked into the bundle) from runtime env (read at boot) and say which change needs a redeploy"
+    ],
     "sections": [
       {
         "heading": "The modern PaaS deal",
+        "takeaway": "A modern PaaS turns deployment into a side-effect of `git push` — and every PR gets its own preview URL so reviewers click the real build.",
         "body": [
           {
             "type": "p",
@@ -2464,6 +2544,7 @@ export default {
       },
       {
         "heading": "Build-time vs runtime env",
+        "takeaway": "Build-time vars bake into the bundle (change = redeploy); runtime vars are read at boot (change = restart) — mixing them up is the classic deploy trap.",
         "body": [
           {
             "type": "p",
@@ -2540,9 +2621,15 @@ export default {
     ]
   },
   "fs-env-secrets": {
+    "objectives": [
+      "Keep config in the environment so the same commit deploys to dev, staging, and prod",
+      "Validate every env var with a schema at boot so a missing value crashes in 50ms, not at 3am",
+      "Route each secret to its home — `.env.local` for dev, a secret manager for prod — and treat a committed secret as leaked"
+    ],
     "sections": [
       {
         "heading": "Config belongs in the environment",
+        "takeaway": "Config lives in the environment, never in code — and a secret that ever touched git is leaked forever, so rotate it immediately.",
         "body": [
           {
             "type": "p",
@@ -2594,6 +2681,7 @@ export default {
       },
       {
         "heading": "Reading env vars without footguns",
+        "takeaway": "Parse the whole env through a schema once at boot — a missing var becomes a 50ms crash instead of a 3am page.",
         "body": [
           {
             "type": "p",
@@ -2640,9 +2728,15 @@ export default {
     ]
   },
   "fs-github-actions": {
+    "objectives": [
+      "Write a workflow that tests every PR on a Node matrix and blocks merge on red",
+      "Gate the deploy job with `needs:`, a branch check, and an `environment:` approval",
+      "Keep CI fast and safe — cache installs, scope secrets per environment, never ship without a green gate"
+    ],
     "sections": [
       {
         "heading": "Merge means ship",
+        "takeaway": "Green means deployable: tests gate every PR, and a merge to `main` is a deploy.",
         "body": [
           {
             "type": "p",
@@ -2660,6 +2754,7 @@ export default {
       },
       {
         "heading": "Triggers, jobs, and the deploy gate",
+        "takeaway": "Two gates protect prod — `needs: test` blocks on red, and `environment: production` binds secrets and required reviewers to the deploy job.",
         "body": [
           {
             "type": "diagram",
@@ -2763,6 +2858,7 @@ export default {
       },
       {
         "heading": "When to add manual approval",
+        "deep": true,
         "body": [
           {
             "type": "pros-cons",
@@ -2791,9 +2887,15 @@ export default {
     ]
   },
   "fs-monitoring": {
+    "objectives": [
+      "Split a production signal into logs, metrics, and traces — and say which question each answers",
+      "Wire Sentry with release tags and a `beforeSend` noise filter so errors map to a deploy, not a guess",
+      "Draw the alert line at \"would I get out of bed for this?\" — everything else is a dashboard"
+    ],
     "sections": [
       {
         "heading": "If you can't see it, it's already broken",
+        "takeaway": "Logs say what happened, metrics say how often and how slow, traces follow one request across services — and you only page on what you'd get out of bed for.",
         "body": [
           {
             "type": "p",
@@ -2811,6 +2913,7 @@ export default {
       },
       {
         "heading": "The tool matrix",
+        "takeaway": "Init Sentry once at boot with a release tag (the git SHA) and a `beforeSend` noise filter — errors then map to an exact deploy instead of a guess.",
         "body": [
           {
             "type": "table",
@@ -2912,6 +3015,11 @@ export default {
     ]
   },
   "fs-oauth-variants": {
+    "objectives": [
+      "Pick the OAuth variant by who's in the room — user, trusted server, secret, keyboard",
+      "Explain why PKCE replaces the client secret for mobile apps and SPAs",
+      "Implement the Device Code polling loop — respect `interval`, back off on `slow_down`"
+    ],
     "sections": [
       {
         "heading": "One protocol, four conversations",
@@ -2928,6 +3036,7 @@ export default {
       },
       {
         "heading": "**Pick by actors**, not by hype",
+        "takeaway": "Pick the flow by who's in the room: user + trusted server → Auth Code; no trusted server → PKCE; no user → Client Credentials; no keyboard → Device Code.",
         "body": [
           {
             "type": "p",
@@ -2955,6 +3064,7 @@ export default {
       },
       {
         "heading": "**Device Code** is the keyboardless flow",
+        "takeaway": "Device Code offloads login to the user's phone while the device polls the token endpoint — never faster than the IDP's `interval`.",
         "body": [
           {
             "type": "p",
@@ -3034,9 +3144,15 @@ export default {
     ]
   },
   "fs-auth-comparison": {
+    "objectives": [
+      "Sort sessions, JWT, cookies, and PASETO into their real layers — storage model, token format, transport",
+      "Sign and verify a JWT with the algorithm pinned and `iss`/`aud` checked",
+      "Design end-to-end auth from one hard requirement — instant logout forces server-side state"
+    ],
     "sections": [
       {
         "heading": "Four ways to prove who you are",
+        "takeaway": "Cookie is a transport, session is a storage model, JWT and PASETO are token formats — the real question is where trust lives.",
         "body": [
           {
             "type": "p",
@@ -3093,6 +3209,7 @@ export default {
       },
       {
         "heading": "What actually happens on the wire",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -3130,6 +3247,7 @@ export default {
       },
       {
         "heading": "Picking and shipping it",
+        "takeaway": "Pin the algorithm, check `iss` and `aud`, keep the payload small — and let the hard requirement (instant logout vs stateless scale) pick the model.",
         "body": [
           {
             "type": "p",
@@ -3199,6 +3317,11 @@ export default {
     ]
   },
   "fs-caching-strategies": {
+    "objectives": [
+      "Pick one of the five cache patterns by asking who owns the write path, and name the failure mode you're choosing to survive",
+      "Implement cache-aside on Redis: check-miss-fill with a short TTL, and `del` (never overwrite) the key on write",
+      "Spot and defuse the fill-vs-invalidate race and a thundering herd on a hot key with a single-flight wrapper"
+    ],
     "sections": [
       {
         "heading": "Five named patterns, one decision tree",
@@ -3335,6 +3458,12 @@ export default {
     ]
   },
   "lab-realtime-chat": {
+    "objectives": [
+      "Defend WebSocket over long-polling and SSE for chat, and add the 30s ping/pong heartbeat that stops silent connection rot",
+      "Size the system from fanout amplification, then choose hybrid fanout (durable log + Kafka/Streams live path) over lossy pub/sub",
+      "Design the Cassandra message schema (`conversation_id` partition, ULID clustering key) and a cursor-based reconnect that dedupes by `client_msg_id`",
+      "Build the v1 live loop end-to-end: two browser tabs chatting, persist-then-broadcast, history surviving a refresh"
+    ],
     "sections": [
       {
         "heading": "Design a real-time chat backend",
@@ -3612,6 +3741,12 @@ export default {
     ]
   },
   "fs-cap-notes": {
+    "objectives": [
+      "Wire the three layers of every full-stack app: a browser `fetch` UI, an Express CRUD API, and a SQLite file that outlives a restart",
+      "Write parameterized SQL (`?` placeholders) and validate input at the API boundary, returning honest 400/404/201/204 status codes",
+      "Prove every route with curl (success AND failure cases) before any UI exists, committing at each green moment",
+      "Trace a click on Add all the way to disk and back, explaining why the DOM is a projection of the database"
+    ],
     "sections": [
       {
         "heading": "What you're building",
@@ -3827,12 +3962,56 @@ export default {
               "**Stretch:** return the created note object from POST and insert it into the DOM without a full refresh.",
               "**Stretch:** add `express.static` cache headers and see them in DevTools."
             ]
+          },
+          {
+            "type": "system-design-lab",
+            "id": "fs-cap-notes-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "It actually persists",
+                "prompt": "Stop the server, start it again, reload the page — are your notes still there?",
+                "blocks": [],
+                "reference": "Notes survive a restart because the source of truth is the `notes.db` file on disk, not process memory or the DOM. A strong build never invents an in-memory array that shadows the database — the API reads from SQLite on every request."
+              },
+              {
+                "title": "The API is honest about failure",
+                "prompt": "Does POSTing an empty title return a 400, and does deleting a non-existent id return a 404 (check with `curl -i`)?",
+                "blocks": [],
+                "reference": "A strong build validates at the boundary and returns real status codes: 201 on create, 204 on delete, 400 for a missing title, 404 for an id that hit `changes === 0`. It never returns 200 with an error message stuffed in the body, and it never lets a bad request reach the SQL."
+              },
+              {
+                "title": "SQL is parameterized end to end",
+                "prompt": "Search your `db.js` — is every query using `?` placeholders, with zero user input concatenated into a query string?",
+                "blocks": [],
+                "reference": "A strong build uses `?` placeholders for every value that comes from a request. A title containing `'); DROP TABLE notes;--` gets stored as literal text, not executed — because user input never touches the query text, only the bound parameters."
+              },
+              {
+                "title": "The UI is a projection of the data",
+                "prompt": "After you add a note, does the list re-render from a fresh `GET /api/notes` rather than from a value you kept in a JS variable?",
+                "blocks": [],
+                "reference": "A strong build treats the DOM as a view of the database: `refresh()` re-pulls the list from the API so the screen can never drift from disk. The frontend holds no authoritative state — reload the page and the UI rebuilds identically from the server."
+              },
+              {
+                "title": "Green commits mark every working step",
+                "prompt": "Run `git log --oneline` — do you have a commit at each point where something started working (server, data layer, API, UI)?",
+                "blocks": [],
+                "reference": "A strong build has a trail of small commits, each at a green moment, so any break is bisectable to one change. The history reads like the build order: hello server, data layer, CRUD routes, working UI."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
     ]
   },
   "fs-cap-shiplist": {
+    "objectives": [
+      "Add signup/login with hashed passwords (bcrypt/argon2) and auth middleware that 401s every data route without a valid session",
+      "Enforce private data server-side with `WHERE user_id = ?`, then prove two accounts can't see each other's notes using curl, not the UI",
+      "Add parameterized search and pagination (`?q=&page=`) and deploy to a public HTTPS URL that reads `process.env.PORT`",
+      "Reason about a stolen `notes.db`: separate what hashing protects (credentials) from the plaintext content it does not"
+    ],
     "sections": [
       {
         "heading": "The brief",
@@ -3934,12 +4113,56 @@ export default {
               "answer": 2,
               "why": "Login compares a fresh hash against the stored hash — the plaintext is never stored. SQLite does no encryption by default; the rows are readable, but the hashes still stand between the thief and anyone's account."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "fs-cap-shiplist-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "Passwords are hashed, never stored",
+                "prompt": "Run `SELECT * FROM users` on your database — is every password a bcrypt/argon2 hash, with zero plaintext anywhere?",
+                "blocks": [],
+                "reference": "A strong build stores only salted hashes (bcrypt or argon2) and compares a fresh hash at login. Plaintext passwords, reversible encryption, or a fast hash like plain SHA-256 all fail this — a stolen file must not hand an attacker anyone's credentials."
+              },
+              {
+                "title": "Logged-out means locked out",
+                "prompt": "With no cookie or token (a fresh curl), does every `/api/notes` route return 401?",
+                "blocks": [],
+                "reference": "A strong build runs auth middleware before every data route: it reads the session, loads the user onto `req.user`, and 401s otherwise. No data route is reachable anonymously, and the session survives a page reload via a cookie or stored token."
+              },
+              {
+                "title": "Isolation is enforced in the query, not the UI",
+                "prompt": "Log in as two accounts and try to read the other's notes with curl — does the server refuse, even when the frontend is bypassed?",
+                "blocks": [],
+                "reference": "A strong build scopes every read and write with `WHERE user_id = ?`, where `user_id` comes from the session — never from request input. Ada cannot fetch Sam's notes by editing a URL or id, because the isolation lives in the SQL, not in what the frontend chooses to render."
+              },
+              {
+                "title": "Search and pagination are bounded and safe",
+                "prompt": "With 25+ notes, does `GET /api/notes?q=term&page=2` return the right page plus a total count, using parameterized `LIKE`/`LIMIT`/`OFFSET`?",
+                "blocks": [],
+                "reference": "A strong build never emits an unbounded `SELECT *`: it pages with `LIMIT ? OFFSET ?`, filters with a parameterized `LIKE`, scopes by `user_id`, and returns a total so the UI can render page controls. The search term is a bound parameter, so a `%`-laden query can't inject."
+              },
+              {
+                "title": "It runs on the public internet",
+                "prompt": "Does the deployed HTTPS URL work from your phone, and does the app read `process.env.PORT` instead of a hardcoded 3000?",
+                "blocks": [],
+                "reference": "A strong build reads `process.env.PORT || 3000` so the host can assign the port, serves over HTTPS on a public URL (Render/Fly/Railway free tier), and ships a README that runs it locally in three commands or fewer. It works from a device that has never seen your laptop."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }
     ]
   },
   "fs-cap-saas-design": {
+    "objectives": [
+      "Choose a tenancy model (shared-table `tenant_id` vs schema- vs database-per-tenant) and defend it against both a company-ending leak and a 4-person ops budget",
+      "Enforce isolation in depth: derive `tenant_id` from the session (never request input), back it with row-level security, and test cross-tenant reads in CI",
+      "Answer the design-review questions a multi-tenant SaaS forces: data layer, authz, cache invalidation, noisy-neighbor blast radius, and a zero-downtime migration path",
+      "Justify every choice by naming the alternative you rejected and the constraint that killed it"
+    ],
     "sections": [
       {
         "heading": "The challenge",
@@ -4020,6 +4243,44 @@ export default {
               "answer": 0,
               "why": "If the client can NAME the tenant, the client can name someone else's. Identity-derived scoping (plus RLS as the backstop) is the load-bearing control; the id format and the database brand are side notes."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "fs-cap-saas-design-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "The tenancy model is chosen AND defended",
+                "prompt": "Does your doc name one model (shared-table / schema-per-tenant / database-per-tenant) and justify it against BOTH the isolation constraint and the 4-person ops budget?",
+                "blocks": [],
+                "reference": "A strong doc picks shared tables with `tenant_id` for a small team at 10,000 tenants, and explicitly rejects the other two on ops cost (10,000 databases to back up and migrate; ALTER TABLE across thousands of schemas). It names database-per-tenant as the future escape hatch for a compliance-driven whale, migrated tenant-by-tenant."
+              },
+              {
+                "title": "Isolation is defense in depth, not a single check",
+                "prompt": "Does `tenant_id` come only from the authenticated session, backed by a query layer AND row-level security AND a CI test that attempts a cross-tenant read?",
+                "blocks": [],
+                "reference": "A strong doc derives `tenant_id` from the session (never from request input), routes every query through a builder/middleware that refuses to run without it, adds Postgres row-level security as the second net, and proves it with a CI test that deliberately tries to read another tenant's rows and expects failure."
+              },
+              {
+                "title": "The data layer survives the numbers",
+                "prompt": "Did you replace SQLite, and does the doc say how the store is indexed for `tenant_id + user_id + full-text search` and how reads scale to 2,000 req/s?",
+                "blocks": [],
+                "reference": "A strong doc retires SQLite (single-writer, one file) for Postgres, indexes composite keys leading with `tenant_id`, uses a full-text index for search, and gives a read-scaling story: read replicas and/or a cache in front, with the write path staying on the primary."
+              },
+              {
+                "title": "Cache and blast radius are addressed",
+                "prompt": "Does the doc say what is cacheable when every row is tenant-scoped (with an invalidation story) and how one pathological tenant doesn't degrade the other 9,999?",
+                "blocks": [],
+                "reference": "A strong doc namespaces cache keys by `tenant_id`, states an invalidation trigger (write-through or event on mutation), and isolates performance with per-tenant rate limits and connection-pool caps so a noisy neighbor or a DDoS is contained rather than shared."
+              },
+              {
+                "title": "Every choice names its rejected alternative",
+                "prompt": "For each of the six questions, did you write the alternative you rejected and the specific constraint that killed it — including a zero-downtime migration path off v1?",
+                "blocks": [],
+                "reference": "A strong doc treats the rejected column as load-bearing: each decision cites the option it beat and why (the constraint that killed it), and the migration section moves real v1 customers over without downtime (dual-write or backfill-then-cutover), not a big-bang switch. That column is what separates a design from a guess."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow?"
           }
         ]
       }

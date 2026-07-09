@@ -1014,6 +1014,7 @@ export default {
       },
       {
         "heading": "Hardening checklist",
+        "deep": true,
         "body": [
           {
             "type": "pros-cons",
@@ -1110,6 +1111,7 @@ export default {
       },
       {
         "heading": "What still bites you",
+        "deep": true,
         "body": [
           {
             "type": "pros-cons",
@@ -1586,6 +1588,7 @@ export default {
       },
       {
         "heading": "Least privilege as a workflow",
+        "takeaway": "An explicit `Deny` survives any future `Allow` — pair scoped verbs and exact ARNs with a Deny statement plus `SourceVpce`/`SecureTransport` conditions so drift can't re-open the door.",
         "body": [
           {
             "type": "diagram",
@@ -1672,9 +1675,16 @@ export default {
     ]
   },
   "sec-kms-encryption": {
+    "objectives": [
+      "Explain envelope encryption end to end: a DEK encrypts the bytes, a KMS-held KEK wraps the DEK, and the KEK never leaves KMS",
+      "Debug a KMS `AccessDenied` by checking both gates — the key policy AND the caller's IAM policy must allow",
+      "Provision a customer-managed key with rotation on, an alias, and a `kms:ViaService`-scoped key policy",
+      "State what encryption at rest does NOT stop: a principal who already holds `s3:GetObject` gets plaintext"
+    ],
     "sections": [
       {
         "heading": "Envelope encryption, in one diagram",
+        "takeaway": "Envelope encryption is two layers — a DEK encrypts the data, a KMS-held KEK wraps the DEK — so rotating keys means re-wrapping one small DEK, never re-encrypting petabytes.",
         "body": [
           {
             "type": "p",
@@ -1706,6 +1716,7 @@ export default {
       },
       {
         "heading": "Key policies vs IAM, CMK vs default",
+        "takeaway": "A key policy and IAM are AND-gated — both must allow, which is why `kms:*` on your role still fails when the key policy doesn't list you.",
         "body": [
           {
             "type": "table",
@@ -1800,9 +1811,16 @@ export default {
     ]
   },
   "sec-vpc-security": {
+    "objectives": [
+      "Choose between a security group and a NACL by scope (instance vs subnet) and statefulness",
+      "Lay out a three-tier VPC — public ALB, private app, private data — with security groups chained by reference, never CIDR",
+      "Clamp egress and add VPC endpoints so a compromised app has no path to exfiltrate data",
+      "Predict what breaks (and why it's acceptable) when a teammate adds a new outbound dependency under default-deny egress"
+    ],
     "sections": [
       {
         "heading": "Two firewalls, two jobs",
+        "takeaway": "Security groups are stateful, instance-level, allow-only; NACLs are stateless, subnet-level, allow+deny — confuse the two and your network is either wide open or accidentally bricked.",
         "body": [
           {
             "type": "p",
@@ -1816,6 +1834,7 @@ export default {
       },
       {
         "heading": "Security groups vs NACLs",
+        "takeaway": "Chain security groups by reference (ALB→app→DB), never by CIDR — rules track IP churn automatically and the database is reachable only through the app tier.",
         "body": [
           {
             "type": "table",
@@ -1869,6 +1888,7 @@ export default {
       },
       {
         "heading": "Egress filtering and VPC endpoints",
+        "takeaway": "Egress is where data leaves: lock outbound to the DB plus VPC endpoints and a compromised app has no exfil path — at the cost of an explicit allow per new dependency.",
         "body": [
           {
             "type": "p",
@@ -1913,9 +1933,16 @@ export default {
     ]
   },
   "sec-vault-rotation": {
+    "objectives": [
+      "Argue why a secret that ever touched a repo is leaked forever, and what replaces it: vault + IAM fetch at boot + rotation",
+      "Trace the dynamic-secrets loop: workload proves identity via OIDC, Vault issues a DB lease with a minutes-long TTL",
+      "Ship a k8s secret to git safely as a `SealedSecret` and consume it via `envFrom` with zero plaintext exposure",
+      "Rotate a credential without breaking the running app — staged deploy, version-aware client, tested rollback"
+    ],
     "sections": [
       {
         "heading": "Secrets don't belong in code",
+        "takeaway": "Any secret that ever landed in a repo is leaked forever — the fix is a vault the app queries at boot, plus rotation that makes every leak short-lived.",
         "body": [
           {
             "type": "p",
@@ -1929,6 +1956,7 @@ export default {
       },
       {
         "heading": "The rotation loop",
+        "takeaway": "Dynamic secrets flip the model: the workload proves its identity, Vault issues per-request credentials on a minutes-long lease, and a leaked value expires before anyone reads the log it leaked into.",
         "body": [
           {
             "type": "diagram",
@@ -2015,9 +2043,16 @@ export default {
     ]
   },
   "sec-supply-chain": {
+    "objectives": [
+      "Explain how SolarWinds, Codecov, and xz-utils turned a trusted vendor into the attack vector",
+      "Generate an SBOM with `syft`, sign an image keylessly with `cosign`, and verify the signature at cluster admission",
+      "Answer 'do we ship this CVE?' in under a minute by querying stored SBOMs with `grype`",
+      "Pin images to digests and keep CI runners ephemeral so builds can't be silently modified"
+    ],
     "sections": [
       {
         "heading": "When the vendor is the attacker",
+        "takeaway": "You ship the transitive closure of every dependency, not just your code — SolarWinds, Codecov, and xz-utils prove the trusted vendor is now the threat model.",
         "body": [
           {
             "type": "p",
@@ -2031,6 +2066,7 @@ export default {
       },
       {
         "heading": "SBOM, SLSA, and signed artifacts",
+        "takeaway": "The defense is provenance at every step — SBOM per build, keyless cosign signature, and an admission check that refuses to start any image it can't verify.",
         "body": [
           {
             "type": "diagram",
@@ -2102,9 +2138,16 @@ export default {
     ]
   },
   "sec-https-deep": {
+    "objectives": [
+      "Narrate the TLS 1.3 handshake in order: ClientHello → cert verification → ECDHE → Finished → encrypted app data",
+      "Explain why a wiretap holding every handshake byte still can't derive the session key",
+      "State exactly what a passive attacker still sees on HTTPS: SNI hostname, IP, byte counts, timing",
+      "Inspect a live handshake with `openssl s_client` and compare what TLS 1.3 vs 1.2 negotiate"
+    ],
     "sections": [
       {
         "heading": "The magic trick: a shared secret nobody sent",
+        "takeaway": "Both ends compute the same session key from public exchanges — it never crosses the wire, so capturing every handshake byte still decrypts nothing.",
         "body": [
           {
             "type": "p",
@@ -2118,6 +2161,7 @@ export default {
       },
       {
         "heading": "Handshake: who says what, and when",
+        "takeaway": "One round trip does three jobs: the certificate proves identity, ECDHE derives the shared secret, and the Finished HMAC proves both sides computed the same key.",
         "body": [
           {
             "type": "sequence",
@@ -2270,9 +2314,16 @@ export default {
     ]
   },
   "sec-gdpr": {
+    "objectives": [
+      "Decide whether GDPR applies to a system — it follows the person, not your servers, and IPs and cookie IDs count as personal data",
+      "Pick and document a lawful basis before collecting a field, and attach a retention clock per data class",
+      "Design an erasure cascade that reaches logs, backups, and warehouses within the 1-month DSAR clock",
+      "Run the 72-hour breach clock from *awareness* — the moment on-call sees the alert, not root-cause confirmation"
+    ],
     "sections": [
       {
         "heading": "The law that ate the internet",
+        "takeaway": "GDPR follows the person, not your servers — and 'personal data' is broader than PII: IP addresses, cookie IDs, and pseudonymous identifiers all count.",
         "body": [
           {
             "type": "p",
@@ -2286,6 +2337,7 @@ export default {
       },
       {
         "heading": "**Lawful basis** — you need one before you process",
+        "takeaway": "Pick and document a lawful basis before you collect a field — and erasure cascades: user row, logs, backups, and warehouses, all inside the 1-month clock.",
         "body": [
           {
             "type": "p",
@@ -2313,6 +2365,7 @@ export default {
       },
       {
         "heading": "**The 72-hour breach clock** and who owns it",
+        "takeaway": "The 72-hour breach clock starts at awareness — when on-call sees the alert that smells like exfiltration — not when root cause is confirmed.",
         "body": [
           {
             "type": "p",
@@ -2381,9 +2434,16 @@ export default {
     ]
   },
   "sec-soc2": {
+    "objectives": [
+      "Explain what a SOC 2 report proves (stated controls operated over a period) and what it doesn't (abstract product security)",
+      "Scope the Trust Services Criteria: Security is mandatory; add the other four only when customers or the business model demand it",
+      "Choose Type I vs Type II and plan the continuous evidence collection a Type II window requires",
+      "Map each criterion to a technical control with a named owner and a reproducible evidence query"
+    ],
     "sections": [
       {
         "heading": "The trust report every B2B buyer asks for",
+        "takeaway": "SOC 2 is a CPA attestation that you did what you said — it proves consistency to buyers, not that the product is secure in the abstract.",
         "body": [
           {
             "type": "p",
@@ -2397,6 +2457,7 @@ export default {
       },
       {
         "heading": "**The five Trust Services Criteria** (and the four you usually skip)",
+        "takeaway": "Only Security is mandatory — scope in Availability, Processing Integrity, Confidentiality, or Privacy only when customers or the business model force it.",
         "body": [
           {
             "type": "p",
@@ -2420,6 +2481,7 @@ export default {
       },
       {
         "heading": "**Type I vs Type II** — and the audit cycle that runs forever",
+        "takeaway": "Buyers want Type II — controls operating over a 3-12 month window — which turns evidence collection into a continuous discipline, not an annual scramble.",
         "body": [
           {
             "type": "p",
@@ -2481,9 +2543,16 @@ export default {
     ]
   },
   "sec-pci-dss": {
+    "objectives": [
+      "Determine PCI scope: any system that touches a PAN, CVV, or track data — even in memory — is in",
+      "Reduce scope with processor iframes and tokenization, dropping a 200-page SAQ-D to a 22-question SAQ-A",
+      "Apply the bright-line rule: CVV is never stored (even encrypted); PAN only with real key management",
+      "Keep the CDE from silently expanding using a scope manifest and network segmentation"
+    ],
     "sections": [
       {
         "heading": "Touch a card number, inherit a standard",
+        "takeaway": "PCI is contract law: touch a PAN, CVV, or track data anywhere — even in memory — and you owe an annual attestation, or your acquirer pulls your ability to take cards.",
         "body": [
           {
             "type": "p",
@@ -2497,6 +2566,7 @@ export default {
       },
       {
         "heading": "**The 12 requirements** (grouped into 6 goals)",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -2520,6 +2590,7 @@ export default {
       },
       {
         "heading": "**Scope reduction** — the only sane strategy",
+        "takeaway": "Tokenize behind the processor's iframe so PAN never touches your servers — SAQ-D becomes SAQ-A — and never store CVV, even encrypted.",
         "body": [
           {
             "type": "p",
@@ -2581,9 +2652,16 @@ export default {
     ]
   },
   "sec-compliance-audits": {
+    "objectives": [
+      "Produce evidence an auditor accepts: complete, tamper-evident, and traceable to a named identity",
+      "Design systems auditable-by-default — structured, signed, append-only events from the day a feature ships",
+      "Set retention between the two clocks: the regulatory minimum and the data-minimization maximum",
+      "Reproduce on demand the exact query behind any piece of evidence"
+    ],
     "sections": [
       {
         "heading": "What auditors actually look for",
+        "takeaway": "Auditors read evidence, not code — if you can't reproduce the query that produced it, the control is treated as not operating.",
         "body": [
           {
             "type": "p",
@@ -2597,6 +2675,7 @@ export default {
       },
       {
         "heading": "**Evidence chain** — what makes a log admissible",
+        "takeaway": "Admissible evidence has completeness, integrity, and provenance — and immutability must be structural (WORM / Object Lock), never a policy promise.",
         "body": [
           {
             "type": "p",
@@ -2677,9 +2756,16 @@ export default {
     ]
   },
   "sec-siem": {
+    "objectives": [
+      "Walk an event through the SIEM pipeline — collect → normalize → correlate → alert — naming each stage's failure mode",
+      "Write a correlation query that catches spray-then-hit brute force across log sources",
+      "Decide what to log by the incident-grep rule and keep an ingest-priced bill sane",
+      "Treat tuning as a standing job with one KPI: true-positive rate per rule"
+    ],
     "sections": [
       {
         "heading": "What a SIEM actually does",
+        "takeaway": "A SIEM is collect → normalize → correlate → alert, and every stage has a failure mode — a collector that drops 5% of events makes every detection downstream lie.",
         "body": [
           {
             "type": "p",
@@ -2754,6 +2840,7 @@ export default {
       },
       {
         "heading": "Tuning is the job",
+        "takeaway": "Log what you'd grep for during an incident, and treat tuning as a standing job — untuned alerts get muted, then forgotten, then exploited.",
         "body": [
           {
             "type": "p",
@@ -2824,9 +2911,16 @@ export default {
     ]
   },
   "sec-audit-logs": {
+    "objectives": [
+      "Distinguish audit logs (evidence) from debug logs and metrics, and list the four categories that must always be logged",
+      "Make a log tamper-evident: hash-chain each entry to the previous, sign with an HSM-backed key, store append-only",
+      "Verify a hash chain and spot tampering — any entry whose `prev` doesn't match the prior hash breaks the chain",
+      "Keep PII and app logs out of the audit trail so retention rules don't collide"
+    ],
     "sections": [
       {
         "heading": "Audit logs are evidence, not telemetry",
+        "takeaway": "An audit log is a court exhibit: if you can't prove it wasn't tampered with after the fact, it's worth nothing in an investigation.",
         "body": [
           {
             "type": "p",
@@ -2872,6 +2966,7 @@ export default {
       },
       {
         "heading": "Tamper-evident, append-only, signed",
+        "takeaway": "Append-only must be enforced by the storage layer, and each entry chains the previous hash — an attacker can stop new entries but can't rewrite the past without the HSM.",
         "body": [
           {
             "type": "p",
@@ -2913,9 +3008,16 @@ export default {
     ]
   },
   "sec-ids-ips-edr": {
+    "objectives": [
+      "Place IDS, IPS, and EDR at the right layer and say what each can and cannot see",
+      "Combine signature and anomaly detection so the SOC isn't half blind",
+      "Roll out IPS rules with an alert-only soak period before flipping to block mode",
+      "Write a vendor-neutral Sigma rule mapped to a MITRE ATT&CK technique"
+    ],
     "sections": [
       {
         "heading": "Three letters, three placements",
+        "takeaway": "IDS alerts, IPS blocks inline, EDR sees inside the endpoint and can quarantine it — different layers, different blast radius when a rule fires wrong.",
         "body": [
           {
             "type": "p",
@@ -2963,6 +3065,7 @@ export default {
       },
       {
         "heading": "The IPS promise vs the false-positive bill",
+        "takeaway": "Run every new IPS rule in alert-only mode for a soak week before block mode — a noisy rule knocks prod offline faster than the attack would have.",
         "body": [
           {
             "type": "p",
@@ -3011,9 +3114,16 @@ export default {
     ]
   },
   "sec-ir-playbook": {
+    "objectives": [
+      "Run an incident through the six phases in order: preparation, identification, containment, eradication, recovery, lessons-learned",
+      "Execute the first 15 minutes: declare one Incident Commander, scope the blast radius, contain, and preserve evidence before any reimage",
+      "Staff the three roles — IC, SME, Comms — so exactly one person makes decisions",
+      "Drill runbooks with quarterly tabletops and an annual live game-day so the first host isolation isn't at 3am in prod"
+    ],
     "sections": [
       {
         "heading": "Six phases, in order, every time",
+        "takeaway": "The six IR phases run in order every time — skip one under pressure and you either miss the attacker's persistence or re-open the same hole in 30 days.",
         "body": [
           {
             "type": "p",
@@ -3102,6 +3212,7 @@ export default {
       },
       {
         "heading": "Roles, runbooks, and drills",
+        "takeaway": "One IC makes every call, evidence is captured before any reimage, and a runbook you've never drilled is fiction.",
         "body": [
           {
             "type": "p",
@@ -3143,9 +3254,16 @@ export default {
     ]
   },
   "sec-blue-red-purple": {
+    "objectives": [
+      "Tell blue, red, and purple apart by their output: tuned detections, missed-detection findings, and rules improved live",
+      "Operate from 'assume breach' — measure detection speed and blast radius instead of perimeter wins",
+      "Plan a purple-team exercise with MITRE ATT&CK TTPs, explicit scope, and per-TTP detection criteria",
+      "Slot tabletops and bug bounties where they fit: cheap monthly runbook checks and paid external-surface coverage"
+    ],
     "sections": [
       {
         "heading": "Three colors, one goal",
+        "takeaway": "Blue defends, red attacks, purple puts them in one room — and 'assume breach' means you measure how fast you detect and how far they get, not whether they get in.",
         "body": [
           {
             "type": "p",
@@ -3191,6 +3309,7 @@ export default {
       },
       {
         "heading": "Tabletops, bounties, and assume-breach",
+        "takeaway": "A red team that 'wins' silently produced nothing — success is counted in detections improved, which is why purple exercises trace every TTP to a rule.",
         "body": [
           {
             "type": "p",
@@ -3232,6 +3351,12 @@ export default {
     ]
   },
   "sec-project-vault": {
+    "objectives": [
+      "Stretch a master password into an encryption key with `scrypt`, and explain why a slow KDF is the defense",
+      "Seal secrets with `Fernet` authenticated encryption so a wrong key or a tampered file raises before any plaintext appears",
+      "Write the vault atomically with `os.replace` so a crash mid-save can never corrupt it",
+      "Ship a fail-closed CLI that never echoes secrets and proves the master password before writing"
+    ],
     "sections": [
       {
         "heading": "Your mission",
@@ -3630,12 +3755,56 @@ export default {
             "type": "quote",
             "text": "You didn't roll your own crypto. You rolled your own *decisions* — KDF cost, fail-closed errors, atomic writes — and that's the actual job.",
             "cite": "the vault builder's takeaway"
+          },
+          {
+            "type": "system-design-lab",
+            "id": "sec-project-vault-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "Encrypted at rest",
+                "prompt": "Run `cat vault.enc` — is the output opaque ciphertext, with zero entry names or values readable?",
+                "blocks": [],
+                "reference": "A strong build shows only a `gAAAA...` base64 Fernet blob. The JSON dict lives *inside* the ciphertext, so nothing — not even entry names — is legible on disk. If you can read a name, something is being written in plaintext."
+              },
+              {
+                "title": "Fails closed on a wrong password",
+                "prompt": "Type the master password wrong on `get` — do you get one vague error and exit code 1, with no hint about which part was wrong and no partial data?",
+                "blocks": [],
+                "reference": "A strong build catches `InvalidToken` and exits with a single message like 'wrong master password or corrupted vault' — never distinguishing wrong-key from tampered-file, never printing a partial entry. Detail in the error is a gift to an attacker."
+              },
+              {
+                "title": "Tampering is detected",
+                "prompt": "Flip a few bytes in `vault.enc`, then `get` with the RIGHT password — does it still refuse instead of returning garbage?",
+                "blocks": [],
+                "reference": "Fernet verifies the HMAC before decrypting, so a strong build raises `InvalidToken` on an edited file even with the correct key. If your vault returns mangled data or crashes in the JSON parser, the MAC isn't being checked first."
+              },
+              {
+                "title": "The key never touches disk",
+                "prompt": "Search the project for any file that caches or logs the derived key or a plaintext secret — is there truly none, not even a leftover `.tmp`?",
+                "blocks": [],
+                "reference": "A strong build re-derives the key from the master password every run and holds it only in RAM. `save_vault` writes ciphertext to a `.tmp` and `os.replace`s it — it never leaves a plaintext temp file, never writes the key, never logs a secret."
+              },
+              {
+                "title": "Nothing leaks by default",
+                "prompt": "Run `list` and both prompts — does `list` show names only, and do the master and secret prompts stay invisible while typing?",
+                "blocks": [],
+                "reference": "A strong build prints entry names only from `list` (values require an explicit `get`), reads every password through `getpass` so nothing echoes to screen or shell history, and confirms `add` by name — never by echoing the value."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow? (Argon2id over scrypt? A `--vault PATH` flag for safe testing? Master-password rotation with a fresh salt?)"
           }
         ]
       }
     ]
   },
   "sec-project-audit": {
+    "objectives": [
+      "Write a read-only hardening auditor that inspects SSH config, key permissions, world-writable files, and listening ports without ever mutating the box",
+      "Assign each finding a severity and map findings to an exit-code contract (`0` clean, `1` low/medium, `2` any high) scripts can branch on",
+      "Report evidence *location* only — the count of matches or the file path — so a secret's value never lands in the report",
+      "Handle missing root and `grep`'s no-match exit code so the script degrades gracefully instead of crashing"
+    ],
     "sections": [
       {
         "heading": "The brief",
@@ -3782,12 +3951,62 @@ export default {
           {
             "type": "p",
             "text": "Stretch, if you're hungry: add `--fix-hints` (print the remediation *command* for each finding — still without executing it), or ship the JSON to a file with a timestamp and diff two runs. That diff is a baby SIEM — you've met that idea in `sec-siem`."
+          },
+          {
+            "type": "system-design-lab",
+            "id": "sec-project-audit-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "Strictly read-only",
+                "prompt": "Read your own script top to bottom — is there a single line that could `chmod`, edit a config, delete, or 'helpfully fix' anything?",
+                "blocks": [],
+                "reference": "A strong auditor only observes: `stat`, `find`, `grep -c`, `ss`, `sshd -T`. It has zero write, chmod, or mutate calls. Running it twice back-to-back produces byte-identical output, because it never changed the box it inspected."
+              },
+              {
+                "title": "Catches every planted failure at the right severity",
+                "prompt": "On your deliberately-broken box, does every planted issue appear in the report — and does each one carry the severity the brief's table assigned it?",
+                "blocks": [],
+                "reference": "A strong build flags the bad SSH config and loose key perms as HIGH, world-writable files and unexpected `0.0.0.0` ports as MEDIUM, and stale packages as LOW. A miss or a wrong severity means the detection logic or the severity mapping is off."
+              },
+              {
+                "title": "Zero false positives on a clean box",
+                "prompt": "On a hardened box with nothing planted, is the report empty and the exit code `0`?",
+                "blocks": [],
+                "reference": "A strong build stays silent when there's nothing to report — no noise, exit `0`. A port allowlist variable at the top keeps sshd on 22 from tripping it. False positives train the reader to ignore the tool, which is worse than no tool."
+              },
+              {
+                "title": "Evidence location only — never the secret",
+                "prompt": "Look at every finding's evidence — does it show a path or a *count* of matches, and never the matched line or a secret's value?",
+                "blocks": [],
+                "reference": "A strong build reports `~/.ssh/id_ed25519 is mode 644` or `3 matches in ~/.bash_history` — the location or the number, never the token itself. Printing the matched line writes the secret straight into a report file."
+              },
+              {
+                "title": "Correct exit-code contract and graceful degradation",
+                "prompt": "Does exit `2` fire on any HIGH, `1` on only LOW/MEDIUM, `0` on clean — and when a root-only check can't run without sudo, does it emit a skip notice instead of crashing?",
+                "blocks": [],
+                "reference": "A strong build maps findings to `0` / `1` / `2` exactly so a pipeline can branch on it, and survives `grep`'s exit-1-on-no-match (the trap with `set -e`). Missing root emits an `INFO: skipped` line — silence would look like a pass."
+              },
+              {
+                "title": "Real, parseable JSON output",
+                "prompt": "Does `./audit.sh --json | python -m json.tool` parse cleanly?",
+                "blocks": [],
+                "reference": "A strong build serializes findings with a real JSON encoder, not string concatenation — so it survives quotes, paths with spaces, and empty result sets. If `json.tool` chokes, the report was glued together by hand."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this tomorrow? (Add `--fix-hints` that prints remediation commands without running them? Timestamp the JSON and diff two runs into a baby SIEM?)"
           }
         ]
       }
     ]
   },
   "sec-project-threat-model": {
+    "objectives": [
+      "Draw a data-flow diagram that marks every trust boundary the data crosses",
+      "Run a STRIDE pass over each boundary and surface at least one credible threat per letter that applies",
+      "Rank the top risks by likelihood × impact, naming *who the attacker is* for each, and pair every one with a mitigation the existing stack already supports",
+      "Write down one consciously accepted risk with its justification and revisit trigger, and defend your share-by-link trade-off against its strongest objection"
+    ],
     "sections": [
       {
         "heading": "The system you're handed",
@@ -4041,6 +4260,44 @@ export default {
               "answer": 0,
               "why": "128 bits of CSPRNG randomness makes guessing computationally absurd, and read-only links can't tamper — but a link is a bearer credential, and bearer credentials travel. The residual risk is human forwarding, which is why expiry and revocation are the mitigations that matter."
             }
+          },
+          {
+            "type": "system-design-lab",
+            "id": "sec-project-threat-model-debrief",
+            "title": "Debrief: grade your build",
+            "phases": [
+              {
+                "title": "Every trust boundary is drawn",
+                "prompt": "Look at your data-flow diagram — is every place data crosses a trust level marked as a boundary line, including the admin panel and the GitHub→AWS deploy path?",
+                "blocks": [],
+                "reference": "A strong model draws all five arrows as boundaries — browser→API, API→Postgres, API/browser→S3, Stripe→API, GitHub→AWS — plus the admin panel as its own high-privilege boundary. A missing boundary is a threat you never asked STRIDE about."
+              },
+              {
+                "title": "STRIDE ran over each boundary",
+                "prompt": "For each boundary, did you surface at least one credible threat for every STRIDE letter that applies — not just the one that came to mind first?",
+                "blocks": [],
+                "reference": "A strong pass forces all six questions at each boundary: spoofing Stripe webhooks, tampering with in-transit uploads, repudiation from missing audit logs, info-disclosure via the share link, DoS on unlimited uploads, and elevation through the public `/admin`. Skipping a letter is skipping a class of attack."
+              },
+              {
+                "title": "Top risks ranked, and each names its attacker",
+                "prompt": "Are your top 5 risks ranked by likelihood × impact — and does each one name *who* the attacker is (bored scraper, ex-employee, credential-stuffing bot), not just *what* could happen?",
+                "blocks": [],
+                "reference": "A strong model lets the ranking pick #1 — usually the long-lived AWS deploy key, because impact is total and supply-chain likelihood is real. Likelihood is a claim about people; a risk with no named attacker is a guess with no evidence."
+              },
+              {
+                "title": "Every mitigation fits the real stack and budget",
+                "prompt": "Does each top-5 mitigation use only what AWS/GitHub/Stripe already offer, respect the two-engineer / two-week budget, and name an owner and a sprint slot?",
+                "blocks": [],
+                "reference": "A strong plan swaps the CI key for OIDC federation (~2 days), verifies Stripe signatures with a replay window (an afternoon), and caps upload size/type — no SIEM, WAF, or pentest spend. 'We should' with no owner and no when is a wish, not a mitigation."
+              },
+              {
+                "title": "One accepted risk, honestly written down",
+                "prompt": "Did you name exactly one risk you consciously choose *not* to fix, with its justification and a concrete revisit trigger — and can you defend the share-by-link trade-off against its strongest objection?",
+                "blocks": [],
+                "reference": "A strong model accepts, say, 'no SIEM' with the two-engineer constraint as justification and a written trigger (100K users, or the first security hire), keeping CloudTrail + GuardDuty on. It ships share-by-link as a 128-bit revocable read-only token and names the *residual* risk — human forwarding — instead of pretending the crypto erased it."
+              }
+            ],
+            "reflection": "What would you do differently if you rebuilt this model tomorrow? (A different #1 risk once you re-rank? A tighter accepted-risk trigger? A share-by-link default expiry shorter than 30 days?)"
           }
         ]
       }
