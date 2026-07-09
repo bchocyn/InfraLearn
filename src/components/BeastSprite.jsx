@@ -37,7 +37,7 @@ loadManifest().catch(() => {});
  * Pulls the filename from the generated manifest.json, so swapping art
  * never requires touching component code.
  */
-export default function BeastSprite({ species, tier = 1, size = 96, className = '', style = {} }) {
+export default function BeastSprite({ species, tier = 1, size = 96, className = '', style = {}, idleBreathe = false }) {
   const [src, setSrc] = useState(null);
   useEffect(() => {
     let live = true;
@@ -83,7 +83,11 @@ export default function BeastSprite({ species, tier = 1, size = 96, className = 
 
   return (
     <img
-      className={`beast-img ${className}`}
+      // idleBreathe gives the STATIC-tier sprites (T3/T4, which have no frame
+      // loop) a subtle CSS breathing idle so the most-invested beasts don't
+      // read as frozen. Opt-in — animated tiers already move, so callers only
+      // set it where a static sprite is prominent (the beast-tab stage).
+      className={`beast-img ${className}${idleBreathe ? ' beast-idle-breathe' : ''}`}
       src={src}
       alt={`${species} tier ${tier}`}
       width={size}

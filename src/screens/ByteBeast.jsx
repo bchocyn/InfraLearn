@@ -154,7 +154,7 @@ export default function ByteBeast() {
           <AvatarSprite avatar={s.avatar} size={56} />
         </div>
         <div className="beast-stage-sprite">
-          <BeastSprite species={s.companion} tier={s.beastTier} size={120} className="beast-stage-sprite-img" />
+          <BeastSprite species={s.companion} tier={s.beastTier} size={120} className="beast-stage-sprite-img" idleBreathe />
           <div className="beast-stage-shadow" />
         </div>
         {/* Tap-through world-myth saga — the beast's story stage. The button
@@ -177,11 +177,37 @@ export default function ByteBeast() {
         </Suspense>
       )}
 
+      {/* THE WORLD MYTH — the beast tab's primary experience. A tap-through
+          unlockable saga; the cosmetic tabs (evolve/scenes/badges/wardrobe)
+          sit below it as secondary. The card reflects how much of the myth
+          the Keeper's learning has revealed. */}
+      <button
+        type="button"
+        className="card beast-myth-card"
+        onClick={() => setSagaOpen(true)}
+        aria-label="Open the world myth saga"
+      >
+        <div className="beast-myth-card-body">
+          <div className="kicker" style={{ color: 'var(--accent-amber)', marginBottom: 4 }}>
+            ✦ THE WORLD MYTH{hasNewBeats && <span className="beast-myth-new"> · NEW</span>}
+          </div>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 700, marginBottom: 3 }}>
+            {sagaBeatsSeen === 0 ? 'Hear the story of the Long Watch' : 'The saga continues'}
+          </div>
+          <p className="caption" style={{ margin: 0, fontSize: 12 }}>
+            {hasNewBeats
+              ? 'Your learning has revealed more of the myth. Tap through the new beats.'
+              : `${beast.name}'s story, the Null, and the Byte Beasts — tap to read, unlocked by what you learn.`}
+          </p>
+        </div>
+        <span className="beast-myth-card-arrow" aria-hidden="true">→</span>
+      </button>
+
       {tab === 'scenes' && (
         <>
-          <div className="kicker" style={{ marginTop: 18, marginBottom: 6 }}>BYTE BEAST TAB · NATURE SCENES</div>
-          <h2 className="h2" style={{ marginBottom: 4 }}>Backgrounds — now lush nature</h2>
-          <p className="caption" style={{ marginBottom: 14 }}>Scrapped the server/tech theme. Pixel-art nature scenes — meadows, forests, mountains, sunsets. Each unlocks at a learning milestone; equip one as your beast's home.</p>
+          <div className="kicker" style={{ marginTop: 18, marginBottom: 6 }}>NATURE SCENES</div>
+          <h2 className="h2" style={{ marginBottom: 4 }}>Your beast&apos;s home</h2>
+          <p className="caption" style={{ marginBottom: 14 }}>Pixel-art meadows, forests, mountains, and sunsets — each unlocks at a learning milestone. Equip one as the backdrop your companion rests on.</p>
         </>
       )}
 

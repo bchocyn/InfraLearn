@@ -7944,3 +7944,47 @@ img { image-rendering: pixelated; image-rendering: crisp-edges; }
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.08); opacity: 0.85; }
 }
+
+/* ── World-myth hero card (Byte Beast tab primary experience) ────────────── */
+.beast-myth-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border-left: 3px solid var(--accent-amber);
+  margin-top: 14px;
+  font: inherit;
+  color: inherit;
+}
+.beast-myth-card-body { flex: 1 1 auto; min-width: 0; }
+.beast-myth-card-arrow { color: var(--accent-amber); font-size: 20px; flex: 0 0 auto; }
+.beast-myth-new {
+  color: #0B0A08;
+  background: var(--accent-amber);
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  margin-left: 4px;
+}
+
+/* ── Static-tier beast breathing idle ────────────────────────────────────
+   The T3/T4 hero sprites have no frame loop, so on the beast-tab stage they
+   read as frozen. A subtle scale+lift "breath" gives them life without any
+   generated art. Opt-in via BeastSprite idleBreathe; reduced motion holds
+   the sprite still (the [data-reduced-motion] global rule snaps it, and the
+   media query below never starts it). */
+@media (prefers-reduced-motion: no-preference) {
+  .beast-idle-breathe {
+    animation: beast-breathe 3.4s ease-in-out infinite;
+    transform-origin: 50% 92%;   /* pivot near the feet — a breath, not a float */
+    will-change: transform;
+  }
+}
+@keyframes beast-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-2px) scale(1.018); }
+}
+:root[data-reduced-motion] .beast-idle-breathe { animation: none; }
