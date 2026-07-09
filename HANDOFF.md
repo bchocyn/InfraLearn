@@ -9,9 +9,24 @@ concept coalescing, XP/streak/badges, a virtual "Byte Beast" companion, a world-
 Pokémon-style quiz battles, and drag-to-order questions.
 
 - **Repo:** https://github.com/bchocyn/InfraLearn · **Live:** https://bchocyn.github.io/InfraLearn/
-- **State at handoff:** Sprints 1–3 (`cab4b91`…`4d22785`) are pushed + deploy-verified (live
-  `sw.js` byte-matched the local build modulo CRLF). Sprints A–C are committed locally,
-  **NOT yet pushed**. Tests **466+ · ESLint clean · build clean** at every commit.
+- **State at handoff:** Sprints 1–3, A–C, and E all pushed + deploy-verified. Sprint F
+  (`7046d24` part 1, `c9d01c1` part 2) is the latest — the deploy for it is being
+  (re)triggered as of this handoff (the `7046d24` deploy-pages step cancelled transiently;
+  build/lint/tests passed). Tests **466 · lesson-schema 284 · ESLint clean · build clean**
+  at every commit.
+- **Sprints E & F — learning-platform depth (2026-07-08/09):**
+  - **E (mechanisms, `4b36faf`):** SessionRecap on every testing surface (held/close/missed
+    tally + missed prompts deep-linking to the fixing lesson); practice-on-demand
+    (`/practice/:lessonId`, XP-free, weak-spot aware); un-started-trail path preview card
+    (lessons/hours/section-arc/capstone/outcomes); lesson `objectives` render as "AFTER THIS
+    YOU CAN"; **Parsons + cloze renderer support** (StemText renders `` `code` `` + `____`
+    blanks across all 7 stem sites; OrderQuestion `code:true` = code-line ordering). Capstone
+    debrief = the existing system-design-lab block used as a rubric (convention documented in
+    `docs/lesson-blocks.md`).
+  - **F (content, `7046d24`+`c9d01c1`):** 56 new-format questions (16 Parsons, 24 cloze,
+    find-the-bug) — banks now **313 questions**; **objectives on all 282 lessons**; **18
+    capstone debrief rubrics**; path-level `outcomes` on all 8 PATHS; 339 section takeaways +
+    35 deep-collapse sections (mlops/mleng takeaways still pending a touch-up).
 - **The audit docs (`IMPROVEMENTS.md`, `DEVILS-ADVOCATE.md`) predate these sessions** — most of
   their Tier 0–3 items and the world-map addendum (A1–A6) are now DONE; treat this file as
   current and those as background rationale.
@@ -112,7 +127,11 @@ the live precache manifest).
 
 ## Known follow-ups / not done
 
-- **Push Sprints A–C** (committed locally at handoff).
+- **mlops/mleng section takeaways + deep tags** — the only lesson-pass gap left (both paths
+  have full objectives + debriefs; only the skim-chip/collapse layer is missing).
+- **Beast-tab optimization** — queued design discussion (not started). The T3/T4 beast idle
+  animations are scripted (`scripts/animate-beast-tiers.mjs`, pilot validated ~1 gen/anim) but
+  need a `PIXELLAB_API_KEY` run — see the script header.
 - **Density tagging beyond the ramp**: the takeaway/deep mechanism is live app-wide but only
   the first 8 fundamentals lessons are tagged — the same pass (see
   `scratchpad ramp-density.mjs` pattern) fits any path.
