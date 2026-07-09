@@ -8,6 +8,7 @@ export default {
     "sections": [
       {
         "heading": "Why linear algebra runs ML",
+        "takeaway": "Read a matrix as a function that moves vectors, not a grid of numbers — that one shift is what makes every architecture legible.",
         "body": [
           {
             "type": "p",
@@ -197,6 +198,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "The dot product measures alignment — that single fact is why it scores attention and why low-rank matrices are compressible.",
         "body": [
           {
             "type": "pros-cons",
@@ -289,6 +291,7 @@ export default {
       },
       {
         "heading": "Why SGD subtracts the gradient",
+        "takeaway": "The gradient points uphill, so descent subtracts it — the minus sign IS the algorithm; the learning rate only sets step length.",
         "body": [
           {
             "type": "p",
@@ -368,6 +371,7 @@ export default {
       },
       {
         "heading": "Chain rule — the engine of backprop",
+        "takeaway": "Backprop is just the chain rule: multiply each layer's local slope back through the stack to get every weight's effect on the loss.",
         "body": [
           {
             "type": "p",
@@ -381,6 +385,7 @@ export default {
       },
       {
         "heading": "Numerical gradient: finite differences",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -474,6 +479,7 @@ export default {
     "sections": [
       {
         "heading": "Probability is the language ML speaks",
+        "takeaway": "Every loss is a negative log-likelihood, every regularizer a prior — training is fitting a distribution, so probability is the whole grammar.",
         "body": [
           {
             "type": "p",
@@ -584,6 +590,7 @@ export default {
       },
       {
         "heading": "A worked Bayes example",
+        "takeaway": "A 99%-accurate test on a 0.1% base rate leaves you only ~9% likely to be sick — a tiny prior crushes a strong likelihood.",
         "body": [
           {
             "type": "p",
@@ -656,6 +663,7 @@ export default {
     "sections": [
       {
         "heading": "Attention is just weighted averaging",
+        "takeaway": "Every output token is a learned weighted sum of all inputs, with the weights computed from the inputs themselves — that's the whole mechanism.",
         "body": [
           {
             "type": "p",
@@ -811,6 +819,7 @@ export default {
       },
       {
         "heading": "Position, and why O(n²) is the bill",
+        "takeaway": "Doubling the context quadruples attention cost — that O(n²) is the price of letting every token reach every other token.",
         "body": [
           {
             "type": "p",
@@ -896,6 +905,7 @@ export default {
     "sections": [
       {
         "heading": "Words are coordinates now",
+        "takeaway": "An embedding maps meaning to a fixed-length vector so similar things land nearby — that's what lets you search by meaning instead of exact string.",
         "body": [
           {
             "type": "p",
@@ -909,6 +919,7 @@ export default {
       },
       {
         "heading": "Cosine, not Euclidean",
+        "takeaway": "Compare embeddings by angle (cosine), not distance — direction carries meaning, magnitude is noise; pre-normalize once and cosine becomes a plain dot product.",
         "body": [
           {
             "type": "p",
@@ -1122,6 +1133,7 @@ export default {
     "sections": [
       {
         "heading": "Three knobs, three failure modes",
+        "takeaway": "Prompting, RAG, and fine-tuning solve different problems, not the same one — match the knob to the failure or you pay for it twice.",
         "body": [
           {
             "type": "p",
@@ -1258,7 +1270,8 @@ export default {
             "type": "p",
             "text": "RAG wins on freshness because the **index** changes, not the weights. Fine-tuning wins on behavior because the weights **are** the change — but now retraining is the only way to update Tuesday's pricing."
           }
-        ]
+        ],
+        "takeaway": "Facts belong in the index and behavior belongs in the weights: RAG stays fresh because the index changes, fine-tuning is strong but frozen."
       },
       {
         "heading": "Decision flow",
@@ -1459,6 +1472,7 @@ export default {
     "sections": [
       {
         "heading": "Accuracy is a liar",
+        "takeaway": "On imbalanced data a do-nothing model matches your 99% accuracy — pick the metric before you train, tied to the cost of each error type.",
         "body": [
           {
             "type": "p",
@@ -1556,7 +1570,8 @@ export default {
             "type": "p",
             "text": "**ROC-AUC vs PR-AUC** is the trap most teams fall into. ROC plots TPR against FPR — and FPR has a huge denominator (all the negatives) when negatives dominate. The curve looks gorgeous while you're still missing most positives. **PR-AUC** keeps the rare class in both axes; it tells the truth on a 1-in-1000 problem."
           }
-        ]
+        ],
+        "takeaway": "On rare positives use PR-AUC, not ROC-AUC — ROC's giant FPR denominator flatters a model that's still missing most of the positive class."
       },
       {
         "heading": "Threshold and calibration",
@@ -1681,6 +1696,7 @@ export default {
     "sections": [
       {
         "heading": "Why this is a hard problem",
+        "takeaway": "A 70B model needs ~840GB of training state (weights + grads + Adam) but an H100 holds 80GB — you MUST split the work; the only question is how.",
         "body": [
           {
             "type": "p",
@@ -1732,6 +1748,7 @@ export default {
       },
       {
         "heading": "ZeRO — eliminating redundancy",
+        "takeaway": "ZeRO shards optimizer state, then gradients, then params instead of replicating them — ZeRO-3 (and PyTorch FSDP) gives model parallelism with a data-parallel API.",
         "body": [
           {
             "type": "p",
@@ -1761,6 +1778,7 @@ export default {
       },
       {
         "heading": "What goes wrong in practice",
+        "deep": true,
         "body": [
           {
             "type": "h3",
@@ -1807,6 +1825,7 @@ export default {
     "sections": [
       {
         "heading": "Why hand-roll a network when PyTorch exists",
+        "takeaway": "The goal isn't the 95% — it's making backprop stop feeling like magic so you can debug a PyTorch model when the loss goes NaN.",
         "body": [
           {
             "type": "p",
@@ -1953,6 +1972,7 @@ export default {
       },
       {
         "heading": "Backward — the part you derive on paper first",
+        "takeaway": "Softmax + cross-entropy makes the output gradient collapse to `dz2 = probs - Y` — the exp, log, and normalize all cancel; derive it once on paper.",
         "body": [
           {
             "type": "p",
@@ -2055,6 +2075,7 @@ export default {
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "The two-stage retrieve-rerank-generate shape plus an eval harness is the architecture every RAG product converges to — without eval, RAG is vibes; with it, engineering.",
         "body": [
           {
             "type": "p",
@@ -2231,6 +2252,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Chunk at ~400 tokens with overlap and normalize vectors at embed time — tiny chunks lose context, un-normalized cosine silently returns garbage.",
         "body": [
           {
             "type": "pros-cons",
@@ -2260,6 +2282,7 @@ export default {
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "LoRA freezes the 7B base and trains two low-rank matrices (~1% of params) into each attention projection — you ship a 30 MB adapter, and the before/after eval is what proves you learned anything.",
         "body": [
           {
             "type": "p",
@@ -2480,7 +2503,8 @@ export default {
               "`α/r` is the real learning-rate multiplier — doubling `r` without halving `α` changes the effective lr"
             ]
           }
-        ]
+        ],
+        "takeaway": "`α/r` is the real learning-rate multiplier, and the wrong chat template silently trains the model on broken formatting — the two mistakes that quietly wreck a LoRA run."
       }
     ]
   },
@@ -2493,6 +2517,7 @@ export default {
     "sections": [
       {
         "heading": "What a neural network actually is",
+        "takeaway": "A neural net is matrix multiply → squash → repeat; drop the squash and every layer collapses into one, because composed linear maps are still linear.",
         "body": [
           {
             "type": "p",
@@ -2586,6 +2611,7 @@ export default {
       },
       {
         "heading": "Picking an activation function",
+        "takeaway": "ReLU is the default for hidden layers because its gradient is exactly 1 on the active half — sigmoid and tanh saturate and kill learning in deep stacks.",
         "body": [
           {
             "type": "p",
@@ -2737,6 +2763,7 @@ export default {
       },
       {
         "heading": "The GAN setup",
+        "takeaway": "A GAN trains two networks with opposite losses — a generator making fakes and a discriminator catching them — until the fakes are indistinguishable from real.",
         "body": [
           { "type": "p", "text": "Train two networks in tandem. The **generator** maps random noise `z` to a fake sample `G(z)`. The **discriminator** is a classifier that takes a sample and outputs P(real). Their losses are opposite: D wants to maximize P(real) on real data and P(fake) on generated data; G wants D to be wrong." },
           { "type": "code", "lang": "txt", "text": "min_G max_D  𝔼[log D(x)] + 𝔼[log(1 − D(G(z)))]" }
@@ -2744,6 +2771,7 @@ export default {
       },
       {
         "heading": "Why they're hard to train",
+        "takeaway": "GAN training is fragile — mode collapse and a too-strong discriminator both stall it, and the loss curves are meaningless so you judge by looking at samples.",
         "body": [
           { "type": "ul", "items": [
             "**Mode collapse** — G discovers one fake that fools D and generates only that.",
@@ -2783,6 +2811,7 @@ export default {
     "sections": [
       {
         "heading": "Forward, then backward",
+        "takeaway": "Training is one round trip: data flows forward to a scalar loss, then the chain rule flows gradients backward to tell every weight which way to move.",
         "body": [
           {
             "type": "p",
@@ -2924,6 +2953,7 @@ export default {
       },
       {
         "heading": "Two failure modes that eat deep nets",
+        "takeaway": "Most \"won't train\" bugs are gradients vanishing or exploding as the chain rule multiplies through depth — residual connections give the gradient a clean highway back.",
         "body": [
           {
             "type": "p",
@@ -3035,6 +3065,7 @@ export default {
       },
       {
         "heading": "The model",
+        "takeaway": "An embedding table is a learned lookup: training nudges each row so items in similar contexts get similar vectors — the table IS the model's vocabulary of meaning.",
         "body": [
           {
             "type": "p",
@@ -3088,6 +3119,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Embeddings inherit their training data's biases and go stale as meanings drift — audit before you ship and schedule re-embeds.",
         "body": [
           {
             "type": "p",
@@ -3128,6 +3160,7 @@ export default {
       },
       {
         "heading": "The model",
+        "takeaway": "A CNN stacks one block — convolution (detect), activation (ReLU), pooling (downsample) — sliding small shared kernels across the whole image instead of a dense weight matrix.",
         "body": [
           {
             "type": "p",
@@ -3164,6 +3197,7 @@ export default {
       },
       {
         "heading": "Why it matters",
+        "takeaway": "Weight sharing (one kernel scans everywhere → translation equivariance) plus local connectivity is why a 3×3 conv needs 27 weights where a dense layer needs 150K.",
         "body": [
           {
             "type": "p",
@@ -3213,6 +3247,7 @@ export default {
       },
       {
         "heading": "The model",
+        "takeaway": "Attention scores every query against every key, softmaxes, and mixes the values — `softmax(QKᵀ/√d_k)·V` — and multi-head runs it in parallel so different heads learn different relations.",
         "body": [
           {
             "type": "p",
@@ -3262,6 +3297,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Attention is O(n²) in sequence length and high attention weights are NOT an explanation — don't ship them as audit trails.",
         "body": [
           {
             "type": "ul",
@@ -3298,6 +3334,7 @@ export default {
       },
       {
         "heading": "The model",
+        "takeaway": "An LLM is next-token prediction scaled up — one objective, billions of params, trillions of tokens — which buys fluency but not a sense of truth.",
         "body": [
           {
             "type": "p",
@@ -3355,6 +3392,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "LLMs optimize plausibility, not truth — expect hallucination, a context limit, a knowledge cutoff, and prompt injection; treat retrieved text as untrusted input.",
         "body": [
           {
             "type": "ul",
@@ -3393,6 +3431,7 @@ export default {
       },
       {
         "heading": "The model",
+        "takeaway": "RL frames a problem as an MDP and maximizes expected discounted return; the TD error in the Bellman update is just the surprise between predicted and actual reward.",
         "body": [
           {
             "type": "p",
@@ -3443,6 +3482,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Agents optimize the reward you wrote, not the one you meant — spend more time on the reward function than the algorithm, and if a labeled dataset would do the job, use supervised learning.",
         "body": [
           {
             "type": "p",
@@ -3483,6 +3523,7 @@ export default {
       },
       {
         "heading": "The four buckets",
+        "takeaway": "Under Adam a model costs ~12N bytes just to sit there (2N params + 2N grads + 8N optimizer) — that's why a 7B won't fit on an 80GB H100 for training even though it fits for inference.",
         "body": [
           {
             "type": "p",
@@ -3533,6 +3574,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Each bucket has its own lever — params by sharding, grads by accumulation, optimizer by quantization, activations by checkpointing — so \"which of the four?\" is the senior question, not \"we're GPU-bound\".",
         "body": [
           {
             "type": "p",
@@ -3551,6 +3593,7 @@ export default {
     "sections": [
       {
         "heading": "The default bridge",
+        "takeaway": "The three axes differ by what gets split: data parallel splits the batch, pipeline parallel splits layers, tensor parallel splits a single matmul — and big runs combine all three.",
         "body": [
           {
             "type": "p",
@@ -3622,6 +3665,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Fastest interconnect gets the chattiest parallelism: tensor parallel needs NVLink, pipeline tolerates InfiniBand, data parallel survives Ethernet — mismatch it and a $50M cluster runs at 30%.",
         "body": [
           {
             "type": "p",
@@ -3656,6 +3700,7 @@ export default {
     "sections": [
       {
         "heading": "The hidden coupling",
+        "takeaway": "Linear scaling rule: multiply batch size by k, multiply learning rate by k too — a bigger batch takes fewer steps per epoch, so each step must be proportionally bigger.",
         "body": [
           {
             "type": "p",
@@ -3726,6 +3771,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Batch size and learning rate are the same lever — a run that diverges after scaling to more GPUs usually pulled one and forgot the other (and warmup).",
         "body": [
           {
             "type": "p",
@@ -3744,6 +3790,7 @@ export default {
     "sections": [
       {
         "heading": "The two cost shapes",
+        "takeaway": "Training is a film shoot (front-loaded, compute-bound) and inference is a restaurant (forever, latency-bound) — a system built for one quietly fails the other.",
         "body": [
           {
             "type": "p",
@@ -3818,6 +3865,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Training optimizes throughput at any latency; inference optimizes latency at acceptable throughput — different hardware, batching, and precision, which is why you can't just deploy the training stack to prod.",
         "body": [
           {
             "type": "p",
@@ -3836,6 +3884,7 @@ export default {
     "sections": [
       {
         "heading": "LLM APIs in production",
+        "takeaway": "A hosted LLM is a stateless function with a price tag — the real work is streaming for latency, capped jittered retries on 429s, prompt caching, and difficulty-based routing.",
         "body": [
           {
             "type": "p",
@@ -3957,6 +4006,7 @@ export default {
     "sections": [
       {
         "heading": "Prompt engineering techniques",
+        "takeaway": "Put stable rules in the system prompt (so it caches), show 2-5 examples instead of writing paragraphs of rules, and demand a JSON shape — show, don't tell.",
         "body": [
           {
             "type": "p",
@@ -4085,6 +4135,7 @@ export default {
     "sections": [
       {
         "heading": "RAG: retrieval-augmented generation",
+        "takeaway": "RAG makes an LLM know your data without training: embed → search → top-k (3-8, not 50) → stuff prompt → cited answer; chunking is the whole game and \"cite or die\" keeps hallucinations auditable.",
         "body": [
           {
             "type": "p",
@@ -4247,6 +4298,7 @@ export default {
     "sections": [
       {
         "heading": "Embeddings and vector search",
+        "takeaway": "Vector search is just kNN over embeddings — pin the distance metric to your model, never mix models in one index, and add BM25 when pure-dense whiffs on exact strings like SKUs and error codes.",
         "body": [
           {
             "type": "p",
@@ -4337,6 +4389,7 @@ export default {
     "sections": [
       {
         "heading": "Tool use and function calling",
+        "takeaway": "The tool's description is the contract the model reads to decide when to call it; loop until `stop_reason != tool_use` with a hard cap, feed errors back as results, and gate side-effecting tools behind a confirm.",
         "body": [
           {
             "type": "p",
@@ -4464,6 +4517,7 @@ export default {
     "sections": [
       {
         "heading": "Evaluating LLM systems",
+        "takeaway": "Build a 50-100 case golden set from the hardest real cases, judge with a stronger model at temperature=0, and watch per-case regressions — \"better on average\" hides the 10% you silently broke.",
         "body": [
           {
             "type": "p",
@@ -4575,6 +4629,7 @@ export default {
     "sections": [
       {
         "heading": "What you're **shipping**",
+        "takeaway": "A two-file RAG app — `ingest.py` (chunk → embed → store) and `ask.py` (retrieve → grounded answer) — where grounding forces every answer to cite its source file or say \"I don't know\".",
         "body": [
           {
             "type": "p",
@@ -4791,6 +4846,7 @@ export default {
       },
       {
         "heading": "Build `ask.py` — retrieve + **grounded** answer",
+        "takeaway": "Embed the question with the SAME model as ingest (mismatched models silently return noise), and let the system prompt do the engineering — it's what turns pasted text into a system that refuses to invent answers.",
         "body": [
           {
             "type": "p",
@@ -4957,6 +5013,7 @@ export default {
     "sections": [
       {
         "heading": "The brief — no steps this time",
+        "takeaway": "Layer the metrics: measure retrieval LLM-free (deterministic, instant) and answer quality with a golden-referenced judge — when quality drops, the layer that moved tells you where to look.",
         "body": [
           {
             "type": "p",
@@ -5019,6 +5076,7 @@ export default {
       },
       {
         "heading": "Success criteria",
+        "takeaway": "A confident, fluent, wrong answer on an unanswerable question must score zero — that refusal case is the exact failure RAG exists to prevent, so it can't sneak by as \"partial\".",
         "body": [
           {
             "type": "table",
@@ -5183,6 +5241,7 @@ export default {
     "sections": [
       {
         "heading": "The brief — design it on **paper**",
+        "takeaway": "At 50K tickets/day, tokens-per-ticket × price IS the architecture — every design choice must survive one question: \"why not the alternative?\"",
         "body": [
           {
             "type": "p",
@@ -5262,6 +5321,7 @@ export default {
       },
       {
         "heading": "Trade-offs you must defend",
+        "takeaway": "The high-risk category is gated before it is scored: refunds and legal route to a human unconditionally, and no auto-answer sends without a citation — a cascade to a cheap model is what fits the budget.",
         "body": [
           {
             "type": "table",

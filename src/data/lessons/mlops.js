@@ -8,6 +8,7 @@ export default {
     "sections": [
       {
         "heading": "From code to feedback loop",
+        "takeaway": "Traditional software ships logic that stays correct; ML ships learned behavior that decays the moment the world shifts, so the deploy is the start of the work, not the end.",
         "body": [
           {
             "type": "p",
@@ -145,6 +146,7 @@ export default {
       },
       {
         "heading": "Traditional software vs ML systems",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -252,6 +254,7 @@ export default {
       },
       {
         "heading": "When it matters: the loop is the product",
+        "takeaway": "Silent decay throws no exception — without monitoring you learn about it from customer complaints, so every stage after train exists to catch the model being wrong before your users do.",
         "body": [
           {
             "type": "p",
@@ -307,6 +310,7 @@ export default {
     "sections": [
       {
         "heading": "The training loop, end to end",
+        "takeaway": "The hard part of training isn't the math — it's knowing when to stop, which metric to trust, and whether the model learned the task or just memorized the answers.",
         "body": [
           {
             "type": "p",
@@ -320,6 +324,7 @@ export default {
       },
       {
         "heading": "Split your data three ways",
+        "takeaway": "The test set lives in a vault and gets touched exactly once, at the very end — peeking at it during development is data leakage, the #1 reason notebook demos embarrass you in production.",
         "body": [
           {
             "type": "p",
@@ -628,6 +633,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Training isn't about minimizing loss — it's about minimizing the gap between training loss and the loss on data you haven't met yet; the validation curve, not the training curve, is the number that tells the truth.",
         "body": [
           {
             "type": "pros-cons",
@@ -668,6 +674,7 @@ export default {
     "sections": [
       {
         "heading": "Why A/B test ML at all",
+        "takeaway": "Offline metrics measure what the model predicts on logged data; an A/B test measures what real users do when the model is in the loop — and those two numbers disagree more often than anyone admits.",
         "body": [
           {
             "type": "p",
@@ -845,6 +852,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Treat every model launch as a hypothesis, not a deployment: decide the metric, fix the sample size up front, and don't peek — that discipline is what separates ML that compounds from ML that just churns.",
         "body": [
           {
             "type": "quote",
@@ -868,6 +876,7 @@ export default {
     "sections": [
       {
         "heading": "What an LLM actually does",
+        "takeaway": "An LLM is just a next-token predictor in a loop — chat, reasoning, and tool use are all scaffolding on that one primitive, and syntax, facts, and reasoning only emerge because predicting the next token at scale forces them.",
         "body": [
           {
             "type": "p",
@@ -1082,6 +1091,7 @@ export default {
       },
       {
         "heading": "Key insight — and what to watch for",
+        "takeaway": "The model has no memory between calls: every conversation turn re-sends the entire transcript, so cost scales with total transcript length and latency is O(output tokens) — not with the new message alone.",
         "body": [
           {
             "type": "quote",
@@ -1121,6 +1131,7 @@ export default {
     "sections": [
       {
         "heading": "Prompts are programs",
+        "takeaway": "A vague answer isn't the model being dumb — it's you underspecifying; prompt engineering is constraining the output space with role, context, examples, and format until only one reasonable answer remains.",
         "body": [
           {
             "type": "p",
@@ -1294,6 +1305,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "A prompt tuned for one model version regresses on the next — keep an eval set of 20-50 cases and re-run it on every model bump, because the model states wrong answers in the same confident tone as right ones.",
         "body": [
           {
             "type": "ul",
@@ -1322,6 +1334,7 @@ export default {
     "sections": [
       {
         "heading": "The librarian with a long memory",
+        "takeaway": "RAG has two clocks: index time is a batch job you run once per doc change, query time is a per-request latency budget — conflating them makes you re-embed the whole corpus on every request.",
         "body": [
           {
             "type": "p",
@@ -1528,6 +1541,7 @@ export default {
       },
       {
         "heading": "Chunking is the whole game",
+        "takeaway": "There's no universal chunk size — start at 500 tokens with 50-token overlap, split on semantic boundaries like headers before tokens, and keep the doc title plus section in every chunk's prefix.",
         "body": [
           {
             "type": "p",
@@ -1575,6 +1589,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "RAG is a retrieval problem with an LLM stapled on the end — if your retrieval recall@5 is 0.4, no amount of prompt engineering saves you, because you're asking the model to cite documents it never saw.",
         "body": [
           {
             "type": "quote",
@@ -1607,6 +1622,7 @@ export default {
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "The point of an inference service isn't the model — it's the contract: a typed request in, a typed prediction out, a p99 you can defend, and a health probe Kubernetes can trust, so swapping sklearn for torch is a one-file change.",
         "body": [
           {
             "type": "p",
@@ -1780,6 +1796,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Loading the model inside the request handler kills your p99 the moment cold caches drop — always load once in lifespan; and a /health that always returns 200 is worse than no probe, because Kubernetes keeps routing to a broken pod.",
         "body": [
           {
             "type": "pros-cons",
@@ -1810,6 +1827,7 @@ export default {
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "PSI and KS are cheap and interpretable; the hard part of a drift detector isn't the math — it's the plumbing: freezing bin edges, handling empty windows, and not paging on-call at 3am over a 0.11 PSI on a feature nobody uses.",
         "body": [
           {
             "type": "p",
@@ -1971,6 +1989,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Recomputing bin edges from the live window silently masks drift — the histograms always look balanced, so freeze edges at reference time; and PSI catches input drift but never concept drift, so pair it with a delayed accuracy monitor.",
         "body": [
           {
             "type": "pros-cons",
@@ -2018,6 +2037,7 @@ export default {
     "sections": [
       {
         "heading": "Summary",
+        "takeaway": "The point of a platform isn't the libraries — it's the contract between components: training never knows who serves and serving never knows who trains; they communicate only through the registry as a versioned source of truth.",
         "body": [
           {
             "type": "p",
@@ -2195,6 +2215,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Column-order drift is the platform's silent killer — train uses a DataFrame, serve uses a list, and one transposed column gives silent garbage predictions with no error; resolve models by @Production alias so promotion needs zero redeploy.",
         "body": [
           {
             "type": "pros-cons",
@@ -2224,6 +2245,7 @@ export default {
     "sections": [
       {
         "heading": "The two-paragraph elevator pitch",
+        "takeaway": "In software the artifact rots when you change it; in ML the artifact rots when you don't — MLOps exists because the bug isn't in the code, it's in the relationship between the code and a moving world.",
         "body": [
           {
             "type": "p",
@@ -2301,6 +2323,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "DevOps optimizes for delivering the artifact; MLOps optimizes for keeping it correct as the world changes — same tools, different objective function, and the objective is what determines the architecture.",
         "body": [
           {
             "type": "p",
@@ -2332,6 +2355,7 @@ export default {
     "sections": [
       {
         "heading": "The 40-line wrap",
+        "takeaway": "This is the ship-before-lunch minimum: load the model once at import, expose /predict, and answer /health for the load balancer — the full lab teaches why each hardened line exists, but this is the line you ship first.",
         "body": [
           {
             "type": "p",
@@ -2494,6 +2518,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Pin sklearn to the exact version that trained the model — joblib loads a mismatched pickle fine, then explodes on the first predict() call, not at startup, so version skew fails where you least expect it.",
         "body": [
           {
             "type": "table",
@@ -2551,6 +2576,7 @@ export default {
     "sections": [
       {
         "heading": "The project plan, not the algorithm",
+        "takeaway": "Break a drift project into four vertical slices, each doing something observable end-to-end before the next starts — if a milestone can't be demoed on its own, it's not a milestone, it's a refactor in disguise.",
         "body": [
           {
             "type": "p",
@@ -2719,6 +2745,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Ship M1 even though it feels too small — the sliding window is the only milestone that proves your data pipeline is actually wired, and skipping it is what every drift project regrets in hindsight.",
         "body": [
           {
             "type": "quote",
@@ -2742,6 +2769,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Reach for ML only when you can't write the recipe — when the rules are too tangled or too many to spell out by hand; if a regex or an if-statement does the job, ML is the wrong tool.",
         "body": [
           { "type": "p", "text": "**Traditional code is a recipe; ML is a taste-tester.** With a recipe, you write down every step — *if the soup is too salty, add a potato*. With a taste-tester, you serve thousands of bowls, listen to which ones got good reviews, and let the system *figure out on its own* which ingredients matter. ML is what you reach for when you can't write the recipe — when the rules are too tangled or too many to spell out by hand." }
         ]
@@ -2777,6 +2805,7 @@ export default {
       },
       {
         "heading": "How to think about it",
+        "takeaway": "Treat ML as statistical software — a function whose behavior is fit rather than written — and it leads you to the right questions (what's the training distribution, the loss, the success metric) instead of expecting a black box to just work.",
         "body": [
           { "type": "p", "text": "Treat ML as **statistical software**: a function whose behavior is *fit* rather than *written*. That mental model leads you to the right questions — what's the training distribution? what's the loss? how do we measure success? — instead of treating the model as a magic black box that should 'just work'." }
         ]
@@ -2794,6 +2823,7 @@ export default {
     "sections": [
       {
         "heading": "The simplest model that actually works",
+        "takeaway": "Linear regression fits y = mx + b by minimizing the sum of squared errors — and if it fits your problem, ship it: interpretability and microsecond inference beat a 0.3% bump from a net you can't debug.",
         "body": [
           {
             "type": "p",
@@ -2830,6 +2860,7 @@ export default {
       },
       {
         "heading": "The neural net connection",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -2965,6 +2996,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Linear regression is the null hypothesis of modeling, not a toy you outgrow — it's the thing every fancier model must beat, so if XGBoost only edges out a clean OLS by half a percent, the OLS ships.",
         "body": [
           {
             "type": "terms",
@@ -3010,6 +3042,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Gradient-based models care about magnitude, not meaning — a feature in the millions drowns out one in 0-to-1 before training starts, so scale features to level the playing field.",
         "body": [
           { "type": "p", "text": "**Numerical features are ingredients in wildly different units — grams, gallons, dashes.** A neural net adding them up cares about *magnitude*, not meaning. If one feature is in millions and another in 0-to-1, the millions one drowns out the rest before training even starts. Scaling levels the playing field." }
         ]
@@ -3038,6 +3071,7 @@ export default {
       },
       {
         "heading": "Fit on train only",
+        "takeaway": "Compute scaling statistics on the training split alone, then apply that same transform to validation and test — fitting the scaler on the full dataset leaks test info into training and inflates your offline numbers.",
         "body": [
           { "type": "p", "text": "Compute scaling statistics on the training set, then apply that *same* transformation to validation and test. Fitting on the full dataset leaks test info into training and inflates your offline numbers." }
         ]
@@ -3055,6 +3089,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Collaborative filtering doesn't need to read the items — it just needs to know who else liked similar combinations, recommending from behavior patterns rather than item content.",
         "body": [
           { "type": "p", "text": "**A good recommender is a librarian who's been watching you for years.** They've noticed which shelves you linger at, which books you returned in a day, which ones you took home for a month. They don't need to read the books — they just need to know who else borrowed similar combinations. That's collaborative filtering in a sentence." }
         ]
@@ -3085,6 +3120,7 @@ export default {
       },
       {
         "heading": "Metrics that matter",
+        "takeaway": "Always A/B test a recommender before launch — its offline metrics (precision@k, NDCG) famously disagree with what users actually do online, so click-through and dwell time are the numbers that decide.",
         "body": [
           { "type": "p", "text": "Offline: precision@k, recall@k, NDCG. Online: click-through rate, dwell time, conversion. Always A/B test before launching — recommender offline metrics famously disagree with user behavior." }
         ]
@@ -3102,6 +3138,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "The model is the fish, but the production system is the aquarium — pipelines, monitoring, and the person who notices the water turned cloudy are 90% of the work and the only reason the model keeps living.",
         "body": [
           { "type": "p", "text": "**A model is a fish; the production system is the aquarium.** The fish is small, beautiful, and the part everyone talks about. The aquarium — filtration, temperature, feeding schedule, the person who notices when the water turns cloudy — is 90% of the work and the only reason the fish keeps living. Most of what we call 'ML in production' is aquarium engineering." }
         ]
@@ -3137,6 +3174,7 @@ export default {
       },
       {
         "heading": "What goes wrong",
+        "takeaway": "The model is the cheapest piece to rebuild — the data and the pipeline are the real assets, so treat the pipeline like any production system with SLOs, alerts, runbooks, and clear ownership.",
         "body": [
           { "type": "p", "text": "Models silently rot. Upstream data schemas change. Feature pipelines fall behind. A new label policy makes yesterday's training set wrong. Treat the pipeline like any other production system: SLOs, alerts, runbooks, ownership. The model is the cheapest piece to rebuild — the data and the pipeline are the real assets." }
         ]
@@ -3154,6 +3192,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "The shape of your data tells the paradigm: labeled pairs mean supervised, unlabeled observations mean unsupervised, and an agent acting over time for reward means reinforcement — same data, three different feedback loops.",
         "body": [
           {
             "type": "p",
@@ -3237,6 +3276,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Don't default to supervised and drown in labeling cost, and don't reach for RL because it sounds cool — RL needs millions of interactions and invites reward hacking; if a supervised baseline works, ship it.",
         "body": [
           {
             "type": "p",
@@ -3259,6 +3299,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Decide what you are really predicting before you touch a single row of data — pick the wrong question to frame and every clue you collect afterward is wasted effort.",
         "body": [
           {
             "type": "p",
@@ -3313,6 +3354,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Spend an hour framing to save a month modeling — skip it and you ship something accurate at answering the wrong question, which is the most expensive kind of correct.",
         "body": [
           {
             "type": "ul",
@@ -3340,6 +3382,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Logistic regression draws a linear boundary through your features, then pipes the score through a sigmoid so the output reads as a probability between 0 and 1 — the linearity is why it's fast and interpretable but fails when classes curl around each other.",
         "body": [
           {
             "type": "p",
@@ -3403,6 +3446,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "On imbalanced data a 0.5 threshold is useless — use class_weight='balanced' and judge with PR-AUC, not accuracy; and pick the decision threshold from your precision/recall tradeoff, never a reflexive 0.5.",
         "body": [
           {
             "type": "ul",
@@ -3427,6 +3471,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Different mistakes cost different things — missing a critical patient is a disaster, over-triaging a routine one is just expensive — which is exactly why accuracy alone is a lie.",
         "body": [
           {
             "type": "p",
@@ -3503,6 +3548,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Never ship a classifier with one number — ship the confusion matrix, the chosen threshold, and the cost assumption behind it, because that's the artifact a stakeholder can actually argue with.",
         "body": [
           {
             "type": "ul",
@@ -3530,6 +3576,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "A decision tree is an automated flowchart of yes/no questions; a random forest is a hundred decorrelated trees voting — one tree can be wrong, but the crowd rarely is, which is why ensembles still rule tabular data.",
         "body": [
           {
             "type": "p",
@@ -3588,6 +3635,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Trees predict the leaf mean, so they can't extrapolate past the training range — never trust them on a drifting time series; and feature importance lies on correlated columns, so use permutation importance or SHAP.",
         "body": [
           {
             "type": "ul",
@@ -3611,6 +3659,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Categorical encoding turns names into numbers without inventing an order that isn't there — hand a model country=7 and it decides Kenya is half of Iceland, so use one-hot for nominal fields.",
         "body": [
           {
             "type": "p",
@@ -3661,6 +3710,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Fit the encoder on training data only, then persist and version it so the exact same category-to-column mapping ships with the model — otherwise train/serve skew silently corrupts predictions, and an unseen category crashes the call.",
         "body": [
           {
             "type": "ul",
@@ -3684,6 +3734,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "A model that has secretly tasted the test data isn't talented, it's just remembering — and you only find out in production, when the soup suddenly comes out bland.",
         "body": [
           {
             "type": "p",
@@ -3719,6 +3770,7 @@ export default {
       },
       {
         "heading": "How leakage sneaks in",
+        "takeaway": "The four classic leaks are preprocessing before the split, target features knowable only after the event, random splits on time-series data, and the same group landing in both train and test — each inflates dev metrics and shatters in production.",
         "body": [
           {
             "type": "p",
@@ -3755,6 +3807,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "If your validation and test scores disagree wildly, you have a leak or drift; if they agree but production tanks, your splits didn't reflect reality — and a suspiciously high score on a hard problem almost always means leakage.",
         "body": [
           {
             "type": "ul",
@@ -3782,6 +3835,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Overfitting is memorizing the answer key instead of learning the subject — the signature is a gap where training error keeps dropping while validation error plateaus or climbs, meaning the model gets better at the past and worse at the future.",
         "body": [
           {
             "type": "p",
@@ -3851,6 +3905,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Data leakage is overfitting in disguise — a feature that secretly encodes the label makes your validation score lie and production collapse, and every peek at the test set slowly overfits you to it too.",
         "body": [
           {
             "type": "p",
@@ -3873,6 +3928,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "Clustering is unsupervised — you hand it points with no labels and it carves them into groups that look like each other, discovering structure you never told it to find.",
         "body": [
           {
             "type": "p",
@@ -3946,6 +4002,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Clusters are structure, not meaning — the algorithm finds groups but a human still has to look at each one and decide what it represents; and always StandardScaler first, because k-means distance lets a dollar feature drown out a percent one.",
         "body": [
           {
             "type": "ul",
@@ -3960,6 +4017,7 @@ export default {
       },
       {
         "heading": "When to use it",
+        "takeaway": "Clustering is an exploration tool, not a prediction tool — its output is a hypothesis about structure, and your next job is to validate it with domain knowledge or a downstream task.",
         "body": [
           {
             "type": "p",
@@ -3982,6 +4040,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "AutoML's best role is a strong-baseline generator: wire it in so every new dataset gets a tuned LightGBM before a human touches it — that becomes the bar your custom model must beat.",
         "body": [
           {
             "type": "p",
@@ -4014,6 +4073,7 @@ export default {
       },
       {
         "heading": "How it works under the hood",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -4050,6 +4110,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "AutoML is a search, and searches overfit — tune on one validation split a thousand times and the leaderboard lies, so always hold out a final test set the search never sees; it also can't fix a leaky target or mislabeled rows.",
         "body": [
           {
             "type": "p",
@@ -4082,6 +4143,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "ML projects carry irreducible uncertainty — you don't know the signal exists until you try, or that the lift survives production until you ship — so run them as gated phases with kill criteria, not estimable Agile stories.",
         "body": [
           {
             "type": "p",
@@ -4145,6 +4207,7 @@ export default {
       },
       {
         "heading": "Tracking what matters",
+        "takeaway": "The gap between offline and online lift is the honesty metric — a team whose models always look great offline and disappoint in production has a measurement problem, not a modeling problem.",
         "body": [
           {
             "type": "p",
@@ -4159,6 +4222,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Don't confuse 'we trained a model' with 'we changed a decision' — only the second has business value, and the project isn't done at launch but when someone owns retraining and monitoring.",
         "body": [
           {
             "type": "ul",
@@ -4182,6 +4246,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "An ML model is a biased loan officer at scale — cheap, fast, and capable of repeating yesterday's prejudice a million times an hour, punishing you for who looked like you on paper.",
         "body": [
           {
             "type": "p",
@@ -4191,6 +4256,7 @@ export default {
       },
       {
         "heading": "What fairness actually means",
+        "takeaway": "Fairness is a family of mutually incompatible metrics — when base rates differ between groups you provably cannot satisfy calibration and equalized odds at once, so you must pick the trade-off that matches your harm model deliberately.",
         "body": [
           {
             "type": "p",
@@ -4246,6 +4312,7 @@ export default {
       },
       {
         "heading": "Watch out for",
+        "takeaway": "Dropping the sensitive attribute doesn't make a model fair — it just makes the bias harder to measure, because proxies reconstruct it — and a model fair on gender and fair on race can still be catastrophic on Black women.",
         "body": [
           {
             "type": "ul",
@@ -4270,6 +4337,7 @@ export default {
     "sections": [
       {
         "heading": "The analogy",
+        "takeaway": "The model is the pill; responsible AI is the pharmacist's checklist — who is harmed, who is excluded, who is accountable, and how you find out before the lawsuit, not just whether the drug works.",
         "body": [
           {
             "type": "p",
@@ -4333,6 +4401,7 @@ export default {
       },
       {
         "heading": "Why it matters",
+        "takeaway": "Responsible AI is an SRE discipline — you don't bolt it on after the incident, you instrument for it before launch with fairness checks in CI, model cards in the repo, an appeals path, and a kill switch; 'the model decided' is no longer a legal defense.",
         "body": [
           {
             "type": "p",
@@ -4356,6 +4425,7 @@ export default {
     "sections": [
       {
         "heading": "The two-kitchen problem",
+        "takeaway": "Training and serving are two kitchens cooking the same dish under wildly different conditions — the core question is whether both read from one shared bin of features or each chops on demand and prays they chop the same way.",
         "body": [
           {
             "type": "p",
@@ -4382,6 +4452,7 @@ export default {
       },
       {
         "heading": "The feature store — one bin, two doors",
+        "takeaway": "The killer feature of a store isn't the cache — it's point-in-time correctness: the offline store knows a user's 30-day average as it was on the event date, not today, which kills an entire family of label-leakage bugs.",
         "body": [
           {
             "type": "p",
@@ -4414,6 +4485,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "A feature store is a contract, not a database or cache — one place where every feature's definition lives with a guarantee training and serving see the same value; with one model you don't need it, but with three you'll wish you'd built it on day one.",
         "body": [
           {
             "type": "p",
@@ -4432,6 +4504,7 @@ export default {
     "sections": [
       {
         "heading": "The pizza-shop choice",
+        "takeaway": "Online inference isn't better than batch — it's just one tradeoff slider on a triangle of latency, cost, and freshness; assuming online is automatically fresher and more responsive is the classic junior mistake.",
         "body": [
           {
             "type": "p",
@@ -4476,6 +4549,7 @@ export default {
       },
       {
         "heading": "Hybrid is usually the right answer",
+        "takeaway": "The production pattern is batch-precompute the expensive part and online-combine with request context — you pay for the GPU at 2am and serve from a hot cache at noon, which is also how you defuse the latency-vs-freshness fight.",
         "body": [
           {
             "type": "p",
@@ -4489,6 +4563,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Online inference is a cost choice you make only when the request itself carries information the model needs — if your features are mostly user history, batch first; skip this question and you run a 50-GPU fleet scoring users who haven't logged in this month.",
         "body": [
           {
             "type": "p",
@@ -4507,6 +4582,7 @@ export default {
     "sections": [
       {
         "heading": "The silent regression",
+        "takeaway": "Training/serving skew is when inference data doesn't match training data because the feature code paths differ between offline and online — not drift — and it's the most common reason an offline AUC of 0.92 ships as an online 0.71.",
         "body": [
           {
             "type": "p",
@@ -4548,6 +4624,7 @@ export default {
       },
       {
         "heading": "The fix — share the transform",
+        "takeaway": "One implementation, two callers: write feature transforms as a pure function both training and serving import, then run a skew detector that re-computes training-side features on sampled serving inputs and alerts when they diverge.",
         "body": [
           {
             "type": "p",
@@ -4566,6 +4643,7 @@ export default {
       },
       {
         "heading": "Key insight",
+        "takeaway": "Skew is a software-engineering problem, not a model problem — the model does exactly what it was trained to do; someone else changed the inputs, so the fix is to collapse two implementations into one and continuously verify the one stays the one.",
         "body": [
           {
             "type": "p",
@@ -4584,6 +4662,7 @@ export default {
     "sections": [
       {
         "heading": "The pickle-on-someone's-laptop problem",
+        "takeaway": "Without a single source of truth you can't answer the only question that matters during an incident: which model, trained on what data, with what code, is serving this request right now?",
         "body": [
           {
             "type": "p",
@@ -4620,6 +4699,7 @@ export default {
       },
       {
         "heading": "Why promotion-by-registry beats promotion-by-deploy",
+        "takeaway": "Keep the serving image stable and pull models from the registry at startup — promoting to production becomes a single API call that re-targets an alias, and rolling back is the inverse call, shrinking your release surface dramatically.",
         "body": [
           {
             "type": "p",
@@ -4638,6 +4718,7 @@ export default {
       },
       {
         "heading": "The audit story",
+        "deep": true,
         "body": [
           {
             "type": "p",
@@ -4651,6 +4732,7 @@ export default {
       },
       {
         "heading": "What this is *not*",
+        "takeaway": "A model registry is just an index — git for trained models — not a model store, deployment system, or monitor; artifacts live in S3 and deploys run in K8s, but every other piece of the platform should consult the registry instead of duplicating its data.",
         "body": [
           {
             "type": "p",
@@ -4669,6 +4751,7 @@ export default {
     "sections": [
       {
         "heading": "The request lifecycle",
+        "takeaway": "Serving a model is just a web service that loads weights — everything hard is the layers around predict(): load balancing, caching, and not blowing the latency budget.",
         "body": [
           {
             "type": "p",
@@ -4736,6 +4819,7 @@ export default {
       },
       {
         "heading": "Frameworks and the cold-start trap",
+        "takeaway": "Load the model in module scope so it's hot on every request — loading it inside the handler re-reads weights from disk each call, and cold start alone can take 30s+ when the first request pulls weights from S3.",
         "body": [
           {
             "type": "p",
@@ -4794,6 +4878,7 @@ export default {
     "sections": [
       {
         "heading": "Schemas are the cheapest defense you have",
+        "takeaway": "Validate the contract at the edge with Pydantic and 80% of weird production bugs evaporate before they reach the model — a feature arriving as a string instead of a float is a data problem you catch at the door, not a model problem.",
         "body": [
           {
             "type": "p",
@@ -4812,6 +4897,7 @@ export default {
       },
       {
         "heading": "Versioning: model vs API are not the same axis",
+        "takeaway": "The model changes daily, the API changes quarterly — bump model_version in the response body every retrain but bump /v1 to /v2 only when the contract's shape changes, or every retrain breaks your clients.",
         "body": [
           {
             "type": "p",
@@ -4879,6 +4965,7 @@ export default {
     "sections": [
       {
         "heading": "Why CDC, and why semantics matter",
+        "takeaway": "CDC tails the database binlog so features stay seconds behind reality instead of nightly batches behind — but every event carries one of three delivery guarantees, and picking the wrong one either drops predictions or double-counts revenue.",
         "body": [
           {
             "type": "p",
@@ -4927,6 +5014,7 @@ export default {
       },
       {
         "heading": "**Three** delivery semantics, side by side",
+        "takeaway": "Exactly-once is only exactly-once within Kafka — the moment your consumer writes to Postgres, S3, or a metrics store you're back to at-least-once unless that sink is idempotent, so read the claim as 'effectively-once if you design for it'.",
         "body": [
           {
             "type": "p",
@@ -4990,6 +5078,7 @@ export default {
       },
       {
         "heading": "**Idempotent** consumer — the one trick that makes at-least-once safe",
+        "takeaway": "Make the consumer safe to run twice on the same message with an upsert keyed on a stable id plus a monotonic source-LSN guard — together they make at-least-once behave like exactly-once from the database's perspective.",
         "body": [
           {
             "type": "p",
@@ -5036,6 +5125,7 @@ export default {
     "sections": [
       {
         "heading": "Why a feature needs its own database",
+        "takeaway": "A feature is a computed signal, not a raw column — a rolling aggregate derived and joined and filtered — so if serving recomputes it even slightly differently from training, you've shipped a silent bug.",
         "body": [
           {
             "type": "p",
@@ -5094,6 +5184,7 @@ export default {
       },
       {
         "heading": "**Training-serving skew** — the bug you ship by accident",
+        "takeaway": "Point-in-time correctness is the discipline that kills skew: at training time only look at data that would have been visible at the prediction timestamp, and feature stores handle it with as-of joins so you don't write them by hand.",
         "body": [
           {
             "type": "p",
@@ -5177,6 +5268,7 @@ export default {
     "sections": [
       {
         "heading": "Three things drift, and you have to watch all three",
+        "takeaway": "Accuracy is a trailing indicator — labels arrive days or weeks late, so by the time it drops you're already wrong; monitor the inputs and outputs of the model in near-real-time instead of waiting on ground truth.",
         "body": [
           {
             "type": "p",
@@ -5190,6 +5282,7 @@ export default {
       },
       {
         "heading": "**Input**, **prediction**, **concept** — three drifts",
+        "takeaway": "Input, prediction, and concept drift each break the model in a different way — confusing which one shifted costs you weeks debugging the wrong layer.",
         "body": [
           {
             "type": "terms",
@@ -5272,6 +5365,7 @@ export default {
       },
       {
         "heading": "**Alarms** vs **dashboards** — pick what wakes you up",
+        "takeaway": "Page on the few signals that mean action now — prediction-rate drops, PSI over 0.25 for two windows, null-rate spikes, latency past SLO — and leave per-feature distribution charts on dashboards for the postmortem, not the pager.",
         "body": [
           {
             "type": "pros-cons",
@@ -5341,6 +5435,7 @@ export default {
     "sections": [
       {
         "heading": "When **retraining** stops being a manual heroic act",
+        "takeaway": "Continuous training is CI/CD for models — the artifact is a model, the unit test is an eval gate, the deploy is gradual — with DVC versioning the data, the registry versioning the artifacts, and a pipeline promoting through stages to 100% traffic.",
         "body": [
           {
             "type": "p",
@@ -5354,6 +5449,7 @@ export default {
       },
       {
         "heading": "**Triggers** — what kicks off a retrain",
+        "takeaway": "Most production systems combine scheduled plus drift-signaled retraining — a nightly floor with an opportunistic retrain when the monitor screams; pure event-driven sounds elegant but pages you at 3am over Postgres replica lag.",
         "body": [
           {
             "type": "table",
@@ -5374,6 +5470,7 @@ export default {
       },
       {
         "heading": "**Promotion** — the stages a model passes through",
+        "takeaway": "A new model never goes straight to 100% traffic — it earns its place through a sequence of gated stages, and the registry records which version sits at which stage.",
         "body": [
           {
             "type": "p",
@@ -5530,6 +5627,7 @@ export default {
     "sections": [
       {
         "heading": "Why a better offline model can lose **online**",
+        "takeaway": "Offline AUC is a leading indicator; business KPIs are the truth — a more precise model can shorten sessions and a higher-recall one can tank conversion, so ship through a graduated rollout of shadow, canary, then full A/B.",
         "body": [
           {
             "type": "p",
@@ -5579,6 +5677,7 @@ export default {
       },
       {
         "heading": "**Metrics** that actually decide",
+        "takeaway": "Offline AUC is not a primary KPI — it's a smoke test that the model isn't worse on yesterday's data; a 5% offline AUC lift can be a 0% lift, or a loss, on conversion.",
         "body": [
           {
             "type": "terms",
@@ -5607,6 +5706,7 @@ export default {
       },
       {
         "heading": "Why **online** wins and **offline** loses",
+        "takeaway": "The model that wins on offline AUC isn't shipped — the one that wins on conversion is; watch the four honesty traps of novelty effect, peeking, Simpson's paradox, and SRM before you trust an online result.",
         "body": [
           {
             "type": "pros-cons",
@@ -5665,6 +5765,7 @@ export default {
     "sections": [
       {
         "heading": "What you're shipping",
+        "takeaway": "Train a model, put it behind an API, ship it in a container — every production ML system you'll ever touch is this exact pipeline with more zeros on the end.",
         "body": [
           {
             "type": "p",
@@ -5815,6 +5916,7 @@ export default {
       },
       {
         "heading": "Build train.py — train it, gate it, save it",
+        "takeaway": "A model that can't clear the eval gate never becomes an artifact — the crash-instead-of-save behavior when the assert fires is the whole point, not a bug.",
         "body": [
           {
             "type": "p",
@@ -6093,6 +6195,7 @@ export default {
     "sections": [
       {
         "heading": "Your mission",
+        "takeaway": "A deployed model that logs nothing is flying blind — nobody knows its request volume, latency, or whether inputs still resemble the training data; observability is what turns a running model into an operable one.",
         "body": [
           {
             "type": "p",
@@ -6285,6 +6388,7 @@ export default {
       },
       {
         "heading": "Design choices you'll defend",
+        "takeaway": "Neither design option is wrong — what's wrong is not being able to say which you picked and what it cost you, because that's exactly the question an interviewer or incident review will ask.",
         "body": [
           {
             "type": "compare",
@@ -6386,6 +6490,7 @@ export default {
     "sections": [
       {
         "heading": "The brief",
+        "takeaway": "Five teams running forty models with no platform means nobody can roll back, retrains happen by hand from laptops, features get built twice, and 'which model decided this?' takes nine days — the platform's job is to make each of those a single answer.",
         "body": [
           {
             "type": "p",
@@ -6508,6 +6613,7 @@ export default {
       },
       {
         "heading": "Trade-offs you must defend",
+        "takeaway": "A platform for five teams is a product with five customers — every constraint you ignore becomes a team that routes around you, so the design is judged by adoption, not elegance.",
         "body": [
           {
             "type": "compare",
